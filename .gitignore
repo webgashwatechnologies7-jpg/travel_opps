@@ -1,0 +1,80 @@
+# Laravel
+/.phpunit.cache
+/backend/vendor
+/backend/.env
+/backend/.env.backup
+/backend/.env.production
+/backend/Homestead.json
+/backend/Homestead.yaml
+/backend/auth.json
+/backend/npm-debug.log
+/backend/yarn-error.log
+
+# Backend Build artifacts
+/backend/public/build
+/backend/public/hot
+/backend/public/storage
+/backend/storage/*.key
+/backend/storage/logs/*.log
+/backend/storage/framework/cache/*
+/backend/storage/framework/sessions/*
+/backend/storage/framework/views/*
+
+# Node
+/node_modules
+/backend/node_modules
+package-lock.json
+yarn.lock
+
+# Frontend
+/frontend/dist
+/frontend/node_modules
+/frontend/.vite
+/frontend/.env
+/frontend/.env.local
+/frontend/.env.production
+
+# Deployment files (temporary)
+hostinger-deploy-ready/
+hostinger-deploy-ready.zip
+*.zip
+deploy-to-hostinger.bat
+deploy-to-hostinger.sh
+create-deployment-zip.bat
+build-frontend.bat
+build-frontend.sh
+
+# Deployment documentation (keep README.md only)
+AGE_KYA_KAREIN.md
+HOSTINGER_PE_ZIP_BANAYE.md
+ZIP_KIASE_BANAYE.md
+YOUR_PROJECT_GUIDE.md
+ZIP_CREATION_GUIDE.md
+VISUAL_GUIDE.md
+FILE_PATHS_REFERENCE.md
+COMPLETE_CODE_GUIDE.md
+NEXT_STEPS.md
+NPM_BUILD_DEPLOY.md
+DUMMY_DOMAIN_CHECKLIST.md
+DUMMY_DOMAIN_SETUP.md
+QUICK_DEPLOY.md
+HOSTINGER_DEPLOYMENT.md
+STEP_BY_STEP_DEPLOYMENT.md
+DEPLOYMENT_GUIDE.md
+CLEANUP_SUMMARY.md
+
+# IDE
+/.fleet
+/.idea
+/.vscode
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs
+*.log

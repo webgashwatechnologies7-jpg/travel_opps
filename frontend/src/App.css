@@ -1,0 +1,78 @@
+#root {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 2rem;
+  text-align: center;
+}
+
+.logo {
+  height: 6em;
+  padding: 1.5em;
+  will-change: filter;
+  transition: filter 300ms;
+}
+.logo:hover {
+  filter: drop-shadow(0 0 2em #646cffaa);
+}
+.logo.react:hover {
+  filter: drop-shadow(0 0 2em #61dafbaa);
+}
+
+@keyframes logo-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  a:nth-of-type(2) .logo {
+    animation: logo-spin infinite 20s linear;
+  }
+}
+
+.card {
+  padding: 2em;
+}
+
+.read-the-docs {
+  color: #888;
+}
+
+/* Sidebar hover effect - sidebar expands and shifts content smoothly */
+.sidebar-wrapper {
+  box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
+  will-change: width;
+  transform: translateZ(0); /* Force hardware acceleration */
+  backface-visibility: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Better animation for labels - controlled by React state */
+.sidebar-label {
+  transition: opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1), 
+              transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  will-change: opacity, transform;
+  transform: translateX(-8px);
+  opacity: 0;
+}
+
+.sidebar-label.visible {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+/* Smooth content shift */
+.main-content {
+  will-change: margin-left;
+  transform: translateZ(0);
+  -webkit-font-smoothing: antialiased;
+}
+
+.header-bar {
+  will-change: left;
+  transform: translateZ(0);
+  -webkit-font-smoothing: antialiased;
+}

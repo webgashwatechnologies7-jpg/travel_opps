@@ -1,0 +1,890 @@
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import Layout from '../components/Layout';
+import { Search, Plus, Edit, Eye, X, Image as ImageIcon } from 'lucide-react';
+import { packagesAPI } from '../services/api';
+
+const Itineraries = () => {
+  const navigate = useNavigate();
+  const [itineraries, setItineraries] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [error, setError] = useState('');
+  const [showModal, setShowModal] = useState(false);
+  const [showViewModal, setShowViewModal] = useState(false);
+  const [viewingItinerary, setViewingItinerary] = useState(null);
+  const [editingItineraryId, setEditingItineraryId] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [imagePreview, setImagePreview] = useState(null);
+  const [formData, setFormData] = useState({
+    itinerary_name: '',
+    start_date: '',
+    end_date: '',
+    adult: '1',
+    child: '0',
+    destinations: '',
+    notes: '',
+    image: null
+  });
+
+  useEffect(() => {
+    fetchItineraries();
+  }, []);
+
+  const fetchItineraries = async () => {
+    try {
+      setLoading(true);
+      const response = await packagesAPI.list();
+      const data = response.data.data || [];
+      // Process image URLs - handle both relative and absolute URLs
+      const processedData = data.map(itinerary => {
+        if (itinerary.image) {
+          // Log original image URL for debugging
+          console.log('Original image URL:', itinerary.image);
+          
+          // If image is a relative URL (starts with /storage or /), convert to absolute
+          if (itinerary.image.startsWith('/storage') || (itinerary.image.startsWith('/') && !itinerary.image.startsWith('http'))) {
+            let baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
+            // Remove /api from base URL for public assets (images are served from public folder)
+            baseUrl = baseUrl.replace('/api', '');
+            itinerary.image = `${baseUrl}${itinerary.image}`;
+            console.log('Converted to absolute URL:', itinerary.image);
+          }
+          // If image already has http/https, keep it as is
+          // Also handle cases where asset() returns full URL but might have wrong domain
+          if (itinerary.image.includes('localhost') && !itinerary.image.includes(':8000')) {
+            itinerary.image = itinerary.image.replace('localhost', 'localhost:8000');
+          }
+          
+          // Ensure URL is properly formatted
+          if (!itinerary.image.startsWith('http')) {
+            const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
+            const cleanBaseUrl = baseUrl.replace('/api', '');
+            itinerary.image = `${cleanBaseUrl}${itinerary.image.startsWith('/') ? '' : '/'}${itinerary.image}`;
+          }
+        }
+        return itinerary;
+      });
+      setItineraries(processedData);
+      setError('');
+    } catch (err) {
+      setError('Failed to load itineraries');
+      console.error('Error fetching itineraries:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const formatDate = (dateString) => {
+    if (!dateString) return 'N/A';
+    try {
+      const date = new Date(dateString);
+      const day = String(date.getDate()).padStart(2, '0');
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const year = date.getFullYear();
+      return `${day}-${month}-${year}`;
+    } catch {
+      return dateString;
+    }
+  };
+
+  const formatPrice = (price) => {
+    if (!price || price === 0) return '0 INR';
+    return new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency: 'INR',
+      maximumFractionDigits: 0,
+    }).format(price);
+  };
+
+  const handleAddNew = () => {
+    setEditingItineraryId(null);
+    setFormData({
+      itinerary_name: '',
+      start_date: '',
+      end_date: '',
+      adult: '1',
+      child: '0',
+      destinations: '',
+      notes: '',
+      image: null
+    });
+    setImagePreview(null);
+    setShowModal(true);
+  };
+
+  const handleView = async (itinerary) => {
+    try {
+      const response = await packagesAPI.get(itinerary.id);
+      const data = response.data.data;
+      
+      // Convert image URL to absolute if needed
+      if (data.image) {
+        if (data.image.startsWith('/storage') || (data.image.startsWith('/') && !data.image.startsWith('http'))) {
+          const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
+          const baseUrl = apiBaseUrl.replace('/api', '');
+          data.image = `${baseUrl}${data.image}`;
+        }
+        // Fix domain if needed
+        if (data.image.includes('localhost') && !data.image.includes(':8000')) {
+          data.image = data.image.replace('localhost', 'localhost:8000');
+        }
+      }
+      
+      setViewingItinerary(data);
+      setShowViewModal(true);
+    } catch (err) {
+      console.error('Failed to fetch itinerary:', err);
+      alert('Failed to load itinerary details');
+    }
+  };
+
+  const handleEdit = async (itinerary) => {
+    try {
+      setEditingItineraryId(itinerary.id);
+      const response = await packagesAPI.get(itinerary.id);
+      const data = response.data.data;
+      
+      // Convert image URL to absolute if needed
+      let imageUrl = data.image || null;
+      if (imageUrl) {
+        if (imageUrl.startsWith('/storage') || (imageUrl.startsWith('/') && !imageUrl.startsWith('http'))) {
+          const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
+          const baseUrl = apiBaseUrl.replace('/api', '');
+          imageUrl = `${baseUrl}${imageUrl}`;
+        }
+        // Fix domain if needed
+        if (imageUrl.includes('localhost') && !imageUrl.includes(':8000')) {
+          imageUrl = imageUrl.replace('localhost', 'localhost:8000');
+        }
+      }
+      
+      setFormData({
+        itinerary_name: data.itinerary_name || '',
+        start_date: data.start_date || '',
+        end_date: data.end_date || '',
+        adult: data.adult?.toString() || '1',
+        child: data.child?.toString() || '0',
+        destinations: data.destinations || '',
+        notes: data.notes || '',
+        image: null
+      });
+      setImagePreview(imageUrl);
+      setShowModal(true);
+    } catch (err) {
+      console.error('Failed to fetch itinerary:', err);
+      alert('Failed to load itinerary details');
+    }
+  };
+
+  const handleCloseModal = () => {
+    setShowModal(false);
+    setEditingItineraryId(null);
+    setFormData({
+      itinerary_name: '',
+      start_date: '',
+      end_date: '',
+      adult: '1',
+      child: '0',
+      destinations: '',
+      notes: '',
+      image: null
+    });
+    setImagePreview(null);
+  };
+
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setFormData(prev => ({
+        ...prev,
+        image: file
+      }));
+      // Create preview
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleSave = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      const packageData = new FormData();
+      packageData.append('itinerary_name', formData.itinerary_name);
+      if (formData.start_date) packageData.append('start_date', formData.start_date);
+      if (formData.end_date) packageData.append('end_date', formData.end_date);
+      packageData.append('adult', formData.adult || '1');
+      packageData.append('child', formData.child || '0');
+      if (formData.destinations) packageData.append('destinations', formData.destinations);
+      if (formData.notes) packageData.append('notes', formData.notes);
+      if (formData.image) {
+        packageData.append('image', formData.image);
+      }
+
+      if (editingItineraryId) {
+        await packagesAPI.update(editingItineraryId, packageData);
+      } else {
+        await packagesAPI.create(packageData);
+      }
+      
+      await fetchItineraries();
+      handleCloseModal();
+    } catch (err) {
+      console.error('Failed to save itinerary:', err);
+      const errorMessage = err.response?.data?.message || err.response?.data?.errors 
+        ? Object.values(err.response.data.errors).flat().join(', ')
+        : 'Failed to save itinerary';
+      alert(errorMessage);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleToggleStatus = async (itinerary) => {
+    try {
+      const newStatus = !itinerary.show_on_website;
+      
+      // Optimistic update - update UI immediately
+      setItineraries(prevItineraries => 
+        prevItineraries.map(item => 
+          item.id === itinerary.id 
+            ? { ...item, show_on_website: newStatus }
+            : item
+        )
+      );
+      
+      const packageData = new FormData();
+      packageData.append('show_on_website', newStatus ? '1' : '0');
+      packageData.append('_method', 'PUT');
+      
+      console.log(`Updating itinerary ${itinerary.id}: show_on_website = ${newStatus} (sending as ${newStatus ? '1' : '0'})`);
+      
+      await packagesAPI.update(itinerary.id, packageData);
+      
+      // Refresh the list to get updated data from server
+      await fetchItineraries();
+    } catch (err) {
+      console.error('Failed to update status:', err);
+      // Revert optimistic update on error
+      await fetchItineraries();
+      alert('Failed to update itinerary status. Please try again.');
+    }
+  };
+
+  const filteredItineraries = itineraries.filter(itinerary => {
+    const searchLower = searchTerm.toLowerCase();
+    return (
+      (itinerary.title || itinerary.itinerary_name || '').toLowerCase().includes(searchLower) ||
+      (itinerary.destination || itinerary.destinations || '').toLowerCase().includes(searchLower)
+    );
+  });
+
+  if (loading) {
+    return (
+      <Layout>
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        </div>
+      </Layout>
+    );
+  }
+
+  return (
+    <Layout>
+      <div className="p-6">
+        {/* Header */}
+        <div className="mb-6">
+          <div className="flex justify-between items-center mb-4">
+            <h1 className="text-3xl font-bold text-gray-800">Itineraries</h1>
+            <div className="flex items-center gap-4">
+              {/* Search Input */}
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+                <input
+                  type="text"
+                  placeholder="Search by name"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10 pr-4 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 w-64 text-sm"
+                />
+              </div>
+              {/* Add New Button */}
+              <button
+                onClick={handleAddNew}
+                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2 font-medium shadow-sm"
+              >
+                <Plus className="h-5 w-5" />
+                Add New
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {error && (
+          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+            {error}
+          </div>
+        )}
+
+        {/* Itineraries Table */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50 border-b border-gray-200">
+                <tr>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                    Title
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                    Duration
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider bg-yellow-50">
+                    Price
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider bg-yellow-50">
+                    Website Cost
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                    Website
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                    Status
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                    Last Updated
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {filteredItineraries.length === 0 ? (
+                  <tr>
+                    <td colSpan="8" className="px-6 py-12 text-center text-gray-500">
+                      {searchTerm ? 'No itineraries found matching your search' : 'No itineraries available'}
+                    </td>
+                  </tr>
+                ) : (
+                  filteredItineraries.map((itinerary) => (
+                    <tr key={itinerary.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4">
+                        <div 
+                          className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity"
+                          onClick={() => navigate(`/itineraries/${itinerary.id}`)}
+                        >
+                          <div className="w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center overflow-hidden border border-gray-200 flex-shrink-0">
+                            {itinerary.image ? (
+                              <img 
+                                src={itinerary.image} 
+                                alt={itinerary.title || itinerary.itinerary_name || 'Itinerary'} 
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                  e.target.style.display = 'none';
+                                  const parent = e.target.parentElement;
+                                  if (parent && !parent.querySelector('.no-photo-text')) {
+                                    const span = document.createElement('span');
+                                    span.className = 'no-photo-text text-xs text-gray-400 font-medium';
+                                    span.textContent = 'NO PHOTO';
+                                    parent.appendChild(span);
+                                  }
+                                }}
+                              />
+                            ) : (
+                              <span className="text-xs text-gray-400 font-medium">NO PHOTO</span>
+                            )}
+                          </div>
+                          <div className="min-w-0">
+                            <div className="text-sm font-semibold text-gray-900 truncate">{itinerary.title || itinerary.itinerary_name || 'Untitled'}</div>
+                            {itinerary.id && (
+                              <div className="text-xs text-gray-500 mt-1">ID: {itinerary.id} - {itinerary.destination || itinerary.destinations || ''}</div>
+                            )}
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className="text-sm font-medium text-gray-900">
+                          {itinerary.duration ? `${itinerary.duration} Days` : 'N/A'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap bg-yellow-50">
+                        <span className="text-sm font-semibold text-gray-900">
+                          {formatPrice(itinerary.price)}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap bg-yellow-50">
+                        <span className="text-sm font-semibold text-gray-900">
+                          {formatPrice(itinerary.website_cost)}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span
+                          className={`inline-flex px-3 py-1 text-xs font-semibold rounded-full ${
+                            itinerary.show_on_website
+                              ? 'bg-green-100 text-green-800'
+                              : 'bg-red-100 text-red-800'
+                          }`}
+                        >
+                          {itinerary.show_on_website ? 'Yes' : 'No'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleToggleStatus(itinerary);
+                          }}
+                          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+                            itinerary.show_on_website
+                              ? 'bg-green-600'
+                              : 'bg-gray-300'
+                          }`}
+                          title={itinerary.show_on_website ? 'Click to deactivate' : 'Click to activate'}
+                        >
+                          <span
+                            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                              itinerary.show_on_website ? 'translate-x-6' : 'translate-x-1'
+                            }`}
+                          />
+                        </button>
+                        <span className={`ml-2 text-xs font-medium ${
+                          itinerary.show_on_website ? 'text-green-700' : 'text-gray-500'
+                        }`}>
+                          {itinerary.show_on_website ? 'Active' : 'Inactive'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className="text-sm text-gray-700">
+                          {formatDate(itinerary.updated_at || itinerary.last_updated)}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => handleView(itinerary)}
+                            className="w-9 h-9 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 flex items-center justify-center transition-colors shadow-sm"
+                            title="View Details"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={() => handleEdit(itinerary)}
+                            className="w-9 h-9 rounded-lg bg-green-50 text-green-600 hover:bg-green-100 flex items-center justify-center transition-colors shadow-sm"
+                            title="Edit Itinerary"
+                          >
+                            <Edit className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      {/* Create Itinerary Modal */}
+      {showModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 overflow-y-auto py-8">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl mx-4 my-auto">
+            {/* Modal Header */}
+            <div className="flex justify-between items-center p-6 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-white">
+              <h2 className="text-2xl font-bold text-gray-800">
+                {editingItineraryId ? 'Edit Itinerary' : 'Create Itinerary'}
+              </h2>
+              <button
+                onClick={handleCloseModal}
+                className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full p-1 transition-colors"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <form onSubmit={handleSave}>
+              <div className="p-6 grid grid-cols-2 gap-6 max-h-[70vh] overflow-y-auto">
+                {/* Itinerary setup section */}
+                <div className="col-span-2">
+                  <h3 className="text-lg font-semibold text-gray-800 mb-4 pb-2 border-b border-gray-200">Itinerary Details</h3>
+                </div>
+
+                {/* Itinerary Name */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Itinerary Name
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.itinerary_name}
+                    onChange={(e) => setFormData({ ...formData, itinerary_name: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Enter itinerary name"
+                    required
+                  />
+                </div>
+
+                {/* Start Date */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Start Date
+                  </label>
+                  <input
+                    type="date"
+                    value={formData.start_date}
+                    onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
+                {/* End Date */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    End Date
+                  </label>
+                  <input
+                    type="date"
+                    value={formData.end_date}
+                    onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
+                {/* Adult */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Adult
+                  </label>
+                  <input
+                    type="number"
+                    value={formData.adult}
+                    onChange={(e) => setFormData({ ...formData, adult: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    min="0"
+                  />
+                </div>
+
+                {/* Child */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Child
+                  </label>
+                  <input
+                    type="number"
+                    value={formData.child}
+                    onChange={(e) => setFormData({ ...formData, child: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    min="0"
+                  />
+                </div>
+
+                {/* Destinations */}
+                <div className="col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Destinations
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.destinations}
+                    onChange={(e) => setFormData({ ...formData, destinations: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Enter Destination"
+                  />
+                </div>
+
+                {/* Notes */}
+                <div className="col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Notes
+                  </label>
+                  <textarea
+                    value={formData.notes}
+                    onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Notes"
+                    rows="3"
+                  />
+                </div>
+
+                {/* Image Upload */}
+                <div className="col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Image
+                  </label>
+                  <div className="space-y-3">
+                    {/* File Input */}
+                    <div className="flex items-center gap-4">
+                      <div className="flex-1">
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={handleFileChange}
+                          className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                    </div>
+                    
+                    {/* Image Preview */}
+                    {(imagePreview || formData.image) && (
+                      <div className="mt-3">
+                        <label className="block text-xs font-medium text-gray-600 mb-2">
+                          {editingItineraryId && imagePreview && !formData.image ? 'Current Image:' : 'Preview:'}
+                        </label>
+                        <div className="relative w-40 h-40 border-2 border-gray-300 rounded-lg overflow-hidden bg-gray-50 shadow-sm">
+                          <img
+                            src={imagePreview || (formData.image instanceof File ? URL.createObjectURL(formData.image) : formData.image)}
+                            alt="Preview"
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              console.error('Preview image failed to load:', imagePreview || formData.image);
+                              e.target.style.display = 'none';
+                              const parent = e.target.parentElement;
+                              if (parent && !parent.querySelector('.preview-error')) {
+                                const span = document.createElement('span');
+                                span.className = 'preview-error text-xs text-gray-400 absolute inset-0 flex items-center justify-center';
+                                span.textContent = 'Invalid Image';
+                                parent.appendChild(span);
+                              }
+                            }}
+                          />
+                        </div>
+                        {editingItineraryId && imagePreview && !formData.image && (
+                          <p className="text-xs text-blue-600 mt-2 font-medium">
+                            ℹ️ Current image is displayed above. Select a new file to replace it.
+                          </p>
+                        )}
+                        {formData.image && (
+                          <p className="text-xs text-green-600 mt-2 font-medium">
+                            ✓ New image selected. This will replace the current image.
+                          </p>
+                        )}
+                      </div>
+                    )}
+                    
+                    {/* No Image Message */}
+                    {!imagePreview && !formData.image && (
+                      <div className="flex items-center gap-2 text-sm text-gray-500 bg-gray-50 p-3 rounded-lg border border-gray-200">
+                        <ImageIcon className="h-5 w-5 text-gray-400" />
+                        <span>No image selected. {editingItineraryId ? 'Current image will be kept if no new image is uploaded.' : 'Upload an image to display with this itinerary.'}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Modal Footer */}
+              <div className="flex justify-end gap-3 p-6 border-t border-gray-200 bg-gray-50">
+                <button
+                  type="button"
+                  onClick={handleCloseModal}
+                  className="px-6 py-2.5 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 font-medium transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="bg-blue-600 text-white px-6 py-2.5 rounded-lg hover:bg-blue-700 disabled:opacity-50 font-medium shadow-sm transition-colors"
+                >
+                  {saving ? 'Saving...' : 'Save'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* View Itinerary Modal */}
+      {showViewModal && viewingItinerary && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 overflow-y-auto py-8">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl mx-4 my-auto">
+            {/* Modal Header */}
+            <div className="flex justify-between items-center p-6 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-white">
+              <h2 className="text-2xl font-bold text-gray-800">Itinerary Details</h2>
+              <button
+                onClick={() => {
+                  setShowViewModal(false);
+                  setViewingItinerary(null);
+                }}
+                className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full p-1 transition-colors"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6">
+              <div className="grid grid-cols-2 gap-6">
+                {/* Image */}
+                <div className="col-span-2 mb-4">
+                  {viewingItinerary.image ? (
+                    <div className="relative w-full h-64 bg-gray-100 rounded-lg overflow-hidden border-2 border-gray-200 shadow-sm">
+                      <img
+                        src={viewingItinerary.image}
+                        alt={viewingItinerary.itinerary_name || 'Itinerary Image'}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          console.error('View modal image failed to load:', viewingItinerary.image);
+                          e.target.style.display = 'none';
+                          const parent = e.target.parentElement;
+                          if (parent && !parent.querySelector('.image-error')) {
+                            const div = document.createElement('div');
+                            div.className = 'image-error absolute inset-0 flex items-center justify-center bg-gray-100';
+                            div.innerHTML = '<div class="text-center"><div class="text-gray-400 text-sm font-medium">Image not available</div></div>';
+                            parent.appendChild(div);
+                          }
+                        }}
+                      />
+                    </div>
+                  ) : (
+                    <div className="w-full h-64 bg-gray-100 rounded-lg border-2 border-dashed border-gray-300 flex items-center justify-center">
+                      <div className="text-center">
+                        <ImageIcon className="h-12 w-12 text-gray-400 mx-auto mb-2" />
+                        <div className="text-gray-400 text-sm font-medium">No image available</div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Itinerary Name */}
+                <div className="col-span-2">
+                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+                    Itinerary Name
+                  </label>
+                  <p className="text-xl font-bold text-gray-900 bg-gray-50 px-4 py-2 rounded-lg border border-gray-200">{viewingItinerary.itinerary_name || 'N/A'}</p>
+                </div>
+
+                {/* Start Date */}
+                <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+                    Start Date
+                  </label>
+                  <p className="text-base font-semibold text-gray-900">{viewingItinerary.start_date ? formatDate(viewingItinerary.start_date) : 'N/A'}</p>
+                </div>
+
+                {/* End Date */}
+                <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+                    End Date
+                  </label>
+                  <p className="text-base font-semibold text-gray-900">{viewingItinerary.end_date ? formatDate(viewingItinerary.end_date) : 'N/A'}</p>
+                </div>
+
+                {/* Duration */}
+                <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                  <label className="block text-xs font-semibold text-blue-600 uppercase tracking-wide mb-2">
+                    Duration
+                  </label>
+                  <p className="text-base font-bold text-blue-900">{viewingItinerary.duration ? `${viewingItinerary.duration} Days` : 'N/A'}</p>
+                </div>
+
+                {/* Adult */}
+                <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+                    Adult
+                  </label>
+                  <p className="text-base font-semibold text-gray-900">{viewingItinerary.adult || '0'}</p>
+                </div>
+
+                {/* Child */}
+                <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+                    Child
+                  </label>
+                  <p className="text-base font-semibold text-gray-900">{viewingItinerary.child || '0'}</p>
+                </div>
+
+                {/* Price */}
+                <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
+                  <label className="block text-xs font-semibold text-yellow-700 uppercase tracking-wide mb-2">
+                    Price
+                  </label>
+                  <p className="text-lg font-bold text-yellow-900">{formatPrice(viewingItinerary.price)}</p>
+                </div>
+
+                {/* Website Cost */}
+                <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
+                  <label className="block text-xs font-semibold text-yellow-700 uppercase tracking-wide mb-2">
+                    Website Cost
+                  </label>
+                  <p className="text-lg font-bold text-yellow-900">{formatPrice(viewingItinerary.website_cost)}</p>
+                </div>
+
+                {/* Show on Website */}
+                <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+                    Show on Website
+                  </label>
+                  <span
+                    className={`inline-flex px-3 py-1.5 text-xs font-bold rounded-full ${
+                      viewingItinerary.show_on_website
+                        ? 'bg-green-100 text-green-800 border border-green-300'
+                        : 'bg-red-100 text-red-800 border border-red-300'
+                    }`}
+                  >
+                    {viewingItinerary.show_on_website ? 'Yes' : 'No'}
+                  </span>
+                </div>
+
+                {/* Destinations */}
+                <div className="col-span-2 bg-gray-50 p-4 rounded-lg border border-gray-200">
+                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+                    Destinations
+                  </label>
+                  <p className="text-base text-gray-900 font-medium">{viewingItinerary.destinations || 'N/A'}</p>
+                </div>
+
+                {/* Notes */}
+                {viewingItinerary.notes && (
+                  <div className="col-span-2 bg-gray-50 p-4 rounded-lg border border-gray-200">
+                    <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+                      Notes
+                    </label>
+                    <p className="text-sm text-gray-700 whitespace-pre-wrap bg-white p-3 rounded border border-gray-200">{viewingItinerary.notes}</p>
+                  </div>
+                )}
+
+                {/* Created By */}
+                <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+                    Created By
+                  </label>
+                  <p className="text-sm font-medium text-gray-900">{viewingItinerary.created_by_name || 'N/A'}</p>
+                </div>
+
+                {/* Last Updated */}
+                <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+                    Last Updated
+                  </label>
+                  <p className="text-sm font-medium text-gray-900">{viewingItinerary.last_updated || formatDate(viewingItinerary.updated_at) || 'N/A'}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex justify-end p-6 border-t border-gray-200 bg-gray-50">
+              <button
+                onClick={() => {
+                  setShowViewModal(false);
+                  setViewingItinerary(null);
+                }}
+                className="px-6 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium shadow-sm transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </Layout>
+  );
+};
+
+export default Itineraries;
+
