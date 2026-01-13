@@ -25,7 +25,7 @@ return [
         'http://127.0.0.1:5173',
         'http://127.0.0.1:5174',
         // Production domain - replace with your actual domain
-        // 'https://yourdomain.com',
+        'https://sienna-antelope-219105.hostingersite.com',
     ],
 
     'allowed_origins_patterns' => ['.*'],

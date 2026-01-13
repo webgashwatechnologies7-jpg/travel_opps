@@ -1,8 +1,19 @@
 import axios from 'axios';
 
-// For WAMP: use 'http://localhost/travelops/public/api'
-// For Laravel artisan serve: use 'http://localhost:8000/api'
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000/api';
+// Dynamic API URL based on current domain
+const getApiBaseUrl = () => {
+  const currentHost = window.location.origin;
+  
+  // Check if running on local development
+  if (currentHost.includes('localhost') || currentHost.includes('127.0.0.1')) {
+    return 'http://127.0.0.1:8000/api';
+  }
+  
+  // For live hosting, use the current domain with backend path
+  return `${currentHost}/backend/public/api`;
+};
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || getApiBaseUrl();
 
 // Create axios instance
 const api = axios.create({
