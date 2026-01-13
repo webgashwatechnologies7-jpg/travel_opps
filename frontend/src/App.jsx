@@ -4,6 +4,8 @@ import { SettingsProvider } from './contexts/SettingsContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import SuperAdminRoute from './components/SuperAdminRoute';
 import Login from './pages/Login';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
 import Dashboard from './pages/Dashboard';
 import SuperAdminDashboard from './pages/SuperAdminDashboard';
 import CompanyManagement from './pages/CompanyManagement';
@@ -63,6 +65,26 @@ const AppRoutes = () => {
             <Navigate to="/dashboard" replace />
           ) : (
             <Login />
+          )
+        }
+      />
+      <Route
+        path="/forgot-password"
+        element={
+          user && user.id ? (
+            <Navigate to="/dashboard" replace />
+          ) : (
+            <ForgotPassword />
+          )
+        }
+      />
+      <Route
+        path="/reset-password"
+        element={
+          user && user.id ? (
+            <Navigate to="/dashboard" replace />
+          ) : (
+            <ResetPassword />
           )
         }
       />

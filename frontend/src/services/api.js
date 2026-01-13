@@ -2,7 +2,7 @@ import axios from 'axios';
 
 // For WAMP: use 'http://localhost/travelops/public/api'
 // For Laravel artisan serve: use 'http://localhost:8000/api'
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000/api';
 
 // Create axios instance
 const api = axios.create({
@@ -44,7 +44,7 @@ api.interceptors.response.use(
       // Use replace to avoid adding to history
       window.location.replace('/login');
     }
-    
+
     // Handle blob error responses - if error response is a blob but should be JSON
     if (error.config?.responseType === 'blob' && error.response?.data instanceof Blob) {
       try {
@@ -56,7 +56,7 @@ api.interceptors.response.use(
         // If parsing fails, keep the blob
       }
     }
-    
+
     return Promise.reject(error);
   }
 );
@@ -252,13 +252,13 @@ export const hotelsAPI = {
       'Content-Type': 'multipart/form-data',
     },
   }),
-  exportHotels: () => api.get('/hotels/export', { 
+  exportHotels: () => api.get('/hotels/export', {
     responseType: 'blob',
     headers: {
       'Accept': 'text/csv,application/json'
     }
   }),
-  downloadImportFormat: () => api.get('/hotels/import-template', { 
+  downloadImportFormat: () => api.get('/hotels/import-template', {
     responseType: 'blob',
     headers: {
       'Accept': 'text/csv,application/json'
@@ -302,13 +302,13 @@ export const activitiesAPI = {
       'Content-Type': 'multipart/form-data',
     },
   }),
-  exportActivities: () => api.get('/activities/export', { 
+  exportActivities: () => api.get('/activities/export', {
     responseType: 'blob',
     headers: {
       'Accept': 'text/csv,application/json'
     }
   }),
-  downloadImportFormat: () => api.get('/activities/import-template', { 
+  downloadImportFormat: () => api.get('/activities/import-template', {
     responseType: 'blob',
     headers: {
       'Accept': 'text/csv,application/json'
@@ -352,13 +352,13 @@ export const transfersAPI = {
       'Content-Type': 'multipart/form-data',
     },
   }),
-  exportTransfers: () => api.get('/transfers/export', { 
+  exportTransfers: () => api.get('/transfers/export', {
     responseType: 'blob',
     headers: {
       'Accept': 'text/csv,application/json'
     }
   }),
-  downloadImportFormat: () => api.get('/transfers/import-template', { 
+  downloadImportFormat: () => api.get('/transfers/import-template', {
     responseType: 'blob',
     headers: {
       'Accept': 'text/csv,application/json'

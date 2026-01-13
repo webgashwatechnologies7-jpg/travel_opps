@@ -1,0 +1,37 @@
+version: "3.8"
+
+services:
+  postfix:
+    image: catatnight/postfix
+    environment:
+      # Local/test domain and SMTP user credentials
+      - maildomain=local.test
+      - smtp_user=appuser:apppass
+    ports:
+      - "587:587"
+    restart: unless-stopped
+
+  mailpit:
+    image: axllent/mailpit
+    ports:
+      - "8025:8025" # Web UI to view captured emails
+      - "1025:1025" # SMTP capture port (optional)
+    restart: unless-stopped
+version: "3.8"
+
+services:
+  postfix:
+    image: catatnight/postfix
+    environment:
+      - maildomain=local.test        # change to your domain in prod
+      - smtp_user=appuser:apppass    # SMTP user:password
+    ports:
+      - "587:587"                    # SMTP submission
+    restart: unless-stopped
+
+  mailpit:
+    image: axllent/mailpit
+    ports:
+      - "8025:8025"                  # Web UI
+      - "1025:1025"                  # SMTP capture (useful for testing)
+    restart: unless-stopped

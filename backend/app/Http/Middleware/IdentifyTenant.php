@@ -18,7 +18,7 @@ class IdentifyTenant
     {
         // Skip tenant identification for auth routes (login, logout, etc.)
         // Super admin and regular users both need to login first
-        if ($request->is('api/auth/*')) {
+        if ($request->is('api/auth/*') || $request->is('api/password/*') || $request->is('api/test-unique')) {
             app()->instance('tenant', null);
             return $next($request);
         }
@@ -49,7 +49,7 @@ class IdentifyTenant
 
         // Set tenant in application container
         app()->instance('tenant', $company);
-        
+
         // Set company_id in config for global access
         config(['tenant.id' => $company->id]);
         config(['tenant.company' => $company]);
@@ -66,13 +66,13 @@ class IdentifyTenant
     private function extractSubdomain(string $host): ?string
     {
         $parts = explode('.', $host);
-        
+
         // Handle CRM URL format: c.gashwa.com -> extract "gashwa"
         // If first part is "c", skip it and use the second part
         if (count($parts) > 2 && $parts[0] === 'c') {
             return $parts[1]; // Return the actual subdomain after "c"
         }
-        
+
         // If we have more than 2 parts, first part is subdomain
         // Example: company1.travelops.com -> company1
         if (count($parts) > 2) {
@@ -84,7 +84,7 @@ class IdentifyTenant
         if ($host === 'localhost' || str_contains($host, '127.0.0.1') || str_contains($host, 'localhost')) {
             // Check if subdomain is in query string or header for development
             $subdomain = request()->header('X-Subdomain') ?? request()->query('subdomain');
-            
+
             // Also try to extract from host if it's like company1.localhost or c.company1.localhost
             if (!$subdomain && str_contains($host, '.')) {
                 $hostParts = explode('.', $host);
@@ -97,7 +97,7 @@ class IdentifyTenant
                     }
                 }
             }
-            
+
             return $subdomain;
         }
 

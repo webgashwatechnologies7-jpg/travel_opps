@@ -26,7 +26,7 @@ class SendUserCredentials extends Mailable
         $this->email = $email;
         $this->password = $password;
         $this->companyName = $companyName;
-        $this->crmUrl = $crmUrl ?? env('FRONTEND_LOGIN_URL', config('app.url') . '/login');
+        $this->crmUrl = $crmUrl ?? env('FRONTEND_LOGIN_URL', 'http://127.0.0.1:5174/login');
     }
 
     /**

@@ -20,6 +20,12 @@ class AuthController extends Controller
     {
         try {
             // Validate the request
+            \Illuminate\Support\Facades\Log::info('Login request received', [
+                'email' => $request->input('email'),
+                // Don't log raw password in real apps; only for local debug
+                'password_length' => strlen((string) $request->input('password')),
+            ]);
+
             $validator = Validator::make($request->all(), [
                 'email' => 'required|email',
                 'password' => 'required|string|min:6',
@@ -35,12 +41,21 @@ class AuthController extends Controller
 
             // Attempt to find the user
             $user = User::where('email', $request->email)->first();
+            $passwordToCheck = trim($request->password);
 
-            // Check if user exists and password is correct
-            if (!$user || !Hash::check($request->password, $user->password)) {
+            if (!$user || !Hash::check($passwordToCheck, $user->password)) {
+                $l = strlen($passwordToCheck);
+                $lastCharAscii = $l > 0 ? ord(substr($passwordToCheck, -1)) : 'N/A';
+
+                $debugMessage = 'Invalid credentials. ' .
+                    'Email: ' . $request->email . ' | ' .
+                    'PassLen: ' . $l . ' | ' .
+                    'LastCharASCII: ' . $lastCharAscii . ' | ' .
+                    'HashCheck: ' . ($user && Hash::check($passwordToCheck, $user->password) ? 'PASS' : 'FAIL');
+
                 return response()->json([
                     'success' => false,
-                    'message' => 'Invalid credentials',
+                    'message' => $debugMessage,
                 ], 401);
             }
 
@@ -179,4 +194,3 @@ class AuthController extends Controller
         }
     }
 }
-
