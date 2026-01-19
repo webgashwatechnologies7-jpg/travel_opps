@@ -5,7 +5,9 @@ namespace App\Console\Commands;
 use App\Modules\Automation\Domain\Entities\GoogleSheetConnection;
 use App\Modules\Leads\Domain\Entities\Lead;
 use App\Modules\Leads\Domain\Interfaces\LeadRepositoryInterface;
+use App\Models\User;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 class SyncGoogleSheetLeads extends Command
@@ -58,7 +60,7 @@ class SyncGoogleSheetLeads extends Command
         $this->info("Processing sheet: {$connection->sheet_url}");
 
         try {
-            // Fetch rows from Google Sheet (placeholder for Google Sheets API)
+            // Fetch rows from Google Sheet (public sheet CSV export)
             $rows = $this->fetchGoogleSheetRows($connection->sheet_url);
 
             if (empty($rows)) {
@@ -131,21 +133,35 @@ class SyncGoogleSheetLeads extends Command
      */
     protected function fetchGoogleSheetRows(string $sheetUrl): array
     {
-        // TODO: Implement actual Google Sheets API integration
-        // This is a placeholder that returns empty array
-        // Example implementation would use Google Sheets API v4:
-        // 1. Extract spreadsheet ID from URL
-        // 2. Authenticate with Google API
-        // 3. Fetch data using spreadsheets.values.get
-        // 4. Parse and return rows
+        try {
+            $csvUrl = $this->buildGoogleSheetCsvUrl($sheetUrl);
 
-        Log::info("Google Sheets API placeholder called", [
-            'sheet_url' => $sheetUrl,
-        ]);
+            if (!$csvUrl) {
+                Log::warning('Google Sheets sync: unable to build CSV url', ['sheet_url' => $sheetUrl]);
+                return [];
+            }
 
-        // Placeholder: Return empty array
-        // In real implementation, this would fetch actual data from Google Sheets
-        return [];
+            $response = Http::timeout(15)->get($csvUrl);
+
+            if (!$response->successful()) {
+                Log::warning('Google Sheets sync: CSV fetch failed', [
+                    'sheet_url' => $sheetUrl,
+                    'csv_url' => $csvUrl,
+                    'status' => $response->status(),
+                    'body' => $response->body(),
+                ]);
+                return [];
+            }
+
+            $csv = $response->body();
+            return $this->parseCsvRows($csv);
+        } catch (\Exception $e) {
+            Log::error('Google Sheets sync: exception while fetching rows', [
+                'sheet_url' => $sheetUrl,
+                'error' => $e->getMessage(),
+            ]);
+            return [];
+        }
     }
 
     /**
@@ -171,8 +187,93 @@ class SyncGoogleSheetLeads extends Command
             'destination' => $row[4] ?? null,
             'priority' => $row[5] ?? 'warm',
             'status' => 'new',
-            'created_by' => 1, // System user or first admin user
+            'created_by' => $this->getSystemUserId(),
+            'company_id' => $this->getSystemCompanyId(),
         ];
+    }
+
+    /**
+     * Build a public CSV export URL from a Google Sheets URL.
+     */
+    protected function buildGoogleSheetCsvUrl(string $sheetUrl): ?string
+    {
+        // If user already provided an export URL, use it as-is.
+        if (str_contains($sheetUrl, 'output=csv') || str_contains($sheetUrl, 'format=csv')) {
+            return $sheetUrl;
+        }
+
+        // Typical URLs:
+        // https://docs.google.com/spreadsheets/d/{spreadsheetId}/edit#gid=0
+        // https://docs.google.com/spreadsheets/d/{spreadsheetId}/edit?gid=0#gid=0
+        if (!preg_match('#/spreadsheets/d/([a-zA-Z0-9-_]+)#', $sheetUrl, $matches)) {
+            return null;
+        }
+
+        $spreadsheetId = $matches[1];
+
+        // Try to extract gid (sheet tab)
+        $gid = null;
+        if (preg_match('/[\?#&]gid=(\d+)/', $sheetUrl, $gidMatches)) {
+            $gid = $gidMatches[1];
+        }
+
+        // Use gviz export which works well for public sheets
+        // If gid is missing, default to 0
+        $gid = $gid ?? '0';
+        return "https://docs.google.com/spreadsheets/d/{$spreadsheetId}/gviz/tq?tqx=out:csv&gid={$gid}";
+    }
+
+    /**
+     * Parse CSV text into row arrays.
+     */
+    protected function parseCsvRows(string $csv): array
+    {
+        $rows = [];
+        $handle = fopen('php://temp', 'r+');
+        fwrite($handle, $csv);
+        rewind($handle);
+
+        $isFirstRow = true;
+        while (($data = fgetcsv($handle)) !== false) {
+            // Skip completely empty rows
+            if (empty(array_filter($data, fn($v) => $v !== null && trim((string) $v) !== ''))) {
+                continue;
+            }
+
+            // Skip header row if present
+            if ($isFirstRow) {
+                $isFirstRow = false;
+                $normalized = array_map(fn($v) => strtolower(trim((string) $v)), $data);
+                if (in_array('client_name', $normalized, true) || in_array('name', $normalized, true) || in_array('phone', $normalized, true)) {
+                    continue;
+                }
+            }
+
+            $rows[] = $data;
+        }
+
+        fclose($handle);
+        return $rows;
+    }
+
+    /**
+     * Choose a safe system user id for created_by.
+     */
+    protected function getSystemUserId(): int
+    {
+        $id = User::query()->min('id');
+        return $id ?: 1;
+    }
+
+    /**
+     * Choose a safe default company_id for imported leads.
+     * If your system has multiple companies, you should extend GoogleSheetConnection
+     * to store company_id and use that instead.
+     */
+    protected function getSystemCompanyId(): ?int
+    {
+        $companyId = User::query()->whereNotNull('company_id')->min('company_id');
+        return $companyId ?: null;
     }
 
     /**

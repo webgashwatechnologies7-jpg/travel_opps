@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\CompanySettingsController;
 use App\Http\Controllers\CurrencyController;
 use App\Http\Controllers\ExpenseTypeController;
 use App\Http\Controllers\LeadSourceController;
@@ -66,4 +67,29 @@ Route::middleware('auth:sanctum')->prefix('currencies')->group(function () {
     Route::get('/{id}', [CurrencyController::class, 'show']);
     Route::put('/{id}', [CurrencyController::class, 'update']);
     Route::delete('/{id}', [CurrencyController::class, 'destroy']);
+});
+
+// Company Settings routes - require authentication
+Route::middleware('auth:sanctum')->prefix('company-settings')->group(function () {
+    // Users management
+    Route::get('/users', [CompanySettingsController::class, 'getUsers']);
+    Route::get('/users/{id}', [CompanySettingsController::class, 'getUserDetails']);
+    Route::post('/users', [CompanySettingsController::class, 'createUser']);
+    Route::put('/users/{id}', [CompanySettingsController::class, 'updateUser']);
+    Route::delete('/users/{id}', [CompanySettingsController::class, 'deleteUser']);
+    
+    // Branches management
+    Route::get('/branches', [CompanySettingsController::class, 'getBranches']);
+    Route::post('/branches', [CompanySettingsController::class, 'createBranch']);
+    Route::put('/branches/{id}', [CompanySettingsController::class, 'updateBranch']);
+    Route::delete('/branches/{id}', [CompanySettingsController::class, 'deleteBranch']);
+    
+    // Roles management
+    Route::get('/roles', [CompanySettingsController::class, 'getRoles']);
+    Route::post('/roles', [CompanySettingsController::class, 'createRole']);
+    Route::put('/roles/{id}', [CompanySettingsController::class, 'updateRole']);
+    Route::delete('/roles/{id}', [CompanySettingsController::class, 'deleteRole']);
+    
+    // Statistics
+    Route::get('/stats', [CompanySettingsController::class, 'getStats']);
 });

@@ -26,6 +26,11 @@ class Kernel extends ConsoleKernel
         // Sync Gmail inbox every 5 minutes
         $schedule->command('gmail:sync')
             ->everyFiveMinutes();
+
+        // Log employee performance daily at 01:00 AM
+        $schedule->command('employees:log-performance')
+            ->dailyAt('01:00')
+            ->timezone('UTC');
     }
 
     /**

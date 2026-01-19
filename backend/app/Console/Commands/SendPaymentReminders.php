@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Modules\Payments\Domain\Entities\Payment;
 use App\Modules\Payments\Domain\Entities\PaymentReminderLog;
+use App\Services\WhatsAppService;
 use Illuminate\Console\Command;
 
 class SendPaymentReminders extends Command
@@ -21,6 +22,14 @@ class SendPaymentReminders extends Command
      * @var string
      */
     protected $description = 'Send payment reminders for payments due today';
+
+    protected WhatsAppService $whatsAppService;
+
+    public function __construct(WhatsAppService $whatsAppService)
+    {
+        parent::__construct();
+        $this->whatsAppService = $whatsAppService;
+    }
 
     /**
      * Execute the console command.
@@ -49,16 +58,16 @@ class SendPaymentReminders extends Command
 
         foreach ($payments as $payment) {
             try {
-                // Get recipient phone number from lead
-                $sentTo = $payment->lead->phone ?? $payment->lead->email ?? null;
+                // WhatsApp requires a phone number
+                $sentTo = $payment->lead->phone ?? null;
 
                 if (!$sentTo) {
-                    $this->warn("Payment ID {$payment->id}: No phone or email found for lead ID {$payment->lead_id}");
+                    $this->warn("Payment ID {$payment->id}: No phone found for lead ID {$payment->lead_id}");
                     $failedCount++;
                     continue;
                 }
 
-                // Send WhatsApp reminder (placeholder function)
+                // Send WhatsApp reminder
                 $this->sendWhatsappReminder($payment, $sentTo);
 
                 // Log reminder in payment_reminder_logs
@@ -93,20 +102,14 @@ class SendPaymentReminders extends Command
      */
     protected function sendWhatsappReminder(Payment $payment, string $sentTo): void
     {
-        // TODO: Implement actual WhatsApp API integration
-        // This is a placeholder function
-        
         $message = $this->buildReminderMessage($payment);
-        
-        // Placeholder: Log the message that would be sent
-        \Log::info("WhatsApp Reminder", [
-            'payment_id' => $payment->id,
-            'sent_to' => $sentTo,
-            'message' => $message,
-        ]);
 
-        // Example: You would integrate with WhatsApp API here
-        // $whatsappService->sendMessage($sentTo, $message);
+        $result = $this->whatsAppService->sendMessage($sentTo, $message);
+
+        if (!($result['success'] ?? false)) {
+            $error = $result['error'] ?? 'Unknown WhatsApp send error';
+            throw new \RuntimeException($error);
+        }
     }
 
     /**

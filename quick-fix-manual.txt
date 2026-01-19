@@ -1,0 +1,60 @@
+QUICK FRONTEND FIX FOR HOSTINGER
+
+PROBLEM: Laravel welcome page showing instead of frontend
+
+SOLUTION 1: Manual Fix (Recommended)
+----------------------------------
+1. SSH into your Hostinger server
+2. Run these commands:
+
+cd public_html
+rm -rf *  # Remove existing files
+git clone https://github.com/parasjaswal/crm_project.git .
+cd frontend
+npm install
+npm run build
+cd ..
+cp -r frontend/dist/* .
+rm -rf frontend backend
+
+3. Create .htaccess file:
+echo "RewriteEngine On
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^(.*)$ index.html [QSA,L]" > .htaccess
+
+SOLUTION 2: Use the Fix Script
+------------------------------
+1. Upload fix-frontend-deployment.sh to server
+2. chmod +x fix-frontend-deployment.sh
+3. ./fix-frontend-deployment.sh
+
+SOLUTION 3: Local Fix (Windows)
+------------------------------
+1. Run: hostinger-frontend-fix.bat
+2. Upload hostinger-deploy folder contents
+3. Upload to hosting root directory
+
+SOLUTION 4: CPanel Fix
+---------------------
+1. Go to CPanel > File Manager
+2. Upload frontend/dist files to public_html
+3. Create .htaccess with:
+   RewriteEngine On
+   RewriteCond %{REQUEST_FILENAME} !-f
+   RewriteCond %{REQUEST_FILENAME} !-d
+   RewriteRule ^(.*)$ index.html [QSA,L]
+
+CHECK IF FRONTEND WORKS:
+- Visit: http://sienna-antelope-219105.hostingersite.com
+- Should show CRM login page, not Laravel welcome
+
+API CONFIGURATION:
+- Backend API will be at: /api/...
+- Make sure backend is configured correctly
+
+COMMON ISSUES:
+- Make sure index.html exists in root
+- Check .htaccess is uploaded
+- Verify file permissions (755)
+- Clear browser cache

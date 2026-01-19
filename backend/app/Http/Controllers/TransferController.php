@@ -330,15 +330,72 @@ class TransferController extends Controller
                 ], 422);
             }
 
-            // TODO: Implement Excel import logic
-            // For now, return success message
-            // You can use libraries like PhpSpreadsheet or Maatwebsite\Excel
+            // Handle file import (CSV/Excel)
+            $importedCount = 0;
+            $errors = [];
+            
+            if ($request->hasFile('import_file')) {
+                $file = $request->file('import_file');
+                $filePath = $file->getPathname();
+                
+                try {
+                    // Handle CSV file
+                    if ($file->getClientOriginalExtension() === 'csv') {
+                        $handle = fopen($filePath, 'r');
+                        $header = fgetcsv($handle); // Skip header row
+                        
+                        while (($row = fgetcsv($handle)) !== false) {
+                            try {
+                                $transfer = Transfer::create([
+                                    'name' => $row[0] ?? '',
+                                    'destination' => $row[1] ?? '',
+                                    'from_date' => $row[2] ?? null,
+                                    'to_date' => $row[3] ?? null,
+                                    'transfer_details' => $row[4] ?? '',
+                                    'transfer_image' => $row[5] ?? '',
+                                    'status' => $row[6] ?? 'active',
+                                    'created_by' => $request->user()->id,
+                                    'company_id' => tenant('id'),
+                                ]);
+                                
+                                // Add price if provided
+                                if (!empty($row[7])) {
+                                    $transfer->prices()->create([
+                                        'vehicle_type' => $row[8] ?? 'Standard',
+                                        'price' => $row[7],
+                                        'capacity' => $row[9] ?? 4,
+                                        'company_id' => tenant('id'),
+                                    ]);
+                                }
+                                
+                                $importedCount++;
+                            } catch (\Exception $e) {
+                                $errors[] = "Row " . ($importedCount + 2) . ": " . $e->getMessage();
+                            }
+                        }
+                        fclose($handle);
+                    }
+                    // For Excel files, would need PhpSpreadsheet library
+                    else {
+                        return response()->json([
+                            'success' => false,
+                            'message' => 'Excel files require PhpSpreadsheet library. Please use CSV format or install PhpSpreadsheet.',
+                        ], 422);
+                    }
+                } catch (\Exception $e) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Error processing file: ' . $e->getMessage(),
+                    ], 500);
+                }
+            }
             
             return response()->json([
                 'success' => true,
                 'message' => 'Transfers imported successfully',
                 'data' => [
-                    'imported_count' => 0, // TODO: Return actual count
+                    'imported_count' => $importedCount,
+                    'errors' => $errors,
                 ],
             ], 200);
 

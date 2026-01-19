@@ -25,6 +25,13 @@ import Permissions from './pages/Permissions';
 import Profile from './pages/Profile';
 import Settings from './pages/Settings';
 import EmailTemplates from './pages/EmailTemplates';
+import MarketingDashboard from './pages/MarketingDashboard';
+import EmailCampaigns from './pages/EmailCampaigns';
+import SmsCampaigns from './pages/SmsCampaigns';
+import MarketingTemplates from './pages/MarketingTemplates';
+import MarketingAnalytics from './pages/MarketingAnalytics';
+import MarketingAutomation from './pages/MarketingAutomation';
+import LandingPages from './pages/LandingPages';
 import TermsConditions from './pages/TermsConditions';
 import Policies from './pages/Policies';
 import AccountDetails from './pages/AccountDetails';
@@ -41,8 +48,18 @@ import RoomType from './pages/RoomType';
 import MealPlan from './pages/MealPlan';
 import LeadSource from './pages/LeadSource';
 import ExpenseType from './pages/ExpenseType';
+import ClientGroups from './pages/ClientGroups';
 import PackageTheme from './pages/PackageTheme';
 import Currency from './pages/Currency';
+import Clients from './pages/Clients';
+import Agents from './pages/Agents';
+import Corporate from './pages/Corporate';
+import ClientDetails from './pages/ClientDetails';
+import ClientReports from './pages/ClientReports';
+import UserDetails from './pages/UserDetails';
+import Services from './pages/Services';
+import EmployeeManagement from './pages/EmployeeManagement';
+import TeamManagement from './pages/TeamManagement.jsx';
 
 const AppRoutes = () => {
   const { user, loading } = useAuth();
@@ -113,6 +130,46 @@ const AppRoutes = () => {
         }
       />
       <Route
+        path="/accounts/clients"
+        element={
+          <ProtectedRoute>
+            <Clients />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/accounts/clients/:id"
+        element={
+          <ProtectedRoute>
+            <ClientDetails />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/accounts/clients/:id/reports"
+        element={
+          <ProtectedRoute>
+            <ClientReports />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/accounts/agents"
+        element={
+          <ProtectedRoute>
+            <Agents />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/accounts/corporate"
+        element={
+          <ProtectedRoute>
+            <Corporate />
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/followups"
         element={
           <ProtectedRoute>
@@ -137,10 +194,26 @@ const AppRoutes = () => {
         }
       />
       <Route
+        path="/services"
+        element={
+          <ProtectedRoute>
+            <Services />
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/itineraries/:id"
         element={
           <ProtectedRoute>
             <ItineraryDetail />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/mail"
+        element={
+          <ProtectedRoute>
+            <WhatsAppInbox />
           </ProtectedRoute>
         }
       />
@@ -154,6 +227,14 @@ const AppRoutes = () => {
       />
       <Route
         path="/performance"
+        element={
+          <ProtectedRoute>
+            <Performance />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/dashboard/employee-performance"
         element={
           <ProtectedRoute>
             <Performance />
@@ -185,6 +266,14 @@ const AppRoutes = () => {
         }
       />
       <Route
+        path="/client-groups"
+        element={
+          <ProtectedRoute>
+            <ClientGroups />
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/targets"
         element={
           <ProtectedRoute>
@@ -205,6 +294,38 @@ const AppRoutes = () => {
         element={
           <ProtectedRoute>
             <Profile />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/company-settings/team-management"
+        element={
+          <ProtectedRoute>
+            <TeamManagement />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/company-settings/users/:id"
+        element={
+          <ProtectedRoute>
+            <UserDetails />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/employee-management"
+        element={
+          <ProtectedRoute>
+            <EmployeeManagement />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/employee-dashboard/:id"
+        element={
+          <ProtectedRoute>
+            <EmployeeManagement />
           </ProtectedRoute>
         }
       />
@@ -348,7 +469,62 @@ const AppRoutes = () => {
         path="/masters/currency"
         element={
           <ProtectedRoute>
-            <Currency />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/marketing/email-campaigns"
+        element={
+          <ProtectedRoute>
+            <EmailCampaigns />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/marketing/sms-campaigns"
+        element={
+          <ProtectedRoute>
+            <SmsCampaigns />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/marketing/templates"
+        element={
+          <ProtectedRoute>
+            <MarketingTemplates />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/marketing/analytics"
+        element={
+          <ProtectedRoute>
+            <MarketingAnalytics />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/marketing/automation"
+        element={
+          <ProtectedRoute>
+            <MarketingAutomation />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/marketing/landing-pages"
+        element={
+          <ProtectedRoute>
+            <LandingPages />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/email-templates"
+        element={
+          <ProtectedRoute>
+            <EmailTemplates />
           </ProtectedRoute>
         }
       />

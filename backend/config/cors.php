@@ -15,26 +15,35 @@ return [
     |
     */
 
-    'paths' => ['api/*', 'sanctum/csrf-cookie'],
+    'paths' => ['api/*', 'sanctum/csrf-cookie', 'storage/*', 'public/*'],
 
-    'allowed_methods' => ['*'],
+    'allowed_methods' => ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
 
     'allowed_origins' => [
+        'http://localhost:3000',
         'http://localhost:5173',
         'http://localhost:5174',
+        'http://127.0.0.1:3000',
         'http://127.0.0.1:5173',
         'http://127.0.0.1:5174',
         // Production domain - replace with your actual domain
         'https://sienna-antelope-219105.hostingersite.com',
     ],
 
-    'allowed_origins_patterns' => ['.*'],
+    'allowed_origins_patterns' => [], // Remove wildcard pattern for security
 
-    'allowed_headers' => ['*'],
+    'allowed_headers' => [
+        'Content-Type',
+        'Authorization',
+        'X-Requested-With',
+        'Accept',
+        'Origin',
+        'X-Subdomain'
+    ],
 
     'exposed_headers' => [],
 
-    'max_age' => 0,
+    'max_age' => 86400, // 24 hours
 
     'supports_credentials' => true,
 

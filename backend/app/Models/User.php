@@ -27,11 +27,17 @@ class User extends Authenticatable
         'password',
         'is_active',
         'company_id',
+        'branch_id',
         'is_super_admin',
         'google_token',
         'google_refresh_token',
         'google_token_expires_at',
         'gmail_email',
+        'company_name',
+        'gst_number',
+        'city',
+        'user_type',
+        'created_by'
     ];
 
     /**
@@ -68,6 +74,16 @@ class User extends Authenticatable
     }
 
     /**
+     * Get the branch that owns the user.
+     *
+     * @return BelongsTo
+     */
+    public function branch(): BelongsTo
+    {
+        return $this->belongsTo(Branch::class);
+    }
+
+    /**
      * Get the employee targets for the user.
      *
      * @return HasMany
@@ -75,6 +91,26 @@ class User extends Authenticatable
     public function targets(): HasMany
     {
         return $this->hasMany(\App\Modules\Hr\Domain\Entities\EmployeeTarget::class, 'user_id');
+    }
+
+    /**
+     * Get leads assigned to this user.
+     *
+     * @return HasMany
+     */
+    public function leadsAssigned(): HasMany
+    {
+        return $this->hasMany(\App\Modules\Leads\Domain\Entities\Lead::class, 'assigned_to');
+    }
+
+    /**
+     * Get performance logs for this user.
+     *
+     * @return HasMany
+     */
+    public function performanceLogs(): HasMany
+    {
+        return $this->hasMany(\App\Models\EmployeePerformanceLog::class, 'user_id');
     }
 
     /**

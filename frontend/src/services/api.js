@@ -60,11 +60,26 @@ api.interceptors.response.use(
     if (error.config?.responseType === 'blob' && error.response?.data instanceof Blob) {
       try {
         const text = await error.response.data.text();
-        const errorData = JSON.parse(text);
-        // Replace blob data with parsed JSON
-        error.response.data = errorData;
+        // Check if it's JSON or HTML error page
+        if (text.startsWith('{') || text.startsWith('[')) {
+          const errorData = JSON.parse(text);
+          // Replace blob data with parsed JSON
+          error.response.data = errorData;
+        } else if (text.includes('<!DOCTYPE') || text.includes('<html>')) {
+          // HTML error page received instead of JSON
+          error.response.data = {
+            success: false,
+            message: 'Server returned HTML error page instead of JSON',
+            error: 'Invalid response format'
+          };
+        }
       } catch (e) {
-        // If parsing fails, keep the blob
+        // If parsing fails, create a generic error
+        error.response.data = {
+          success: false,
+          message: 'Unable to process error response',
+          error: 'Invalid response format'
+        };
       }
     }
 
@@ -136,6 +151,14 @@ export const leadsAPI = {
   getEmail: (leadId, emailId) => api.get(`/leads/${leadId}/emails/${emailId}`),
 };
 
+// Payments APIs
+export const paymentsAPI = {
+  dueToday: () => api.get('/payments/due-today'),
+  pending: () => api.get('/payments/pending'),
+  getByLead: (leadId) => api.get(`/payments/lead/${leadId}`),
+  create: (data) => api.post('/payments', data),
+};
+
 // Followups APIs
 export const followupsAPI = {
   today: () => api.get('/followups/today'),
@@ -144,12 +167,12 @@ export const followupsAPI = {
   complete: (id) => api.put(`/followups/${id}/complete`),
 };
 
-// Payments APIs
-export const paymentsAPI = {
-  dueToday: () => api.get('/payments/due-today'),
-  pending: () => api.get('/payments/pending'),
-  getByLead: (leadId) => api.get(`/payments/lead/${leadId}`),
-  create: (data) => api.post('/payments', data),
+// Follow-up API (for client details)
+export const followUpAPI = {
+  getClientFollowUps: (clientId) => api.get(`/clients/${clientId}/follow-ups`),
+  create: (data) => api.post('/follow-ups', data),
+  update: (id, data) => api.put(`/follow-ups/${id}`, data),
+  delete: (id) => api.delete(`/follow-ups/${id}`),
 };
 
 // WhatsApp APIs
@@ -526,6 +549,33 @@ export const queryDetailAPI = {
   getDetail: (id) => api.get(`/queries/${id}/detail`)
 };
 
+// Accounts APIs
+export const accountsAPI = {
+  // Get all account types
+  getClients: () => api.get('/accounts/clients'),
+  getAgents: () => api.get('/accounts/agents'),
+  getCorporate: () => api.get('/accounts/corporate'),
+  
+  // Get cities for autocomplete
+  getCities: (search) => api.get('/accounts/cities', { params: { search } }),
+  
+  // CRUD operations for clients
+  getClient: (id) => api.get(`/accounts/clients/${id}`),
+  createClient: (data) => api.post('/accounts/clients', data),
+  updateClient: (id, data) => api.put(`/accounts/clients/${id}`, data),
+  deleteClient: (id) => api.delete(`/accounts/clients/${id}`),
+  
+  // CRUD operations for agents
+  createAgent: (data) => api.post('/accounts/agents', data),
+  updateAgent: (id, data) => api.put(`/accounts/agents/${id}`, data),
+  deleteAgent: (id) => api.delete(`/accounts/agents/${id}`),
+  
+  // CRUD operations for corporate
+  createCorporate: (data) => api.post('/accounts/corporate', data),
+  updateCorporate: (id, data) => api.put(`/accounts/corporate/${id}`, data),
+  deleteCorporate: (id) => api.delete(`/accounts/corporate/${id}`),
+};
+
 // Super Admin APIs
 export const superAdminAPI = {
   // Companies
@@ -545,6 +595,41 @@ export const superAdminAPI = {
   getAvailableFeatures: () => api.get('/super-admin/subscription-plans/available-features'),
   getPlanFeatures: (planId) => api.get(`/super-admin/subscription-plans/${planId}/features`),
   updatePlanFeatures: (planId, features) => api.put(`/super-admin/subscription-plans/${planId}/features`, { features }),
+};
+
+// Services APIs
+export const servicesAPI = {
+  list: (filters = {}) => api.get('/services', { params: filters }),
+  get: (id) => api.get(`/services/${id}`),
+  create: (data) => api.post('/services', data),
+  update: (id, data) => api.put(`/services/${id}`, data),
+  delete: (id) => api.delete(`/services/${id}`),
+  getActive: () => api.get('/services/active'),
+};
+
+// Company Settings APIs
+export const companySettingsAPI = {
+  // Users management
+  getUsers: (params = {}) => api.get('/company-settings/users', { params }),
+  getUserDetails: (id) => api.get(`/company-settings/users/${id}`),
+  createUser: (data) => api.post('/company-settings/users', data),
+  updateUser: (id, data) => api.put(`/company-settings/users/${id}`, data),
+  deleteUser: (id) => api.delete(`/company-settings/users/${id}`),
+  
+  // Branches management
+  getBranches: (params = {}) => api.get('/company-settings/branches', { params }),
+  createBranch: (data) => api.post('/company-settings/branches', data),
+  updateBranch: (id, data) => api.put(`/company-settings/branches/${id}`, data),
+  deleteBranch: (id) => api.delete(`/company-settings/branches/${id}`),
+  
+  // Roles management
+  getRoles: () => api.get('/company-settings/roles'),
+  createRole: (data) => api.post('/company-settings/roles', data),
+  updateRole: (id, data) => api.put(`/company-settings/roles/${id}`, data),
+  deleteRole: (id) => api.delete(`/company-settings/roles/${id}`),
+  
+  // Statistics
+  getStats: () => api.get('/company-settings/stats'),
 };
 
 export default api;

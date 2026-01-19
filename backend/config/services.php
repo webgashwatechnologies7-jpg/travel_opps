@@ -35,6 +35,17 @@ return [
         'client_id' => env('GOOGLE_CLIENT_ID'),
         'client_secret' => env('GOOGLE_CLIENT_SECRET'),
         'redirect' => env('GOOGLE_REDIRECT_URI'),
+        'redirect_uri' => env('GOOGLE_REDIRECT_URI'),
+    ]
+
+    ,
+
+    'whatsapp' => [
+        'api_key' => env('WHATSAPP_API_KEY'),
+        'base_url' => env('WHATSAPP_BASE_URL', 'https://graph.facebook.com/v18.0'),
+        'phone_number_id' => env('WHATSAPP_PHONE_NUMBER_ID'),
+        'webhook_secret' => env('WHATSAPP_WEBHOOK_SECRET'),
+        'verify_token' => env('WHATSAPP_VERIFY_TOKEN'),
     ]
 
 

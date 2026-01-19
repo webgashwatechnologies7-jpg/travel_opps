@@ -259,6 +259,9 @@ const CompanyManagement = () => {
                   Email
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Login URL
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Status
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -269,7 +272,7 @@ const CompanyManagement = () => {
             <tbody className="bg-white divide-y divide-gray-200">
               {companies.length === 0 ? (
                 <tr>
-                  <td colSpan="6" className="px-6 py-8 text-center text-gray-500">
+                  <td colSpan="7" className="px-6 py-8 text-center text-gray-500">
                     No companies found
                   </td>
                 </tr>
@@ -292,6 +295,19 @@ const CompanyManagement = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-600">{company.email || '-'}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <a
+                        href={company.crm_url || `https://c.${company.subdomain}.${company.domain}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sm text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1"
+                      >
+                        {company.crm_url ? company.crm_url.replace('https://', '') : `c.${company.subdomain}.${company.domain}`}
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                        </svg>
+                      </a>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex flex-col gap-1">
@@ -614,7 +630,7 @@ const CompanyManagement = () => {
                 <div>
                   <label className="text-sm font-medium text-gray-600">CRM URL</label>
                   <p className="text-lg text-blue-600 font-mono">
-                    {selectedCompany.crm_url ? selectedCompany.crm_url.replace('https://', '') : `c.${selectedCompany.subdomain}${selectedCompany.domain ? '.' + selectedCompany.domain.split('.').slice(-2).join('.') : ''}`}
+                    {selectedCompany.crm_url ? selectedCompany.crm_url.replace('https://', '') : `c.${selectedCompany.subdomain}.${selectedCompany.domain}`}
                   </p>
                 </div>
                 <div>

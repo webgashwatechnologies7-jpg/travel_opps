@@ -94,7 +94,7 @@ class DashboardController extends Controller
                             'start_date' => $earliestPayment ? $earliestPayment->due_date->toDateString() : null,
                         ];
                     })
-                    ->filter(function ($tour) {
+                    ->filter(function ($tour) use ($today) {
                         return $tour['start_date'] !== null && $tour['start_date'] >= $today;
                     })
                     ->sortBy('start_date')

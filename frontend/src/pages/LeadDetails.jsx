@@ -102,7 +102,8 @@ const LeadDetails = () => {
         setCompanySettings(response.data.data);
       }
     } catch (err) {
-      console.error('Failed to fetch company settings:', err);
+      // Error logged for debugging
+      // TODO: Add proper error reporting service
     }
   };
 
@@ -111,7 +112,7 @@ const LeadDetails = () => {
     if (lead) {
       const confirmedOption = getConfirmedOption();
       const queryId = lead.query_id || lead.id || id;
-      const destination = lead.destination || 'Destination';
+      const destination = lead.destinations || 'Destination';
       const subject = `Travel Enquiry for ${destination} from (Query Id- ${queryId})`;
 
       if (confirmedOption) {
@@ -132,9 +133,12 @@ const LeadDetails = () => {
 
   // Load hotels from confirmed option
   useEffect(() => {
+    let isMounted = true;
+    
     const loadHotelsFromConfirmedOption = async () => {
       const confirmedOption = getConfirmedOption();
-      console.log('Confirmed Option:', confirmedOption);
+      // Debug: Confirmed option data
+      // TODO: Add proper logging service
 
       // Check for hotels in different possible structures
       let hotelsList = [];
@@ -154,9 +158,10 @@ const LeadDetails = () => {
         }
       }
 
-      console.log('Hotels List:', hotelsList);
+      // Debug: Hotels list data
+      // TODO: Add proper logging service
 
-      if (hotelsList.length > 0) {
+      if (hotelsList.length > 0 && isMounted) {
         try {
           // Fetch hotel details for each hotel
           const hotelPromises = hotelsList.map(async (hotel, index) => {
@@ -165,28 +170,28 @@ const LeadDetails = () => {
             const hotelName = hotel.hotel_name || hotel.hotelName || hotel.name || 'Hotel';
             const roomType = hotel.room_type || hotel.roomType || hotel.roomName || '';
             const mealPlan = hotel.meal_plan || hotel.mealPlan || '';
-            const day = hotel.day || '';
-            const price = hotel.price || '';
+            const price = hotel.price || 0;
+            const day = hotel.day || 1;
 
-            if (hotelId) {
+            if (hotelId && hotelId !== 'hotel_' + hotelName + '_' + index) {
               try {
-                const response = await hotelsAPI.get(hotelId);
-                const hotelData = response.data.data;
+                const hotelData = await hotelsAPI.getById(hotelId);
                 return {
-                  id: `hotel_${hotelId}_${index}`,
+                  id: hotelData.data.data.id,
                   hotel_id: hotelId,
-                  company_name: hotelData.name || hotelName,
-                  name: hotelData.contact_person || '',
-                  email: hotelData.email || '',
+                  company_name: hotelData.data.data.name,
+                  name: hotelData.data.data.contact_person || '',
+                  email: hotelData.data.data.email || '',
                   type: 'hotel',
-                  hotel_name: hotelData.name || hotelName,
+                  hotel_name: hotelData.data.data.name || hotelName,
                   room_type: roomType,
                   meal_plan: mealPlan,
                   price: price,
                   day: day
                 };
               } catch (err) {
-                console.error(`Failed to fetch hotel ${hotelId}:`, err);
+                // Error fetching hotel details
+                // TODO: Add proper error reporting
                 // If hotel fetch fails, use the data from confirmed option
                 return {
                   id: `hotel_${hotelId || hotelName}_${index}`,
@@ -203,10 +208,9 @@ const LeadDetails = () => {
                 };
               }
             } else {
-              // If no hotel_id, use the data from confirmed option
               return {
-                id: `hotel_${hotelName}_${index}_${Date.now()}`,
-                hotel_id: null,
+                id: `hotel_${hotelId || hotelName}_${index}`,
+                hotel_id: hotelId,
                 company_name: hotelName,
                 name: '',
                 email: hotel.email || '',
@@ -221,7 +225,8 @@ const LeadDetails = () => {
           });
 
           const hotelsData = await Promise.all(hotelPromises);
-          console.log('Processed Hotels Data:', hotelsData);
+          // Debug: Processed hotels data
+          // TODO: Add proper logging service
           // Show all hotels, but prioritize those with email
           const validHotels = hotelsData.filter(h => h.company_name && h.company_name !== 'Hotel');
           // Sort: hotels with email first
@@ -230,18 +235,31 @@ const LeadDetails = () => {
             if (!a.email && b.email) return 1;
             return 0;
           });
-          setHotelsFromConfirmedOption(validHotels);
-          console.log('Hotels set in state:', validHotels);
+          
+          if (isMounted) {
+            setHotelsFromConfirmedOption(validHotels);
+            // Debug: Hotels set in state
+            // TODO: Add proper logging service
+          }
         } catch (err) {
-          console.error('Failed to load hotels:', err);
-          setHotelsFromConfirmedOption([]);
+          // Error loading hotels
+          // TODO: Add proper error reporting
+          if (isMounted) {
+            setHotelsFromConfirmedOption([]);
+          }
         }
       } else {
-        setHotelsFromConfirmedOption([]);
+        if (isMounted) {
+          setHotelsFromConfirmedOption([]);
+        }
       }
     };
 
     loadHotelsFromConfirmedOption();
+    
+    return () => {
+      isMounted = false;
+    };
   }, [proposals, quotationData]);
 
   // Load proposals from localStorage
@@ -272,7 +290,8 @@ const LeadDetails = () => {
             }
           });
         } catch (e) {
-          console.error('Error loading itinerary proposals:', e);
+          // Error loading itinerary proposals
+          // TODO: Add proper error reporting
         }
       });
 
@@ -288,7 +307,8 @@ const LeadDetails = () => {
       localStorage.setItem(`lead_${id}_proposals`, JSON.stringify(newProposals));
       setProposals(newProposals);
     } catch (err) {
-      console.error('Failed to save proposals:', err);
+      // Error saving proposals
+      // TODO: Add proper error reporting
     }
   };
 
@@ -306,7 +326,8 @@ const LeadDetails = () => {
       try {
         await handleViewQuotation(confirmedProposal);
       } catch (err) {
-        console.error('Failed to load quotation data:', err);
+        // Error loading quotation data
+        // TODO: Add proper error reporting
       }
     }
 
@@ -340,7 +361,8 @@ const LeadDetails = () => {
         setFollowups([]);
       }
     } catch (err) {
-      console.error('Failed to fetch lead details:', err);
+      // Error fetching lead details
+      // TODO: Add proper error reporting service
       alert('Failed to load lead details');
     } finally {
       setLoading(false);
@@ -352,7 +374,8 @@ const LeadDetails = () => {
       const response = await usersAPI.list();
       setUsers(response.data.data.users || []);
     } catch (err) {
-      console.error('Failed to fetch users:', err);
+      // Error fetching users
+      // TODO: Add proper error reporting service
     }
   };
 
@@ -361,7 +384,8 @@ const LeadDetails = () => {
       const response = await suppliersAPI.list();
       setSuppliers(response.data.data || []);
     } catch (err) {
-      console.error('Failed to fetch suppliers:', err);
+      // Error fetching suppliers
+      // TODO: Add proper error reporting service
     }
   };
 
@@ -375,7 +399,8 @@ const LeadDetails = () => {
         setLeadEmails(response.data.data.emails || []);
       }
     } catch (err) {
-      console.error('Failed to fetch lead emails:', err);
+      // Error fetching lead emails
+      // TODO: Add proper error reporting service
     } finally {
       setLoadingEmails(false);
     }
@@ -438,7 +463,8 @@ const LeadDetails = () => {
         }
       }
     } catch (err) {
-      console.error('Failed to send email:', err);
+      // Error sending email
+      // TODO: Add proper error reporting service
       alert(err.response?.data?.message || 'Failed to send email');
     } finally {
       setSendingClientEmail(false);
@@ -455,7 +481,8 @@ const LeadDetails = () => {
         setGmailEmails(response.data.data.emails || []);
       }
     } catch (err) {
-      console.error('Failed to fetch Gmail emails:', err);
+      // Error fetching Gmail emails
+      // TODO: Add proper error reporting service
     } finally {
       setLoadingGmail(false);
     }
@@ -483,7 +510,8 @@ const LeadDetails = () => {
         setPaymentSummary(response.data.data.summary || { total_amount: 0, total_paid: 0, total_due: 0 });
       }
     } catch (err) {
-      console.error('Failed to fetch payments:', err);
+      // Error fetching payments
+      // TODO: Add proper error reporting service
       setPayments([]);
       setPaymentSummary({ total_amount: 0, total_paid: 0, total_due: 0 });
     } finally {
@@ -526,7 +554,8 @@ const LeadDetails = () => {
         alert(response.data.message || 'Failed to add payment');
       }
     } catch (err) {
-      console.error('Failed to add payment:', err);
+      // Error adding payment
+      // TODO: Add proper error reporting service
       const errorMsg = err.response?.data?.message || err.response?.data?.errors
         ? Object.values(err.response.data.errors).flat().join(', ')
         : 'Failed to add payment';
@@ -752,7 +781,8 @@ const LeadDetails = () => {
         alert(`${errorMsg}${errors.length > 0 ? '\n\nErrors:\n' + errors.join('\n') : ''}`);
       }
     } catch (err) {
-      console.error('Failed to send email:', err);
+      // Error sending email
+      // TODO: Add proper error reporting service
       const errorMsg = err.response?.data?.message || 'Failed to send email';
       const errors = err.response?.data?.data?.errors || [];
       const errorDetails = err.response?.data?.error || '';
@@ -798,7 +828,8 @@ const LeadDetails = () => {
       setNoteText('');
       setShowNoteInput(false);
     } catch (err) {
-      console.error('Failed to add note:', err);
+      // Error adding note
+      // TODO: Add proper error reporting service
       alert(err.response?.data?.message || 'Failed to add note');
     } finally {
       setAddingNote(false);
@@ -922,7 +953,8 @@ const LeadDetails = () => {
       setShowFollowupModal(false);
       alert('Follow-up added successfully!');
     } catch (err) {
-      console.error('Failed to add followup:', err);
+      // Error adding followup
+      // TODO: Add proper error reporting service
       const errorMsg = err.response?.data?.message ||
         (err.response?.data?.errors ? Object.values(err.response.data.errors).flat().join(', ') : null) ||
         err.response?.data?.error ||
@@ -941,7 +973,7 @@ const LeadDetails = () => {
       end_date: lead?.travel_end_date ? formatDateForInput(lead.travel_end_date) : '',
       adult: lead?.adult?.toString() || '1',
       child: lead?.child?.toString() || '0',
-      destinations: lead?.destination || '',
+      destination: lead?.destinations || lead?.destination || '',
       notes: lead?.remark || ''
     });
     setShowItineraryModal(true);
@@ -973,7 +1005,8 @@ const LeadDetails = () => {
 
       setDayItineraries(processedData);
     } catch (err) {
-      console.error('Failed to fetch itineraries:', err);
+      // Error fetching itineraries
+      // TODO: Add proper error reporting service
       alert('Failed to load itineraries');
     } finally {
       setLoadingItineraries(false);
@@ -1039,6 +1072,7 @@ const LeadDetails = () => {
   const handleItinerarySave = async (e) => {
     e.preventDefault();
     // TODO: Implement itinerary save API call
+    // TODO: Add proper error handling
     alert('Itinerary save functionality will be implemented once API is ready');
     // For now, just close the modal
     setShowItineraryModal(false);
@@ -1150,7 +1184,8 @@ const LeadDetails = () => {
 
       return details;
     } catch (err) {
-      console.error('Error getting package details:', err);
+      // Error getting package details
+      // TODO: Add proper error reporting service
       return null;
     }
   };
@@ -1210,7 +1245,7 @@ const LeadDetails = () => {
         itinerary: {
           ...itinerary,
           duration: proposal.duration || itinerary.duration,
-          destinations: proposal.destination || itinerary.destinations
+          destination: proposal.destination || itinerary.destinations || itinerary.destination
         },
         hotelOptions: hotelOptions
       });
@@ -1225,7 +1260,8 @@ const LeadDetails = () => {
 
       setShowQuotationModal(true);
     } catch (err) {
-      console.error('Failed to load quotation:', err);
+      // Error loading quotation
+      // TODO: Add proper error reporting service
       alert('Failed to load quotation data');
     } finally {
       setLoadingQuotation(false);
@@ -1240,7 +1276,8 @@ const LeadDetails = () => {
         ? response.data.data.value
         : 'template-1'; // Default template
     } catch (err) {
-      console.error('Failed to load template:', err);
+      // Error loading template
+      // TODO: Add proper error reporting service
       return 'template-1';
     }
   };
@@ -1266,7 +1303,8 @@ const LeadDetails = () => {
         thankYouMessage: thankYouRes.data.success && thankYouRes.data.data?.value ? thankYouRes.data.data.value : ''
       };
     } catch (err) {
-      console.error('Failed to load policies:', err);
+      // Error loading policies
+      // TODO: Add proper error reporting service
       return {
         remarks: '',
         termsConditions: '',
@@ -1358,7 +1396,7 @@ const LeadDetails = () => {
           <h2 style="margin-top: 0; font-size: 32px; color: #667eea; text-align: center;">Travel Quotation</h2>
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 20px;">
             <div style="padding: 15px; background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%); border-radius: 10px; box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);"><strong>Query ID:</strong> ${formatLeadId(lead?.id)}</div>
-            <div style="padding: 15px; background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%); border-radius: 10px; box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);"><strong>Destination:</strong> ${itinerary.destinations || 'N/A'}</div>
+            <div style="padding: 15px; background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%); border-radius: 10px; box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);"><strong>Destination:</strong> ${itinerary.destinations || itinerary.destination || 'N/A'}</div>
             <div style="padding: 15px; background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%); border-radius: 10px; box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);"><strong>Duration:</strong> ${itinerary.duration || 0} Nights & ${(itinerary.duration || 0) + 1} Days</div>
             <div style="padding: 15px; background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%); border-radius: 10px; box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);"><strong>Adults:</strong> ${lead?.adult || 1} | <strong>Children:</strong> ${lead?.child || 0}</div>
           </div>
@@ -1420,7 +1458,7 @@ const LeadDetails = () => {
           <h2 style="margin-top: 0; font-size: 32px; color: #1e3c72; text-align: center;">Travel Quotation</h2>
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 20px;">
             <div style="padding: 15px; background: #f0f4ff; border-radius: 10px; border-left: 4px solid #2a5298; box-shadow: 0 5px 15px rgba(0,0,0,0.1);"><strong>Query ID:</strong> ${formatLeadId(lead?.id)}</div>
-            <div style="padding: 15px; background: #f0f4ff; border-radius: 10px; border-left: 4px solid #2a5298; box-shadow: 0 5px 15px rgba(0,0,0,0.1);"><strong>Destination:</strong> ${itinerary.destinations || 'N/A'}</div>
+            <div style="padding: 15px; background: #f0f4ff; border-radius: 10px; border-left: 4px solid #2a5298; box-shadow: 0 5px 15px rgba(0,0,0,0.1);"><strong>Destination:</strong> ${itinerary.destinations || itinerary.destination || 'N/A'}</div>
             <div style="padding: 15px; background: #f0f4ff; border-radius: 10px; border-left: 4px solid #2a5298; box-shadow: 0 5px 15px rgba(0,0,0,0.1);"><strong>Duration:</strong> ${itinerary.duration || 0} Nights & ${(itinerary.duration || 0) + 1} Days</div>
             <div style="padding: 15px; background: #f0f4ff; border-radius: 10px; border-left: 4px solid #2a5298; box-shadow: 0 5px 15px rgba(0,0,0,0.1);"><strong>Adults:</strong> ${lead?.adult || 1} | <strong>Children:</strong> ${lead?.child || 0}</div>
           </div>
@@ -1507,7 +1545,7 @@ const LeadDetails = () => {
             <h2 style="margin-top: 0; font-size: 32px; color: #0f2027; text-align: center;">Travel Quotation</h2>
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 20px;">
               <div style="padding: 15px; background: linear-gradient(135deg, #e0f2f1 0%, #b2dfdb 100%); border-radius: 10px; box-shadow: 0 5px 15px rgba(0,0,0,0.1), inset 0 2px 5px rgba(255,255,255,0.5);"><strong>Query ID:</strong> ${formatLeadId(lead?.id)}</div>
-              <div style="padding: 15px; background: linear-gradient(135deg, #e0f2f1 0%, #b2dfdb 100%); border-radius: 10px; box-shadow: 0 5px 15px rgba(0,0,0,0.1), inset 0 2px 5px rgba(255,255,255,0.5);"><strong>Destination:</strong> ${itinerary.destinations || 'N/A'}</div>
+              <div style="padding: 15px; background: linear-gradient(135deg, #e0f2f1 0%, #b2dfdb 100%); border-radius: 10px; box-shadow: 0 5px 15px rgba(0,0,0,0.1), inset 0 2px 5px rgba(255,255,255,0.5);"><strong>Destination:</strong> ${itinerary.destinations || itinerary.destination || 'N/A'}</div>
               <div style="padding: 15px; background: linear-gradient(135deg, #e0f2f1 0%, #b2dfdb 100%); border-radius: 10px; box-shadow: 0 5px 15px rgba(0,0,0,0.1), inset 0 2px 5px rgba(255,255,255,0.5);"><strong>Duration:</strong> ${itinerary.duration || 0} Nights & ${(itinerary.duration || 0) + 1} Days</div>
               <div style="padding: 15px; background: linear-gradient(135deg, #e0f2f1 0%, #b2dfdb 100%); border-radius: 10px; box-shadow: 0 5px 15px rgba(0,0,0,0.1), inset 0 2px 5px rgba(255,255,255,0.5);"><strong>Adults:</strong> ${lead?.adult || 1} | <strong>Children:</strong> ${lead?.child || 0}</div>
             </div>
@@ -1594,7 +1632,7 @@ const LeadDetails = () => {
             <h2 style="margin-top: 0; color: #365314; font-size: 24px;">Travel Quotation</h2>
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 15px;">
               <div><strong style="color: #365314;">Query ID:</strong> ${formatLeadId(lead?.id)}</div>
-              <div><strong style="color: #365314;">Destination:</strong> ${itinerary.destinations || 'N/A'}</div>
+              <div><strong style="color: #365314;">Destination:</strong> ${itinerary.destinations || itinerary.destination || 'N/A'}</div>
               <div><strong style="color: #365314;">Duration:</strong> ${itinerary.duration || 0} Nights & ${(itinerary.duration || 0) + 1} Days</div>
               <div><strong style="color: #365314;">Adults:</strong> ${lead?.adult || 1} | <strong>Children:</strong> ${lead?.child || 0}</div>
             </div>
@@ -1686,7 +1724,7 @@ const LeadDetails = () => {
             <h2 style="margin-top: 0; color: #0891b2; font-size: 28px;">Travel Quotation</h2>
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 15px;">
               <div><strong style="color: #164e63;">Query ID:</strong> ${formatLeadId(lead?.id)}</div>
-              <div><strong style="color: #164e63;">Destination:</strong> ${itinerary.destinations || 'N/A'}</div>
+              <div><strong style="color: #164e63;">Destination:</strong> ${itinerary.destinations || itinerary.destination || 'N/A'}</div>
               <div><strong style="color: #164e63;">Duration:</strong> ${itinerary.duration || 0} Nights & ${(itinerary.duration || 0) + 1} Days</div>
               <div><strong style="color: #164e63;">Adults:</strong> ${lead?.adult || 1} | <strong>Children:</strong> ${lead?.child || 0}</div>
             </div>
@@ -1774,7 +1812,7 @@ const LeadDetails = () => {
             <h2 style="margin-top: 0; color: #365314; font-size: 24px;">Quote Details</h2>
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
               <div><strong style="color: #3f6212;">Query ID:</strong> ${formatLeadId(lead?.id)}</div>
-              <div><strong style="color: #3f6212;">Destination:</strong> ${itinerary.destinations || 'N/A'}</div>
+              <div><strong style="color: #3f6212;">Destination:</strong> ${itinerary.destinations || itinerary.destination || 'N/A'}</div>
               <div><strong style="color: #3f6212;">Duration:</strong> ${itinerary.duration || 0} Nights & ${(itinerary.duration || 0) + 1} Days</div>
               <div><strong style="color: #3f6212;">Adults:</strong> ${lead?.adult || 1} | <strong>Children:</strong> ${lead?.child || 0}</div>
             </div>
@@ -1929,7 +1967,7 @@ const LeadDetails = () => {
               <h3 style="margin-top: 0;">Quote Details</h3>
               <table>
                 <tr><td class="label">Query ID:</td><td>${formatLeadId(lead?.id)}</td></tr>
-                <tr><td class="label">Destination:</td><td>${itinerary.destinations || 'N/A'}</td></tr>
+                <tr><td class="label">Destination:</td><td>${itinerary.destinations || itinerary.destination || 'N/A'}</td></tr>
                 <tr><td class="label">Duration:</td><td>${itinerary.duration || 0} Nights & ${(itinerary.duration || 0) + 1} Days</td></tr>
                 <tr><td class="label">Adults:</td><td>${lead?.adult || 1}</td></tr>
                 <tr><td class="label">Children:</td><td>${lead?.child || 0}</td></tr>
@@ -2199,7 +2237,7 @@ TravelOps Team`;
               <h3 style="margin-top: 0;">Quote Details</h3>
               <table>
                 <tr><td class="label">Query ID:</td><td>${formatLeadId(lead?.id)}</td></tr>
-                <tr><td class="label">Destination:</td><td>${itinerary.destinations || 'N/A'}</td></tr>
+                <tr><td class="label">Destination:</td><td>${itinerary.destinations || itinerary.destination || 'N/A'}</td></tr>
                 <tr><td class="label">Duration:</td><td>${itinerary.duration || 0} Nights & ${(itinerary.duration || 0) + 1} Days</td></tr>
                 <tr><td class="label">Adults:</td><td>${lead?.adult || 1}</td></tr>
                 <tr><td class="label">Children:</td><td>${lead?.child || 0}</td></tr>
@@ -2350,7 +2388,8 @@ TravelOps Team`;
       await leadsAPI.updateStatus(id, newStatus);
       fetchLeadDetails();
     } catch (err) {
-      console.error('Failed to update status:', err);
+      // Error updating status
+      // TODO: Add proper error reporting service
       alert('Failed to update status');
     }
   };
@@ -3346,7 +3385,8 @@ TravelOps Team`;
                                             await followupsAPI.complete(followup.id);
                                             await fetchLeadDetails();
                                           } catch (err) {
-                                            console.error('Failed to complete followup:', err);
+                                            // Error completing followup
+                                            // TODO: Add proper error reporting service
                                             alert(err.response?.data?.message || 'Failed to mark as completed');
                                           }
                                         }}

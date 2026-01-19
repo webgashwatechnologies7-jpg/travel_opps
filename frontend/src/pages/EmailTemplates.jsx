@@ -9,6 +9,13 @@ const EmailTemplates = () => {
   const [showPreview, setShowPreview] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [newTemplate, setNewTemplate] = useState({
+    name: '',
+    subject: '',
+    content: '',
+    description: ''
+  });
 
   // Default templates
   const defaultTemplates = [
@@ -85,7 +92,7 @@ const EmailTemplates = () => {
   const loadTemplates = async () => {
     try {
       const response = await settingsAPI.getByKey('email_templates');
-      if (response.data.success && response.data.data?.value) {
+      if (response.data && response.data.success && response.data.data?.value) {
         const savedTemplates = JSON.parse(response.data.data.value);
         setTemplates(savedTemplates.length > 0 ? savedTemplates : defaultTemplates);
       } else {
@@ -102,7 +109,7 @@ const EmailTemplates = () => {
   const loadSelectedTemplate = async () => {
     try {
       const response = await settingsAPI.getByKey('selected_email_template');
-      if (response.data.success && response.data.data?.value) {
+      if (response.data && response.data.success && response.data.data?.value) {
         setSelectedTemplate(response.data.data.value);
       } else {
         setSelectedTemplate('template-1'); // Default to first template
@@ -129,6 +136,72 @@ const EmailTemplates = () => {
       alert('Failed to save template selection');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleCreateTemplate = async () => {
+    try {
+      const template = {
+        id: `custom-${Date.now()}`,
+        name: newTemplate.name,
+        subject: newTemplate.subject,
+        content: newTemplate.content,
+        description: newTemplate.description,
+        isDefault: false,
+        isCustom: true
+      };
+
+      const updatedTemplates = [...templates, template];
+      setTemplates(updatedTemplates);
+      
+      // Try to save to backend, but don't fail if it doesn't work
+      try {
+        await settingsAPI.save({
+          key: 'email_templates',
+          value: JSON.stringify(updatedTemplates),
+          type: 'json',
+          description: 'Email templates for quotations and campaigns'
+        });
+      } catch (saveErr) {
+        console.warn('Could not save to backend, but template is available locally:', saveErr);
+      }
+
+      setShowCreateModal(false);
+      setNewTemplate({ name: '', subject: '', content: '', description: '' });
+      alert('Template created successfully!');
+    } catch (err) {
+      console.error('Failed to create template:', err);
+      alert('Failed to create template');
+    }
+  };
+
+  const handleDeleteTemplate = async (templateId) => {
+    if (window.confirm('Are you sure you want to delete this template?')) {
+      try {
+        const updatedTemplates = templates.filter(t => t.id !== templateId);
+        setTemplates(updatedTemplates);
+        
+        // Try to save to backend, but don't fail if it doesn't work
+        try {
+          await settingsAPI.save({
+            key: 'email_templates',
+            value: JSON.stringify(updatedTemplates),
+            type: 'json',
+            description: 'Email templates for quotations and campaigns'
+          });
+        } catch (saveErr) {
+          console.warn('Could not save to backend, but template is deleted locally:', saveErr);
+        }
+
+        if (selectedTemplate === templateId) {
+          setSelectedTemplate(null);
+        }
+        
+        alert('Template deleted successfully!');
+      } catch (err) {
+        console.error('Failed to delete template:', err);
+        alert('Failed to delete template');
+      }
     }
   };
 
@@ -792,11 +865,22 @@ const EmailTemplates = () => {
     <Layout>
       <div className="p-6">
         <div className="mb-6">
-          <h1 className="text-3xl font-bold text-gray-800 flex items-center gap-2">
-            <Mail className="h-8 w-8" />
-            Email Templates
-          </h1>
-          <p className="text-gray-600 mt-2">Manage email templates for sending quotations to clients</p>
+          <div className="flex justify-between items-center">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-800 flex items-center gap-2">
+                <Mail className="h-8 w-8" />
+                Email Templates
+              </h1>
+              <p className="text-gray-600 mt-2">Manage email templates for sending quotations to clients</p>
+            </div>
+            <button
+              onClick={() => setShowCreateModal(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            >
+              <Plus className="h-4 w-4" />
+              Add New
+            </button>
+          </div>
         </div>
 
         {/* Templates Grid */}
@@ -890,6 +974,15 @@ const EmailTemplates = () => {
                       </>
                     )}
                   </button>
+                  {template.isCustom && (
+                    <button
+                      onClick={() => handleDeleteTemplate(template.id)}
+                      className="px-3 py-2 bg-red-100 text-red-700 rounded hover:bg-red-200 text-sm"
+                      title="Delete template"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
@@ -927,6 +1020,105 @@ const EmailTemplates = () => {
                     <strong>Note:</strong> This is a preview with sample data. When you send emails to clients, actual quotation data will be used with this template design.
                   </p>
                 </div>
+              </div>
+            </div>
+          </div>
+        )}
+        
+        {/* Create Template Modal */}
+        {showCreateModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+              <div className="flex justify-between items-center p-6 border-b">
+                <h2 className="text-xl font-bold text-gray-900">Create New Email Template</h2>
+                <button
+                  onClick={() => {
+                    setShowCreateModal(false);
+                    setNewTemplate({ name: '', subject: '', content: '', description: '' });
+                  }}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X className="h-6 w-6" />
+                </button>
+              </div>
+              
+              <div className="p-6 space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Template Name <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={newTemplate.name}
+                    onChange={(e) => setNewTemplate({...newTemplate, name: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="Enter template name"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Email Subject <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={newTemplate.subject}
+                    onChange={(e) => setNewTemplate({...newTemplate, subject: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="Enter email subject"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Description
+                  </label>
+                  <input
+                    type="text"
+                    value={newTemplate.description}
+                    onChange={(e) => setNewTemplate({...newTemplate, description: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="Brief description of this template"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Email Content <span className="text-red-500">*</span>
+                  </label>
+                  <textarea
+                    value={newTemplate.content}
+                    onChange={(e) => setNewTemplate({...newTemplate, content: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    rows={10}
+                    placeholder="Enter your email content here. You can use HTML tags for formatting."
+                    required
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    You can use HTML tags like &lt;strong&gt;, &lt;em&gt;, &lt;br&gt;, etc. for formatting.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 p-6 border-t bg-gray-50">
+                <button
+                  onClick={() => {
+                    setShowCreateModal(false);
+                    setNewTemplate({ name: '', subject: '', content: '', description: '' });
+                  }}
+                  className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleCreateTemplate}
+                  disabled={!newTemplate.name || !newTemplate.subject || !newTemplate.content}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Create Template
+                </button>
               </div>
             </div>
           </div>

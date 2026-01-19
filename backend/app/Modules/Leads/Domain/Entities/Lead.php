@@ -46,8 +46,11 @@ class Lead extends Model
         'client_title',
         'email',
         'phone',
+        'email_secondary',
+        'phone_secondary',
         'source',
         'destination',
+        'address',
         'status',
         'assigned_to',
         'priority',
@@ -59,7 +62,11 @@ class Lead extends Model
         'infant',
         'budget',
         'remark',
-        'query_id'
+        'query_id',
+        'client_type',
+        'company_id',
+        'date_of_birth',
+        'marriage_anniversary'
     ];
 
     /**
@@ -79,6 +86,8 @@ class Lead extends Model
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
         'deleted_at' => 'datetime',
+        'date_of_birth' => 'date',
+        'marriage_anniversary' => 'date',
     ];
 
     /**

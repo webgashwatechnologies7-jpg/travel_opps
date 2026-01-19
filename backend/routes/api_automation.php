@@ -4,6 +4,7 @@ use App\Modules\Automation\Presentation\Controllers\CampaignController;
 use App\Modules\Automation\Presentation\Controllers\GoogleSheetSyncController;
 use App\Modules\Automation\Presentation\Controllers\InboxController;
 use App\Modules\Automation\Presentation\Controllers\WhatsappController;
+use App\Http\Controllers\WhatsAppController as PublicWhatsAppController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -16,6 +17,12 @@ use Illuminate\Support\Facades\Route;
 Route::middleware('auth:sanctum')->prefix('google-sheets')->group(function () {
     Route::post('/connect', [GoogleSheetSyncController::class, 'connect']);
     Route::get('/status', [GoogleSheetSyncController::class, 'status']);
+});
+
+// WhatsApp webhook routes - public (Meta will call these)
+Route::prefix('whatsapp')->group(function () {
+    Route::get('/webhook', [PublicWhatsAppController::class, 'verifyWebhook']);
+    Route::post('/webhook', [PublicWhatsAppController::class, 'webhook']);
 });
 
 // WhatsApp routes - require authentication

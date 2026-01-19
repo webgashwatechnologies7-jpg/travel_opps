@@ -76,3 +76,38 @@
   transform: translateZ(0);
   -webkit-font-smoothing: antialiased;
 }
+
+/* Mobile-specific improvements */
+@media (max-width: 768px) {
+  .sidebar-wrapper {
+    z-index: 9999;
+  }
+  
+  .mobile-menu-container {
+    height: 100vh;
+    overflow-y: auto;
+  }
+  
+  /* Better touch targets for mobile */
+  .mobile-menu-toggle {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  
+  /* Improve readability on mobile */
+  .text-xs {
+    font-size: 0.75rem;
+  }
+  
+  /* Prevent horizontal scroll on mobile */
+  .overflow-x-hidden {
+    overflow-x: hidden;
+  }
+}
+
+/* Tablet improvements */
+@media (min-width: 768px) and (max-width: 1024px) {
+  .sidebar-wrapper {
+    z-index: 50;
+  }
+}

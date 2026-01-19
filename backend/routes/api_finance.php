@@ -2,7 +2,7 @@
 
 use App\Modules\Finance\Presentation\Controllers\ExpenseController;
 use App\Modules\Hr\Presentation\Controllers\TargetController;
-use App\Modules\Leads\Presentation\Controllers\PaymentController;
+use App\Modules\Payments\Presentation\Controllers\PaymentController;
 use Illuminate\Support\Facades\Route;
 
 /*

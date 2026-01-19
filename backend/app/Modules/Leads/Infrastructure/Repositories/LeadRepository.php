@@ -20,7 +20,12 @@ class LeadRepository implements LeadRepositoryInterface
     {
         $query = Lead::query();
 
-        // Apply filters
+        // Always filter by company for multi-tenant isolation
+        if (isset($filters['company_id']) && $filters['company_id']) {
+            $query->where('company_id', $filters['company_id']);
+        }
+
+        // Apply filters with optimized queries
         if (isset($filters['status']) && $filters['status']) {
             $query->where('status', $filters['status']);
         }
@@ -41,10 +46,25 @@ class LeadRepository implements LeadRepositoryInterface
             $query->where('priority', $filters['priority']);
         }
 
-        // Order by latest first
+        // Add search functionality with indexed columns
+        if (isset($filters['search']) && $filters['search']) {
+            $search = $filters['search'];
+            $query->where(function ($q) use ($search) {
+                $q->where('client_name', 'like', '%' . $search . '%')
+                  ->orWhere('email', 'like', '%' . $search . '%')
+                  ->orWhere('phone', 'like', '%' . $search . '%');
+            });
+        }
+
+        // Order by latest first with created_at index
         $query->latest();
 
-        return $query->paginate($perPage);
+        // Select only necessary columns to reduce memory usage
+        return $query->select([
+            'id', 'client_name', 'email', 'phone', 'source', 
+            'destination', 'status', 'assigned_to', 'priority', 
+            'travel_start_date', 'created_at', 'company_id'
+        ])->paginate($perPage);
     }
 
     /**

@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\Activity;
+use App\Traits\StandardApiResponse;
+use App\Traits\RequestSanitizer;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
@@ -11,6 +13,7 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ActivityController extends Controller
 {
+    use StandardApiResponse, RequestSanitizer;
     /**
      * Get all activities.
      *
@@ -41,18 +44,10 @@ class ActivityController extends Controller
                     ];
                 });
 
-            return response()->json([
-                'success' => true,
-                'message' => 'Activities retrieved successfully',
-                'data' => $activities,
-            ], 200);
+            return $this->successResponse($activities, 'Activities retrieved successfully');
 
         } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'An error occurred while retrieving activities',
-                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
-            ], 500);
+            return $this->serverErrorResponse('An error occurred while retrieving activities', $e);
         }
     }
 
@@ -325,15 +320,58 @@ class ActivityController extends Controller
                 ], 422);
             }
 
-            // TODO: Implement Excel import logic
-            // For now, return success message
-            // You can use libraries like PhpSpreadsheet or Maatwebsite\Excel
+            // Handle file import (CSV/Excel)
+            $importedCount = 0;
+            $errors = [];
+            
+            if ($request->hasFile('import_file')) {
+                $file = $request->file('import_file');
+                $filePath = $file->getPathname();
+                
+                try {
+                    // Handle CSV file
+                    if ($file->getClientOriginalExtension() === 'csv') {
+                        $handle = fopen($filePath, 'r');
+                        $header = fgetcsv($handle); // Skip header row
+                        
+                        while (($row = fgetcsv($handle)) !== false) {
+                            try {
+                                Activity::create([
+                                    'name' => $row[0] ?? '',
+                                    'destination' => $row[1] ?? '',
+                                    'activity_details' => $row[2] ?? '',
+                                    'status' => $row[3] ?? 'active',
+                                    'created_by' => $request->user()->id,
+                                    'company_id' => tenant('id'),
+                                ]);
+                                $importedCount++;
+                            } catch (\Exception $e) {
+                                $errors[] = "Row " . ($importedCount + 2) . ": " . $e->getMessage();
+                            }
+                        }
+                        fclose($handle);
+                    }
+                    // For Excel files, would need PhpSpreadsheet library
+                    else {
+                        return response()->json([
+                            'success' => false,
+                            'message' => 'Excel files require PhpSpreadsheet library. Please use CSV format or install PhpSpreadsheet.',
+                        ], 422);
+                    }
+                } catch (\Exception $e) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Error processing file: ' . $e->getMessage(),
+                    ], 500);
+                }
+            }
             
             return response()->json([
                 'success' => true,
                 'message' => 'Activities imported successfully',
                 'data' => [
-                    'imported_count' => 0, // TODO: Return actual count
+                    'imported_count' => $importedCount,
+                    'errors' => $errors,
                 ],
             ], 200);
 

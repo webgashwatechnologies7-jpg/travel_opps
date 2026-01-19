@@ -19,6 +19,11 @@ Route::get('/', function () {
     return view('welcome');
 });
 
+// Add a simple login route for web middleware
+Route::get('/login', function () {
+    return response()->json(['message' => 'Please use API login endpoint'], 401);
+})->name('login');
+
 use App\Http\Controllers\GoogleController;
 
 Route::middleware('auth')->group(function () {

@@ -44,18 +44,9 @@ class AuthController extends Controller
             $passwordToCheck = trim($request->password);
 
             if (!$user || !Hash::check($passwordToCheck, $user->password)) {
-                $l = strlen($passwordToCheck);
-                $lastCharAscii = $l > 0 ? ord(substr($passwordToCheck, -1)) : 'N/A';
-
-                $debugMessage = 'Invalid credentials. ' .
-                    'Email: ' . $request->email . ' | ' .
-                    'PassLen: ' . $l . ' | ' .
-                    'LastCharASCII: ' . $lastCharAscii . ' | ' .
-                    'HashCheck: ' . ($user && Hash::check($passwordToCheck, $user->password) ? 'PASS' : 'FAIL');
-
                 return response()->json([
                     'success' => false,
-                    'message' => $debugMessage,
+                    'message' => 'Invalid credentials. Please check your email and password.',
                 ], 401);
             }
 
@@ -86,6 +77,7 @@ class AuthController extends Controller
                 'name' => $user->name,
                 'email' => $user->email,
                 'is_super_admin' => $user->isSuperAdmin(),
+                'roles' => $user->roles->pluck('name'),
             ];
 
             // Add company info if not super admin
@@ -181,6 +173,7 @@ class AuthController extends Controller
                         'email_verified_at' => $user->email_verified_at,
                         'created_at' => $user->created_at,
                         'updated_at' => $user->updated_at,
+                        'roles' => $user->roles->pluck('name'),
                     ],
                 ],
             ], 200);

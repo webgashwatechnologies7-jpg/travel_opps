@@ -375,15 +375,64 @@ class HotelController extends Controller
                 ], 422);
             }
 
-            // TODO: Implement Excel import logic
-            // For now, return success message
-            // You can use libraries like PhpSpreadsheet or Maatwebsite\Excel
+            // Handle file import (CSV/Excel)
+            $importedCount = 0;
+            $errors = [];
+            
+            if ($request->hasFile('import_file')) {
+                $file = $request->file('import_file');
+                $filePath = $file->getPathname();
+                
+                try {
+                    // Handle CSV file
+                    if ($file->getClientOriginalExtension() === 'csv') {
+                        $handle = fopen($filePath, 'r');
+                        $header = fgetcsv($handle); // Skip header row
+                        
+                        while (($row = fgetcsv($handle)) !== false) {
+                            try {
+                                Hotel::create([
+                                    'name' => $row[0] ?? '',
+                                    'category' => $row[1] ?? '',
+                                    'destination' => $row[2] ?? '',
+                                    'hotel_details' => $row[3] ?? '',
+                                    'contact_person' => $row[4] ?? '',
+                                    'email' => $row[5] ?? '',
+                                    'phone' => $row[6] ?? '',
+                                    'hotel_address' => $row[7] ?? '',
+                                    'hotel_link' => $row[8] ?? '',
+                                    'status' => $row[9] ?? 'active',
+                                    'created_by' => $request->user()->id,
+                                    'company_id' => tenant('id'),
+                                ]);
+                                $importedCount++;
+                            } catch (\Exception $e) {
+                                $errors[] = "Row " . ($importedCount + 2) . ": " . $e->getMessage();
+                            }
+                        }
+                        fclose($handle);
+                    }
+                    // For Excel files, would need PhpSpreadsheet library
+                    else {
+                        return response()->json([
+                            'success' => false,
+                            'message' => 'Excel files require PhpSpreadsheet library. Please use CSV format or install PhpSpreadsheet.',
+                        ], 422);
+                    }
+                } catch (\Exception $e) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Error processing file: ' . $e->getMessage(),
+                    ], 500);
+                }
+            }
             
             return response()->json([
                 'success' => true,
                 'message' => 'Hotels imported successfully',
                 'data' => [
-                    'imported_count' => 0, // TODO: Return actual count
+                    'imported_count' => $importedCount,
+                    'errors' => $errors,
                 ],
             ], 200);
 

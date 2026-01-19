@@ -13,7 +13,9 @@ return [
     |
     */
 
-    'default' => env('MAIL_MAILER', 'smtp'),
+    'default' => (env('APP_ENV') === 'local' && env('MAIL_HOST') === 'mailpit' && in_array(env('MAIL_MAILER', 'smtp'), ['smtp', '']))
+        ? 'log'
+        : env('MAIL_MAILER', 'smtp'),
 
     /*
     |--------------------------------------------------------------------------

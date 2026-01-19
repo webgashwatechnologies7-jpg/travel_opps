@@ -23,7 +23,7 @@ class PerformanceController extends Controller
         try {
             // Validate the month parameter
             $validator = Validator::make($request->all(), [
-                'month' => 'required|regex:/^\d{4}-\d{2}$/',
+                'month' => 'nullable|regex:/^\d{4}-\d{2}$/',
             ], [
                 'month.required' => 'The month parameter is required.',
                 'month.regex' => 'The month must be in YYYY-MM format (e.g., 2025-12).',
@@ -37,7 +37,8 @@ class PerformanceController extends Controller
                 ], 422);
             }
 
-            $month = $request->input('month');
+            // Use provided month or default to current month
+            $month = $request->input('month', now()->format('Y-m'));
             
             // Validate month format and extract year and month
             $monthParts = explode('-', $month);

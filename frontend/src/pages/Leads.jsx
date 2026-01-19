@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { leadsAPI, leadSourcesAPI, usersAPI } from '../services/api';
+import { leadsAPI, leadSourcesAPI, usersAPI, servicesAPI } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import Layout from '../components/Layout';
 import { X, ChevronDown, Filter, Eye, Mail, MessageSquare, Edit, MoreVertical } from 'lucide-react';
@@ -11,6 +11,7 @@ const Leads = () => {
   const [leads, setLeads] = useState([]);
   const [leadSources, setLeadSources] = useState([]);
   const [users, setUsers] = useState([]);
+  const [services, setServices] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [showAssignModal, setShowAssignModal] = useState(false);
@@ -45,6 +46,7 @@ const Leads = () => {
     fetchLeads();
     fetchLeadSources();
     fetchUsers();
+    fetchServices();
   }, []);
 
   // Close dropdown when clicking outside
@@ -92,6 +94,24 @@ const Leads = () => {
       setUsers(response.data.data.users || []);
     } catch (err) {
       console.error('Failed to fetch users:', err);
+    }
+  };
+
+  const fetchServices = async () => {
+    try {
+      const response = await servicesAPI.getActive();
+      if (response.data.success) {
+        setServices(response.data.data);
+      }
+    } catch (err) {
+      console.error('Failed to fetch services:', err);
+      // Fallback to static services if API fails
+      setServices([
+        { id: 1, name: 'Full Package' },
+        { id: 2, name: 'Hotel Only' },
+        { id: 3, name: 'Visa Only' },
+        { id: 4, name: 'Flight Only' }
+      ]);
     }
   };
 
@@ -919,10 +939,11 @@ const Leads = () => {
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
                       <option value="">Select Service</option>
-                      <option value="Full Package">Full Package</option>
-                      <option value="Hotel Only">Hotel Only</option>
-                      <option value="Visa Only">Visa Only</option>
-                      <option value="Flight Only">Flight Only</option>
+                      {services.map((service) => (
+                        <option key={service.id} value={service.name}>
+                          {service.name}
+                        </option>
+                      ))}
                     </select>
                   </div>
 

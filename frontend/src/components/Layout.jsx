@@ -7,7 +7,7 @@ import {
   FileText, 
   CreditCard, 
   MessageCircle, 
-  Mail, 
+  Mail,
   BarChart3, 
   Megaphone, 
   Receipt, 
@@ -22,10 +22,14 @@ import {
   Bell,
   Settings,
   ChevronDown as ChevronDownIcon,
+  ChevronLeft,
+  ChevronRight as ChevronRightIcon,
   Plane,
   Hotel,
   Menu,
-  ChevronLeft
+  Users,
+  Phone,
+  Package
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { settingsAPI } from '../services/api';
@@ -38,17 +42,45 @@ const Layout = ({ children }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isUserDropdownOpen, setIsUserDropdownOpen] = useState(false);
   const [companyLogo, setCompanyLogo] = useState(null);
+  const [isMobile, setIsMobile] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [openSubmenus, setOpenSubmenus] = useState({
     reports: false,
     masters: false,
-    settings: false
+    settings: false,
+    accounts: false
   });
 
   // Check if user is Admin
   const isAdmin = user?.role === 'Admin' || user?.roles?.some(role => role.name === 'Admin') || false;
 
+  // Detect mobile screen size
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+      if (window.innerWidth < 768) {
+        setIsSidebarOpen(false);
+        setIsMobileMenuOpen(false);
+      }
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
   const toggleSidebar = () => {
-    setIsSidebarOpen(!isSidebarOpen);
+    if (isMobile) {
+      setIsMobileMenuOpen(!isMobileMenuOpen);
+    } else {
+      setIsSidebarOpen(!isSidebarOpen);
+    }
+  };
+
+  const closeMobileMenu = () => {
+    if (isMobile) {
+      setIsMobileMenuOpen(false);
+    }
   };
 
   const toggleUserDropdown = () => {
@@ -61,10 +93,13 @@ const Layout = ({ children }) => {
       if (isUserDropdownOpen && !event.target.closest('.user-dropdown')) {
         setIsUserDropdownOpen(false);
       }
+      if (isMobile && isMobileMenuOpen && !event.target.closest('.mobile-menu-container') && !event.target.closest('.mobile-menu-toggle')) {
+        setIsMobileMenuOpen(false);
+      }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [isUserDropdownOpen]);
+  }, [isUserDropdownOpen, isMobileMenuOpen, isMobile]);
 
   const handleLogout = async () => {
     await logout();
@@ -117,16 +152,27 @@ const Layout = ({ children }) => {
   useEffect(() => {
     const reportsPaths = [
       '/dashboard/employee-performance',
+      '/employee-management',
       '/dashboard/source-roi',
       '/dashboard/destination-performance'
     ];
+    const marketingPaths = [
+      '/marketing',
+      '/marketing/email-campaigns',
+      '/marketing/sms-campaigns',
+      '/marketing/templates',
+      '/marketing/analytics',
+      '/marketing/automation',
+      '/marketing/landing-pages'
+    ];
     const settingsPaths = [
       '/settings',
+      '/company-settings/team-management',
+      '/email-templates',
       '/settings/terms-conditions',
       '/settings/policies',
       '/settings/account-details',
-      '/settings/logo',
-      '/email-templates'
+      '/settings/logo'
     ];
     const mastersPaths = [
       '/users', 
@@ -145,11 +191,17 @@ const Layout = ({ children }) => {
       '/masters/package-theme',
       '/masters/currency'
     ];
+    const accountsPaths = [
+      '/accounts/clients',
+      '/accounts/agents',
+      '/accounts/corporate'
+    ];
     
     setOpenSubmenus(prev => ({
       reports: reportsPaths.some(path => location.pathname === path) || prev.reports,
       masters: mastersPaths.some(path => location.pathname === path) || prev.masters,
-      settings: settingsPaths.some(path => location.pathname === path) || prev.settings
+      settings: settingsPaths.some(path => location.pathname === path) || prev.settings,
+      accounts: accountsPaths.some(path => location.pathname === path) || prev.accounts
     }));
   }, [location.pathname]);
 
@@ -157,7 +209,16 @@ const Layout = ({ children }) => {
     { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { path: '/leads', label: 'Queries', icon: MessageSquare },
     { path: '/itineraries', label: 'Itineraries', icon: FileText },
-    { path: '/payments', label: 'Accounts', icon: CreditCard },
+    { path: '/services', label: 'All Services', icon: Package },
+    { 
+      label: 'Accounts', 
+      icon: CreditCard,
+      submenu: [
+        { path: '/accounts/clients', label: 'Clients' },
+        { path: '/accounts/agents', label: 'Agents' },
+        { path: '/accounts/corporate', label: 'Corporate' }
+      ]
+    },
     { path: '/whatsapp', label: 'WhatsApp', icon: MessageCircle },
     { path: '/mail', label: 'Mail', icon: Mail },
     { 
@@ -165,17 +226,31 @@ const Layout = ({ children }) => {
       icon: BarChart3,
       submenu: [
         { path: '/dashboard/employee-performance', label: 'Performance' },
+        { path: '/employee-management', label: 'Employee Management' },
         { path: '/dashboard/source-roi', label: 'Source ROI' },
         { path: '/dashboard/destination-performance', label: 'Destination' }
       ]
     },
-    { path: '/marketing', label: 'Marketing', icon: Megaphone },
+    { 
+      label: 'Marketing', 
+      icon: Megaphone,
+      submenu: [
+        { path: '/marketing', label: 'Marketing Dashboard' },
+        { path: '/marketing/email-campaigns', label: 'Email Campaigns' },
+        { path: '/marketing/sms-campaigns', label: 'SMS Campaigns' },
+        { path: '/marketing/templates', label: 'Marketing Templates' },
+        { path: '/marketing/analytics', label: 'Marketing Analytics' },
+        { path: '/marketing/automation', label: 'Marketing Automation' },
+        { path: '/marketing/landing-pages', label: 'Landing Pages' }
+      ]
+    },
     { path: '/expenses', label: 'Expense Book', icon: Receipt },
     { 
       label: 'Settings', 
       icon: Settings,
       submenu: [
         { path: '/settings', label: 'Settings' },
+        { path: '/company-settings/team-management', label: 'Team Management' },
         { path: '/email-templates', label: 'Email Templates' },
         { path: '/settings/terms-conditions', label: 'Terms & Conditions' },
         { path: '/settings/policies', label: 'Policies' },
@@ -208,15 +283,29 @@ const Layout = ({ children }) => {
 
   return (
     <div className="min-h-screen bg-gray-100 relative">
+      {/* Mobile Menu Overlay */}
+      {isMobile && isMobileMenuOpen && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 z-40 md:hidden"
+          onClick={closeMobileMenu}
+        />
+      )}
+      
       {/* Sidebar Wrapper - Toggleable */}
       <div 
-        className={`sidebar-wrapper fixed inset-y-0 left-0 z-10 transition-all duration-300 ${isSidebarOpen ? 'w-64' : 'w-20'}`}
+        className={`sidebar-wrapper fixed inset-y-0 left-0 z-50 transition-all duration-300 ease-in-out ${
+          isMobile 
+            ? isMobileMenuOpen ? 'w-64' : 'w-0'
+            : isSidebarOpen ? 'w-64' : 'w-20'
+        } ${isMobile ? 'md:hidden' : ''}`}
         style={{ 
-          boxShadow: '2px 0 20px rgba(0, 0, 0, 0.2)'
+          boxShadow: isMobileMenuOpen ? '4px 0 20px rgba(0, 0, 0, 0.3)' : '2px 0 20px rgba(0, 0, 0, 0.2)'
         }}
       >
         {/* Sidebar - Dynamic Color */}
-        <div className="w-full h-full shadow-lg" style={{ backgroundColor: settings?.sidebar_color || '#2765B0' }}>
+        <div className={`w-full h-full shadow-lg mobile-menu-container ${
+          isMobile ? (isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full') : 'translate-x-0'
+        } transition-transform duration-300`} style={{ backgroundColor: settings?.sidebar_color || '#2765B0' }}>
           <div className="flex flex-col h-full">
             {/* Logo and Toggle Button */}
             <div className="p-4 border-b border-blue-800/50 flex items-center justify-between">
@@ -226,7 +315,10 @@ const Layout = ({ children }) => {
                     <img 
                       src={companyLogo} 
                       alt="Company Logo" 
-                      className={`h-8 object-contain transition-all duration-300 ${isSidebarOpen ? 'opacity-100 max-w-[180px]' : 'opacity-100 w-8'}`}
+                      className={`h-8 object-contain transition-all duration-300 ${
+                        isMobile ? 'opacity-100 max-w-[120px]' : 
+                        isSidebarOpen ? 'opacity-100 max-w-[180px]' : 'opacity-100 w-8'
+                      }`}
                       onError={(e) => {
                         e.target.style.display = 'none';
                         const fallback = e.target.nextSibling;
@@ -235,27 +327,35 @@ const Layout = ({ children }) => {
                     />
                     <div className="hidden flex items-center">
                       <h1 className="text-xl font-bold text-white">T</h1>
-                      <span className={`ml-3 text-white font-semibold whitespace-nowrap transition-opacity duration-300 ${isSidebarOpen ? 'opacity-100' : 'opacity-0 w-0 overflow-hidden'}`}>TravelOps</span>
+                      <span className={`ml-3 text-white font-semibold whitespace-nowrap transition-all duration-300 ${
+                        isMobile ? 'opacity-100 max-w-[120px]' : 
+                        isSidebarOpen ? 'opacity-100 max-w-[180px]' : 'opacity-0 w-0 overflow-hidden'
+                      }`}>TravelOps</span>
                     </div>
                   </>
                 ) : (
                   <>
                     <h1 className="text-xl font-bold text-white">T</h1>
-                    <span className={`ml-3 text-white font-semibold whitespace-nowrap transition-opacity duration-300 ${isSidebarOpen ? 'opacity-100' : 'opacity-0 w-0 overflow-hidden'}`}>TravelOps</span>
+                    <span className={`ml-3 text-white font-semibold whitespace-nowrap transition-all duration-300 ${
+                      isMobile ? 'opacity-100 max-w-[120px]' : 
+                      isSidebarOpen ? 'opacity-100 max-w-[180px]' : 'opacity-0 w-0 overflow-hidden'
+                    }`}>TravelOps</span>
                   </>
                 )}
               </div>
-              <button
-                onClick={toggleSidebar}
-                className="p-1.5 rounded-lg hover:bg-blue-800/50 transition-colors text-white"
-                title={isSidebarOpen ? 'Close Sidebar' : 'Open Sidebar'}
-              >
-                {isSidebarOpen ? (
-                  <ChevronLeft className="h-5 w-5" />
-                ) : (
-                  <ChevronRight className="h-5 w-5" />
-                )}
-              </button>
+              {!isMobile && (
+                <button
+                  onClick={toggleSidebar}
+                  className="p-1.5 rounded-lg hover:bg-blue-800/50 transition-colors text-white"
+                  title={isSidebarOpen ? 'Close Sidebar' : 'Open Sidebar'}
+                >
+                  {isSidebarOpen ? (
+                    <ChevronLeft className="h-5 w-5" />
+                  ) : (
+                    <ChevronRight className="h-5 w-5" />
+                  )}
+                </button>
+              )}
             </div>
 
           {/* Navigation */}
@@ -278,12 +378,20 @@ const Layout = ({ children }) => {
                       }`}
                     >
                       <Icon className="h-6 w-6 flex-shrink-0 text-white" />
-                      <span className={`ml-3 text-sm font-medium whitespace-nowrap text-white transition-opacity duration-300 ${isSidebarOpen ? 'opacity-100' : 'opacity-0 w-0 overflow-hidden'}`}>
+                      <span className={`ml-3 text-sm font-medium whitespace-nowrap text-white transition-all duration-300 ${
+                        isMobile ? 'opacity-100 max-w-[120px]' : 
+                        isSidebarOpen ? 'opacity-100 max-w-[150px]' : 'opacity-0 w-0 overflow-hidden'
+                      }`}>
                         {item.label}
                       </span>
-                      <ChevronDown className={`ml-auto h-4 w-4 text-white transition-all duration-200 ${isSubmenuOpen ? 'rotate-180' : ''} ${isSidebarOpen ? 'opacity-100' : 'opacity-0'}`} />
+                      <ChevronDown className={`ml-auto h-4 w-4 text-white transition-all duration-200 ${
+                        isSubmenuOpen ? 'rotate-180' : ''
+                      } ${
+                        isMobile ? 'opacity-100' : 
+                        isSidebarOpen ? 'opacity-100' : 'opacity-0'
+                      }`} />
                     </button>
-                    {isSubmenuOpen && isSidebarOpen && (
+                    {isSubmenuOpen && (isSidebarOpen || isMobile) && (
                       <div className="ml-2 mt-1 space-y-1">
                         {item.submenu.map((subItem) => {
                           const isSubActive = isActive(subItem.path);
@@ -321,7 +429,10 @@ const Layout = ({ children }) => {
                       }`}
                     >
                       <Icon className="h-6 w-6 flex-shrink-0 text-white" />
-                      <span className={`ml-3 text-sm font-medium whitespace-nowrap text-white transition-opacity duration-300 ${isSidebarOpen ? 'opacity-100' : 'opacity-0 w-0 overflow-hidden'}`}>
+                      <span className={`ml-3 text-sm font-medium whitespace-nowrap text-white transition-all duration-300 ${
+                        isMobile ? 'opacity-100 max-w-[120px]' : 
+                        isSidebarOpen ? 'opacity-100 max-w-[150px]' : 'opacity-0 w-0 overflow-hidden'
+                      }`}>
                         {item.label}
                       </span>
                     </Link>
@@ -337,69 +448,110 @@ const Layout = ({ children }) => {
 
       {/* Main Content */}
       <div 
-        className={`main-content transition-all duration-300 ${isSidebarOpen ? 'ml-64' : 'ml-20'}`}
+        className={`main-content transition-all duration-300 ease-in-out min-h-screen ${
+          isMobile 
+            ? 'ml-0'
+            : isSidebarOpen ? 'ml-64' : 'ml-20'
+        }`}
       >
         {/* Header Bar - Dynamic Background */}
         <div 
-          className={`header-bar fixed top-0 z-10 px-6 py-3 h-16 right-0 transition-all duration-300 ${isSidebarOpen ? 'left-64' : 'left-20'}`}
+          className={`header-bar fixed top-0 z-30 px-4 md:px-6 py-3 h-16 right-0 transition-all duration-300 ease-in-out flex items-center ${
+            isMobile 
+              ? 'left-0'
+              : isSidebarOpen ? 'left-64' : 'left-20'
+          }`}
           style={{ backgroundColor: settings?.header_background_color || '#D8DEF5' }}
         >
-          <div className="flex items-center justify-between gap-4 h-full">
-            {/* Left Side - Search and Filters */}
-            <div className="flex items-center gap-3 flex-1">
-              <div className="relative flex-1 max-w-md">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-600 h-4 w-4" />
+          <div className="flex items-center justify-between gap-2 md:gap-4 h-full w-full">
+            {/* Left Side - Mobile Menu Toggle, Search and Filters */}
+            <div className="flex items-center gap-2 md:gap-3 flex-1">
+              {/* Mobile Menu Toggle */}
+              {isMobile && (
+                <button
+                  onClick={toggleSidebar}
+                  className="mobile-menu-toggle p-2 rounded-lg hover:bg-gray-200 transition-colors text-gray-700"
+                  title="Toggle Menu"
+                >
+                  <Menu className="h-5 w-5" />
+                </button>
+              )}
+              
+              {/* Search - Collapsible on Mobile */}
+              <div className="relative flex-1 max-w-xs md:max-w-md">
+                <Search className="absolute left-2 md:left-3 top-1/2 transform -translate-y-1/2 text-gray-600 h-4 w-4" />
                 <input
                   type="text"
                   placeholder="Q Search"
-                  className="w-full pl-10 pr-4 py-2 bg-white border border-gray-400 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full pl-8 md:pl-10 pr-2 md:pr-4 py-2 bg-white border border-gray-400 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
-              <button className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-400 rounded-lg text-sm hover:bg-gray-100 text-gray-700">
-                <Filter className="h-4 w-4" />
-                Filter
-              </button>
-              <button className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-400 rounded-lg text-sm hover:bg-gray-100 text-gray-700">
-                Select
-                <ChevronDownIcon className="h-4 w-4" />
-              </button>
-              <div className="flex items-center gap-1 bg-white border border-gray-400 rounded-lg p-1">
-                <button className="p-1.5 hover:bg-gray-100 rounded">
-                  <List className="h-4 w-4 text-gray-700" />
+              
+              {/* Action Buttons - Hidden on Small Mobile */}
+              <div className="hidden md:flex items-center gap-2">
+                <button className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-400 rounded-lg text-sm hover:bg-gray-100 text-gray-700">
+                  <Filter className="h-4 w-4" />
+                  <span className="hidden lg:block">Filter</span>
                 </button>
-                <button className="p-1.5 hover:bg-gray-100 rounded">
-                  <Grid className="h-4 w-4 text-gray-700" />
+                <button className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-400 rounded-lg text-sm hover:bg-gray-100 text-gray-700">
+                  <span className="hidden lg:block">Select</span>
+                  <ChevronDownIcon className="h-4 w-4" />
                 </button>
+                <div className="flex items-center gap-1 bg-white border border-gray-400 rounded-lg p-1">
+                  <button className="p-1.5 hover:bg-gray-100 rounded">
+                    <List className="h-4 w-4 text-gray-700" />
+                  </button>
+                  <button className="p-1.5 hover:bg-gray-100 rounded">
+                    <Grid className="h-4 w-4 text-gray-700" />
+                  </button>
+                </div>
               </div>
             </div>
 
             {/* Right Side - Action Buttons and User */}
-            <div className="flex items-center gap-3">
-              <button className="px-4 py-2 bg-blue-700 text-white rounded-lg text-sm hover:bg-blue-800 flex items-center gap-2 font-medium">
-                <Plane className="h-4 w-4" />
-                Flight Search
-              </button>
-              <button className="px-4 py-2 bg-orange-500 text-white rounded-lg text-sm hover:bg-orange-600 flex items-center gap-2 font-medium">
-                <Hotel className="h-4 w-4" />
-                Hotel Search
-              </button>
-              <button className="p-2 text-gray-700 hover:bg-gray-400 rounded-lg transition-colors">
+            <div className="flex items-center gap-1 md:gap-3">
+              {/* Flight & Hotel Search - Responsive */}
+              <div className="hidden lg:flex items-center gap-2">
+                <button className="px-3 py-2 bg-blue-700 text-white rounded-lg text-sm hover:bg-blue-800 flex items-center gap-2 font-medium">
+                  <Plane className="h-4 w-4" />
+                  <span>Flight Search</span>
+                </button>
+                <button className="px-3 py-2 bg-orange-500 text-white rounded-lg text-sm hover:bg-orange-600 flex items-center gap-2 font-medium">
+                  <Hotel className="h-4 w-4" />
+                  <span>Hotel Search</span>
+                </button>
+              </div>
+              
+              {/* Mobile Action Icons */}
+              <div className="flex lg:hidden items-center gap-1">
+                <button className="p-2 text-gray-700 hover:bg-gray-200 rounded-lg transition-colors" title="Flight Search">
+                  <Plane className="h-4 w-4" />
+                </button>
+                <button className="p-2 text-gray-700 hover:bg-gray-200 rounded-lg transition-colors" title="Hotel Search">
+                  <Hotel className="h-4 w-4" />
+                </button>
+              </div>
+              
+              {/* Notifications and Settings */}
+              <button className="p-2 text-gray-700 hover:bg-gray-200 rounded-lg transition-colors">
                 <Bell className="h-5 w-5" />
               </button>
               {isAdmin && (
-                <Link to="/settings" className="p-2 text-gray-700 hover:bg-gray-400 rounded-lg transition-colors">
+                <Link to="/settings" className="p-2 text-gray-700 hover:bg-gray-200 rounded-lg transition-colors">
                   <Settings className="h-5 w-5" />
                 </Link>
               )}
+              
+              {/* User Dropdown */}
               <div className="relative user-dropdown">
                 <button
                   onClick={toggleUserDropdown}
-                  className="flex items-center gap-2 pl-3 border-l border-gray-500 hover:bg-gray-200 rounded-lg px-2 py-1 transition-colors"
+                  className="flex items-center gap-2 pl-2 md:pl-3 border-l border-gray-500 hover:bg-gray-200 rounded-lg px-2 py-1 transition-colors"
                 >
-                  <div className="w-8 h-8 bg-blue-700 rounded-full flex items-center justify-center text-white text-sm font-semibold">
+                  <div className="w-6 h-6 md:w-8 md:h-8 bg-blue-700 rounded-full flex items-center justify-center text-white text-xs md:text-sm font-semibold">
                     {user?.name?.charAt(0) || 'A'}
                   </div>
-                  <div>
+                  <div className="hidden md:block">
                     <p className="text-sm font-medium text-gray-800">{user?.name || 'Admin User'}</p>
                   </div>
                   <ChevronDownIcon className={`h-4 w-4 text-gray-700 transition-transform duration-200 ${isUserDropdownOpen ? 'rotate-180' : ''}`} />
@@ -410,7 +562,7 @@ const Layout = ({ children }) => {
                   <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50">
                     <div className="px-4 py-2 border-b border-gray-200">
                       <p className="text-sm font-medium text-gray-800">{user?.name || 'Admin User'}</p>
-                      <p className="text-xs text-gray-500">{user?.email || 'admin@travelops.com'}</p>
+                      <p className="text-xs text-gray-500 truncate">{user?.email || 'admin@travelops.com'}</p>
                     </div>
                     <button
                       onClick={handleLogout}
@@ -427,8 +579,10 @@ const Layout = ({ children }) => {
         </div>
 
         {/* Content Area */}
-        <div className="pt-16" style={{ backgroundColor: settings?.dashboard_background_color || '#D8DEF5' }}>
-          {children}
+        <div className="pt-16 min-h-screen" style={{ backgroundColor: settings?.dashboard_background_color || '#D8DEF5' }}>
+          <div className="p-4 md:p-6 lg:p-8">
+            {children}
+          </div>
         </div>
       </div>
     </div>

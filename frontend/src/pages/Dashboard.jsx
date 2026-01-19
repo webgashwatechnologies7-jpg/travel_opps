@@ -119,33 +119,42 @@ const Dashboard = () => {
 
   return (
     <Layout>
-      <div className="p-6 space-y-6">
-        {/* Top Row - 8 Cards with Same Look */}
-        <div className="grid grid-cols-8 gap-4 items-stretch overflow-x-auto">
+      <div className="space-y-6">
+        {/* Header Section */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Dashboard Overview</h1>
+          <p className="text-gray-600 mt-1">Monitor your business metrics and performance</p>
+        </div>
+
+        {/* Top Row - Stats Cards */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-8 gap-4">
           {cardConfigs.map((card, index) => (
-            <div key={index} className="bg-white rounded-lg shadow p-4 h-full flex flex-col min-w-0">
-              <div className="flex items-center justify-between mb-2">
-                <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: `${card.color}20` }}>
+            <div key={index} className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 hover:shadow-md transition-shadow">
+              <div className="flex items-center justify-between mb-3">
+                <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${card.color}15` }}>
                   <FileText className="h-5 w-5" style={{ color: card.color }} />
                 </div>
                 <BarChartIcon className="h-4 w-4 text-gray-400" />
               </div>
-              <h3 className="text-xs font-semibold text-gray-800 mb-1">{card.name}</h3>
-              <p className="text-2xl font-bold text-blue-600 mb-2">{stats?.[card.dataKey] || 0}</p>
-              <Link to={card.link} className="text-xs text-blue-600 hover:text-blue-800 mt-auto">
+              <h3 className="text-xs font-semibold text-gray-700 mb-1 uppercase tracking-wider">{card.name}</h3>
+              <p className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">{stats?.[card.dataKey] || 0}</p>
+              <Link to={card.link} className="text-xs text-blue-600 hover:text-blue-800 font-medium inline-flex items-center">
                 {card.linkText}
+                <svg className="w-3 h-3 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
               </Link>
             </div>
           ))}
         </div>
 
         {/* Main Content - 3 Column Layout */}
-        <div className="grid grid-cols-12 gap-6 items-start">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
           {/* Left Column */}
-          <div className="col-span-3 space-y-6">
+          <div className="lg:col-span-3 space-y-6">
             {/* Upcoming Tours - Donut Chart */}
-            <div className="bg-white rounded-lg shadow p-4 h-full">
-              <h2 className="text-lg font-semibold text-gray-800 mb-4">Upcoming Tours</h2>
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">Upcoming Tours</h2>
               <DonutChart
                 title="Queries Status"
                 data={queriesStatusData}
@@ -155,13 +164,13 @@ const Dashboard = () => {
             </div>
 
             {/* Revenue Growth */}
-            <div className="bg-white rounded-lg shadow p-4 h-full">
-              <h2 className="text-lg font-semibold text-gray-800 mb-4">Revenue Growth</h2>
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">Revenue Growth</h2>
               <div className="space-y-3">
                 {revenueGrowthPercentages.map((item, index) => (
-                  <div key={index} className="flex items-center justify-between py-2 border-b last:border-b-0">
-                    <span className="text-sm text-gray-700">{item.label}</span>
-                    <span className="text-sm font-semibold text-gray-800">{item.value}</span>
+                  <div key={index} className="flex items-center justify-between py-3 border-b border-gray-100 last:border-b-0">
+                    <span className="text-sm font-medium text-gray-700">{item.label}</span>
+                    <span className="text-sm font-bold text-gray-900 bg-green-50 text-green-700 px-2 py-1 rounded">{item.value}</span>
                   </div>
                 ))}
               </div>
@@ -170,17 +179,17 @@ const Dashboard = () => {
             {/* This Year Queries Button */}
             <Link
               to="/reports"
-              className="block w-full px-4 py-3 bg-blue-600 text-white rounded-lg text-center font-medium hover:bg-blue-700 transition-colors"
+              className="block w-full px-6 py-3 bg-blue-600 text-white rounded-xl text-center font-medium hover:bg-blue-700 transition-colors shadow-sm"
             >
               View Full Report's
             </Link>
           </div>
 
           {/* Center Column */}
-          <div className="col-span-6 space-y-6">
+          <div className="lg:col-span-6 space-y-6">
             {/* Revenue Growth Line Chart */}
-            <div className="bg-white rounded-lg shadow p-4 h-full">
-              <h2 className="text-lg font-semibold text-gray-800 mb-4">Revenue Growth</h2>
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">Revenue Growth</h2>
               <LineChart
                 data={revenueData}
                 xAxisKey="month"
@@ -196,8 +205,8 @@ const Dashboard = () => {
             </div>
 
             {/* This Year Queries / Confirmed Bar Chart */}
-            <div className="bg-white rounded-lg shadow p-4 h-full">
-              <h2 className="text-lg font-semibold text-gray-800 mb-4">This Year Queries / Confirmed</h2>
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">This Year Queries / Confirmed</h2>
               <BarChart
                 data={stats?.this_year_queries_confirmed || []}
                 xAxisKey="month"
@@ -218,17 +227,22 @@ const Dashboard = () => {
             </div>
 
             {/* Latest Query Notes */}
-            <div className="bg-white rounded-lg shadow p-4 h-full">
-              <h2 className="text-lg font-semibold text-gray-800 mb-4">Latest Query Notes</h2>
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">Latest Query Notes</h2>
               <div className="space-y-3 max-h-64 overflow-y-auto">
                 {latestNotes.length === 0 ? (
-                  <p className="text-gray-500 text-sm text-center py-4">No notes available</p>
+                  <div className="text-center py-8">
+                    <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                      <FileText className="w-6 h-6 text-gray-400" />
+                    </div>
+                    <p className="text-gray-500 text-sm">No notes available</p>
+                  </div>
                 ) : (
                   latestNotes.map((note, index) => (
-                    <div key={index} className="border-l-4 border-purple-500 pl-3 py-2">
-                      <p className="font-medium text-sm text-gray-800">Travbizz Travel IT Solutions</p>
-                      <p className="text-xs text-gray-600 mt-1">{note.note || 'lollipop'}</p>
-                      <p className="text-xs text-gray-400 mt-1">
+                    <div key={index} className="border-l-4 border-blue-500 bg-blue-50 pl-4 py-3 rounded-r-lg">
+                      <p className="font-medium text-sm text-gray-900">Travbizz Travel IT Solutions</p>
+                      <p className="text-xs text-gray-700 mt-1">{note.note || 'lollipop'}</p>
+                      <p className="text-xs text-gray-500 mt-2">
                         {new Date(note.created_at).toLocaleString('en-US', { 
                           month: '2-digit', 
                           day: '2-digit', 
@@ -245,8 +259,8 @@ const Dashboard = () => {
             </div>
 
             {/* Top Lead Source Horizontal Bar Chart */}
-            <div className="bg-white rounded-lg shadow p-4 h-full">
-              <h2 className="text-lg font-semibold text-gray-800 mb-4">Top Lead Source</h2>
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">Top Lead Source</h2>
               <HorizontalBarChart
                 data={stats?.top_lead_sources || []}
                 yAxisKey="source"
@@ -268,7 +282,7 @@ const Dashboard = () => {
           </div>
 
           {/* Right Column */}
-          <div className="col-span-3 space-y-6">
+          <div className="lg:col-span-3 space-y-6">
             {/* Task / Followups */}
             <TaskFollowupsWidget maxItems={4} showViewAll={false} />
 
