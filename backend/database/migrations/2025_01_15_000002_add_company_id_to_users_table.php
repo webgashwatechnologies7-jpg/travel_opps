@@ -12,8 +12,17 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('users', function (Blueprint $table) {
-            $table->foreignId('company_id')->nullable()->after('id')->constrained('companies')->onDelete('cascade');
-            $table->boolean('is_super_admin')->default(false)->after('is_active');
+
+            // Add company_id foreign key
+            $table->foreignId('company_id')
+                ->nullable()
+                ->after('id')
+                ->constrained('companies')
+                ->onDelete('cascade');
+
+            // Add super admin flag
+            $table->boolean('is_super_admin')
+                ->default(false);
         });
     }
 
@@ -23,9 +32,13 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('users', function (Blueprint $table) {
+
+            // Drop foreign key & column
             $table->dropForeign(['company_id']);
-            $table->dropColumn(['company_id', 'is_super_admin']);
+            $table->dropColumn('company_id');
+
+            // Drop is_super_admin column
+            $table->dropColumn('is_super_admin');
         });
     }
 };
-

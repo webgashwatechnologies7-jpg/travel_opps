@@ -11,16 +11,42 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('hotels', function (Blueprint $table) {
-            $table->text('hotel_details')->nullable()->after('destination');
-            $table->string('hotel_photo')->nullable()->after('hotel_details');
-            $table->string('contact_person')->nullable()->after('hotel_photo');
-            $table->string('email')->nullable()->after('contact_person');
-            $table->string('phone')->nullable()->after('email');
-            $table->text('hotel_address')->nullable()->after('phone');
-            $table->string('hotel_link')->nullable()->after('hotel_address');
-            $table->integer('category')->nullable()->change();
-        });
+        if (Schema::hasTable('hotels')) {
+            Schema::table('hotels', function (Blueprint $table) {
+
+                if (!Schema::hasColumn('hotels', 'hotel_details')) {
+                    $table->text('hotel_details')->nullable()->after('destination');
+                }
+
+                if (!Schema::hasColumn('hotels', 'hotel_photo')) {
+                    $table->string('hotel_photo')->nullable()->after('hotel_details');
+                }
+
+                if (!Schema::hasColumn('hotels', 'contact_person')) {
+                    $table->string('contact_person')->nullable()->after('hotel_photo');
+                }
+
+                if (!Schema::hasColumn('hotels', 'email')) {
+                    $table->string('email')->nullable()->after('contact_person');
+                }
+
+                if (!Schema::hasColumn('hotels', 'phone')) {
+                    $table->string('phone')->nullable()->after('email');
+                }
+
+                if (!Schema::hasColumn('hotels', 'hotel_address')) {
+                    $table->text('hotel_address')->nullable()->after('phone');
+                }
+
+                if (!Schema::hasColumn('hotels', 'hotel_link')) {
+                    $table->string('hotel_link')->nullable()->after('hotel_address');
+                }
+
+                if (Schema::hasColumn('hotels', 'category')) {
+                    $table->integer('category')->nullable()->change();
+                }
+            });
+        }
     }
 
     /**
@@ -28,16 +54,25 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('hotels', function (Blueprint $table) {
-            $table->dropColumn([
-                'hotel_details',
-                'hotel_photo',
-                'contact_person',
-                'email',
-                'phone',
-                'hotel_address',
-                'hotel_link'
-            ]);
-        });
+        if (Schema::hasTable('hotels')) {
+            Schema::table('hotels', function (Blueprint $table) {
+
+                $columns = [
+                    'hotel_details',
+                    'hotel_photo',
+                    'contact_person',
+                    'email',
+                    'phone',
+                    'hotel_address',
+                    'hotel_link',
+                ];
+
+                foreach ($columns as $column) {
+                    if (Schema::hasColumn('hotels', $column)) {
+                        $table->dropColumn($column);
+                    }
+                }
+            });
+        }
     }
 };

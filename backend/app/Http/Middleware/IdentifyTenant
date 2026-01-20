@@ -18,8 +18,7 @@ class IdentifyTenant
     {
         // Skip tenant identification for auth routes (login, logout, etc.)
         // Super admin and regular users both need to login first
-        // Also skip for super admin routes since they don't require tenant context
-        if ($request->is('api/auth/*') || $request->is('api/password/*') || $request->is('api/test-unique') || $request->is('api/super-admin/*')) {
+        if ($request->is('api/auth/*') || $request->is('api/password/*') || $request->is('api/test-unique')) {
             app()->instance('tenant', null);
             return $next($request);
         }
@@ -44,18 +43,6 @@ class IdentifyTenant
             return $next($request);
         }
 
-        // Find company by subdomain
-        $company = Company::where('subdomain', $subdomain)
-            ->where('status', 'active')
-            ->first();
-
-        if (!$company) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Company not found or inactive',
-                'subdomain' => $subdomain
-            ], 404);
-        }
 
         // Set tenant in application container
         app()->instance('tenant', $company);
@@ -77,10 +64,10 @@ class IdentifyTenant
     {
         $parts = explode('.', $host);
 
-        // Handle CRM URL format: crmopp.gashwa.com -> extract "gashwa"
-        // If first part is "crmopp", skip it and use the second part
-        if (count($parts) > 2 && $parts[0] === 'crmopp') {
-            return $parts[1]; // Return the actual subdomain after "crmopp"
+        // Handle CRM URL format: c.gashwa.com -> extract "gashwa"
+        // If first part is "c", skip it and use the second part
+        if (count($parts) > 2 && $parts[0] === 'c') {
+            return $parts[1]; // Return the actual subdomain after "c"
         }
 
         // If we have more than 2 parts, first part is subdomain
@@ -95,12 +82,12 @@ class IdentifyTenant
             // Check if subdomain is in query string or header for development
             $subdomain = request()->header('X-Subdomain') ?? request()->query('subdomain');
 
-            // Also try to extract from host if it's like company1.localhost or crmopp.company1.localhost
+            // Also try to extract from host if it's like company1.localhost or c.company1.localhost
             if (!$subdomain && str_contains($host, '.')) {
                 $hostParts = explode('.', $host);
                 if (count($hostParts) > 1 && $hostParts[0] !== 'www') {
-                    // If first part is "crmopp", use second part
-                    if ($hostParts[0] === 'crmopp' && count($hostParts) > 2) {
+                    // If first part is "c", use second part
+                    if ($hostParts[0] === 'c' && count($hostParts) > 2) {
                         $subdomain = $hostParts[1];
                     } else {
                         $subdomain = $hostParts[0];
@@ -114,4 +101,3 @@ class IdentifyTenant
         return null;
     }
 }
-

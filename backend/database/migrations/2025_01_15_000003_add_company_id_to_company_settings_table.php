@@ -11,9 +11,18 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('company_settings', function (Blueprint $table) {
-            $table->foreignId('company_id')->nullable()->after('id')->constrained('companies')->onDelete('cascade');
-        });
+        // Run only if table exists
+        if (Schema::hasTable('company_settings')) {
+            Schema::table('company_settings', function (Blueprint $table) {
+                if (!Schema::hasColumn('company_settings', 'company_id')) {
+                    $table->foreignId('company_id')
+                        ->nullable()
+                        ->after('id')
+                        ->constrained('companies')
+                        ->onDelete('cascade');
+                }
+            });
+        }
     }
 
     /**
@@ -21,10 +30,13 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('company_settings', function (Blueprint $table) {
-            $table->dropForeign(['company_id']);
-            $table->dropColumn('company_id');
-        });
+        if (Schema::hasTable('company_settings')) {
+            Schema::table('company_settings', function (Blueprint $table) {
+                if (Schema::hasColumn('company_settings', 'company_id')) {
+                    $table->dropForeign(['company_id']);
+                    $table->dropColumn('company_id');
+                }
+            });
+        }
     }
 };
-

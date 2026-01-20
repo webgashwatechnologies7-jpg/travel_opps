@@ -1,30 +1,15 @@
 import axios from 'axios';
 
-// Dynamic API URL based on current domain
-const getApiBaseUrl = () => {
-  const currentHost = window.location.origin;
-  
-  // Check if running on local development
-  if (currentHost.includes('localhost') || currentHost.includes('127.0.0.1')) {
-    return 'http://127.0.0.1:8000/api';
-  }
-  
-  // For live hosting, use the current domain with backend path
-  return `${currentHost}/backend/public/api`;
-};
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || getApiBaseUrl();
-
-// Create axios instance
 const api = axios.create({
-  baseURL: API_BASE_URL,
+  baseURL: import.meta.env.VITE_API_URL,
   headers: {
     'Content-Type': 'application/json',
     'Accept': 'application/json',
   },
 });
 
-// Add token to requests if available
+
+
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('auth_token');

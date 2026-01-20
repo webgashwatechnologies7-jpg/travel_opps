@@ -27,7 +27,8 @@ return [
         'http://127.0.0.1:5173',
         'http://127.0.0.1:5174',
         // Production domain - replace with your actual domain
-        'https://sienna-antelope-219105.hostingersite.com',
+	'http://145.223.23.45',
+	'http://crm.gashwatechnologies.com/'
     ],
 
     'allowed_origins_patterns' => [], // Remove wildcard pattern for security

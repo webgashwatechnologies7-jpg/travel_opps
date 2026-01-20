@@ -1,3 +1,7 @@
+# backups
+travelopps_backup_*.tar.gz
+
+
 # Laravel
 /.phpunit.cache
 /backend/vendor
