@@ -36,9 +36,17 @@ return [
         'client_secret' => env('GOOGLE_CLIENT_SECRET'),
         'redirect' => env('GOOGLE_REDIRECT_URI'),
         'redirect_uri' => env('GOOGLE_REDIRECT_URI'),
-    ]
+    ],
 
-    ,
+    'fcm' => [
+        'server_key' => env('FCM_SERVER_KEY'),
+        'sender_id' => env('FCM_SENDER_ID'),
+        'project_id' => env('FCM_PROJECT_ID'),
+        'app_id' => env('FCM_APP_ID'),
+        'api_key' => env('FCM_API_KEY'),
+        'auth_domain' => env('FCM_AUTH_DOMAIN'),
+        'storage_bucket' => env('FCM_STORAGE_BUCKET'),
+    ],
 
     'whatsapp' => [
         'api_key' => env('WHATSAPP_API_KEY'),
@@ -46,7 +54,25 @@ return [
         'phone_number_id' => env('WHATSAPP_PHONE_NUMBER_ID'),
         'webhook_secret' => env('WHATSAPP_WEBHOOK_SECRET'),
         'verify_token' => env('WHATSAPP_VERIFY_TOKEN'),
-    ]
+    ],
+
+    'telephony' => [
+        'provider' => env('CALL_PROVIDER'),
+        'twilio' => [
+            'account_sid' => env('TWILIO_ACCOUNT_SID'),
+            'auth_token' => env('TWILIO_AUTH_TOKEN'),
+            'from_number' => env('TWILIO_FROM_NUMBER'),
+            'default_twiml_url' => env('TWILIO_TWIML_URL'),
+            'recording_enabled' => env('TWILIO_RECORDING_ENABLED', true),
+        ],
+        'exotel' => [
+            'account_sid' => env('EXOTEL_ACCOUNT_SID'),
+            'token' => env('EXOTEL_TOKEN'),
+            'from_number' => env('EXOTEL_FROM_NUMBER'),
+            'subdomain' => env('EXOTEL_SUBDOMAIN', 'api.exotel.com'),
+            'webhook_secret' => env('EXOTEL_WEBHOOK_SECRET'),
+        ],
+    ],
 
 
 ];

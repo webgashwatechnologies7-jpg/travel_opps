@@ -233,60 +233,7 @@ class SubscriptionPlanFeatureController extends Controller
             $plan->permissions = $enabledFeatureIds;
             $plan->save();
 
-            // Reload plan with features to return updated data
-            // Clear relationship cache and reload
-            $plan->refresh();
-            $plan->unsetRelation('features');
-            $plan->load('features');
-            
-            // Debug: Log enabled count - check if features exist first
-            if ($plan->features && $plan->features->count() > 0) {
-                $enabledCount = $plan->features->where('is_enabled', true)->count();
-                \Log::info("Plan {$plan->id} features reloaded: {$plan->features->count()} total, {$enabledCount} enabled");
-            } else {
-                \Log::warning("Plan {$plan->id} has no features after reload");
-            }
-            
-            // Return updated features in same format as getPlanFeatures
-            $availableFeatures = SubscriptionPlanFeature::getAvailableFeatures();
-            $planFeaturesReloaded = $plan->features && $plan->features->count() > 0 
-                ? $plan->features->keyBy('feature_key') 
-                : collect();
-            
-            $updatedFeatures = [];
-            foreach ($availableFeatures as $key => $feature) {
-                $planFeature = $planFeaturesReloaded->get($key);
-                
-                // Ensure is_enabled is properly set from raw database value
-                $isEnabled = false;
-                if ($planFeature) {
-                    // Get raw database value (before Eloquent casting)
-                    $rawValue = $planFeature->getRawOriginal('is_enabled');
-                    // Convert to boolean - handle all possible values (use loose comparison for MySQL 0/1)
-                    $isEnabled = ($rawValue == 1 || $rawValue === true || $rawValue === '1' || $rawValue === 'true');
-                }
-                
-                $updatedFeatures[] = [
-                    'feature_key' => $key,
-                    'feature_name' => $feature['name'],
-                    'description' => $feature['description'],
-                    'has_limit' => $feature['has_limit'] ?? false,
-                    'limit_label' => $feature['limit_label'] ?? null,
-                    'is_enabled' => $isEnabled, // Use properly converted value
-                    'limit_value' => $planFeature && $planFeature->limit_value ? (int)$planFeature->limit_value : null,
-                    'feature_id' => $planFeature ? $planFeature->id : null, // Include feature ID for matching with permissions
-                ];
-            }
-            
-            // Debug: Log enabled count in response
-            $enabledCountInResponse = count(array_filter($updatedFeatures, function($f) { return $f['is_enabled'] === true; }));
-            \Log::info("Plan {$plan->id} response: " . count($updatedFeatures) . " features, {$enabledCountInResponse} enabled");
-            
-            return response()->json([
-                'success' => true,
-                'message' => "Successfully updated {$updatedCount} features for {$plan->name} plan",
-                'data' => $updatedFeatures
-            ]);
+            return $this->getPlanFeatures($planId);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,

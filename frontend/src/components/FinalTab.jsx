@@ -13,7 +13,8 @@ const FinalTab = ({
   sgst,
   igst,
   tcs,
-  discount
+  discount,
+  maxHotelOptions = 4
 }) => {
   const [selectedOption, setSelectedOption] = useState(null);
   const [showFullPlanModal, setShowFullPlanModal] = useState(false);
@@ -26,6 +27,10 @@ const FinalTab = ({
     events.forEach(event => {
       if (event.eventType === 'accommodation' && event.hotelOptions && event.hotelOptions.length > 0) {
         event.hotelOptions.forEach(option => {
+          const optNum = option.optionNumber || 1;
+          if (parseInt(optNum, 10) > maxHotelOptions) {
+            return;
+          }
           allOptions.push({
             ...option,
             day: parseInt(day),

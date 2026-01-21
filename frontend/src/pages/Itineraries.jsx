@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
-import { Search, Plus, Edit, Eye, X, Image as ImageIcon } from 'lucide-react';
+import { Search, Plus, Edit, Eye, X, Image as ImageIcon, Upload, Camera } from 'lucide-react';
 import { packagesAPI } from '../services/api';
 
 const Itineraries = () => {
@@ -16,6 +16,12 @@ const Itineraries = () => {
   const [editingItineraryId, setEditingItineraryId] = useState(null);
   const [saving, setSaving] = useState(false);
   const [imagePreview, setImagePreview] = useState(null);
+  const fileInputRef = useRef(null);
+  const [showImageModal, setShowImageModal] = useState(false);
+  const [imageSource, setImageSource] = useState('upload'); // 'upload' or 'library'
+  const [libraryImages, setLibraryImages] = useState([]);
+  const [librarySearchTerm, setLibrarySearchTerm] = useState('travel');
+  const [libraryLoading, setLibraryLoading] = useState(false);
   const [formData, setFormData] = useState({
     itinerary_name: '',
     start_date: '',
@@ -110,6 +116,9 @@ const Itineraries = () => {
       image: null
     });
     setImagePreview(null);
+    setShowImageModal(false);
+    setImageSource('upload');
+    setLibraryImages([]);
     setShowModal(true);
   };
 
@@ -191,6 +200,9 @@ const Itineraries = () => {
       image: null
     });
     setImagePreview(null);
+    setShowImageModal(false);
+    setImageSource('upload');
+    setLibraryImages([]);
   };
 
   const handleFileChange = (e) => {
@@ -200,6 +212,7 @@ const Itineraries = () => {
         ...prev,
         image: file
       }));
+      setImageSource('upload');
       // Create preview
       const reader = new FileReader();
       reader.onloadend = () => {
@@ -207,6 +220,52 @@ const Itineraries = () => {
       };
       reader.readAsDataURL(file);
     }
+  };
+
+  const openFilePicker = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  };
+
+  // Fetch images from library (Picsum Photos)
+  const fetchLibraryImages = async () => {
+    setLibraryLoading(true);
+    try {
+      const query = librarySearchTerm || 'travel';
+      const imageUrls = [];
+      const seed = Date.now();
+
+      for (let i = 0; i < 12; i++) {
+        imageUrls.push({
+          id: `picsum-${i}-${seed}`,
+          urls: {
+            thumb: `https://picsum.photos/seed/${query}-${i}-${seed}/400/300`,
+            regular: `https://picsum.photos/seed/${query}-${i}-${seed}/1200/800`
+          },
+          alt_description: query
+        });
+      }
+      setLibraryImages(imageUrls);
+    } catch (err) {
+      console.error('Failed to fetch images:', err);
+      alert('Failed to load images. Please try again.');
+    } finally {
+      setLibraryLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (showImageModal && imageSource === 'library' && libraryImages.length === 0) {
+      fetchLibraryImages();
+    }
+  }, [showImageModal, imageSource]);
+
+  const handleImageSelect = (imageUrl) => {
+    setImagePreview(imageUrl);
+    setFormData(prev => ({ ...prev, image: null }));
+    setImageSource('library');
+    setShowImageModal(false);
   };
 
   const handleSave = async (e) => {
@@ -223,6 +282,11 @@ const Itineraries = () => {
       if (formData.notes) packageData.append('notes', formData.notes);
       if (formData.image) {
         packageData.append('image', formData.image);
+      } else if (imagePreview && imageSource === 'library') {
+        const response = await fetch(imagePreview);
+        const blob = await response.blob();
+        const file = new File([blob], 'itinerary-image.jpg', { type: blob.type });
+        packageData.append('image', file);
       }
 
       if (editingItineraryId) {
@@ -619,14 +683,46 @@ const Itineraries = () => {
                   <div className="space-y-3">
                     {/* File Input */}
                     <div className="flex items-center gap-4">
-                      <div className="flex-1">
-                        <input
-                          type="file"
-                          accept="image/*"
-                          onChange={handleFileChange}
-                          className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
-                      </div>
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/*"
+                        onChange={handleFileChange}
+                        className="hidden"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setImageSource('upload');
+                          openFilePicker();
+                        }}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-lg border ${
+                          imageSource === 'upload'
+                            ? 'bg-blue-50 border-blue-200 text-blue-700'
+                            : 'bg-white border-gray-200 text-gray-700'
+                        }`}
+                      >
+                        <Upload className="h-4 w-4" />
+                        Upload Image
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setImageSource('library');
+                          setShowImageModal(true);
+                        }}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-lg border ${
+                          imageSource === 'library'
+                            ? 'bg-blue-50 border-blue-200 text-blue-700'
+                            : 'bg-white border-gray-200 text-gray-700'
+                        }`}
+                      >
+                        <Camera className="h-4 w-4" />
+                        Choose from Library
+                      </button>
+                      <span className="text-sm text-gray-600">
+                        {formData.image ? formData.image.name : imageSource === 'library' && imagePreview ? 'Library image selected' : 'No file chosen'}
+                      </span>
                     </div>
                     
                     {/* Image Preview */}
@@ -663,6 +759,11 @@ const Itineraries = () => {
                             ✓ New image selected. This will replace the current image.
                           </p>
                         )}
+                        {imageSource === 'library' && imagePreview && (
+                          <p className="text-xs text-green-600 mt-2 font-medium">
+                            ✓ Library image selected.
+                          </p>
+                        )}
                       </div>
                     )}
                     
@@ -695,6 +796,74 @@ const Itineraries = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Image Library Modal */}
+      {showImageModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden">
+            <div className="flex items-center justify-between px-6 py-4 border-b">
+              <h3 className="text-lg font-semibold text-gray-900">Choose from Library</h3>
+              <button
+                type="button"
+                onClick={() => setShowImageModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="p-6 border-b">
+              <div className="flex items-center gap-3">
+                <input
+                  type="text"
+                  value={librarySearchTerm}
+                  onChange={(e) => setLibrarySearchTerm(e.target.value)}
+                  placeholder="Search images..."
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <button
+                  type="button"
+                  onClick={fetchLibraryImages}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                >
+                  Search
+                </button>
+              </div>
+            </div>
+
+            <div className="p-6 max-h-[70vh] overflow-y-auto">
+              {libraryLoading ? (
+                <div className="flex items-center justify-center h-64">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+                </div>
+              ) : libraryImages.length === 0 ? (
+                <div className="text-center py-12 text-gray-500">
+                  <p>No images found. Try searching for something else.</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-3 gap-4">
+                  {libraryImages.map((image) => (
+                    <div
+                      key={image.id}
+                      onClick={() => handleImageSelect(image.urls.regular)}
+                      className="relative aspect-video cursor-pointer group overflow-hidden rounded-lg border-2 border-gray-200 hover:border-blue-500 transition-colors"
+                    >
+                      <img
+                        src={image.urls.thumb}
+                        alt={image.alt_description}
+                        className="w-full h-full object-cover"
+                      />
+                      <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-opacity flex items-center justify-center">
+                        <span className="text-white opacity-0 group-hover:opacity-100 font-medium">Select</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}

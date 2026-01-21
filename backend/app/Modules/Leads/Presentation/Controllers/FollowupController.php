@@ -19,23 +19,17 @@ class FollowupController extends Controller
     public function store(Request $request): JsonResponse
     {
         try {
-            // Validate reminder_time only if it's provided
-            $reminderTimeRules = 'nullable|string';
-            if ($request->has('reminder_time') && $request->reminder_time !== null && $request->reminder_time !== '') {
-                $reminderTimeRules .= '|regex:/^([0-1][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$/';
-            }
-
             $validator = Validator::make($request->all(), [
                 'lead_id' => 'required|exists:leads,id',
                 'remark' => 'nullable|string',
                 'reminder_date' => 'required|date',
-                'reminder_time' => $reminderTimeRules,
+                'reminder_time' => 'nullable|date_format:H:i:s',
             ], [
                 'lead_id.required' => 'The lead_id field is required.',
                 'lead_id.exists' => 'The selected lead does not exist.',
                 'reminder_date.required' => 'The reminder_date field is required.',
                 'reminder_date.date' => 'The reminder_date must be a valid date.',
-                'reminder_time.regex' => 'The reminder_time must be in HH:MM:SS format.',
+                'reminder_time.date_format' => 'The reminder_time must be in HH:MM:SS format.',
             ]);
 
             if ($validator->fails()) {

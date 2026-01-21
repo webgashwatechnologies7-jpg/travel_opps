@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { companySettingsAPI } from '../services/api';
 import Layout from '../components/Layout';
-import { ArrowLeft, User, Mail, Phone, Building, Shield, Calendar, Edit, Save, X, MapPin } from 'lucide-react';
+import { ArrowLeft, User, Mail, Phone, Building, Shield, Calendar, Edit, Save, X, MapPin, Users, PhoneCall, CheckCircle, ClipboardList } from 'lucide-react';
 
 const UserDetails = () => {
   const { id } = useParams();
@@ -11,6 +11,10 @@ const UserDetails = () => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [editingUser, setEditingUser] = useState(false);
+  const [performance, setPerformance] = useState(null);
+  const [performanceLoading, setPerformanceLoading] = useState(true);
+  const [performanceError, setPerformanceError] = useState('');
+  const [selectedRange, setSelectedRange] = useState('month');
   const [editForm, setEditForm] = useState({
     name: '',
     email: '',
@@ -26,6 +30,7 @@ const UserDetails = () => {
 
   useEffect(() => {
     fetchUserDetails();
+    fetchUserPerformance();
   }, [id]);
 
   const fetchUserDetails = async () => {
@@ -141,6 +146,22 @@ const UserDetails = () => {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchUserPerformance = async () => {
+    try {
+      const response = await companySettingsAPI.getUserPerformance(id);
+      if (response?.data?.success) {
+        setPerformance(response.data.data);
+      } else {
+        setPerformanceError('Failed to load performance data');
+      }
+    } catch (error) {
+      console.error('Failed to fetch user performance:', error);
+      setPerformanceError('Failed to load performance data');
+    } finally {
+      setPerformanceLoading(false);
     }
   };
 
@@ -542,6 +563,189 @@ const UserDetails = () => {
                 </p>
               </div>
             </div>
+          </div>
+        </div>
+
+        {/* Performance Summary */}
+        <div className="bg-white shadow-sm rounded-lg mb-6">
+          <div className="px-6 py-4 border-b border-gray-200">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-gray-900">Performance Summary</h2>
+              <div className="flex items-center space-x-2">
+                {['week', 'month', 'year'].map((range) => (
+                  <button
+                    key={range}
+                    onClick={() => setSelectedRange(range)}
+                    className={`px-3 py-1 text-sm rounded-full border transition-colors ${
+                      selectedRange === range
+                        ? 'bg-blue-600 text-white border-blue-600'
+                        : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'
+                    }`}
+                  >
+                    {range.charAt(0).toUpperCase() + range.slice(1)}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="px-6 py-4">
+            {performanceLoading ? (
+              <div className="flex items-center justify-center h-32">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+              </div>
+            ) : performanceError ? (
+              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+                {performanceError}
+              </div>
+            ) : (
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <div className="flex items-center">
+                      <Users className="h-6 w-6 text-blue-600" />
+                      <div className="ml-3">
+                        <p className="text-sm text-gray-500">Assigned Leads</p>
+                        <p className="text-xl font-semibold text-gray-900">
+                          {performance?.ranges?.[selectedRange]?.assigned_to_user ?? 0}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <div className="flex items-center">
+                      <ClipboardList className="h-6 w-6 text-indigo-600" />
+                      <div className="ml-3">
+                        <p className="text-sm text-gray-500">Leads Contacted</p>
+                        <p className="text-xl font-semibold text-gray-900">
+                          {performance?.ranges?.[selectedRange]?.contacted_leads ?? 0}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <div className="flex items-center">
+                      <PhoneCall className="h-6 w-6 text-orange-600" />
+                      <div className="ml-3">
+                        <p className="text-sm text-gray-500">Calls Made</p>
+                        <p className="text-xl font-semibold text-gray-900">
+                          {performance?.ranges?.[selectedRange]?.calls_count ?? 0}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <div className="flex items-center">
+                      <CheckCircle className="h-6 w-6 text-green-600" />
+                      <div className="ml-3">
+                        <p className="text-sm text-gray-500">Bookings Confirmed</p>
+                        <p className="text-xl font-semibold text-gray-900">
+                          {performance?.ranges?.[selectedRange]?.confirmed_by_user ?? 0}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <div className="bg-white border border-gray-200 rounded-lg">
+                    <div className="px-4 py-3 border-b border-gray-200">
+                      <h3 className="text-sm font-semibold text-gray-900">Assigned By</h3>
+                    </div>
+                    <div className="px-4 py-3 space-y-2">
+                      {performance?.ranges?.[selectedRange]?.assigned_by_breakdown?.length ? (
+                        performance.ranges[selectedRange].assigned_by_breakdown.map((item) => (
+                          <div key={item.user_id ?? item.name} className="flex items-center justify-between text-sm text-gray-700">
+                            <span>{item.name}</span>
+                            <span className="font-semibold text-gray-900">{item.count}</span>
+                          </div>
+                        ))
+                      ) : (
+                        <p className="text-sm text-gray-500">No assignments found for this period.</p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="bg-white border border-gray-200 rounded-lg">
+                    <div className="px-4 py-3 border-b border-gray-200">
+                      <h3 className="text-sm font-semibold text-gray-900">Activity Summary</h3>
+                    </div>
+                    <div className="px-4 py-3 space-y-2 text-sm text-gray-700">
+                      <div className="flex items-center justify-between">
+                        <span>Followups</span>
+                        <span className="font-semibold text-gray-900">
+                          {performance?.ranges?.[selectedRange]?.followups_count ?? 0}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span>Leads Assigned By User</span>
+                        <span className="font-semibold text-gray-900">
+                          {performance?.ranges?.[selectedRange]?.assigned_by_user ?? 0}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-6 bg-white border border-gray-200 rounded-lg">
+                  <div className="px-4 py-3 border-b border-gray-200">
+                    <h3 className="text-sm font-semibold text-gray-900">Recent Calls</h3>
+                  </div>
+                  <div className="px-4 py-3">
+                    {performance?.ranges?.[selectedRange]?.recent_calls?.length ? (
+                      <div className="overflow-x-auto">
+                        <table className="min-w-full text-sm">
+                          <thead className="text-left text-gray-500">
+                            <tr>
+                              <th className="py-2 pr-4">Lead</th>
+                              <th className="py-2 pr-4">Phone</th>
+                              <th className="py-2 pr-4">Status</th>
+                              <th className="py-2 pr-4">Duration</th>
+                              <th className="py-2 pr-4">Recording</th>
+                              <th className="py-2">Date</th>
+                            </tr>
+                          </thead>
+                          <tbody className="text-gray-700">
+                            {performance.ranges[selectedRange].recent_calls.map((call) => (
+                              <tr key={call.id} className="border-t border-gray-100">
+                                <td className="py-2 pr-4">{call.lead_name || 'N/A'}</td>
+                                <td className="py-2 pr-4">{call.lead_phone || 'N/A'}</td>
+                                <td className="py-2 pr-4">{call.call_status || 'N/A'}</td>
+                                <td className="py-2 pr-4">
+                                  {call.duration_seconds ? `${call.duration_seconds}s` : 'N/A'}
+                                </td>
+                                <td className="py-2 pr-4">
+                                  {call.recording_url ? (
+                                    <a
+                                      href={call.recording_url}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="text-blue-600 hover:text-blue-800"
+                                    >
+                                      View
+                                    </a>
+                                  ) : (
+                                    'N/A'
+                                  )}
+                                </td>
+                                <td className="py-2">
+                                  {call.created_at ? new Date(call.created_at).toLocaleString() : 'N/A'}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-gray-500">No call logs found for this period.</p>
+                    )}
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         </div>
       </div>

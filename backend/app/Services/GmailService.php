@@ -29,6 +29,19 @@ class GmailService
         $this->client->setPrompt('select_account consent');
     }
 
+    public function setClientConfig(?string $clientId, ?string $clientSecret, ?string $redirectUri): void
+    {
+        if ($clientId) {
+            $this->client->setClientId($clientId);
+        }
+        if ($clientSecret) {
+            $this->client->setClientSecret($clientSecret);
+        }
+        if ($redirectUri) {
+            $this->client->setRedirectUri($redirectUri);
+        }
+    }
+
     public function getClient()
     {
         return $this->client;

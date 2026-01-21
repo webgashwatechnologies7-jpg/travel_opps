@@ -9,10 +9,214 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Validator;
 use Spatie\Permission\Models\Role;
+use Spatie\Permission\Models\Permission;
+use App\Models\SubscriptionPlanFeature;
+use App\Modules\Leads\Domain\Entities\Lead;
+use App\Modules\Leads\Domain\Entities\LeadFollowup;
+use App\Modules\Leads\Domain\Entities\LeadStatusLog;
+use App\Models\QueryHistoryLog;
+use Carbon\Carbon;
 
 class CompanySettingsController extends Controller
 {
+    private function resolveCompanyId(): ?int
+    {
+        $companyId = Auth::user()?->company_id;
+        if ($companyId) {
+            return (int) $companyId;
+        }
+
+        if (function_exists('tenant')) {
+            $tenantId = tenant('id');
+            if ($tenantId) {
+                return (int) $tenantId;
+            }
+        }
+
+        return null;
+    }
+
+    private function buildUserPerformanceRange(User $user, Carbon $startDate, Carbon $endDate): array
+    {
+        $assignedLogs = LeadStatusLog::where('new_status', 'assigned')
+            ->whereBetween('created_at', [$startDate, $endDate])
+            ->whereHas('lead', function ($query) use ($user) {
+                $query->where('assigned_to', $user->id)
+                    ->where('company_id', $user->company_id);
+            });
+
+        $assignedLeadIds = (clone $assignedLogs)->pluck('lead_id')->unique()->values();
+
+        $assignedBy = (clone $assignedLogs)
+            ->select('changed_by', DB::raw('COUNT(DISTINCT lead_id) as assigned_count'))
+            ->groupBy('changed_by')
+            ->get();
+
+        $assignedByUsers = User::whereIn('id', $assignedBy->pluck('changed_by')->filter())
+            ->get(['id', 'name']);
+
+        $assignedByBreakdown = $assignedBy->map(function ($row) use ($assignedByUsers) {
+            $userInfo = $assignedByUsers->firstWhere('id', $row->changed_by);
+            return [
+                'user_id' => $row->changed_by,
+                'name' => $userInfo?->name ?? 'Unknown',
+                'count' => (int) $row->assigned_count,
+            ];
+        })->values();
+
+        $assignedOutCount = LeadStatusLog::where('new_status', 'assigned')
+            ->where('changed_by', $user->id)
+            ->whereBetween('created_at', [$startDate, $endDate])
+            ->distinct('lead_id')
+            ->count('lead_id');
+
+        $followupLeadIds = LeadFollowup::where('user_id', $user->id)
+            ->whereBetween('created_at', [$startDate, $endDate])
+            ->pluck('lead_id')
+            ->unique()
+            ->values();
+
+        $callLogs = QueryHistoryLog::where('user_id', $user->id)
+            ->where('activity_type', 'call')
+            ->whereBetween('created_at', [$startDate, $endDate])
+            ->with('lead:id,client_name,phone')
+            ->orderByDesc('created_at');
+
+        $callLeadIds = (clone $callLogs)->pluck('lead_id')->unique()->values();
+
+        $contactedLeadIds = $followupLeadIds->merge($callLeadIds)->unique()->values();
+
+        $confirmedCount = LeadStatusLog::where('new_status', 'confirmed')
+            ->where('changed_by', $user->id)
+            ->whereBetween('created_at', [$startDate, $endDate])
+            ->distinct('lead_id')
+            ->count('lead_id');
+
+        $recentCalls = $callLogs->limit(50)->get()->map(function ($log) {
+            $metadata = $log->metadata ?? [];
+            return [
+                'id' => $log->id,
+                'lead_id' => $log->lead_id,
+                'lead_name' => $log->lead?->client_name,
+                'lead_phone' => $log->lead?->phone,
+                'description' => $log->activity_description,
+                'duration_seconds' => $metadata['duration_seconds'] ?? null,
+                'call_status' => $metadata['call_status'] ?? null,
+                'recording_url' => $metadata['recording_url'] ?? null,
+                'created_at' => $log->created_at,
+            ];
+        });
+
+        return [
+            'assigned_to_user' => $assignedLeadIds->count(),
+            'assigned_by_user' => $assignedOutCount,
+            'assigned_by_breakdown' => $assignedByBreakdown,
+            'contacted_leads' => $contactedLeadIds->count(),
+            'followups_count' => $followupLeadIds->count(),
+            'calls_count' => $callLeadIds->count(),
+            'confirmed_by_user' => $confirmedCount,
+            'recent_calls' => $recentCalls,
+        ];
+    }
+
+    private function buildTeamReportRange(array $userIds, Carbon $startDate, Carbon $endDate): array
+    {
+        if (empty($userIds)) {
+            return [
+                'assigned_to_team' => 0,
+                'assigned_by_team' => 0,
+                'contacted_leads' => 0,
+                'followups_count' => 0,
+                'calls_count' => 0,
+                'confirmed_by_team' => 0,
+                'per_user' => [],
+            ];
+        }
+
+        $assignedToTeam = LeadStatusLog::where('new_status', 'assigned')
+            ->whereBetween('created_at', [$startDate, $endDate])
+            ->whereHas('lead', function ($query) use ($userIds) {
+                $query->whereIn('assigned_to', $userIds);
+            })
+            ->distinct('lead_id')
+            ->count('lead_id');
+
+        $assignedByTeam = LeadStatusLog::where('new_status', 'assigned')
+            ->whereBetween('created_at', [$startDate, $endDate])
+            ->whereIn('changed_by', $userIds)
+            ->distinct('lead_id')
+            ->count('lead_id');
+
+        $followupLeadIds = LeadFollowup::whereIn('user_id', $userIds)
+            ->whereBetween('created_at', [$startDate, $endDate])
+            ->pluck('lead_id')
+            ->unique();
+
+        $callLeadIds = QueryHistoryLog::whereIn('user_id', $userIds)
+            ->where('activity_type', 'call')
+            ->whereBetween('created_at', [$startDate, $endDate])
+            ->pluck('lead_id')
+            ->unique();
+
+        $contactedLeadIds = $followupLeadIds->merge($callLeadIds)->unique();
+
+        $confirmedByTeam = LeadStatusLog::where('new_status', 'confirmed')
+            ->whereBetween('created_at', [$startDate, $endDate])
+            ->whereIn('changed_by', $userIds)
+            ->distinct('lead_id')
+            ->count('lead_id');
+
+        $users = User::whereIn('id', $userIds)->get(['id', 'name', 'email']);
+
+        $perUser = $users->map(function ($user) use ($startDate, $endDate) {
+            $assignedToUser = LeadStatusLog::where('new_status', 'assigned')
+                ->whereBetween('created_at', [$startDate, $endDate])
+                ->whereHas('lead', function ($query) use ($user) {
+                    $query->where('assigned_to', $user->id);
+                })
+                ->distinct('lead_id')
+                ->count('lead_id');
+
+            $contactedLeadIds = LeadFollowup::where('user_id', $user->id)
+                ->whereBetween('created_at', [$startDate, $endDate])
+                ->pluck('lead_id')
+                ->merge(
+                    QueryHistoryLog::where('user_id', $user->id)
+                        ->where('activity_type', 'call')
+                        ->whereBetween('created_at', [$startDate, $endDate])
+                        ->pluck('lead_id')
+                )
+                ->unique();
+
+            $confirmedByUser = LeadStatusLog::where('new_status', 'confirmed')
+                ->whereBetween('created_at', [$startDate, $endDate])
+                ->where('changed_by', $user->id)
+                ->distinct('lead_id')
+                ->count('lead_id');
+
+            return [
+                'user_id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+                'assigned_to_user' => $assignedToUser,
+                'contacted_leads' => $contactedLeadIds->count(),
+                'confirmed_by_user' => $confirmedByUser,
+            ];
+        })->values();
+
+        return [
+            'assigned_to_team' => $assignedToTeam,
+            'assigned_by_team' => $assignedByTeam,
+            'contacted_leads' => $contactedLeadIds->count(),
+            'followups_count' => $followupLeadIds->count(),
+            'calls_count' => $callLeadIds->count(),
+            'confirmed_by_team' => $confirmedByTeam,
+            'per_user' => $perUser,
+        ];
+    }
+
     public function __construct()
     {
         $this->middleware('auth:sanctum');
@@ -33,7 +237,13 @@ class CompanySettingsController extends Controller
      */
     public function getUsers(Request $request)
     {
-        $companyId = Auth::user()->company_id;
+        $companyId = $this->resolveCompanyId();
+        if (!$companyId) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Company context not resolved',
+            ], 422);
+        }
         $query = User::with(['branch', 'roles'])
             ->where('company_id', $companyId)
             ->where('is_super_admin', false);
@@ -69,8 +279,9 @@ class CompanySettingsController extends Controller
      */
     public function getUserDetails($id)
     {
+        $companyId = $this->resolveCompanyId();
         $user = User::with(['branch', 'roles'])
-            ->where('company_id', Auth::user()->company_id)
+            ->where('company_id', $companyId)
             ->where('is_super_admin', false)
             ->findOrFail($id);
 
@@ -85,12 +296,13 @@ class CompanySettingsController extends Controller
      */
     public function createUser(Request $request)
     {
+        $companyId = $this->resolveCompanyId();
         $request->validate([
             'name' => 'required|string|max:255',
-            'email' => 'required|string|email|max:255|unique:users,email,NULL,id,company_id,' . Auth::user()->company_id,
+            'email' => 'required|string|email|max:255|unique:users,email,NULL,id,company_id,' . $companyId,
             'phone' => 'nullable|string|max:20',
             'password' => 'required|string|min:8',
-            'branch_id' => 'nullable|exists:branches,id,company_id,' . Auth::user()->company_id,
+            'branch_id' => 'nullable|exists:branches,id,company_id,' . $companyId,
             'roles' => 'nullable|array',
             'roles.*' => 'exists:roles,name',
             'is_active' => 'boolean'
@@ -104,7 +316,7 @@ class CompanySettingsController extends Controller
                 'email' => $request->email,
                 'phone' => $request->phone,
                 'password' => Hash::make($request->password),
-                'company_id' => Auth::user()->company_id,
+                'company_id' => $companyId,
                 'branch_id' => $request->branch_id,
                 'is_active' => $request->is_active ?? true,
                 'employee_id' => $request->employee_id,
@@ -137,15 +349,16 @@ class CompanySettingsController extends Controller
      */
     public function updateUser(Request $request, $id)
     {
-        $user = User::where('company_id', Auth::user()->company_id)
+        $companyId = $this->resolveCompanyId();
+        $user = User::where('company_id', $companyId)
             ->where('is_super_admin', false)
             ->findOrFail($id);
 
         $request->validate([
             'name' => 'required|string|max:255',
-            'email' => 'required|string|email|max:255|unique:users,email,' . $id . ',id,company_id,' . Auth::user()->company_id,
+            'email' => 'required|string|email|max:255|unique:users,email,' . $id . ',id,company_id,' . $companyId,
             'phone' => 'nullable|string|max:20',
-            'branch_id' => 'nullable|exists:branches,id,company_id,' . Auth::user()->company_id,
+            'branch_id' => 'nullable|exists:branches,id,company_id,' . $companyId,
             'roles' => 'nullable|array',
             'roles.*' => 'exists:roles,name',
             'is_active' => 'boolean'
@@ -196,7 +409,8 @@ class CompanySettingsController extends Controller
      */
     public function deleteUser($id)
     {
-        $user = User::where('company_id', Auth::user()->company_id)
+        $companyId = $this->resolveCompanyId();
+        $user = User::where('company_id', $companyId)
             ->where('is_super_admin', false)
             ->findOrFail($id);
 
@@ -229,7 +443,7 @@ class CompanySettingsController extends Controller
      */
     public function getBranches(Request $request)
     {
-        $companyId = Auth::user()->company_id;
+        $companyId = $this->resolveCompanyId();
         $query = Branch::where('company_id', $companyId);
 
         // Filter by status if provided
@@ -258,9 +472,9 @@ class CompanySettingsController extends Controller
      */
     public function createBranch(Request $request)
     {
+        $companyId = $this->resolveCompanyId();
         $request->validate([
             'name' => 'required|string|max:255',
-            'code' => 'required|string|max:10|unique:branches,code,NULL,id,company_id,' . Auth::user()->company_id,
             'address' => 'nullable|string',
             'phone' => 'nullable|string|max:20',
             'email' => 'nullable|email|max:255',
@@ -272,10 +486,15 @@ class CompanySettingsController extends Controller
         ]);
 
         try {
+            $code = strtoupper(substr(preg_replace('/[^A-Za-z0-9]/', '', (string) $request->name), 0, 6));
+            if ($code === '') {
+                $code = 'BR' . random_int(100, 999);
+            }
+
             $branch = Branch::create([
-                'company_id' => Auth::user()->company_id,
+                'company_id' => $companyId,
                 'name' => $request->name,
-                'code' => $request->code,
+                'code' => $code,
                 'address' => $request->address,
                 'phone' => $request->phone,
                 'email' => $request->email,
@@ -305,11 +524,11 @@ class CompanySettingsController extends Controller
      */
     public function updateBranch(Request $request, $id)
     {
-        $branch = Branch::where('company_id', Auth::user()->company_id)->findOrFail($id);
+        $companyId = $this->resolveCompanyId();
+        $branch = Branch::where('company_id', $companyId)->findOrFail($id);
 
         $request->validate([
             'name' => 'required|string|max:255',
-            'code' => 'required|string|max:10|unique:branches,code,' . $id . ',id,company_id,' . Auth::user()->company_id,
             'address' => 'nullable|string',
             'phone' => 'nullable|string|max:20',
             'email' => 'nullable|email|max:255',
@@ -323,7 +542,6 @@ class CompanySettingsController extends Controller
         try {
             $branch->update([
                 'name' => $request->name,
-                'code' => $request->code,
                 'address' => $request->address,
                 'phone' => $request->phone,
                 'email' => $request->email,
@@ -353,7 +571,8 @@ class CompanySettingsController extends Controller
      */
     public function deleteBranch($id)
     {
-        $branch = Branch::where('company_id', Auth::user()->company_id)->findOrFail($id);
+        $companyId = $this->resolveCompanyId();
+        $branch = Branch::where('company_id', $companyId)->findOrFail($id);
 
         // Check if branch has users
         if ($branch->users()->count() > 0) {
@@ -496,11 +715,112 @@ class CompanySettingsController extends Controller
     }
 
     /**
+     * Get all available permissions
+     */
+    public function getPermissions()
+    {
+        if (Permission::count() === 0) {
+            $features = SubscriptionPlanFeature::getAvailableFeatures();
+            foreach ($features as $featureKey => $feature) {
+                Permission::firstOrCreate([
+                    'name' => $feature['name'] ?? $featureKey,
+                    'guard_name' => 'web',
+                ]);
+            }
+        }
+
+        $permissions = Permission::orderBy('name')->get(['id', 'name']);
+
+        return response()->json([
+            'success' => true,
+            'data' => $permissions
+        ]);
+    }
+
+    /**
+     * Get permissions for a specific role
+     */
+    public function getRolePermissions($id)
+    {
+        $role = Role::findOrFail($id);
+
+        return response()->json([
+            'success' => true,
+            'data' => $role->permissions->pluck('id')->toArray()
+        ]);
+    }
+
+    /**
+     * Update permissions for a role
+     */
+    public function updateRolePermissions(Request $request, $id)
+    {
+        $role = Role::findOrFail($id);
+
+        $request->validate([
+            'permissions' => 'nullable|array',
+            'permissions.*' => 'exists:permissions,id'
+        ]);
+
+        $permissionIds = $request->input('permissions', []);
+        $permissions = Permission::whereIn('id', $permissionIds)->get();
+        $role->syncPermissions($permissions);
+
+        app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Role permissions updated successfully',
+            'data' => $role->permissions->pluck('id')->toArray()
+        ]);
+    }
+
+    /**
+     * Get permissions for a specific user
+     */
+    public function getUserPermissions($id)
+    {
+        $companyId = $this->resolveCompanyId();
+        $user = User::where('company_id', $companyId)->findOrFail($id);
+
+        return response()->json([
+            'success' => true,
+            'data' => $user->permissions->pluck('id')->toArray()
+        ]);
+    }
+
+    /**
+     * Update permissions for a specific user
+     */
+    public function updateUserPermissions(Request $request, $id)
+    {
+        $companyId = $this->resolveCompanyId();
+        $user = User::where('company_id', $companyId)->findOrFail($id);
+
+        $request->validate([
+            'permissions' => 'nullable|array',
+            'permissions.*' => 'exists:permissions,id'
+        ]);
+
+        $permissionIds = $request->input('permissions', []);
+        $permissions = Permission::whereIn('id', $permissionIds)->get();
+        $user->syncPermissions($permissions);
+
+        app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'User permissions updated successfully',
+            'data' => $user->permissions->pluck('id')->toArray()
+        ]);
+    }
+
+    /**
      * Get company statistics
      */
     public function getStats()
     {
-        $companyId = Auth::user()->company_id;
+        $companyId = $this->resolveCompanyId();
 
         $stats = [
             'total_users' => User::where('company_id', $companyId)->where('is_super_admin', false)->count(),
@@ -521,6 +841,103 @@ class CompanySettingsController extends Controller
         return response()->json([
             'success' => true,
             'data' => $stats
+        ]);
+    }
+
+    /**
+     * Get detailed performance stats for a specific user.
+     */
+    public function getUserPerformance(Request $request, $id)
+    {
+        $companyId = $this->resolveCompanyId();
+        $user = User::where('company_id', $companyId)
+            ->where('is_super_admin', false)
+            ->findOrFail($id);
+
+        $validator = Validator::make($request->all(), [
+            'range' => 'nullable|in:week,month,year',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $now = Carbon::now();
+        $weekStart = $now->copy()->startOfWeek();
+        $monthStart = $now->copy()->startOfMonth();
+        $yearStart = $now->copy()->startOfYear();
+
+        $data = [
+            'week' => $this->buildUserPerformanceRange($user, $weekStart, $now),
+            'month' => $this->buildUserPerformanceRange($user, $monthStart, $now),
+            'year' => $this->buildUserPerformanceRange($user, $yearStart, $now),
+        ];
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'user_id' => $user->id,
+                'ranges' => $data,
+            ],
+        ]);
+    }
+
+    /**
+     * Get performance report for a team (branch).
+     */
+    public function getTeamReport(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'branch_id' => 'nullable|integer|exists:branches,id',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $branchId = $request->input('branch_id');
+        $companyId = $this->resolveCompanyId();
+
+        $branch = null;
+        if ($branchId) {
+            $branch = Branch::where('company_id', $companyId)->findOrFail($branchId);
+        }
+
+        $userQuery = User::where('company_id', $companyId)->where('is_super_admin', false);
+        if ($branch) {
+            $userQuery->where('branch_id', $branch->id);
+        }
+
+        $userIds = $userQuery->pluck('id')->all();
+
+        $now = Carbon::now();
+        $weekStart = $now->copy()->startOfWeek();
+        $monthStart = $now->copy()->startOfMonth();
+        $yearStart = $now->copy()->startOfYear();
+
+        $ranges = [
+            'week' => $this->buildTeamReportRange($userIds, $weekStart, $now),
+            'month' => $this->buildTeamReportRange($userIds, $monthStart, $now),
+            'year' => $this->buildTeamReportRange($userIds, $yearStart, $now),
+        ];
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'branch' => $branch ? [
+                    'id' => $branch->id,
+                    'name' => $branch->name,
+                ] : null,
+                'ranges' => $ranges,
+            ],
         ]);
     }
 }

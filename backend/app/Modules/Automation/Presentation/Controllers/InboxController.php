@@ -65,5 +65,34 @@ class InboxController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Get WhatsApp messages for a lead.
+     *
+     * @param int $leadId
+     * @return JsonResponse
+     */
+    public function messagesByLead(int $leadId): JsonResponse
+    {
+        try {
+            $messages = WhatsappLog::where('lead_id', $leadId)
+                ->orderBy('sent_at', 'desc')
+                ->get();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'WhatsApp messages retrieved successfully',
+                'data' => [
+                    'messages' => $messages,
+                ],
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'An error occurred while retrieving WhatsApp messages',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
+            ], 500);
+        }
+    }
 }
 

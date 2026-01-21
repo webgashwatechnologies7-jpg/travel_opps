@@ -1,7 +1,7 @@
 import axios from 'axios';
-
+import { API_BASE_URL } from './apiBase';
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL,
+  baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
     'Accept': 'application/json',
@@ -15,6 +15,17 @@ api.interceptors.request.use(
     const token = localStorage.getItem('auth_token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
+    }
+
+    // Send subdomain for local multi-tenant requests
+    if (typeof window !== 'undefined') {
+      const hostname = window.location.hostname;
+      if (hostname && hostname.endsWith('.localhost')) {
+        const subdomain = hostname.split('.')[0];
+        if (subdomain && subdomain !== 'localhost') {
+          config.headers['X-Subdomain'] = subdomain;
+        }
+      }
     }
     return config;
   },
@@ -136,6 +147,21 @@ export const leadsAPI = {
   getEmail: (leadId, emailId) => api.get(`/leads/${leadId}/emails/${emailId}`),
 };
 
+// Calls APIs
+export const callsAPI = {
+  list: (filters = {}) => api.get('/calls', { params: filters }),
+  get: (id) => api.get(`/calls/${id}`),
+  getLeadHistory: (leadId) => api.get(`/leads/${leadId}/calls`),
+  addNote: (callId, note) => api.post(`/calls/${callId}/notes`, { note }),
+  updateNote: (callId, noteId, note) => api.put(`/calls/${callId}/notes/${noteId}`, { note }),
+  clickToCall: (data) => api.post('/calls/click-to-call', data),
+  getRecording: (callId) => api.get(`/calls/${callId}/recording`, { responseType: 'blob' }),
+  getMappings: () => api.get('/calls/mappings'),
+  createMapping: (data) => api.post('/calls/mappings', data),
+  updateMapping: (id, data) => api.put(`/calls/mappings/${id}`, data),
+  deleteMapping: (id) => api.delete(`/calls/mappings/${id}`),
+};
+
 // Payments APIs
 export const paymentsAPI = {
   dueToday: () => api.get('/payments/due-today'),
@@ -152,6 +178,30 @@ export const followupsAPI = {
   complete: (id) => api.put(`/followups/${id}/complete`),
 };
 
+// Documents APIs
+export const documentsAPI = {
+  list: (params = {}) => api.get('/documents', { params }),
+  upload: (data) => {
+    const formData = new FormData();
+    Object.entries(data).forEach(([key, value]) => {
+      if (value !== undefined && value !== null) {
+        formData.append(key, value);
+      }
+    });
+    return api.post('/documents', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+  },
+  download: (id) => api.get(`/documents/${id}/download`, { responseType: 'blob' }),
+};
+
+// Vouchers APIs
+export const vouchersAPI = {
+  preview: (leadId) => api.get(`/vouchers/lead/${leadId}/preview`, { responseType: 'blob' }),
+  download: (leadId) => api.get(`/vouchers/lead/${leadId}/download`, { responseType: 'blob' }),
+  send: (leadId, data = {}) => api.post(`/vouchers/lead/${leadId}/send`, data),
+};
+
 // Follow-up API (for client details)
 export const followUpAPI = {
   getClientFollowUps: (clientId) => api.get(`/clients/${clientId}/follow-ups`),
@@ -164,6 +214,7 @@ export const followUpAPI = {
 export const whatsappAPI = {
   inbox: () => api.get('/whatsapp/inbox'),
   send: (leadId, message) => api.post('/whatsapp/send', { lead_id: leadId, message }),
+  messages: (leadId) => api.get(`/whatsapp/messages/${leadId}`),
 };
 
 // Targets APIs (Admin only)
@@ -181,7 +232,20 @@ export const googleSheetsAPI = {
 
 // Google Mail APIs
 export const googleMailAPI = {
-  getConnectUrl: () => `${API_BASE_URL}/google/connect`,
+  getConnectUrl: () => {
+    const base = `${API_BASE_URL}/google/connect`;
+    if (typeof window === 'undefined') {
+      return base;
+    }
+    const hostname = window.location.hostname || '';
+    if (hostname.endsWith('.localhost')) {
+      const subdomain = hostname.split('.')[0];
+      if (subdomain && subdomain !== 'localhost') {
+        return `${base}?subdomain=${encodeURIComponent(subdomain)}`;
+      }
+    }
+    return base;
+  },
   sendMail: (data) => api.post('/send-gmail', data),
   syncInbox: () => api.get('/sync-inbox'),
   getGmailEmails: (leadId) => api.get(`/leads/${leadId}/gmail-emails`),
@@ -570,6 +634,7 @@ export const superAdminAPI = {
   updateCompany: (id, data) => api.put(`/super-admin/companies/${id}`, data),
   deleteCompany: (id) => api.delete(`/super-admin/companies/${id}`),
   getCompanyStats: () => api.get('/super-admin/companies/stats'),
+  mailHealth: (params = {}) => api.get('/super-admin/mail/health', { params }),
   // Subscription Plans
   getSubscriptionPlans: () => api.get('/super-admin/subscription-plans'),
   getSubscriptionPlan: (id) => api.get(`/super-admin/subscription-plans/${id}`),
@@ -597,6 +662,8 @@ export const companySettingsAPI = {
   // Users management
   getUsers: (params = {}) => api.get('/company-settings/users', { params }),
   getUserDetails: (id) => api.get(`/company-settings/users/${id}`),
+  getUserPerformance: (id) => api.get(`/company-settings/users/${id}/performance`),
+  getTeamReport: (params = {}) => api.get('/company-settings/team-reports', { params }),
   createUser: (data) => api.post('/company-settings/users', data),
   updateUser: (id, data) => api.put(`/company-settings/users/${id}`, data),
   deleteUser: (id) => api.delete(`/company-settings/users/${id}`),
@@ -612,9 +679,51 @@ export const companySettingsAPI = {
   createRole: (data) => api.post('/company-settings/roles', data),
   updateRole: (id, data) => api.put(`/company-settings/roles/${id}`, data),
   deleteRole: (id) => api.delete(`/company-settings/roles/${id}`),
+  // Permissions management
+  getPermissions: () => api.get('/company-settings/permissions'),
+  getRolePermissions: (roleId) => api.get(`/company-settings/roles/${roleId}/permissions`),
+  updateRolePermissions: (roleId, permissions) => api.put(`/company-settings/roles/${roleId}/permissions`, { permissions }),
+  getUserPermissions: (userId) => api.get(`/company-settings/users/${userId}/permissions`),
+  updateUserPermissions: (userId, permissions) => api.put(`/company-settings/users/${userId}/permissions`, { permissions }),
   
   // Statistics
   getStats: () => api.get('/company-settings/stats'),
+  // Mail settings
+  getMailSettings: () => api.get('/company-settings/mail-settings'),
+  updateMailSettings: (data) => api.put('/company-settings/mail-settings', data),
+  testMailSettings: (data) => api.post('/company-settings/mail-settings/test', data),
+};
+
+// Company WhatsApp settings APIs
+export const companyWhatsappAPI = {
+  getSettings: () => api.get('/company/whatsapp/settings'),
+  updateSettings: (data) => api.put('/company/whatsapp/settings', data),
+  autoProvision: () => api.post('/company/whatsapp/auto-provision'),
+  sync: () => api.post('/company/whatsapp/sync'),
+  testConnection: () => api.post('/company/whatsapp/test-connection'),
+};
+
+// Company Google (Gmail) settings APIs
+export const companyGoogleAPI = {
+  getSettings: () => api.get('/company/google/settings'),
+  updateSettings: (data) => api.put('/company/google/settings', data),
+};
+
+// Notifications APIs
+export const notificationsAPI = {
+  savePushToken: (data) => api.post('/notifications/tokens', data),
+  deletePushToken: (data) => api.delete('/notifications/tokens', { data }),
+  sendPush: (data) => api.post('/notifications/push', data),
+  sendEmail: (data) => {
+    if (data instanceof FormData) {
+      return api.post('/notifications/email', data, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+    }
+    return api.post('/notifications/email', data);
+  },
 };
 
 export default api;

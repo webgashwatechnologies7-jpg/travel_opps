@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Building2, CreditCard, Users, LogOut, Shield } from 'lucide-react';
+import { LayoutDashboard, Building2, CreditCard, Users, LogOut, Shield, Mail } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
 const SuperAdminSidebar = () => {
@@ -11,6 +11,11 @@ const SuperAdminSidebar = () => {
       name: 'Dashboard',
       icon: LayoutDashboard,
       path: '/super-admin',
+    },
+    {
+      name: 'Mail Status',
+      icon: Mail,
+      path: '/super-admin/mail-status',
     },
     {
       name: 'Companies',

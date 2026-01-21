@@ -36,6 +36,8 @@ require __DIR__.'/api_followups.php';
 require __DIR__.'/api_documents.php';
 require __DIR__.'/api_vouchers.php';
 require __DIR__.'/api_services.php';
+require __DIR__.'/api_notifications.php';
+require __DIR__.'/api_calls.php';
 
 // Employee Management routes - require authentication
 Route::middleware('auth:sanctum')->prefix('employees')->group(function () {

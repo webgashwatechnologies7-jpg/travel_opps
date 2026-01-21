@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\SuperAdmin\CompanyController;
+use App\Http\Controllers\SuperAdmin\MailHealthController;
 use App\Http\Controllers\SuperAdmin\SubscriptionPlanController;
 use App\Http\Controllers\SuperAdmin\SubscriptionPlanFeatureController;
 use Illuminate\Support\Facades\Route;
@@ -13,6 +14,8 @@ use Illuminate\Support\Facades\Route;
 
 // Super Admin routes - No tenant middleware, accessible from main domain
 Route::middleware(['auth:sanctum', 'superadmin'])->prefix('super-admin')->group(function () {
+    Route::get('/mail/health', [MailHealthController::class, 'check']);
+
     Route::prefix('companies')->group(function () {
         Route::get('/', [CompanyController::class, 'index']);
         Route::post('/', [CompanyController::class, 'store']);

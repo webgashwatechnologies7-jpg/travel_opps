@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Log;
+use App\Services\CompanyMailSettingsService;
 
 class SupplierController extends Controller
 {
@@ -546,7 +547,7 @@ class SupplierController extends Controller
                 try {
                     $fromEmail = $companyEmail ?: config('mail.from.address', 'noreply@travelops.com');
                     $fromName = $companyName ?: config('mail.from.name', 'TravelOps');
-                    
+                    CompanyMailSettingsService::applyIfEnabled();
                     Mail::send([], [], function ($message) use ($supplier, $request, $emailBody, $fromEmail, $fromName) {
                         $message->from($fromEmail, $fromName)
                             ->to($supplier->email)
@@ -582,7 +583,7 @@ class SupplierController extends Controller
                 try {
                     $fromEmail = $companyEmail ?: config('mail.from.address', 'noreply@travelops.com');
                     $fromName = $companyName ?: config('mail.from.name', 'TravelOps');
-                    
+                    CompanyMailSettingsService::applyIfEnabled();
                     Mail::send([], [], function ($message) use ($hotel, $request, $emailBody, $fromEmail, $fromName) {
                         $message->from($fromEmail, $fromName)
                             ->to($hotel['email'])

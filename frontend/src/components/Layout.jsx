@@ -168,11 +168,13 @@ const Layout = ({ children }) => {
     const settingsPaths = [
       '/settings',
       '/company-settings/team-management',
+      '/company-settings/team-reports',
       '/email-templates',
       '/settings/terms-conditions',
       '/settings/policies',
       '/settings/account-details',
-      '/settings/logo'
+      '/settings/logo',
+      '/settings/mail'
     ];
     const mastersPaths = [
       '/users', 
@@ -209,7 +211,6 @@ const Layout = ({ children }) => {
     { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { path: '/leads', label: 'Queries', icon: MessageSquare },
     { path: '/itineraries', label: 'Itineraries', icon: FileText },
-    { path: '/services', label: 'All Services', icon: Package },
     { 
       label: 'Accounts', 
       icon: CreditCard,
@@ -221,6 +222,7 @@ const Layout = ({ children }) => {
     },
     { path: '/whatsapp', label: 'WhatsApp', icon: MessageCircle },
     { path: '/mail', label: 'Mail', icon: Mail },
+    { path: '/call-management', label: 'Call Management System', icon: Phone },
     { 
       label: 'Reports', 
       icon: BarChart3,
@@ -250,7 +252,9 @@ const Layout = ({ children }) => {
       icon: Settings,
       submenu: [
         { path: '/settings', label: 'Settings' },
+        { path: '/settings/mail', label: 'Mail Setup', adminOnly: true },
         { path: '/company-settings/team-management', label: 'Team Management' },
+        { path: '/company-settings/team-reports', label: 'Team Reports' },
         { path: '/email-templates', label: 'Email Templates' },
         { path: '/settings/terms-conditions', label: 'Terms & Conditions' },
         { path: '/settings/policies', label: 'Policies' },
@@ -262,6 +266,7 @@ const Layout = ({ children }) => {
       label: 'Masters', 
       icon: Grid,
       submenu: [
+        { path: '/services', label: 'All Services' },
         { path: '/masters/suppliers', label: 'Suppliers' },
         { path: '/masters/hotel', label: 'Hotel' },
         { path: '/masters/activity', label: 'Activity' },
@@ -273,10 +278,7 @@ const Layout = ({ children }) => {
         { path: '/masters/lead-source', label: 'Lead Source' },
         { path: '/masters/expense-type', label: 'Expense Type' },
         { path: '/masters/package-theme', label: 'Package Theme' },
-        { path: '/masters/currency', label: 'Currency' },
-        { path: '/users', label: 'Users' },
-        { path: '/targets', label: 'Targets' },
-        { path: '/permissions', label: 'Permissions' }
+        { path: '/masters/currency', label: 'Currency' }
       ]
     }
   ];
@@ -365,7 +367,8 @@ const Layout = ({ children }) => {
                 const Icon = item.icon;
                 const submenuKey = item.label.toLowerCase();
                 const isSubmenuOpen = openSubmenus[submenuKey];
-                const hasActiveSubmenu = isSubmenuActive(item.submenu.map(sm => sm.path));
+                const visibleSubmenu = item.submenu.filter(subItem => !subItem.adminOnly || isAdmin);
+                const hasActiveSubmenu = isSubmenuActive(visibleSubmenu.map(sm => sm.path));
                 
                 return (
                   <div key={item.label} className="relative">
@@ -393,7 +396,7 @@ const Layout = ({ children }) => {
                     </button>
                     {isSubmenuOpen && (isSidebarOpen || isMobile) && (
                       <div className="ml-2 mt-1 space-y-1">
-                        {item.submenu.map((subItem) => {
+                        {visibleSubmenu.map((subItem) => {
                           const isSubActive = isActive(subItem.path);
                           return (
                             <div key={subItem.path} className="relative">

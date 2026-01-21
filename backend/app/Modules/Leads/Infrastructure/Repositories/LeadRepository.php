@@ -75,7 +75,7 @@ class LeadRepository implements LeadRepositoryInterface
      */
     public function findById(int $id): ?Lead
     {
-        return Lead::with(['assignedUser', 'creator', 'followups', 'statusLogs'])
+        return Lead::with(['assignedUser', 'creator', 'followups.user', 'statusLogs.changedBy'])
             ->find($id);
     }
 

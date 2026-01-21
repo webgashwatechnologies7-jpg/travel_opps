@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Facades\Schema;
 
 class CompanySettings extends Model
 {
@@ -51,16 +52,26 @@ class CompanySettings extends Model
             $companyId = tenant('id');
         }
 
-        $settings = self::where('company_id', $companyId)->first();
+        $hasCompanyColumn = Schema::hasTable('company_settings')
+            && Schema::hasColumn('company_settings', 'company_id');
+
+        $settings = $hasCompanyColumn
+            ? self::where('company_id', $companyId)->first()
+            : self::first();
         
         if (!$settings) {
             // Create default settings if none exist
-            $settings = self::create([
-                'company_id' => $companyId,
+            $payload = [
                 'sidebar_color' => '#2765B0',
                 'dashboard_background_color' => '#D8DEF5',
                 'header_background_color' => '#D8DEF5',
-            ]);
+            ];
+
+            if ($hasCompanyColumn) {
+                $payload['company_id'] = $companyId;
+            }
+
+            $settings = self::create($payload);
         }
         
         return $settings;

@@ -9,6 +9,7 @@ use App\Models\QueryDocument;
 use App\Models\QueryHistoryLog;
 use App\Modules\Leads\Domain\Entities\LeadFollowup;
 use App\Modules\Leads\Domain\Entities\LeadStatusLog;
+use App\Modules\Calls\Domain\Entities\CallLog;
 use App\Modules\Payments\Domain\Entities\Payment;
 use App\Modules\Proposals\Domain\Models\Proposal;
 use App\Modules\Mails\Domain\Models\Email;
@@ -19,6 +20,7 @@ use App\Modules\Documents\Domain\Models\Document;
 use App\Modules\Invoices\Domain\Models\Invoice;
 use App\Modules\Billing\Domain\Models\BillingRecord;
 use App\Modules\History\Domain\Models\ActivityHistory;
+use App\Traits\HasCompany;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -27,7 +29,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Lead extends Model
 {
-    use HasFactory, SoftDeletes;
+    use HasFactory, SoftDeletes, HasCompany;
 
     /**
      * The table associated with the model.
@@ -138,6 +140,16 @@ class Lead extends Model
     public function statusLogs(): HasMany
     {
         return $this->hasMany(LeadStatusLog::class, 'lead_id');
+    }
+
+    /**
+     * Get all call logs for this lead.
+     *
+     * @return HasMany
+     */
+    public function callLogs(): HasMany
+    {
+        return $this->hasMany(CallLog::class, 'lead_id');
     }
 
     /**

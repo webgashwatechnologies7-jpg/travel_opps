@@ -13,9 +13,9 @@ return [
     |
     */
 
-    'default' => (env('APP_ENV') === 'local' && env('MAIL_HOST') === 'mailpit' && in_array(env('MAIL_MAILER', 'smtp'), ['smtp', '']))
-        ? 'log'
-        : env('MAIL_MAILER', 'smtp'),
+    'default' => (env('MAIL_MAILER') === 'smtp' && env('MAIL_HOST') === 'mailpit')
+        ? 'postfix'
+        : env('MAIL_MAILER', 'postfix'),
 
     /*
     |--------------------------------------------------------------------------
@@ -43,6 +43,17 @@ return [
             'encryption' => env('MAIL_ENCRYPTION', 'tls'),
             'username' => env('MAIL_USERNAME'),
             'password' => env('MAIL_PASSWORD'),
+            'timeout' => null,
+            'local_domain' => env('MAIL_EHLO_DOMAIN'),
+        ],
+
+        'postfix' => [
+            'transport' => 'smtp',
+            'host' => env('POSTFIX_HOST', '127.0.0.1'),
+            'port' => env('POSTFIX_PORT', 25),
+            'encryption' => env('POSTFIX_ENCRYPTION'),
+            'username' => env('POSTFIX_USERNAME'),
+            'password' => env('POSTFIX_PASSWORD'),
             'timeout' => null,
             'local_domain' => env('MAIL_EHLO_DOMAIN'),
         ],

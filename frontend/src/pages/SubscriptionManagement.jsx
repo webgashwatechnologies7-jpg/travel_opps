@@ -15,8 +15,6 @@ const SubscriptionManagement = () => {
     description: '',
     price: '',
     billing_period: 'monthly',
-    max_users: '',
-    max_leads: '',
     features: [],
     is_active: true,
     sort_order: 0,
@@ -66,8 +64,6 @@ const SubscriptionManagement = () => {
       description: '',
       price: '',
       billing_period: 'monthly',
-      max_users: '',
-      max_leads: '',
       features: [],
       is_active: true,
       sort_order: 0,
@@ -83,8 +79,6 @@ const SubscriptionManagement = () => {
       description: plan.description || '',
       price: plan.price,
       billing_period: plan.billing_period,
-      max_users: plan.max_users || '',
-      max_leads: plan.max_leads || '',
       features: plan.features || [],
       is_active: plan.is_active,
       sort_order: plan.sort_order || 0,
@@ -153,8 +147,6 @@ const SubscriptionManagement = () => {
     try {
       const submitData = {
         ...formData,
-        max_users: formData.max_users || null,
-        max_leads: formData.max_leads || null,
         price: parseFloat(formData.price),
         sort_order: parseInt(formData.sort_order),
       };
@@ -277,21 +269,6 @@ const SubscriptionManagement = () => {
                   {plan.description && (
                     <p className="text-sm text-gray-600 mb-4">{plan.description}</p>
                   )}
-
-                  <div className="space-y-2 mb-4">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">Max Users:</span>
-                      <span className="font-medium">
-                        {plan.max_users ? plan.max_users : 'Unlimited'}
-                      </span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">Max Leads:</span>
-                      <span className="font-medium">
-                        {plan.max_leads ? plan.max_leads : 'Unlimited'}
-                      </span>
-                    </div>
-                  </div>
 
                   {plan.features && plan.features.length > 0 && (
                     <div className="mb-4">
@@ -416,34 +393,6 @@ const SubscriptionManagement = () => {
                       <option value="monthly">Monthly</option>
                       <option value="yearly">Yearly</option>
                     </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Max Users (leave empty for unlimited)
-                    </label>
-                    <input
-                      type="number"
-                      min="1"
-                      value={formData.max_users}
-                      onChange={(e) =>
-                        setFormData({ ...formData, max_users: e.target.value || '' })
-                      }
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Max Leads (leave empty for unlimited)
-                    </label>
-                    <input
-                      type="number"
-                      min="1"
-                      value={formData.max_leads}
-                      onChange={(e) =>
-                        setFormData({ ...formData, max_leads: e.target.value || '' })
-                      }
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                    />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">

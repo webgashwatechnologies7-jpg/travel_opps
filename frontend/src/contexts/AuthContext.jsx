@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import { authAPI } from '../services/api';
+import { initPushNotifications, listenForForegroundMessages, removePushToken } from '../services/pushNotifications';
 
 const AuthContext = createContext(null);
 
@@ -35,6 +36,37 @@ export const AuthProvider = ({ children }) => {
       setLoading(false);
     }
   }, []);
+
+  useEffect(() => {
+    let unsubscribe = null;
+
+    const registerPush = async () => {
+      if (!user?.id) {
+        return;
+      }
+
+      const prompted = localStorage.getItem('push_prompted');
+      const result = await initPushNotifications({ prompt: !prompted });
+
+      if (!prompted) {
+        localStorage.setItem('push_prompted', 'true');
+      }
+
+      if (result?.permission === 'granted') {
+        unsubscribe = listenForForegroundMessages();
+      }
+    };
+
+    registerPush().catch((error) => {
+      console.error('Push notification setup failed:', error);
+    });
+
+    return () => {
+      if (typeof unsubscribe === 'function') {
+        unsubscribe();
+      }
+    };
+  }, [user?.id]);
 
   const login = async (email, password) => {
     try {
@@ -87,6 +119,7 @@ export const AuthProvider = ({ children }) => {
 
   const logout = async () => {
     try {
+      await removePushToken();
       await authAPI.logout();
     } catch (error) {
       console.error('Logout error:', error);

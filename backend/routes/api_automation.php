@@ -20,14 +20,15 @@ Route::middleware('auth:sanctum')->prefix('google-sheets')->group(function () {
 });
 
 // WhatsApp webhook routes - public (Meta will call these)
-Route::prefix('whatsapp')->group(function () {
-    Route::get('/webhook', [PublicWhatsAppController::class, 'verifyWebhook']);
-    Route::post('/webhook', [PublicWhatsAppController::class, 'webhook']);
+Route::prefix('webhooks/whatsapp')->group(function () {
+    Route::post('/{company_id}', [PublicWhatsAppController::class, 'webhook'])
+        ->middleware('tenant.param');
 });
 
 // WhatsApp routes - require authentication
 Route::middleware('auth:sanctum')->prefix('whatsapp')->group(function () {
     Route::get('/inbox', [InboxController::class, 'inbox']);
+    Route::get('/messages/{leadId}', [InboxController::class, 'messagesByLead']);
     Route::post('/send', [WhatsappController::class, 'send']);
 });
 

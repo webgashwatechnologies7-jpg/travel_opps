@@ -1,9 +1,9 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { leadsAPI, usersAPI, followupsAPI, dayItinerariesAPI, packagesAPI, settingsAPI, suppliersAPI, hotelsAPI, paymentsAPI, googleMailAPI } from '../services/api';
+import { leadsAPI, usersAPI, followupsAPI, dayItinerariesAPI, packagesAPI, settingsAPI, suppliersAPI, hotelsAPI, paymentsAPI, googleMailAPI, whatsappAPI, queryDetailAPI, documentsAPI, vouchersAPI, callsAPI } from '../services/api';
 import Layout from '../components/Layout';
-import { ArrowLeft, Calendar, Mail, Plus, Upload, X, Search, FileText, Printer, Send, MessageCircle, CheckCircle, CheckCircle2, Clock } from 'lucide-react';
+import { ArrowLeft, Calendar, Mail, Plus, Upload, X, Search, FileText, Printer, Send, MessageCircle, CheckCircle, CheckCircle2, Clock, MoreVertical, Download, Phone } from 'lucide-react';
 
 const LeadDetails = () => {
   const { id } = useParams();
@@ -28,6 +28,7 @@ const LeadDetails = () => {
   const [selectedOption, setSelectedOption] = useState(null);
   const [quotationData, setQuotationData] = useState(null);
   const [loadingQuotation, setLoadingQuotation] = useState(false);
+  const [maxHotelOptions, setMaxHotelOptions] = useState(4);
   const [itineraryFormData, setItineraryFormData] = useState({
     itinerary_name: '',
     start_date: '',
@@ -69,6 +70,23 @@ const LeadDetails = () => {
     due_date: ''
   });
   const [addingPayment, setAddingPayment] = useState(false);
+  const [vouchers, setVouchers] = useState([]);
+  const [documents, setDocuments] = useState([]);
+  const [invoices, setInvoices] = useState([]);
+  const [activityHistory, setActivityHistory] = useState([]);
+  const [callHistory, setCallHistory] = useState([]);
+  const [callSummary, setCallSummary] = useState({ total_calls: 0, total_talk_time_seconds: 0 });
+  const [loadingCalls, setLoadingCalls] = useState(false);
+  const [showDocumentModal, setShowDocumentModal] = useState(false);
+  const [uploadingDocument, setUploadingDocument] = useState(false);
+  const [documentForm, setDocumentForm] = useState({
+    title: '',
+    document_type: 'other',
+    document_category: 'other',
+    description: '',
+    file: null
+  });
+  const [sendingVoucher, setSendingVoucher] = useState(false);
 
   // Email states
   const [leadEmails, setLeadEmails] = useState([]);
@@ -85,6 +103,12 @@ const LeadDetails = () => {
   const [companySettings, setCompanySettings] = useState(null);
   const [gmailEmails, setGmailEmails] = useState([]);
   const [loadingGmail, setLoadingGmail] = useState(false);
+  const [whatsappMessages, setWhatsappMessages] = useState([]);
+  const [loadingWhatsappMessages, setLoadingWhatsappMessages] = useState(false);
+  const [openActionMenuId, setOpenActionMenuId] = useState(null);
+  const [calling, setCalling] = useState(false);
+  const [outgoingNumbers, setOutgoingNumbers] = useState([]);
+  const [selectedOutgoingNumber, setSelectedOutgoingNumber] = useState('');
 
   useEffect(() => {
     fetchLeadDetails();
@@ -92,7 +116,28 @@ const LeadDetails = () => {
     loadProposals();
     fetchSuppliers();
     fetchCompanySettings();
+    fetchMaxHotelOptions();
+    fetchCallHistory();
   }, [id]);
+
+  useEffect(() => {
+    if (user?.id) {
+      fetchOutgoingNumbers();
+    }
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (activeTab !== 'calls') {
+      return;
+    }
+
+    fetchCallHistory();
+    const interval = setInterval(() => {
+      fetchCallHistory();
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, [activeTab, id]);
 
   // Fetch company settings
   const fetchCompanySettings = async () => {
@@ -105,6 +150,56 @@ const LeadDetails = () => {
       // Error logged for debugging
       // TODO: Add proper error reporting service
     }
+  };
+
+  const fetchMaxHotelOptions = async () => {
+    try {
+      const response = await settingsAPI.getMaxHotelOptions();
+      if (response.data.success && response.data.data?.max_hotel_options) {
+        setMaxHotelOptions(response.data.data.max_hotel_options);
+      }
+    } catch (err) {
+      // Default to 4 if settings endpoint fails
+    }
+  };
+
+  const getFilteredOptionNumbers = () => {
+    if (!quotationData?.hotelOptions) return [];
+    return Object.keys(quotationData.hotelOptions)
+      .map(optionNum => parseInt(optionNum, 10))
+      .filter(optionNum => Number.isFinite(optionNum) && optionNum > 0 && optionNum <= maxHotelOptions)
+      .sort((a, b) => a - b)
+      .map(optionNum => optionNum.toString());
+  };
+
+  const buildAllOptionsTextMessage = (optionNumbers) => {
+    if (!quotationData || !lead) return '';
+    let message = `Travel Quotation - ${quotationData.itinerary.itinerary_name || 'Itinerary'}\n`;
+    message += `Query ID: ${formatLeadId(lead.id)}\n`;
+    message += `Destination: ${quotationData.itinerary.destinations || 'N/A'}\n`;
+    message += `Duration: ${quotationData.itinerary.duration || 0} Days\n\n`;
+
+    optionNumbers.forEach(optNum => {
+      const hotels = quotationData.hotelOptions[optNum] || [];
+      const totalPrice = hotels.reduce((sum, h) => sum + (parseFloat(h.price) || 0), 0);
+
+      message += `Option ${optNum}\n`;
+      hotels.forEach(hotel => {
+        message += `- Day ${hotel.day}: ${hotel.hotelName || 'Hotel'} (${hotel.category || 'N/A'} Star)\n`;
+        message += `  Room: ${hotel.roomName || 'N/A'} | Meal: ${hotel.mealPlan || 'N/A'}\n`;
+      });
+      message += `Total Price: ₹${totalPrice.toLocaleString('en-IN')}\n\n`;
+    });
+
+    return message.trim();
+  };
+
+  const buildAllOptionsWhatsAppMessage = (optionNumbers) => {
+    let message = buildAllOptionsTextMessage(optionNumbers);
+    if (message.length > 980) {
+      message = `${message.slice(0, 980)}...\n\n(Message trimmed)`;
+    }
+    return message;
   };
 
   // Update subject when lead or confirmed proposal changes
@@ -262,6 +357,24 @@ const LeadDetails = () => {
     };
   }, [proposals, quotationData]);
 
+  useEffect(() => {
+    if (!quotationData?.hotelOptions) {
+      return;
+    }
+
+    const optionKeys = Object.keys(quotationData.hotelOptions)
+      .filter(optionNum => parseInt(optionNum, 10) <= maxHotelOptions)
+      .sort((a, b) => parseInt(a, 10) - parseInt(b, 10));
+
+    if (optionKeys.length === 0) {
+      return;
+    }
+
+    if (!selectedOption || parseInt(selectedOption, 10) > maxHotelOptions) {
+      setSelectedOption(optionKeys[0]);
+    }
+  }, [quotationData, maxHotelOptions, selectedOption]);
+
   // Load proposals from localStorage
   const loadProposals = () => {
     try {
@@ -273,13 +386,14 @@ const LeadDetails = () => {
         proposals = JSON.parse(storedProposals);
       }
 
-      // Also load proposals from all itineraries (for options added from itinerary detail page)
-      // This ensures all options from Final tab are available
-      const allItineraryKeys = Object.keys(localStorage).filter(key => key.startsWith('itinerary_') && key.endsWith('_proposals'));
-      allItineraryKeys.forEach(key => {
+      // Load proposals for itineraries already added to this lead
+      const itineraryIds = proposals
+        .map(proposal => proposal.itinerary_id)
+        .filter(Boolean);
+
+      itineraryIds.forEach(itineraryId => {
         try {
-          const itineraryProposals = JSON.parse(localStorage.getItem(key) || '[]');
-          // Add proposals that don't already exist (check by itinerary_id + optionNumber)
+          const itineraryProposals = JSON.parse(localStorage.getItem(`itinerary_${itineraryId}_proposals`) || '[]');
           itineraryProposals.forEach(ip => {
             const exists = proposals.some(p =>
               p.itinerary_id === ip.itinerary_id &&
@@ -341,31 +455,63 @@ const LeadDetails = () => {
 
   const fetchLeadDetails = async () => {
     try {
-      const response = await leadsAPI.get(id);
-      const leadData = response.data.data.lead;
+      const response = await queryDetailAPI.getDetail(id);
+      const data = response.data.data;
+      const leadData = data.lead;
       setLead(leadData);
 
-      // Extract notes from followups (those with remarks)
-      if (leadData.followups) {
-        const notesList = leadData.followups
-          .filter(followup => followup.remark && followup.remark.trim() !== '')
-          .map(followup => ({
-            content: followup.remark,
-            created_at: followup.created_at,
-            created_by: followup.user?.name || 'System'
-          }));
-        setNotes(notesList);
-        // Store all followups
-        setFollowups(leadData.followups || []);
-      } else {
-        setFollowups([]);
-      }
+      const followupsData = data.followups || [];
+      const notesList = followupsData
+        .filter(followup => followup.remark && followup.remark.trim() !== '' && !followup.reminder_time)
+        .map(followup => ({
+          content: followup.remark,
+          created_at: followup.created_at,
+          created_by: followup.created_by?.name || followup.user?.name || 'System'
+        }));
+      setNotes(notesList);
+
+      const taskList = followupsData.filter(followup => Boolean(followup.reminder_time));
+      setFollowups(taskList);
+
+      setVouchers(data.vouchers || []);
+      setDocuments(data.documents || []);
+      setInvoices(data.invoices || []);
+      setActivityHistory(data.activity_history || []);
     } catch (err) {
       // Error fetching lead details
       // TODO: Add proper error reporting service
       alert('Failed to load lead details');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchCallHistory = async () => {
+    if (!id) return;
+    setLoadingCalls(true);
+    try {
+      const response = await callsAPI.getLeadHistory(id);
+      const data = response.data.data;
+      setCallHistory(data.calls || []);
+      setCallSummary(data.summary || { total_calls: 0, total_talk_time_seconds: 0 });
+    } catch (err) {
+      console.error('Failed to load call history', err);
+    } finally {
+      setLoadingCalls(false);
+    }
+  };
+
+  const fetchOutgoingNumbers = async () => {
+    try {
+      const response = await callsAPI.getMappings();
+      const mappings = response.data.data.mappings || [];
+      const activeForUser = mappings.filter(mapping => mapping.is_active && mapping.user_id === user?.id);
+      setOutgoingNumbers(activeForUser);
+      if (!selectedOutgoingNumber && activeForUser.length > 0) {
+        setSelectedOutgoingNumber(activeForUser[0].phone_number);
+      }
+    } catch (err) {
+      console.error('Failed to load outgoing numbers', err);
     }
   };
 
@@ -403,6 +549,23 @@ const LeadDetails = () => {
       // TODO: Add proper error reporting service
     } finally {
       setLoadingEmails(false);
+    }
+  };
+
+  const fetchWhatsAppMessages = async () => {
+    if (!id) return;
+    setLoadingWhatsappMessages(true);
+    try {
+      const response = await whatsappAPI.messages(id);
+      if (response.data.success) {
+        setWhatsappMessages(response.data.data.messages || []);
+      } else {
+        setWhatsappMessages([]);
+      }
+    } catch (err) {
+      setWhatsappMessages([]);
+    } finally {
+      setLoadingWhatsappMessages(false);
     }
   };
 
@@ -581,6 +744,12 @@ const LeadDetails = () => {
       }
     }
   }, [activeTab, id, user?.google_token]);
+
+  useEffect(() => {
+    if (activeTab === 'whatsapp' && id) {
+      fetchWhatsAppMessages();
+    }
+  }, [activeTab, id]);
 
   // Generate email body with enquiry details
   const generateEmailBody = () => {
@@ -833,6 +1002,105 @@ const LeadDetails = () => {
       alert(err.response?.data?.message || 'Failed to add note');
     } finally {
       setAddingNote(false);
+    }
+  };
+
+  const handleDocumentFileChange = (event) => {
+    const file = event.target.files?.[0] || null;
+    setDocumentForm(prev => ({ ...prev, file }));
+  };
+
+  const handleUploadDocument = async (event) => {
+    event.preventDefault();
+    if (!documentForm.title.trim() || !documentForm.file) {
+      alert('Title and file are required');
+      return;
+    }
+
+    setUploadingDocument(true);
+    try {
+      await documentsAPI.upload({
+        lead_id: id,
+        title: documentForm.title.trim(),
+        document_type: documentForm.document_type,
+        document_category: documentForm.document_category,
+        description: documentForm.description,
+        file: documentForm.file
+      });
+      await fetchLeadDetails();
+      setDocumentForm({
+        title: '',
+        document_type: 'other',
+        document_category: 'other',
+        description: '',
+        file: null
+      });
+      setShowDocumentModal(false);
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to upload document');
+    } finally {
+      setUploadingDocument(false);
+    }
+  };
+
+  const handleDownloadDocument = async (doc) => {
+    try {
+      const response = await documentsAPI.download(doc.id);
+      const blob = new Blob([response.data], { type: doc.file_type || 'application/octet-stream' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = doc.file_name || 'document';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      alert('Failed to download document');
+    }
+  };
+
+  const handlePreviewVoucher = async () => {
+    try {
+      const response = await vouchersAPI.preview(id);
+      const blob = new Blob([response.data], { type: 'text/html' });
+      const url = window.URL.createObjectURL(blob);
+      window.open(url, '_blank', 'noopener,noreferrer');
+      setTimeout(() => window.URL.revokeObjectURL(url), 5000);
+    } catch (err) {
+      alert('Failed to preview voucher');
+    }
+  };
+
+  const handleDownloadVoucher = async () => {
+    try {
+      const response = await vouchersAPI.download(id);
+      const blob = new Blob([response.data], { type: 'text/html' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `voucher-lead-${id}.html`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      alert('Failed to download voucher');
+    }
+  };
+
+  const handleSendVoucher = async () => {
+    setSendingVoucher(true);
+    try {
+      await vouchersAPI.send(id, {
+        to_email: lead?.email || undefined,
+        subject: `Travel Voucher - ${lead?.client_name || 'Customer'}`
+      });
+      alert('Voucher sent successfully');
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to send voucher');
+    } finally {
+      setSendingVoucher(false);
     }
   };
 
@@ -1100,6 +1368,13 @@ const LeadDetails = () => {
     return `${day}/${month}/${year} - ${displayHours}:${minutes} ${ampm}`;
   };
 
+  const formatDuration = (seconds) => {
+    const total = Number(seconds || 0);
+    const mins = Math.floor(total / 60);
+    const secs = total % 60;
+    return `${mins}m ${secs}s`;
+  };
+
   const getTravelMonth = (dateString) => {
     if (!dateString) return 'N/A';
     const date = new Date(dateString);
@@ -1190,7 +1465,7 @@ const LeadDetails = () => {
     }
   };
 
-  const handleViewQuotation = async (proposal) => {
+  const handleViewQuotation = async (proposal, { openModal = true } = {}) => {
     setLoadingQuotation(true);
     setSelectedProposal(proposal);
     setSelectedOption(null);
@@ -1222,7 +1497,13 @@ const LeadDetails = () => {
         events.forEach(event => {
           if (event.eventType === 'accommodation' && event.hotelOptions) {
             event.hotelOptions.forEach(option => {
-              const optNum = option.optionNumber || 1;
+              const optNum = parseInt(option.optionNumber, 10);
+              if (!Number.isFinite(optNum) || optNum < 1) {
+                return;
+              }
+              if (optNum > maxHotelOptions) {
+                return;
+              }
               if (!hotelOptions[optNum]) {
                 hotelOptions[optNum] = [];
               }
@@ -1258,7 +1539,7 @@ const LeadDetails = () => {
         setSelectedOption(proposal.optionNumber.toString());
       }
 
-      setShowQuotationModal(true);
+      setShowQuotationModal(openModal);
     } catch (err) {
       // Error loading quotation
       // TODO: Add proper error reporting service
@@ -1881,7 +2162,7 @@ const LeadDetails = () => {
     const templateId = await getSelectedTemplate();
     const allPolicies = await getAllPolicies();
     const itinerary = quotationData.itinerary;
-    const allOptions = Object.keys(quotationData.hotelOptions).sort((a, b) => parseInt(a) - parseInt(b));
+    const allOptions = getFilteredOptionNumbers();
 
     // Use special templates
     if (templateId === 'template-2') {
@@ -2046,43 +2327,47 @@ const LeadDetails = () => {
     return htmlContent;
   };
 
-  const handleSendMail = async (optionNum) => {
+  const handleSendMail = async () => {
     if (!quotationData || !lead) {
       alert('Please load quotation first');
       return;
     }
 
-    const emailContent = await generateEmailContent();
-    const subject = encodeURIComponent(`Travel Quotation - ${quotationData.itinerary.itinerary_name || 'Itinerary'} - ${formatLeadId(lead.id)}`);
+    const subject = `Travel Quotation - ${quotationData.itinerary.itinerary_name || 'Itinerary'} - ${formatLeadId(lead.id)}`;
+    const optionNumbers = getFilteredOptionNumbers();
+    const recipientEmail = lead.email || '';
 
-    // Create a blob with HTML content
-    const blob = new Blob([emailContent], { type: 'text/html' });
-    const url = URL.createObjectURL(blob);
+    if (!recipientEmail) {
+      alert('Client email not available');
+      return;
+    }
 
-    // Open email client with HTML content
-    const mailtoLink = `mailto:${lead.email || ''}?subject=${subject}&body=${encodeURIComponent('Please find the detailed travel quotation attached.')}`;
+    if (user?.google_token) {
+      const emailContent = await generateEmailContent();
+      await googleMailAPI.sendMail({
+        to: recipientEmail,
+        subject,
+        body: emailContent,
+        lead_id: id,
+      });
+      fetchGmailEmails();
+      alert('Email sent successfully via Gmail!');
+      return;
+    }
 
-    // For better email experience, we'll copy HTML to clipboard and open email
-    navigator.clipboard.writeText(emailContent).then(() => {
-      window.open(mailtoLink);
-      alert('Email content copied to clipboard! Paste it in your email client. You can also print this quotation as PDF and attach it.');
-    }).catch(() => {
-      // Fallback: open email with text body
-      const textBody = `Dear ${lead.client_name || 'Client'},
-
-Please find below the travel quotation for your query:
-
-${quotationData.itinerary.itinerary_name || 'Itinerary'}
-Destination: ${quotationData.itinerary.destinations || 'N/A'}
-Duration: ${quotationData.itinerary.duration || 0} Days
-
-For detailed quotation with images, please use the Print option to generate PDF.
-
-Best regards,
-TravelOps Team`;
-
-      window.location.href = `mailto:${lead.email || ''}?subject=${subject}&body=${encodeURIComponent(textBody)}`;
+    const textBody = buildAllOptionsTextMessage(optionNumbers);
+    const response = await leadsAPI.sendEmail(id, {
+      to_email: recipientEmail,
+      subject,
+      body: textBody,
     });
+
+    if (response.data.success) {
+      fetchLeadEmails();
+      alert('Email sent successfully!');
+    } else {
+      alert(response.data.message || 'Failed to send email');
+    }
   };
 
   const handlePrint = (optionNum) => {
@@ -2119,46 +2404,89 @@ TravelOps Team`;
     }
   };
 
-  const handleSendWhatsApp = (optionNum) => {
+  const handleSendWhatsApp = async () => {
     if (!quotationData || !lead) {
       alert('Please load quotation first');
       return;
     }
+    const optionNumbers = getFilteredOptionNumbers();
+    const message = buildAllOptionsWhatsAppMessage(optionNumbers);
 
-    const phone = lead.phone?.replace(/[^0-9]/g, '') || '';
-    if (!phone) {
-      alert('Phone number not available');
+    try {
+      const response = await whatsappAPI.send(id, message);
+      if (response.data.success) {
+        fetchWhatsAppMessages();
+        alert('WhatsApp message sent successfully!');
+      } else {
+        alert(response.data.message || 'Failed to send WhatsApp message');
+      }
+    } catch (error) {
+      alert(error.response?.data?.message || 'Failed to send WhatsApp message');
+    }
+  };
+
+  const handleSendAllFromGroup = async (group, channel) => {
+    if (!group?.options?.length) {
+      alert('No options found for this itinerary.');
       return;
     }
 
-    // Create WhatsApp message with all options
-    let message = `*Travel Quotation - ${quotationData.itinerary.itinerary_name || 'Itinerary'}*\n\n`;
-    message += `Query ID: ${formatLeadId(lead.id)}\n`;
-    message += `Destination: ${quotationData.itinerary.destinations || 'N/A'}\n`;
-    message += `Duration: ${quotationData.itinerary.duration || 0} Days\n\n`;
+    const proposal = [...group.options].sort((a, b) => (a.optionNumber || 0) - (b.optionNumber || 0))[0];
+    if (!proposal) {
+      alert('Unable to load quotation data.');
+      return;
+    }
 
-    const allOptions = Object.keys(quotationData.hotelOptions).sort((a, b) => parseInt(a) - parseInt(b));
+    await handleViewQuotation(proposal, { openModal: false });
 
-    allOptions.forEach(optNum => {
-      const hotels = quotationData.hotelOptions[optNum] || [];
-      const totalPrice = hotels.reduce((sum, h) => sum + (parseFloat(h.price) || 0), 0);
+    if (channel === 'email') {
+      await handleSendMail();
+    } else {
+      await handleSendWhatsApp();
+    }
 
-      message += `*Option ${optNum}*\n`;
-      message += `Hotels:\n`;
+    setShowQuotationModal(false);
+  };
 
-      hotels.forEach(hotel => {
-        message += `• Day ${hotel.day}: ${hotel.hotelName || 'Hotel'} (${hotel.category || 'N/A'} Star)\n`;
-        message += `  Room: ${hotel.roomName || 'N/A'} | Meal: ${hotel.mealPlan || 'N/A'}\n`;
-      });
+  const handleDownloadAllOptionsPdf = async (group) => {
+    if (!group?.options?.length) {
+      alert('No options found for this itinerary.');
+      return;
+    }
 
-      message += `Total Price: ₹${totalPrice.toLocaleString('en-IN')}\n\n`;
-    });
+    const proposal = [...group.options].sort((a, b) => (a.optionNumber || 0) - (b.optionNumber || 0))[0];
+    if (!proposal) {
+      alert('Unable to load quotation data.');
+      return;
+    }
 
-    message += `For detailed quotation with images, please check your email or contact us.\n\n`;
-    message += `Best regards,\nTravelOps Team`;
+    await handleViewQuotation(proposal, { openModal: false });
+    const emailContent = await generateEmailContent();
 
-    const whatsappUrl = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
-    window.open(whatsappUrl, '_blank');
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      alert('Popup blocked. Please allow popups for this site.');
+      return;
+    }
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Travel Quotation - ${quotationData?.itinerary?.itinerary_name || 'Itinerary'}</title>
+          <style>
+            body { font-family: Arial, sans-serif; padding: 20px; }
+            img { max-width: 100%; height: auto; }
+          </style>
+        </head>
+        <body>
+          ${emailContent}
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => {
+      printWindow.print();
+    }, 250);
   };
 
   // Generate email content for confirmed option only
@@ -2382,17 +2710,31 @@ TravelOps Team`;
     window.open(whatsappUrl, '_blank');
   };
 
+  const handleClickToCall = async () => {
+    if (!lead?.phone) {
+      alert('Client phone number not available');
+      return;
+    }
 
-  const handleStatusChange = async (newStatus) => {
+    setCalling(true);
     try {
-      await leadsAPI.updateStatus(id, newStatus);
-      fetchLeadDetails();
+      const payload = {
+        to_number: lead.phone,
+        lead_id: lead.id,
+      };
+      if (selectedOutgoingNumber) {
+        payload.from_number = selectedOutgoingNumber;
+      }
+      await callsAPI.clickToCall(payload);
+      await fetchCallHistory();
+      alert('Call initiated successfully');
     } catch (err) {
-      // Error updating status
-      // TODO: Add proper error reporting service
-      alert('Failed to update status');
+      alert(err.response?.data?.message || 'Failed to initiate call');
+    } finally {
+      setCalling(false);
     }
   };
+
 
   if (loading) {
     return (
@@ -2437,15 +2779,13 @@ TravelOps Team`;
               )}
             </div>
             <div className="flex items-center gap-2">
-              <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2 text-sm">
-                <Plus className="h-4 w-4" />
-                Shortcut
-              </button>
-              <button className="p-2 hover:bg-gray-100 rounded">
-                <Calendar className="h-5 w-5 text-gray-600" />
-              </button>
-              <button className="p-2 hover:bg-gray-100 rounded">
-                <Mail className="h-5 w-5 text-gray-600" />
+              <button
+                onClick={handleClickToCall}
+                disabled={calling}
+                className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center gap-2 text-sm disabled:opacity-60"
+              >
+                <Phone className="h-4 w-4" />
+                {calling ? 'Calling...' : 'Call'}
               </button>
             </div>
           </div>
@@ -2453,49 +2793,6 @@ TravelOps Team`;
             Created: {formatDate(lead.created_at)} | Last Updated: {formatDateTime(lead.updated_at)}
           </div>
 
-          {/* Status Buttons */}
-          <div className="flex gap-2 flex-wrap mb-6">
-            {[
-              { key: 'new', label: 'New' },
-              { key: 'proposal', label: 'Proposal Sent' },
-              { key: 'noConnect', label: 'No Connect' },
-              { key: 'hotLead', label: 'Hot Lead' },
-              { key: 'proposalConfirmed', label: 'Proposal Con..' },
-              { key: 'cancel', label: 'Cancel' },
-              { key: 'followup', label: 'Follow Up' },
-              { key: 'confirmed', label: 'Confirmed' },
-              { key: 'postponed', label: 'Postponed' },
-              { key: 'invalid', label: 'Invalid' }
-            ].map(({ key, label }) => {
-              const isActive = (key === 'new' && lead.status === 'new') ||
-                (key === 'proposal' && lead.status === 'proposal') ||
-                (key === 'followup' && lead.status === 'followup') ||
-                (key === 'confirmed' && lead.status === 'confirmed') ||
-                (key === 'cancel' && lead.status === 'cancelled') ||
-                (key === 'hotLead' && lead.priority === 'hot');
-
-              return (
-                <button
-                  key={key}
-                  onClick={() => {
-                    if (key === 'new') handleStatusChange('new');
-                    else if (key === 'proposal') handleStatusChange('proposal');
-                    else if (key === 'followup') handleStatusChange('followup');
-                    else if (key === 'confirmed') handleStatusChange('confirmed');
-                    else if (key === 'cancel') handleStatusChange('cancelled');
-                  }}
-                  className={`px-3 py-1.5 rounded-lg text-sm font-medium ${isActive
-                    ? key === 'new'
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-green-500 text-white'
-                    : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
-                    }`}
-                >
-                  {label}
-                </button>
-              );
-            })}
-          </div>
         </div>
 
         {/* Main Content */}
@@ -2641,11 +2938,11 @@ TravelOps Team`;
                     { key: 'whatsapp', label: 'WhatsApp' },
                     { key: 'followups', label: "Followup's" },
                     { key: 'suppComm', label: 'Supp. Comm.' },
-                    { key: 'postSales', label: 'Post Sales' },
                     { key: 'voucher', label: 'Voucher' },
                     { key: 'docs', label: 'Docs.' },
                     { key: 'invoice', label: 'Invoice' },
                     { key: 'billing', label: 'Billing' },
+                    { key: 'calls', label: 'Calls' },
                     { key: 'history', label: 'History' }
                   ].map(({ key, label }) => (
                     <button
@@ -2755,7 +3052,22 @@ TravelOps Team`;
 
                       return (
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                          {Object.values(groupedProposals).map((group) => (
+                          {Object.values(groupedProposals).map((group) => {
+                            const limitedOptions = group.options.filter(option => {
+                              const optNum = parseInt(option.optionNumber, 10);
+                              if (!Number.isFinite(optNum) || optNum < 1) {
+                                return false;
+                              }
+                              return optNum <= maxHotelOptions;
+                            });
+                            const uniqueOptionCount = new Set(
+                              limitedOptions.map(option => parseInt(option.optionNumber, 10))
+                            ).size;
+                            const sortedOptions = limitedOptions.sort(
+                              (a, b) => (a.optionNumber || 0) - (b.optionNumber || 0)
+                            );
+
+                            return (
                             <div
                               key={group.itinerary_id || group.itinerary_name}
                               className="bg-white border-2 border-gray-200 rounded-xl overflow-hidden shadow-md hover:shadow-xl transition-all duration-300"
@@ -2787,28 +3099,82 @@ TravelOps Team`;
 
                               {/* Content */}
                               <div className="p-4">
-                                {/* Title, Destination, Duration in one line */}
-                                <div
-                                  className="mb-4 cursor-pointer hover:text-blue-600 transition-colors"
-                                  onClick={() => {
-                                    if (group.itinerary_id) {
-                                      navigate(`/itineraries/${group.itinerary_id}`);
-                                    }
-                                  }}
-                                >
-                                  <h3 className="text-lg font-bold text-gray-800 inline">
-                                    {group.itinerary_name}
-                                  </h3>
-                                  {group.destination && (
-                                    <span className="text-sm text-gray-600 ml-2 font-medium">
-                                      • {group.destination}
-                                    </span>
-                                  )}
-                                  {group.duration > 0 && (
-                                    <span className="text-sm text-gray-600 ml-2 font-medium">
-                                      • {group.duration} Days
-                                    </span>
-                                  )}
+                                <div className="flex items-start justify-between gap-3">
+                                  {/* Title, Destination, Duration in separate lines */}
+                                  <div
+                                    className="mb-4 cursor-pointer hover:text-blue-600 transition-colors space-y-1"
+                                    onClick={() => {
+                                      if (group.itinerary_id) {
+                                        navigate(`/itineraries/${group.itinerary_id}`);
+                                      }
+                                    }}
+                                  >
+                                    <h3 className="text-lg font-bold text-gray-800">
+                                      {group.itinerary_name}
+                                    </h3>
+                                    {(group.destination || group.duration > 0) && (
+                                      <div className="text-sm text-gray-600 font-medium flex flex-col gap-0.5">
+                                        {group.destination && (
+                                          <span>Destination: {group.destination}</span>
+                                        )}
+                                        {group.duration > 0 && (
+                                          <span>Duration: {group.duration} Days</span>
+                                        )}
+                                      </div>
+                                    )}
+                                  </div>
+
+                                  {/* Action Menu */}
+                                  <div className="relative">
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const key = group.itinerary_id || group.itinerary_name;
+                                        setOpenActionMenuId(prev => (prev === key ? null : key));
+                                      }}
+                                      className="p-2 rounded-lg border border-gray-200 hover:bg-gray-50"
+                                      title="Send Options"
+                                    >
+                                      <MoreVertical className="h-4 w-4 text-gray-600" />
+                                    </button>
+                                    {openActionMenuId === (group.itinerary_id || group.itinerary_name) && (
+                                      <div className="absolute right-0 mt-2 w-56 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
+                                        <button
+                                          type="button"
+                                          onClick={async () => {
+                                            await handleSendAllFromGroup(group, 'email');
+                                            setOpenActionMenuId(null);
+                                          }}
+                                          className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2"
+                                        >
+                                          <Mail className="h-4 w-4 text-blue-600" />
+                                          Send All Options (Email)
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={async () => {
+                                            await handleSendAllFromGroup(group, 'whatsapp');
+                                            setOpenActionMenuId(null);
+                                          }}
+                                          className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2"
+                                        >
+                                          <MessageCircle className="h-4 w-4 text-green-600" />
+                                          Send All Options (WhatsApp)
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={async () => {
+                                            await handleDownloadAllOptionsPdf(group);
+                                            setOpenActionMenuId(null);
+                                          }}
+                                          className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2"
+                                        >
+                                          <Download className="h-4 w-4 text-gray-700" />
+                                          Download PDF (All Options)
+                                        </button>
+                                      </div>
+                                    )}
+                                  </div>
                                 </div>
 
                                 {/* Options Display */}
@@ -2816,11 +3182,11 @@ TravelOps Team`;
                                   <div className="text-xs font-bold text-gray-700 mb-3 flex items-center gap-2">
                                     <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded">Options</span>
                                     <span className="px-2 py-1 bg-gray-200 text-gray-700 rounded font-semibold">
-                                      {group.options.length}
+                                      {uniqueOptionCount}
                                     </span>
                                   </div>
                                   <div className="space-y-3">
-                                    {group.options.sort((a, b) => (a.optionNumber || 0) - (b.optionNumber || 0)).map((option) => {
+                                    {sortedOptions.map((option) => {
                                       const packageDetails = getPackageDetails(option);
                                       return (
                                         <div
@@ -3087,6 +3453,7 @@ TravelOps Team`;
                                   </div>
                                 </div>
 
+
                                 <div className="pt-4 mt-4 border-t-2 border-gray-200 flex items-center justify-between">
                                   <span className="text-xs text-gray-600 font-medium">
                                     Added: {new Date(group.inserted_at).toLocaleDateString('en-GB')}
@@ -3108,7 +3475,8 @@ TravelOps Team`;
                                 </div>
                               </div>
                             </div>
-                          ))}
+                          );
+                          })}
                         </div>
                       );
                     })()}
@@ -3247,8 +3615,37 @@ TravelOps Team`;
                   </div>
                 )}
                 {activeTab === 'whatsapp' && (
-                  <div className="text-center py-12 text-gray-500">
-                    No WhatsApp messages yet
+                  <div>
+                    {loadingWhatsappMessages ? (
+                      <div className="flex items-center justify-center py-12">
+                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600"></div>
+                      </div>
+                    ) : whatsappMessages.length === 0 ? (
+                      <div className="text-center py-12 text-gray-500">
+                        No WhatsApp messages yet
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {whatsappMessages.map((msg) => (
+                          <div
+                            key={msg.id}
+                            className="p-4 bg-white border border-gray-200 rounded-lg hover:shadow-md transition-shadow"
+                          >
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="text-sm font-semibold text-gray-800">
+                                Sent to {msg.sent_to}
+                              </div>
+                              <div className="text-xs text-gray-500">
+                                {msg.sent_at ? new Date(msg.sent_at).toLocaleString('en-IN') : ''}
+                              </div>
+                            </div>
+                            <div className="text-sm text-gray-700 whitespace-pre-wrap">
+                              {msg.message}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
                 {activeTab === 'followups' && (
@@ -3347,7 +3744,7 @@ TravelOps Team`;
                                           <p className="text-gray-700 mt-2">{followup.remark || followup.description}</p>
                                         )}
                                         <div className="mt-2 flex items-center gap-2 text-sm text-gray-500">
-                                          <span>Created by: {followup.user?.name || 'Unknown'}</span>
+                                          <span>Created by: {followup.created_by?.name || followup.user?.name || 'Unknown'}</span>
                                           <span>•</span>
                                           <span>
                                             {new Date(followup.created_at).toLocaleDateString('en-IN', {
@@ -3612,31 +4009,59 @@ TravelOps Team`;
                     </div>
                   </div>
                 )}
-                {activeTab === 'postSales' && (
-                  <div className="space-y-6">
-                    <div className="bg-white border border-gray-200 rounded-lg p-6">
-                      <h3 className="text-lg font-semibold text-gray-800 mb-4">Post Sales</h3>
-                      <div className="text-center py-8 text-gray-500">
-                        <p>Post sales management coming soon</p>
-                        <p className="text-sm mt-2">Track and manage post-sale activities here</p>
-                      </div>
-                    </div>
-                  </div>
-                )}
                 {activeTab === 'voucher' && (
                   <div className="space-y-6">
                     <div className="bg-white border border-gray-200 rounded-lg p-6">
                       <h3 className="text-lg font-semibold text-gray-800 mb-4">Vouchers</h3>
-                      <div className="flex justify-end mb-4">
-                        <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
-                          <Plus className="h-4 w-4" />
-                          Create Voucher
+                      <div className="flex flex-wrap justify-end gap-2 mb-4">
+                        <button
+                          onClick={handlePreviewVoucher}
+                          className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+                        >
+                          <FileText className="h-4 w-4" />
+                          Preview
+                        </button>
+                        <button
+                          onClick={handleDownloadVoucher}
+                          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                        >
+                          <Download className="h-4 w-4" />
+                          Download
+                        </button>
+                        <button
+                          onClick={handleSendVoucher}
+                          disabled={sendingVoucher}
+                          className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
+                        >
+                          <Send className="h-4 w-4" />
+                          {sendingVoucher ? 'Sending...' : 'Send to Client'}
                         </button>
                       </div>
-                      <div className="text-center py-8 text-gray-500">
-                        <p>No vouchers created yet</p>
-                        <p className="text-sm mt-2">Create hotel, transport, and activity vouchers here</p>
-                      </div>
+                      {vouchers.length === 0 ? (
+                        <div className="text-center py-8 text-gray-500">
+                          <p>No vouchers created yet</p>
+                          <p className="text-sm mt-2">Use the buttons above to generate and share the voucher</p>
+                        </div>
+                      ) : (
+                        <div className="space-y-3">
+                          {vouchers.map((voucher) => (
+                            <div key={voucher.id} className="border border-gray-200 rounded-lg p-4">
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <p className="font-medium text-gray-900">{voucher.title || 'Voucher'}</p>
+                                  <p className="text-xs text-gray-500">
+                                    {voucher.voucher_number || 'N/A'} • {voucher.voucher_type || 'General'}
+                                  </p>
+                                </div>
+                                <span className="px-2 py-1 text-xs font-medium bg-green-100 text-green-700 rounded">
+                                  {voucher.status || 'active'}
+                                </span>
+                              </div>
+                              <p className="text-sm text-gray-600 mt-2">{voucher.description || '—'}</p>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
@@ -3645,15 +4070,41 @@ TravelOps Team`;
                     <div className="bg-white border border-gray-200 rounded-lg p-6">
                       <h3 className="text-lg font-semibold text-gray-800 mb-4">Documents</h3>
                       <div className="flex justify-end mb-4">
-                        <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+                        <button
+                          onClick={() => setShowDocumentModal(true)}
+                          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                        >
                           <Upload className="h-4 w-4" />
                           Upload Document
                         </button>
                       </div>
-                      <div className="text-center py-8 text-gray-500">
-                        <p>No documents uploaded</p>
-                        <p className="text-sm mt-2">Upload passports, tickets, confirmations and other documents here</p>
-                      </div>
+                      {documents.length === 0 ? (
+                        <div className="text-center py-8 text-gray-500">
+                          <p>No documents uploaded</p>
+                          <p className="text-sm mt-2">Upload passports, tickets, confirmations and other documents here</p>
+                        </div>
+                      ) : (
+                        <div className="space-y-3">
+                          {documents.map((doc) => (
+                            <div key={doc.id} className="border border-gray-200 rounded-lg p-4 flex items-center justify-between">
+                              <div>
+                                <p className="font-medium text-gray-900">{doc.title || doc.file_name}</p>
+                                <p className="text-xs text-gray-500">{doc.document_type} • {doc.document_category}</p>
+                                <p className="text-xs text-gray-500 mt-1">
+                                  Uploaded {doc.created_at ? new Date(doc.created_at).toLocaleString('en-IN') : 'N/A'}
+                                </p>
+                              </div>
+                              <button
+                                onClick={() => handleDownloadDocument(doc)}
+                                className="flex items-center gap-2 px-3 py-1.5 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50"
+                              >
+                                <Download className="h-4 w-4" />
+                                Download
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
@@ -3661,16 +4112,86 @@ TravelOps Team`;
                   <div className="space-y-6">
                     <div className="bg-white border border-gray-200 rounded-lg p-6">
                       <h3 className="text-lg font-semibold text-gray-800 mb-4">Invoices</h3>
-                      <div className="flex justify-end mb-4">
-                        <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
-                          <Plus className="h-4 w-4" />
-                          Create Invoice
-                        </button>
-                      </div>
-                      <div className="text-center py-8 text-gray-500">
-                        <p>No invoices generated</p>
-                        <p className="text-sm mt-2">Generate and manage client invoices here</p>
-                      </div>
+
+                      {(() => {
+                        const confirmedOption = getConfirmedOption();
+                        const confirmedOptionNum = confirmedOption?.optionNumber;
+                        const hotels = quotationData?.hotelOptions?.[confirmedOptionNum?.toString()] || [];
+                        const packagePrice = confirmedOption?.price || hotels.reduce((sum, h) => sum + (parseFloat(h.price) || 0), 0);
+
+                        return confirmedOption ? (
+                          <div className="mb-6 bg-gray-50 border border-gray-200 rounded-lg p-4">
+                            <p className="text-sm text-gray-600 mb-2">Final Package (Confirmed Option)</p>
+                            <div className="flex flex-wrap gap-6 text-sm text-gray-700">
+                              <div>
+                                <span className="font-medium">Option:</span> {confirmedOptionNum}
+                              </div>
+                              {quotationData?.itinerary?.destinations && (
+                                <div>
+                                  <span className="font-medium">Destination:</span> {quotationData.itinerary.destinations}
+                                </div>
+                              )}
+                              <div>
+                                <span className="font-medium">Total:</span> ₹{packagePrice.toLocaleString('en-IN')}
+                              </div>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="mb-6 bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-sm text-yellow-800">
+                            ⚠️ No confirmed package found. Please confirm an option in the Proposals tab first.
+                          </div>
+                        );
+                      })()}
+
+                      {invoices.length === 0 ? (
+                        <div className="text-center py-8 text-gray-500">
+                          <p>No invoices generated</p>
+                          <p className="text-sm mt-2">Generate and manage client invoices here</p>
+                        </div>
+                      ) : (
+                        <div className="overflow-x-auto">
+                          <table className="w-full">
+                            <thead className="bg-gray-50">
+                              <tr>
+                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Invoice</th>
+                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Date</th>
+                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Total</th>
+                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Paid</th>
+                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Status</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-200">
+                              {invoices.map((invoice) => (
+                                <tr key={invoice.id} className="hover:bg-gray-50">
+                                  <td className="px-4 py-3 text-sm font-medium text-gray-900">
+                                    {invoice.invoice_number || 'N/A'}
+                                  </td>
+                                  <td className="px-4 py-3 text-sm text-gray-600">
+                                    {invoice.invoice_date ? new Date(invoice.invoice_date).toLocaleDateString('en-IN') : 'N/A'}
+                                  </td>
+                                  <td className="px-4 py-3 text-sm text-gray-600">
+                                    ₹{(invoice.total_amount || 0).toLocaleString('en-IN')}
+                                  </td>
+                                  <td className="px-4 py-3 text-sm text-gray-600">
+                                    ₹{(invoice.paid_amount || 0).toLocaleString('en-IN')}
+                                  </td>
+                                  <td className="px-4 py-3 text-sm">
+                                    <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                                      invoice.status === 'paid'
+                                        ? 'bg-green-100 text-green-800'
+                                        : invoice.status === 'partial'
+                                          ? 'bg-yellow-100 text-yellow-800'
+                                          : 'bg-red-100 text-red-800'
+                                    }`}>
+                                      {invoice.status || 'pending'}
+                                    </span>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
@@ -3852,8 +4373,85 @@ TravelOps Team`;
                   </div>
                 )}
                 {activeTab === 'history' && (
-                  <div className="text-center py-12 text-gray-500">
-                    No history available
+                  <div>
+                    {activityHistory.length === 0 ? (
+                      <div className="text-center py-12 text-gray-500">
+                        No history available
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {activityHistory.map((activity) => (
+                          <div key={activity.id} className="border border-gray-200 rounded-lg p-4">
+                            <div className="flex items-start justify-between gap-4">
+                              <div>
+                                <p className="text-sm font-semibold text-gray-800">
+                                  {activity.activity_description || activity.activity_type}
+                                </p>
+                                <p className="text-xs text-gray-500 mt-1">
+                                  {activity.module ? `${activity.module} • ` : ''}
+                                  {activity.created_at ? new Date(activity.created_at).toLocaleString('en-IN') : 'N/A'}
+                                </p>
+                              </div>
+                              <div className="text-xs text-gray-500">
+                                {activity.user?.name || 'System'}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+                {activeTab === 'calls' && (
+                  <div>
+                    <div className="flex items-center justify-between mb-4">
+                      <div>
+                        <h3 className="text-lg font-semibold text-gray-800">Call History</h3>
+                        <p className="text-xs text-gray-500">
+                          Total Calls: {callSummary.total_calls} · Talk Time: {formatDuration(callSummary.total_talk_time_seconds)}
+                        </p>
+                      </div>
+                      <button
+                        onClick={fetchCallHistory}
+                        className="text-sm text-blue-600 hover:text-blue-700"
+                      >
+                        Refresh
+                      </button>
+                    </div>
+                    {loadingCalls ? (
+                      <div className="text-center py-8 text-gray-500">Loading calls...</div>
+                    ) : callHistory.length === 0 ? (
+                      <div className="text-center py-8 text-gray-500">No calls recorded</div>
+                    ) : (
+                      <div className="overflow-x-auto border border-gray-200 rounded-lg">
+                        <table className="min-w-full divide-y divide-gray-200">
+                          <thead className="bg-gray-50">
+                            <tr>
+                              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Employee</th>
+                              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Number</th>
+                              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Duration</th>
+                              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Notes</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-gray-200 bg-white">
+                            {callHistory.map(call => (
+                              <tr key={call.id}>
+                                <td className="px-4 py-2 text-sm text-gray-700">{call.employee?.name || 'Unassigned'}</td>
+                                <td className="px-4 py-2 text-sm text-gray-700">{call.from_number || 'N/A'} → {call.to_number || 'N/A'}</td>
+                                <td className="px-4 py-2 text-sm text-gray-700">{formatDuration(call.duration_seconds)}</td>
+                                <td className="px-4 py-2 text-sm text-gray-700 capitalize">{call.status || 'unknown'}</td>
+                                <td className="px-4 py-2 text-sm text-gray-700">{formatDateTime(call.call_started_at || call.created_at)}</td>
+                                <td className="px-4 py-2 text-sm text-gray-700">
+                                  {call.notes?.length ? `${call.notes.length} note(s)` : '—'}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -4146,6 +4744,100 @@ TravelOps Team`;
         </div>
       )}
 
+      {/* Upload Document Modal */}
+      {showDocumentModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 overflow-y-auto py-8">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl mx-4 my-auto">
+            <div className="flex justify-between items-center p-6 border-b border-gray-200">
+              <h2 className="text-xl font-bold text-gray-800">Upload Document</h2>
+              <button
+                onClick={() => setShowDocumentModal(false)}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+            <form onSubmit={handleUploadDocument}>
+              <div className="p-6 space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
+                  <input
+                    type="text"
+                    value={documentForm.title}
+                    onChange={(e) => setDocumentForm(prev => ({ ...prev, title: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Document title"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
+                    <select
+                      value={documentForm.document_type}
+                      onChange={(e) => setDocumentForm(prev => ({ ...prev, document_type: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                    >
+                      <option value="other">Other</option>
+                      <option value="voucher">Voucher</option>
+                      <option value="invoice">Invoice</option>
+                      <option value="ticket">Ticket</option>
+                      <option value="receipt">Receipt</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+                    <select
+                      value={documentForm.document_category}
+                      onChange={(e) => setDocumentForm(prev => ({ ...prev, document_category: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                    >
+                      <option value="other">Other</option>
+                      <option value="client">Client</option>
+                      <option value="supplier">Supplier</option>
+                      <option value="payment">Payment</option>
+                    </select>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                  <textarea
+                    value={documentForm.description}
+                    onChange={(e) => setDocumentForm(prev => ({ ...prev, description: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                    rows="3"
+                    placeholder="Optional notes"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">File</label>
+                  <input
+                    type="file"
+                    onChange={handleDocumentFileChange}
+                    className="w-full text-sm"
+                  />
+                </div>
+              </div>
+              <div className="flex justify-end gap-3 p-6 border-t border-gray-200">
+                <button
+                  type="button"
+                  onClick={() => setShowDocumentModal(false)}
+                  className="px-4 py-2 text-gray-700 hover:text-gray-900"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={uploadingDocument}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                >
+                  {uploadingDocument ? 'Uploading...' : 'Upload'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* Add Follow-up Modal */}
       {showFollowupModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 overflow-y-auto py-8">
@@ -4418,8 +5110,11 @@ TravelOps Team`;
                       <label className="block text-sm font-medium text-gray-700 mb-2">
                         Select Option:
                       </label>
-                      <div className="flex gap-2 flex-wrap">
-                        {Object.keys(quotationData.hotelOptions).map(optionNum => (
+                      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                        {Object.keys(quotationData.hotelOptions)
+                          .filter(optionNum => parseInt(optionNum, 10) <= maxHotelOptions)
+                          .sort((a, b) => parseInt(a, 10) - parseInt(b, 10))
+                          .map(optionNum => (
                           <button
                             key={optionNum}
                             onClick={() => setSelectedOption(optionNum)}

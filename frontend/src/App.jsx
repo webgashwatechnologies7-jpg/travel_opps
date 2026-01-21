@@ -8,6 +8,7 @@ import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
 import Dashboard from './pages/Dashboard';
 import SuperAdminDashboard from './pages/SuperAdminDashboard';
+import SuperAdminMailStatus from './pages/SuperAdminMailStatus';
 import CompanyManagement from './pages/CompanyManagement';
 import SubscriptionManagement from './pages/SubscriptionManagement';
 import PermissionsManagement from './pages/PermissionsManagement';
@@ -60,6 +61,9 @@ import UserDetails from './pages/UserDetails';
 import Services from './pages/Services';
 import EmployeeManagement from './pages/EmployeeManagement';
 import TeamManagement from './pages/TeamManagement.jsx';
+import TeamReports from './pages/TeamReports';
+import CompanyMailSettings from './pages/CompanyMailSettings';
+import CallManagement from './pages/CallManagement';
 
 const AppRoutes = () => {
   const { user, loading } = useAuth();
@@ -110,6 +114,14 @@ const AppRoutes = () => {
         element={
           <ProtectedRoute>
             <Dashboard />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/call-management"
+        element={
+          <ProtectedRoute>
+            <CallManagement />
           </ProtectedRoute>
         }
       />
@@ -306,6 +318,14 @@ const AppRoutes = () => {
         }
       />
       <Route
+        path="/company-settings/team-reports"
+        element={
+          <ProtectedRoute>
+            <TeamReports />
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/company-settings/users/:id"
         element={
           <ProtectedRoute>
@@ -334,6 +354,14 @@ const AppRoutes = () => {
         element={
           <ProtectedRoute>
             <Settings />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/settings/mail"
+        element={
+          <ProtectedRoute>
+            <CompanyMailSettings />
           </ProtectedRoute>
         }
       />
@@ -469,6 +497,15 @@ const AppRoutes = () => {
         path="/masters/currency"
         element={
           <ProtectedRoute>
+            <Currency />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/marketing"
+        element={
+          <ProtectedRoute>
+            <MarketingDashboard />
           </ProtectedRoute>
         }
       />
@@ -520,14 +557,6 @@ const AppRoutes = () => {
           </ProtectedRoute>
         }
       />
-      <Route
-        path="/email-templates"
-        element={
-          <ProtectedRoute>
-            <EmailTemplates />
-          </ProtectedRoute>
-        }
-      />
       {/* Super Admin Routes */}
       <Route
         path="/super-admin"
@@ -558,6 +587,14 @@ const AppRoutes = () => {
         element={
           <SuperAdminRoute>
             <PermissionsManagement />
+          </SuperAdminRoute>
+        }
+      />
+      <Route
+        path="/super-admin/mail-status"
+        element={
+          <SuperAdminRoute>
+            <SuperAdminMailStatus />
           </SuperAdminRoute>
         }
       />

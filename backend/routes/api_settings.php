@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\CompanySettingsController;
+use App\Http\Controllers\CompanyMailSettingsController;
 use App\Http\Controllers\CurrencyController;
 use App\Http\Controllers\ExpenseTypeController;
 use App\Http\Controllers\LeadSourceController;
@@ -74,6 +75,8 @@ Route::middleware('auth:sanctum')->prefix('company-settings')->group(function ()
     // Users management
     Route::get('/users', [CompanySettingsController::class, 'getUsers']);
     Route::get('/users/{id}', [CompanySettingsController::class, 'getUserDetails']);
+    Route::get('/users/{id}/performance', [CompanySettingsController::class, 'getUserPerformance']);
+    Route::get('/team-reports', [CompanySettingsController::class, 'getTeamReport']);
     Route::post('/users', [CompanySettingsController::class, 'createUser']);
     Route::put('/users/{id}', [CompanySettingsController::class, 'updateUser']);
     Route::delete('/users/{id}', [CompanySettingsController::class, 'deleteUser']);
@@ -89,7 +92,34 @@ Route::middleware('auth:sanctum')->prefix('company-settings')->group(function ()
     Route::post('/roles', [CompanySettingsController::class, 'createRole']);
     Route::put('/roles/{id}', [CompanySettingsController::class, 'updateRole']);
     Route::delete('/roles/{id}', [CompanySettingsController::class, 'deleteRole']);
+
+    // Permissions management
+    Route::get('/permissions', [CompanySettingsController::class, 'getPermissions']);
+    Route::get('/roles/{id}/permissions', [CompanySettingsController::class, 'getRolePermissions']);
+    Route::put('/roles/{id}/permissions', [CompanySettingsController::class, 'updateRolePermissions']);
+    Route::get('/users/{id}/permissions', [CompanySettingsController::class, 'getUserPermissions']);
+    Route::put('/users/{id}/permissions', [CompanySettingsController::class, 'updateUserPermissions']);
     
     // Statistics
     Route::get('/stats', [CompanySettingsController::class, 'getStats']);
+
+    // Company Mail Settings
+    Route::get('/mail-settings', [CompanyMailSettingsController::class, 'show']);
+    Route::put('/mail-settings', [CompanyMailSettingsController::class, 'update']);
+    Route::post('/mail-settings/test', [CompanyMailSettingsController::class, 'test']);
+});
+
+// Company WhatsApp settings - require authentication
+Route::middleware('auth:sanctum')->prefix('company/whatsapp')->group(function () {
+    Route::get('/settings', [\App\Http\Controllers\CompanyWhatsAppController::class, 'getSettings']);
+    Route::put('/settings', [\App\Http\Controllers\CompanyWhatsAppController::class, 'updateSettings']);
+    Route::post('/auto-provision', [\App\Http\Controllers\CompanyWhatsAppController::class, 'autoProvision']);
+    Route::post('/sync', [\App\Http\Controllers\CompanyWhatsAppController::class, 'syncSettings']);
+    Route::post('/test-connection', [\App\Http\Controllers\CompanyWhatsAppController::class, 'testConnection']);
+});
+
+// Company Google (Gmail) settings - require authentication
+Route::middleware('auth:sanctum')->prefix('company/google')->group(function () {
+    Route::get('/settings', [\App\Http\Controllers\CompanyGoogleController::class, 'getSettings']);
+    Route::put('/settings', [\App\Http\Controllers\CompanyGoogleController::class, 'updateSettings']);
 });

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
-import { Search, Plus, Edit, X, Upload, Download, Star } from 'lucide-react';
+import { Search, Plus, Edit, X, Upload, Download, Star, Trash2 } from 'lucide-react';
 import { hotelsAPI } from '../services/api';
 
 const Hotel = () => {
@@ -189,6 +189,21 @@ const Hotel = () => {
       created_by: hotel.created_by || ''
     });
     setPhotoPreview(hotel.hotel_photo || null);
+  };
+
+  const handleDelete = async (hotelId) => {
+    if (!window.confirm('Are you sure you want to delete this hotel?')) {
+      return;
+    }
+
+    try {
+      await hotelsAPI.delete(hotelId);
+      await fetchHotels();
+      setError('');
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to delete hotel');
+      console.error(err);
+    }
   };
 
   const handleImport = () => {
@@ -676,6 +691,13 @@ const Hotel = () => {
                           title="Edit"
                         >
                           <Edit className="h-5 w-5" />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(hotel.id)}
+                          className="text-red-600 hover:text-red-900 p-2 hover:bg-red-50 rounded ml-2"
+                          title="Delete"
+                        >
+                          <Trash2 className="h-5 w-5" />
                         </button>
                       </td>
                     </tr>

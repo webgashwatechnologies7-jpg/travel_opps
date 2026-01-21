@@ -187,9 +187,17 @@ class WhatsAppController extends Controller
     /**
      * WhatsApp webhook handler
      */
-    public function webhook(Request $request): JsonResponse
+    public function webhook(Request $request, int $company_id): JsonResponse
     {
         try {
+            if ((int) $company_id !== (int) tenant('id')) {
+                Log::warning('WhatsApp webhook tenant mismatch', [
+                    'route_company_id' => $company_id,
+                    'tenant_id' => tenant('id'),
+                ]);
+                return response()->json(['status' => 'ignored'], 200);
+            }
+
             // Verify webhook signature
             $signature = $request->header('X-Hub-Signature-256');
             $payload = $request->getContent();
@@ -298,8 +306,24 @@ class WhatsAppController extends Controller
         $messageId = $message['id'];
         $timestamp = $message['timestamp'];
 
-        // Find lead by phone number
-        $lead = Lead::where('phone', 'like', '%' . substr($from, -10))->first();
+        $companyId = tenant('id');
+        if (!$companyId) {
+            Log::warning('WhatsApp webhook missing tenant context', [
+                'from' => $from,
+                'message_id' => $messageId,
+            ]);
+            return;
+        }
+
+        $normalized = normalize_phone_number($from);
+        if (!$normalized) {
+            return;
+        }
+
+        // Find lead by phone number in tenant scope
+        $lead = Lead::where('company_id', $companyId)
+            ->where('phone', 'like', '%' . $normalized)
+            ->first();
 
         if ($lead) {
             $this->saveMessage([

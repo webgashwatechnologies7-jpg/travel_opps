@@ -114,6 +114,16 @@ class User extends Authenticatable
     }
 
     /**
+     * Get push notification tokens for the user.
+     *
+     * @return HasMany
+     */
+    public function pushTokens(): HasMany
+    {
+        return $this->hasMany(\App\Models\PushToken::class, 'user_id');
+    }
+
+    /**
      * Check if user is super admin.
      *
      * @return bool

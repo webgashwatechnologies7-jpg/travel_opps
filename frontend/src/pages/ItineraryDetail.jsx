@@ -113,7 +113,19 @@ const ItineraryDetail = () => {
     fetchItinerary();
     fetchDayItineraries();
     loadEventsFromStorage();
+    fetchMaxHotelOptions();
   }, [id]);
+
+  const fetchMaxHotelOptions = async () => {
+    try {
+      const response = await settingsAPI.getMaxHotelOptions();
+      if (response.data.success && response.data.data?.max_hotel_options) {
+        setMaxHotelOptions(response.data.data.max_hotel_options);
+      }
+    } catch (error) {
+      // Default to 4 if settings endpoint fails
+    }
+  };
 
   // Initialize pricing data from hotel options when events are loaded
   useEffect(() => {
@@ -2016,6 +2028,7 @@ const ItineraryDetail = () => {
             igst={igst}
             tcs={tcs}
             discount={discount}
+            maxHotelOptions={maxHotelOptions}
           />
         )}
 

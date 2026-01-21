@@ -41,10 +41,15 @@ const TeamManagement = () => {
   const [branches, setBranches] = useState([]);
   const [roles, setRoles] = useState([]);
   const [stats, setStats] = useState({});
+  const [notification, setNotification] = useState({ type: '', text: '', title: '', visible: false });
+  const [permissionsList, setPermissionsList] = useState([]);
+  const [permissionsLoading, setPermissionsLoading] = useState(false);
+  const [selectedPermissions, setSelectedPermissions] = useState([]);
 
   // Form data
   const [formData, setFormData] = useState({
     name: '',
+    slug: '',
     email: '',
     phone: '',
     employee_id: '',
@@ -67,17 +72,19 @@ const TeamManagement = () => {
 
   const fetchInitialData = async () => {
     try {
-      const [usersRes, branchesRes, rolesRes, statsRes] = await Promise.all([
+      const [usersRes, branchesRes, rolesRes, statsRes, permissionsRes] = await Promise.all([
         companySettingsAPI.getUsers(),
         companySettingsAPI.getBranches(),
         companySettingsAPI.getRoles(),
-        companySettingsAPI.getStats()
+        companySettingsAPI.getStats(),
+        companySettingsAPI.getPermissions()
       ]);
 
       if (usersRes.data.success) setUsers(usersRes.data.data);
       if (branchesRes.data.success) setBranches(branchesRes.data.data);
       if (rolesRes.data.success) setRoles(rolesRes.data.data);
       if (statsRes.data.success) setStats(statsRes.data.data);
+      if (permissionsRes.data.success) setPermissionsList(permissionsRes.data.data || []);
     } catch (err) {
       console.error('Failed to fetch data:', err);
     } finally {
@@ -88,6 +95,7 @@ const TeamManagement = () => {
   const resetForm = () => {
     setFormData({
       name: '',
+      slug: '',
       email: '',
       phone: '',
       employee_id: '',
@@ -105,6 +113,21 @@ const TeamManagement = () => {
     });
   };
 
+  const showNotification = (type, text) => {
+    setNotification({
+      type,
+      text,
+      title: type === 'success' ? 'Success' : 'Alert',
+      visible: true,
+    });
+    setTimeout(() => {
+      setNotification((prev) => ({ ...prev, visible: false }));
+    }, 2500);
+    setTimeout(() => {
+      setNotification({ type: '', text: '', title: '', visible: false });
+    }, 3000);
+  };
+
   const handleSubmit = useCallback(async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -116,7 +139,7 @@ const TeamManagement = () => {
       if (modalType === 'user') {
         // Validate required fields
         if (!formData.password && !editingItem) {
-          alert('Password is required for new users.');
+          showNotification('error', 'Password is required for new users.');
           return;
         }
         
@@ -138,15 +161,7 @@ const TeamManagement = () => {
       } else if (modalType === 'branch') {
         submitData = {
           name: formData.name,
-          code: formData.code,
-          address: formData.address,
-          phone: formData.phone,
-          email: formData.email,
-          city: formData.city,
-          state: formData.state,
-          country: formData.country,
-          postal_code: formData.postal_code,
-          is_active: formData.is_active,
+          address: formData.address || null,
         };
         if (editingItem) {
           response = await companySettingsAPI.updateBranch(editingItem.id, submitData);
@@ -154,15 +169,8 @@ const TeamManagement = () => {
           response = await companySettingsAPI.createBranch(submitData);
         }
       } else if (modalType === 'role') {
-        // Validate that at least one permission is selected
-        if (!formData.permissions || formData.permissions.length === 0) {
-          alert('Please select at least one permission for the role.');
-          return;
-        }
-        
         submitData = {
           name: formData.name,
-          permissions: formData.permissions || [], // Ensure permissions is always included
         };
         if (editingItem) {
           response = await companySettingsAPI.updateRole(editingItem.id, submitData);
@@ -176,13 +184,13 @@ const TeamManagement = () => {
         setEditingItem(null);
         resetForm();
         fetchInitialData();
-        alert(response.data.message || 'Saved successfully!');
+        showNotification('success', response.data.message || 'Saved successfully!');
       } else {
-        alert(response.data.message || 'Failed to save');
+        showNotification('error', response.data.message || 'Failed to save');
       }
     } catch (err) {
       console.error('Failed to save:', err);
-      alert('Failed to save. Please try again.');
+      showNotification('error', 'Failed to save. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -193,6 +201,7 @@ const TeamManagement = () => {
     setModalType(type);
     setFormData({
       name: item.name || '',
+      slug: item.slug || '',
       email: item.email || '',
       phone: item.phone || '',
       employee_id: item.employee_id || '',
@@ -200,14 +209,16 @@ const TeamManagement = () => {
       roles: item.roles?.map(r => r.name) || [],
       is_active: item.is_active ?? true,
       password: '',
-      address: item.address || '',
-      code: item.code || '',
-      city: item.city || '',
-      state: item.state || '',
-      country: item.country || '',
-      postal_code: item.postal_code || ''
+      address: item.address || ''
     });
     setShowModal(true);
+  };
+
+  const generateSlug = (value) => {
+    return value
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '');
   };
 
   const handleDelete = async (item, type) => {
@@ -227,13 +238,84 @@ const TeamManagement = () => {
 
       if (response.data.success) {
         fetchInitialData();
-        alert('Deleted successfully!');
+        showNotification('success', 'Deleted successfully!');
       } else {
-        alert(response.data.message || 'Failed to delete');
+        showNotification('error', response.data.message || 'Failed to delete');
       }
     } catch (err) {
       console.error('Failed to delete:', err);
-      alert('Failed to delete. Please try again.');
+      showNotification('error', 'Failed to delete. Please try again.');
+    }
+  };
+
+  const openRolePermissions = async (role) => {
+    setEditingItem(role);
+    setModalType('role-permissions');
+    setSelectedPermissions([]);
+    setShowModal(true);
+    setPermissionsLoading(true);
+    try {
+      const response = await companySettingsAPI.getRolePermissions(role.id);
+      if (response.data.success) {
+        setSelectedPermissions(response.data.data || []);
+      }
+    } catch (err) {
+      showNotification('error', 'Failed to load role permissions');
+    } finally {
+      setPermissionsLoading(false);
+    }
+  };
+
+  const openUserPermissions = async (user) => {
+    setEditingItem(user);
+    setModalType('user-permissions');
+    setSelectedPermissions([]);
+    setShowModal(true);
+    setPermissionsLoading(true);
+    try {
+      const response = await companySettingsAPI.getUserPermissions(user.id);
+      if (response.data.success) {
+        setSelectedPermissions(response.data.data || []);
+      }
+    } catch (err) {
+      showNotification('error', 'Failed to load user permissions');
+    } finally {
+      setPermissionsLoading(false);
+    }
+  };
+
+  const togglePermission = (permissionId) => {
+    setSelectedPermissions((prev) =>
+      prev.includes(permissionId) ? prev.filter((id) => id !== permissionId) : [...prev, permissionId]
+    );
+  };
+
+  const toggleAllPermissions = () => {
+    if (selectedPermissions.length === permissionsList.length) {
+      setSelectedPermissions([]);
+    } else {
+      setSelectedPermissions(permissionsList.map((p) => p.id));
+    }
+  };
+
+  const savePermissions = async () => {
+    if (!editingItem) return;
+    try {
+      setPermissionsLoading(true);
+      if (modalType === 'role-permissions') {
+        await companySettingsAPI.updateRolePermissions(editingItem.id, selectedPermissions);
+        showNotification('success', 'Role permissions updated');
+      } else if (modalType === 'user-permissions') {
+        await companySettingsAPI.updateUserPermissions(editingItem.id, selectedPermissions);
+        showNotification('success', 'User permissions updated');
+      }
+      fetchInitialData();
+      setShowModal(false);
+      setEditingItem(null);
+    } catch (err) {
+      showNotification('error', 'Failed to update permissions');
+    } finally {
+      setPermissionsLoading(false);
     }
   };
 
@@ -246,7 +328,7 @@ const TeamManagement = () => {
       }
     } catch (err) {
       console.error('Failed to fetch user details:', err);
-      alert('Failed to fetch user details');
+      showNotification('error', 'Failed to fetch user details');
     }
   };
 
@@ -257,6 +339,8 @@ const TeamManagement = () => {
     resetForm();
     setShowModal(true);
   };
+
+  const isPermissionsModal = modalType === 'role-permissions' || modalType === 'user-permissions';
 
   if (loading) {
     return (
@@ -270,6 +354,33 @@ const TeamManagement = () => {
 
   return (
     <Layout>
+      {notification.text && (
+        <div className="fixed bottom-6 right-6 z-50 max-w-sm w-full">
+          <div
+            className={`px-4 py-3 rounded shadow-lg text-sm transition-all duration-300 ${
+              notification.type === 'success'
+                ? 'bg-white border border-green-200 text-gray-900'
+                : 'bg-white border border-red-200 text-gray-900'
+            } ${notification.visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'}`}
+          >
+            <div className="text-xs text-gray-500">TravelOps</div>
+            <div className="flex items-start justify-between gap-2">
+              <div>
+                <div className="font-semibold">{notification.title}</div>
+                <div className="text-sm text-gray-700">{notification.text}</div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setNotification({ type: '', text: '', title: '', visible: false })}
+                className="text-gray-400 hover:text-gray-600"
+                aria-label="Close notification"
+              >
+                ×
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <div className="p-6" style={{ backgroundColor: '#D8DEF5', minHeight: '100vh' }}>
         {/* Header */}
         <div className="mb-6">
@@ -585,6 +696,13 @@ const TeamManagement = () => {
                             <Edit2 className="h-4 w-4" />
                           </button>
                           <button
+                            onClick={() => openUserPermissions(user)}
+                            className="p-1 text-purple-600 hover:bg-purple-50 rounded transition-colors"
+                            title="Permissions"
+                          >
+                            <Key className="h-4 w-4" />
+                          </button>
+                          <button
                             onClick={() => navigate(`/company-settings/users/${user.id}`)}
                             className="p-1 text-green-600 hover:bg-green-50 rounded transition-colors"
                             title="View User Details"
@@ -686,6 +804,13 @@ const TeamManagement = () => {
                             <Edit2 className="h-4 w-4" />
                           </button>
                           <button
+                            onClick={() => openRolePermissions(role)}
+                            className="p-1 text-purple-600 hover:bg-purple-50 rounded transition-colors"
+                            title="Permissions"
+                          >
+                            <Key className="h-4 w-4" />
+                          </button>
+                          <button
                             onClick={() => handleDelete(role, 'role')}
                             className="p-1 text-red-600 hover:bg-red-50 rounded transition-colors"
                             title="Delete"
@@ -722,10 +847,127 @@ const TeamManagement = () => {
                 </button>
               </div>
 
-              <form onSubmit={handleSubmit}>
-              <div>
+              {isPermissionsModal ? (
                 <div className="p-6">
-                  {modalType === 'user' && selectedUser ? (
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900">
+                        {modalType === 'role-permissions' ? 'Role Permissions' : 'User Permissions'}
+                      </h3>
+                      <p className="text-sm text-gray-600">
+                        {editingItem?.name || editingItem?.email}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={toggleAllPermissions}
+                      className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                    >
+                      {selectedPermissions.length === permissionsList.length ? 'Deselect All' : 'Select All'}
+                    </button>
+                  </div>
+
+                  {permissionsLoading ? (
+                    <div className="flex items-center justify-center py-8">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-80 overflow-y-auto">
+                      {permissionsList.map((permission) => (
+                        <label
+                          key={permission.id}
+                          className="flex items-center gap-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={selectedPermissions.includes(permission.id)}
+                            onChange={() => togglePermission(permission.id)}
+                            className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                          />
+                          <span className="text-sm text-gray-700">{permission.name}</span>
+                        </label>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="flex justify-end gap-4 mt-6">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowModal(false);
+                        setEditingItem(null);
+                      }}
+                      className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={savePermissions}
+                      disabled={permissionsLoading}
+                      className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                    >
+                      Save
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <form onSubmit={handleSubmit}>
+                  <div>
+                    <div className="p-6">
+                      {modalType === 'role' ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Role Name *</label>
+                        <input
+                          type="text"
+                          value={formData.name}
+                          onChange={(e) => {
+                            const nextName = e.target.value;
+                            setFormData((prev) => ({
+                              ...prev,
+                              name: nextName,
+                              slug: generateSlug(nextName),
+                            }));
+                          }}
+                          required
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Role Slug *</label>
+                        <input
+                          type="text"
+                          value={formData.slug}
+                          required
+                          readOnly
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-100"
+                        />
+                      </div>
+                    </div>
+                  ) : modalType === 'branch' ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Branch Name *</label>
+                        <input
+                          type="text"
+                          value={formData.name}
+                          onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                          required
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Branch Address</label>
+                        <input
+                          type="text"
+                          value={formData.address}
+                          onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                    </div>
+                  ) : modalType === 'user' && selectedUser ? (
                     <div className="space-y-4">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
@@ -745,6 +987,8 @@ const TeamManagement = () => {
                             value={formData.email}
                             onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                             required
+                            name="user_email_new"
+                            autoComplete="off"
                             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                           />
                         </div>
@@ -779,7 +1023,7 @@ const TeamManagement = () => {
                             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                           >
                             {roles.map(role => (
-                              <option key={role.id} value={role.id}>{role.name}</option>
+                              <option key={role.id} value={role.name}>{role.name}</option>
                             ))}
                           </select>
                         </div>
@@ -809,6 +1053,8 @@ const TeamManagement = () => {
                             type="password"
                             value={formData.password}
                             onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                            name="user_password_new"
+                            autoComplete="new-password"
                             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                           />
                         </div>
@@ -878,6 +1124,8 @@ const TeamManagement = () => {
                           value={formData.email}
                           onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                           required
+                          name="user_email_new"
+                          autoComplete="off"
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
                       </div>
@@ -912,7 +1160,7 @@ const TeamManagement = () => {
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                         >
                           {roles.map(role => (
-                            <option key={role.id} value={role.id}>{role.name}</option>
+                            <option key={role.id} value={role.name}>{role.name}</option>
                           ))}
                         </select>
                       </div>
@@ -942,6 +1190,8 @@ const TeamManagement = () => {
                           type="password"
                           value={formData.password}
                           onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                          name="user_password_new"
+                          autoComplete="new-password"
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
                       </div>
@@ -969,6 +1219,7 @@ const TeamManagement = () => {
                 </div>
               </div>
               </form>
+              )}
             </div>
           </div>
         )}

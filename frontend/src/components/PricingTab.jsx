@@ -241,6 +241,29 @@ const PricingTab = ({
           {Object.keys(optionsByNumber).sort((a, b) => parseInt(a) - parseInt(b)).map(optNum => {
             const options = optionsByNumber[optNum];
             const totals = optionTotals[optNum];
+            const dayGroups = options.reduce((acc, option, idx) => {
+              const optionKey = `${optNum}-${option.day}-${idx}`;
+              const currentPricing = pricingData[optionKey] || {
+                net: parseFloat(option.price) || 0,
+                markup: 0,
+                gross: parseFloat(option.price) || 0
+              };
+              const dayKey = option.day;
+              if (!acc[dayKey]) {
+                acc[dayKey] = {
+                  items: [],
+                  totalNet: 0,
+                  totalMarkup: 0,
+                  totalGross: 0
+                };
+              }
+              acc[dayKey].items.push({ optionKey, option, pricing: currentPricing });
+              acc[dayKey].totalNet += currentPricing.net || 0;
+              acc[dayKey].totalMarkup += currentPricing.markup || 0;
+              acc[dayKey].totalGross += currentPricing.gross || 0;
+              return acc;
+            }, {});
+            const sortedDays = Object.keys(dayGroups).sort((a, b) => parseInt(a) - parseInt(b));
             
             return (
               <div key={optNum} className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
@@ -448,6 +471,43 @@ const PricingTab = ({
                         />
                       </div>
                     </div>
+                  </div>
+                </div>
+
+                {/* Day-wise Itinerary Summary */}
+                <div className="px-6 py-4 bg-slate-50 border-b border-gray-200">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="text-sm font-semibold text-gray-800">
+                      Option {optNum} Itinerary (Day-wise)
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      Per-day hotel selection with cost breakup
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {sortedDays.map(day => {
+                      const dayData = dayGroups[day];
+                      return (
+                        <div key={`day-${optNum}-${day}`} className="bg-white border border-gray-200 rounded-lg p-4">
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="text-sm font-semibold text-gray-800">Day {day}</div>
+                            <div className="text-sm font-bold text-blue-700">
+                              ₹{dayData.totalGross.toLocaleString('en-IN')}
+                            </div>
+                          </div>
+                          <div className="space-y-1">
+                            {dayData.items.map(item => (
+                              <div key={item.optionKey} className="text-xs text-gray-600">
+                                {item.option.hotelName || 'Hotel'} • {item.option.roomName || 'Standard'}
+                              </div>
+                            ))}
+                          </div>
+                          <div className="mt-2 text-xs text-gray-500">
+                            Net ₹{dayData.totalNet.toLocaleString('en-IN')} • Markup ₹{dayData.totalMarkup.toLocaleString('en-IN')}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
 

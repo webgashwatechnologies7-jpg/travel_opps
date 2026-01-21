@@ -11,6 +11,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Validator;
+use App\Services\CompanyMailSettingsService;
 
 class CampaignController extends Controller
 {
@@ -242,6 +243,7 @@ class CampaignController extends Controller
                         }
 
                         try {
+                            CompanyMailSettingsService::applyIfEnabled();
                             Mail::raw($message, function ($mail) use ($lead) {
                                 $mail->to($lead->email)
                                     ->subject('Travel Inquiry');

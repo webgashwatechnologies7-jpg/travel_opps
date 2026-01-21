@@ -1,5 +1,7 @@
 <?php
 
+use Illuminate\Support\Str;
+
 if (!function_exists('tenant')) {
     /**
      * Get the current tenant (company).
@@ -20,6 +22,28 @@ if (!function_exists('tenant')) {
         }
 
         return $tenant->{$key} ?? null;
+    }
+}
+
+if (!function_exists('normalize_phone_number')) {
+    /**
+     * Normalize phone numbers to last 10 digits.
+     *
+     * @param string|null $phone
+     * @return string
+     */
+    function normalize_phone_number(?string $phone): string
+    {
+        $digits = preg_replace('/\D+/', '', (string) $phone);
+        if (!$digits) {
+            return '';
+        }
+
+        if (Str::length($digits) > 10) {
+            return substr($digits, -10);
+        }
+
+        return $digits;
     }
 }
 

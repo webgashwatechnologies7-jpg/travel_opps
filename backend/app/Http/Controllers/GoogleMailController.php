@@ -21,6 +21,8 @@ class GoogleMailController extends Controller
 
     public function redirect()
     {
+        $this->applyCompanyGoogleConfig();
+
         // We use Socialite for the initial redirect to handle scopes easily
         return Socialite::driver('google')
             ->scopes([
@@ -36,6 +38,8 @@ class GoogleMailController extends Controller
     public function callback()
     {
         try {
+            $this->applyCompanyGoogleConfig();
+
             $googleUser = Socialite::driver('google')->stateless()->user();
             
             $user = Auth::user() ?: User::where('email', $googleUser->getEmail())->first();
@@ -60,6 +64,8 @@ class GoogleMailController extends Controller
 
     public function sendGmail(Request $request)
     {
+        $this->applyCompanyGoogleConfig();
+
         $request->validate([
             'to' => 'required|email',
             'subject' => 'required|string',
@@ -84,6 +90,8 @@ class GoogleMailController extends Controller
 
     public function syncInbox()
     {
+        $this->applyCompanyGoogleConfig();
+
         $success = $this->gmailService->syncInbox(Auth::user());
 
         if ($success) {
@@ -100,5 +108,26 @@ class GoogleMailController extends Controller
             ->get();
 
         return response()->json($emails);
+    }
+
+    private function applyCompanyGoogleConfig(): void
+    {
+        $company = app('tenant') ?? (Auth::user() ? Auth::user()->company : null);
+
+        if (!$company) {
+            return;
+        }
+
+        $clientId = $company->google_client_id ?: config('services.google.client_id');
+        $clientSecret = $company->google_client_secret ?: config('services.google.client_secret');
+        $redirectUri = $company->google_redirect_uri ?: config('services.google.redirect_uri');
+
+        $this->gmailService->setClientConfig($clientId, $clientSecret, $redirectUri);
+
+        config([
+            'services.google.client_id' => $clientId,
+            'services.google.client_secret' => $clientSecret,
+            'services.google.redirect_uri' => $redirectUri,
+        ]);
     }
 }

@@ -4,7 +4,10 @@ namespace App\Http\Controllers;
 
 use App\Modules\Leads\Domain\Entities\Lead;
 use Illuminate\Http\Request;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
+use App\Services\CompanyMailSettingsService;
 
 class VoucherController extends Controller
 {
@@ -46,6 +49,49 @@ class VoucherController extends Controller
         Storage::disk('public')->put($path, $html);
 
         return response()->download(Storage::disk('public')->path($path), $fileName);
+    }
+
+    public function send(Request $request, int $leadId): JsonResponse
+    {
+        $lead = Lead::query()->find($leadId);
+
+        if (!$lead || $lead->company_id !== $request->user()->company_id) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Lead not found',
+            ], 404);
+        }
+
+        $toEmail = $request->input('to_email') ?: $lead->email;
+        if (!$toEmail) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Customer email not available',
+            ], 422);
+        }
+
+        $subject = $request->input('subject') ?: 'Travel Voucher';
+        $html = $this->buildVoucherHtml($lead);
+
+        try {
+            CompanyMailSettingsService::applyIfEnabled();
+            Mail::send([], [], function ($message) use ($toEmail, $subject, $html) {
+                $message->to($toEmail)
+                    ->subject($subject)
+                    ->html($html);
+            });
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Voucher sent successfully',
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to send voucher',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
+            ], 500);
+        }
     }
 
     private function buildVoucherHtml(Lead $lead): string

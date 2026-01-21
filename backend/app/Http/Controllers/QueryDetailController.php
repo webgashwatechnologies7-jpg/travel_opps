@@ -2,10 +2,9 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Lead;
-use Illuminate\Http\Request;
+use App\Modules\Leads\Domain\Entities\Lead;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Facades\DB;
 
 class QueryDetailController extends Controller
 {
@@ -22,24 +21,18 @@ class QueryDetailController extends Controller
             $lead = Lead::with([
                 'user:id,name,email',
                 'assignedUser:id,name,email',
-                'proposals.items',
-                'proposals.attachments',
                 'followups.user:id,name',
                 'payments.creator:id,name',
-                'supplierCommunications.user:id,name',
-                'vouchers.creator:id,name',
-                'documents.uploader:id,name',
-                'invoices.items',
-                'invoices.payments',
-                'billingRecords.creator:id,name',
-                'activityHistories.user:id,name'
+                'queryProposals',
+                'queryDocuments.uploader:id,name',
+                'queryHistoryLogs.user:id,name,email'
             ])->findOrFail($id);
 
             // Calculate billing summary
             $billingSummary = $this->calculateBillingSummary($lead);
 
             // Get activity history logs
-            $activityLogs = $this->getActivityLogs($id);
+            $activityLogs = $this->getActivityLogs($lead);
 
             // Prepare response data
             $response = [
@@ -66,7 +59,7 @@ class QueryDetailController extends Controller
                     'created_by' => $lead->user,
                     'assigned_to' => $lead->assignedUser
                 ],
-                'proposals' => $lead->proposals->map(function ($proposal) {
+                'proposals' => $lead->queryProposals->map(function ($proposal) {
                     return [
                         'id' => $proposal->id,
                         'title' => $proposal->title,
@@ -78,27 +71,10 @@ class QueryDetailController extends Controller
                         'is_confirmed' => $proposal->is_confirmed,
                         'sent_at' => $proposal->sent_at,
                         'created_at' => $proposal->created_at,
-                        'items_count' => $proposal->items->count(),
-                        'attachments_count' => $proposal->attachments->count(),
-                        'items' => $proposal->items->map(function ($item) {
-                            return [
-                                'id' => $item->id,
-                                'item_name' => $item->item_name,
-                                'description' => $item->description,
-                                'quantity' => $item->quantity,
-                                'unit_price' => $item->unit_price,
-                                'total_price' => $item->total_price
-                            ];
-                        }),
-                        'attachments' => $proposal->attachments->map(function ($attachment) {
-                            return [
-                                'id' => $attachment->id,
-                                'file_name' => $attachment->file_name,
-                                'file_path' => $attachment->file_path,
-                                'file_size' => $attachment->file_size,
-                                'uploaded_at' => $attachment->created_at
-                            ];
-                        })
+                        'items_count' => 0,
+                        'attachments_count' => 0,
+                        'items' => [],
+                        'attachments' => []
                     ];
                 }),
                 'followups' => $lead->followups->map(function ($followup) {
@@ -128,39 +104,9 @@ class QueryDetailController extends Controller
                         'created_by' => $payment->creator
                     ];
                 }),
-                'supplier_communications' => $lead->supplierCommunications->map(function ($comm) {
-                    return [
-                        'id' => $comm->id,
-                        'supplier_name' => $comm->supplier_name,
-                        'communication_type' => $comm->communication_type,
-                        'subject' => $comm->subject,
-                        'message' => $comm->message,
-                        'response_required' => $comm->response_required,
-                        'response_date' => $comm->response_date,
-                        'status' => $comm->status,
-                        'priority' => $comm->priority,
-                        'created_at' => $comm->created_at,
-                        'created_by' => $comm->user
-                    ];
-                }),
-                'vouchers' => $lead->vouchers->map(function ($voucher) {
-                    return [
-                        'id' => $voucher->id,
-                        'voucher_number' => $voucher->voucher_number,
-                        'voucher_type' => $voucher->voucher_type,
-                        'title' => $voucher->title,
-                        'description' => $voucher->description,
-                        'travel_date' => $voucher->travel_date,
-                        'return_date' => $voucher->return_date,
-                        'pax_count' => $voucher->pax_count,
-                        'status' => $voucher->status,
-                        'sent_to_customer' => $voucher->sent_to_customer,
-                        'confirmed_by_customer' => $voucher->confirmed_by_customer,
-                        'created_at' => $voucher->created_at,
-                        'created_by' => $voucher->creator
-                    ];
-                }),
-                'documents' => $lead->documents->map(function ($document) {
+                'supplier_communications' => [],
+                'vouchers' => [],
+                'documents' => $lead->queryDocuments->map(function ($document) {
                     return [
                         'id' => $document->id,
                         'document_type' => $document->document_type,
@@ -179,40 +125,20 @@ class QueryDetailController extends Controller
                         'uploaded_by' => $document->uploader
                     ];
                 }),
-                'invoices' => $lead->invoices->map(function ($invoice) {
-                    return [
-                        'id' => $invoice->id,
-                        'invoice_number' => $invoice->invoice_number,
-                        'invoice_date' => $invoice->invoice_date,
-                        'due_date' => $invoice->due_date,
-                        'subtotal' => $invoice->subtotal,
-                        'tax_amount' => $invoice->tax_amount,
-                        'discount_amount' => $invoice->discount_amount,
-                        'total_amount' => $invoice->total_amount,
-                        'paid_amount' => $invoice->paid_amount,
-                        'balance_amount' => $invoice->balance_amount,
-                        'currency' => $invoice->currency,
-                        'status' => $invoice->status,
-                        'payment_terms' => $invoice->payment_terms,
-                        'sent_at' => $invoice->sent_at,
-                        'created_at' => $invoice->created_at,
-                        'items_count' => $invoice->items->count(),
-                        'payments_count' => $invoice->payments->count()
-                    ];
-                }),
+                'invoices' => [],
                 'billing_summary' => $billingSummary,
                 'activity_history' => $activityLogs,
                 'statistics' => [
-                    'total_proposals' => $lead->proposals->count(),
-                    'confirmed_proposals' => $lead->proposals->where('is_confirmed', true)->count(),
+                    'total_proposals' => $lead->queryProposals->count(),
+                    'confirmed_proposals' => $lead->queryProposals->where('is_confirmed', true)->count(),
                     'total_followups' => $lead->followups->count(),
                     'pending_followups' => $lead->followups->where('is_completed', false)->count(),
                     'total_payments' => $lead->payments->count(),
                     'total_paid_amount' => $lead->payments->sum('paid_amount'),
-                    'total_documents' => $lead->documents->count(),
-                    'verified_documents' => $lead->documents->where('is_verified', true)->count(),
-                    'total_invoices' => $lead->invoices->count(),
-                    'paid_invoices' => $lead->invoices->where('status', 'paid')->count()
+                    'total_documents' => $lead->queryDocuments->count(),
+                    'verified_documents' => $lead->queryDocuments->where('is_verified', true)->count(),
+                    'total_invoices' => 0,
+                    'paid_invoices' => 0
                 ]
             ];
 
@@ -222,7 +148,13 @@ class QueryDetailController extends Controller
                 'data' => $response
             ]);
 
-        } catch (\Exception $e) {
+        } catch (ModelNotFoundException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Lead not found',
+                'error' => 'Lead not found'
+            ], 404);
+        } catch (\Throwable $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to retrieve query details',
@@ -239,14 +171,9 @@ class QueryDetailController extends Controller
      */
     private function calculateBillingSummary(Lead $lead): array
     {
-        $totalInvoiceAmount = $lead->invoices->sum('total_amount');
         $totalPaidAmount = $lead->payments->sum('paid_amount');
-        $totalDueAmount = $totalInvoiceAmount - $totalPaidAmount;
-
-        $billingRecords = $lead->billingRecords;
-        $totalBillingAmount = $billingRecords->sum('amount');
-        $paidBillingAmount = $billingRecords->where('payment_status', 'paid')->sum('amount');
-        $pendingBillingAmount = $billingRecords->where('payment_status', 'pending')->sum('amount');
+        $totalInvoiceAmount = 0;
+        $totalDueAmount = 0;
 
         return [
             'invoice_summary' => [
@@ -256,10 +183,10 @@ class QueryDetailController extends Controller
                 'payment_percentage' => $totalInvoiceAmount > 0 ? round(($totalPaidAmount / $totalInvoiceAmount) * 100, 2) : 0
             ],
             'billing_summary' => [
-                'total_billing_amount' => $totalBillingAmount,
-                'paid_billing_amount' => $paidBillingAmount,
-                'pending_billing_amount' => $pendingBillingAmount,
-                'overdue_amount' => $billingRecords->where('payment_status', 'overdue')->sum('amount')
+                'total_billing_amount' => 0,
+                'paid_billing_amount' => 0,
+                'pending_billing_amount' => 0,
+                'overdue_amount' => 0
             ],
             'payment_methods' => $lead->payments->groupBy('payment_method')->map(function ($payments, $method) {
                 return [
@@ -277,38 +204,26 @@ class QueryDetailController extends Controller
      * @param int $leadId
      * @return array
      */
-    private function getActivityLogs(int $leadId): array
+    private function getActivityLogs(Lead $lead): array
     {
-        $activities = DB::table('activity_histories')
-            ->leftJoin('users', 'activity_histories.user_id', '=', 'users.id')
-            ->where('activity_histories.lead_id', $leadId)
-            ->select([
-                'activity_histories.*',
-                'users.name as user_name',
-                'users.email as user_email'
-            ])
-            ->orderBy('activity_histories.created_at', 'desc')
-            ->limit(50)
-            ->get();
-
-        return $activities->map(function ($activity) {
+        return $lead->queryHistoryLogs->sortByDesc('created_at')->take(50)->map(function ($activity) {
             return [
                 'id' => $activity->id,
                 'activity_type' => $activity->activity_type,
                 'activity_description' => $activity->activity_description,
                 'module' => $activity->module,
                 'record_id' => $activity->record_id,
-                'old_values' => $activity->old_values ? json_decode($activity->old_values, true) : null,
-                'new_values' => $activity->new_values ? json_decode($activity->new_values, true) : null,
+                'old_values' => $activity->old_values,
+                'new_values' => $activity->new_values,
                 'ip_address' => $activity->ip_address,
                 'user_agent' => $activity->user_agent,
                 'created_at' => $activity->created_at,
                 'user' => [
-                    'id' => $activity->user_id,
-                    'name' => $activity->user_name,
-                    'email' => $activity->user_email
+                    'id' => $activity->user?->id,
+                    'name' => $activity->user?->name,
+                    'email' => $activity->user?->email
                 ]
             ];
-        })->toArray();
+        })->values()->toArray();
     }
 }

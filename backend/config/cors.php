@@ -26,12 +26,15 @@ return [
         'http://127.0.0.1:3000',
         'http://127.0.0.1:5173',
         'http://127.0.0.1:5174',
+        'http://gashwa.localhost:3000',
         // Production domain - replace with your actual domain
 	'http://145.223.23.45',
 	'http://crm.gashwatechnologies.com/'
     ],
 
-    'allowed_origins_patterns' => [], // Remove wildcard pattern for security
+    'allowed_origins_patterns' => [
+        '#^http://.*\.localhost:3000$#'
+    ],
 
     'allowed_headers' => [
         'Content-Type',

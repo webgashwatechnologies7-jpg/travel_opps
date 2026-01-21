@@ -11,6 +11,7 @@ const PermissionsManagement = () => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [activeTab, setActiveTab] = useState(null); // Currently selected plan tab
+  const [availableFeatures, setAvailableFeatures] = useState({});
 
   useEffect(() => {
     fetchPlans();
@@ -23,9 +24,10 @@ const PermissionsManagement = () => {
       
       // First get available features
       const availableFeaturesResponse = await superAdminAPI.getAvailableFeatures();
-      const availableFeatures = availableFeaturesResponse.data.success 
+      const availableFeaturesData = availableFeaturesResponse.data.success 
         ? availableFeaturesResponse.data.data 
         : {};
+      setAvailableFeatures(availableFeaturesData);
       
       // Then get plans (with permissions column)
       const response = await superAdminAPI.getSubscriptionPlans();
@@ -58,12 +60,12 @@ const PermissionsManagement = () => {
               return { planId: plan.id, features: normalizedFeatures };
             } else {
               // If no features exist, create from available features
-              const defaultFeatures = Object.keys(availableFeatures).map(key => ({
+              const defaultFeatures = Object.keys(availableFeaturesData).map(key => ({
                 feature_key: key,
-                feature_name: availableFeatures[key].name,
-                description: availableFeatures[key].description,
-                has_limit: availableFeatures[key].has_limit || false,
-                limit_label: availableFeatures[key].limit_label || null,
+                feature_name: availableFeaturesData[key].name,
+                description: availableFeaturesData[key].description,
+                has_limit: availableFeaturesData[key].has_limit || false,
+                limit_label: availableFeaturesData[key].limit_label || null,
                 is_enabled: false,
                 limit_value: null,
               }));
@@ -72,12 +74,12 @@ const PermissionsManagement = () => {
           } catch (err) {
             console.error(`Failed to load features for plan ${plan.id}:`, err);
             // Create default features if API fails
-            const defaultFeatures = Object.keys(availableFeatures).map(key => ({
+            const defaultFeatures = Object.keys(availableFeaturesData).map(key => ({
               feature_key: key,
-              feature_name: availableFeatures[key].name,
-              description: availableFeatures[key].description,
-              has_limit: availableFeatures[key].has_limit || false,
-              limit_label: availableFeatures[key].limit_label || null,
+              feature_name: availableFeaturesData[key].name,
+              description: availableFeaturesData[key].description,
+              has_limit: availableFeaturesData[key].has_limit || false,
+              limit_label: availableFeaturesData[key].limit_label || null,
               is_enabled: false,
               limit_value: null,
             }));
@@ -328,32 +330,41 @@ const PermissionsManagement = () => {
           )}
 
           {/* Plans Tabs */}
-          <div className="mb-6">
-            <div className="border-b border-gray-200">
-              <nav className="-mb-px flex space-x-8">
-                {plans.map((plan) => (
-                  <button
-                    key={plan.id}
-                    onClick={() => setActiveTab(plan.id)}
-                    className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
-                      activeTab === plan.id
-                        ? 'border-blue-500 text-blue-600'
-                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                    }`}
-                  >
-                    {plan.name}
-                    <span className={`ml-2 text-xs px-2 py-1 rounded ${
-                      activeTab === plan.id
-                        ? 'bg-blue-100 text-blue-800'
-                        : 'bg-gray-100 text-gray-600'
-                    }`}>
-                      {getEnabledCount(plan.id)}/{getTotalCount(plan.id)} enabled
-                    </span>
-                  </button>
-                ))}
-              </nav>
+          {plans.length > 0 ? (
+            <div className="mb-6">
+              <div className="border-b border-gray-200">
+                <nav className="-mb-px flex space-x-8">
+                  {plans.map((plan) => (
+                    <button
+                      key={plan.id}
+                      onClick={() => setActiveTab(plan.id)}
+                      className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
+                        activeTab === plan.id
+                          ? 'border-blue-500 text-blue-600'
+                          : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                      }`}
+                    >
+                      {plan.name}
+                      <span className={`ml-2 text-xs px-2 py-1 rounded ${
+                        activeTab === plan.id
+                          ? 'bg-blue-100 text-blue-800'
+                          : 'bg-gray-100 text-gray-600'
+                      }`}>
+                        {getEnabledCount(plan.id)}/{getTotalCount(plan.id)} enabled
+                      </span>
+                    </button>
+                  ))}
+                </nav>
+              </div>
             </div>
-          </div>
+          ) : (
+            <div className="bg-white rounded-lg shadow p-6 text-center">
+              <p className="text-gray-700 font-medium">No subscription plans found.</p>
+              <p className="text-sm text-gray-500 mt-1">
+                Create a plan first to assign features and permissions.
+              </p>
+            </div>
+          )}
 
           {/* Features for active plan */}
           {plans.map((plan) => (
@@ -529,6 +540,22 @@ const PermissionsManagement = () => {
               </div>
             )
           ))}
+
+          {plans.length === 0 && Object.keys(availableFeatures).length > 0 && (
+            <div className="mt-6 bg-white rounded-lg shadow p-6">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">Available Features</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {Object.keys(availableFeatures).map((key) => (
+                  <div key={key} className="border border-gray-200 rounded-lg p-4">
+                    <h3 className="font-semibold text-gray-900 text-sm mb-1">
+                      {availableFeatures[key].name}
+                    </h3>
+                    <p className="text-xs text-gray-600">{availableFeatures[key].description}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </SuperAdminLayout>

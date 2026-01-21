@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Log;
+use App\Services\CompanyMailSettingsService;
 
 class LeadEmailController extends Controller
 {
@@ -157,6 +158,7 @@ class LeadEmailController extends Controller
             $fromName = $companyName ?: config('mail.from.name', 'TravelOps');
 
             try {
+                CompanyMailSettingsService::applyIfEnabled();
                 Mail::send([], [], function ($message) use ($request, $emailBody, $fromEmail, $fromName) {
                     $message->from($fromEmail, $fromName)
                         ->to($request->to_email)

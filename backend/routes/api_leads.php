@@ -3,6 +3,7 @@
 use App\Modules\Leads\Presentation\Controllers\FollowupController;
 use App\Modules\Leads\Presentation\Controllers\LeadImportController;
 use App\Modules\Leads\Presentation\Controllers\LeadsController;
+use App\Modules\Calls\Presentation\Controllers\CallController;
 use App\Http\Controllers\LeadEmailController;
 use Illuminate\Support\Facades\Route;
 
@@ -21,6 +22,7 @@ Route::middleware('auth:sanctum')->prefix('leads')->group(function () {
     Route::get('/', [LeadsController::class, 'index']);
     Route::post('/', [LeadsController::class, 'store']);
     Route::get('/{id}', [LeadsController::class, 'show']);
+    Route::get('/{id}/calls', [CallController::class, 'leadHistory']);
     Route::put('/{id}/assign', [LeadsController::class, 'assign']);
     Route::put('/{id}/status', [LeadsController::class, 'updateStatus']);
     Route::put('/{id}', [LeadsController::class, 'update']);

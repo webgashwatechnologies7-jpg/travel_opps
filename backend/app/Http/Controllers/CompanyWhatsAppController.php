@@ -92,11 +92,21 @@ class CompanyWhatsAppController extends Controller
             }
 
             $status = $this->whatsappProvisioning->checkProvisioningStatus($company);
+            $appSecret = $company->whatsapp_settings['app_secret'] ?? null;
 
             return response()->json([
                 'success' => true,
                 'message' => 'WhatsApp settings retrieved successfully',
-                'data' => $status
+                'data' => array_merge($status, [
+                    'company_id' => $company->id,
+                    'company_name' => $company->name,
+                    'whatsapp_phone_number_id' => $company->whatsapp_phone_number_id,
+                    'whatsapp_api_key' => $company->whatsapp_api_key,
+                    'whatsapp_business_account_id' => $company->whatsapp_business_account_id,
+                    'whatsapp_verify_token' => $company->whatsapp_verify_token,
+                    'whatsapp_webhook_secret' => $company->whatsapp_webhook_secret,
+                    'whatsapp_app_secret' => $appSecret,
+                ])
             ]);
 
         } catch (\Exception $e) {
@@ -125,6 +135,8 @@ class CompanyWhatsAppController extends Controller
                 'whatsapp_phone_number_id' => 'nullable|string|max:100',
                 'whatsapp_webhook_secret' => 'nullable|string|max:255',
                 'whatsapp_verify_token' => 'nullable|string|max:100',
+                'whatsapp_business_account_id' => 'nullable|string|max:150',
+                'whatsapp_app_secret' => 'nullable|string|max:255',
                 'whatsapp_enabled' => 'boolean',
                 'auto_provision_whatsapp' => 'boolean'
             ]);
@@ -152,9 +164,16 @@ class CompanyWhatsAppController extends Controller
                 'whatsapp_phone_number_id',
                 'whatsapp_webhook_secret',
                 'whatsapp_verify_token',
+                'whatsapp_business_account_id',
                 'whatsapp_enabled',
                 'auto_provision_whatsapp'
             ]));
+
+            if ($request->filled('whatsapp_app_secret')) {
+                $settings = $company->whatsapp_settings ?? [];
+                $settings['app_secret'] = $request->input('whatsapp_app_secret');
+                $company->update(['whatsapp_settings' => $settings]);
+            }
 
             return response()->json([
                 'success' => true,

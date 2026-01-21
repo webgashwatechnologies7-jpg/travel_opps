@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
-import { Search, Plus, Edit, X, Upload, Download } from 'lucide-react';
+import { Search, Plus, Edit, X, Upload, Download, Trash2 } from 'lucide-react';
 import { activitiesAPI } from '../services/api';
 
 const Activity = () => {
@@ -148,6 +148,21 @@ const Activity = () => {
       status: activity.status || 'active'
     });
     setPhotoPreview(activity.activity_photo || null);
+  };
+
+  const handleDelete = async (activityId) => {
+    if (!window.confirm('Are you sure you want to delete this activity?')) {
+      return;
+    }
+
+    try {
+      await activitiesAPI.delete(activityId);
+      await fetchActivities();
+      setError('');
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to delete activity');
+      console.error(err);
+    }
   };
 
   const handleImport = () => {
@@ -545,6 +560,13 @@ const Activity = () => {
                           title="Edit"
                         >
                           <Edit className="h-5 w-5" />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(activity.id)}
+                          className="text-red-600 hover:text-red-900 p-2 hover:bg-red-50 rounded ml-2"
+                          title="Delete"
+                        >
+                          <Trash2 className="h-5 w-5" />
                         </button>
                       </td>
                     </tr>

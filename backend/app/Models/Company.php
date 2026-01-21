@@ -30,6 +30,24 @@ class Company extends Model
         'subscription_start_date',
         'subscription_end_date',
         'notes',
+        'whatsapp_phone_number',
+        'whatsapp_api_key',
+        'whatsapp_phone_number_id',
+        'whatsapp_webhook_secret',
+        'whatsapp_verify_token',
+        'whatsapp_enabled',
+        'whatsapp_status',
+        'whatsapp_last_sync',
+        'whatsapp_business_account_id',
+        'whatsapp_waba_id',
+        'whatsapp_display_name',
+        'auto_provision_whatsapp',
+        'whatsapp_settings',
+        'google_client_id',
+        'google_client_secret',
+        'google_redirect_uri',
+        'google_enabled',
+        'google_status',
     ];
 
     /**
@@ -40,6 +58,11 @@ class Company extends Model
     protected $casts = [
         'subscription_start_date' => 'date',
         'subscription_end_date' => 'date',
+        'whatsapp_enabled' => 'boolean',
+        'auto_provision_whatsapp' => 'boolean',
+        'whatsapp_last_sync' => 'datetime',
+        'whatsapp_settings' => 'array',
+        'google_enabled' => 'boolean',
     ];
 
     /**
