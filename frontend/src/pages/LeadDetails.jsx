@@ -1,10 +1,12 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { leadsAPI, usersAPI, followupsAPI, dayItinerariesAPI, packagesAPI, settingsAPI, suppliersAPI, hotelsAPI, paymentsAPI, googleMailAPI, whatsappAPI, queryDetailAPI, documentsAPI, vouchersAPI, callsAPI } from '../services/api';
+import { leadsAPI, usersAPI, followupsAPI, dayItinerariesAPI, packagesAPI, settingsAPI, suppliersAPI, hotelsAPI, paymentsAPI, googleMailAPI } from '../services/api';
 import Layout from '../components/Layout';
-import { ArrowLeft, Calendar, Mail, Plus, Upload, X, Search, FileText, Printer, Send, MessageCircle, CheckCircle, CheckCircle2, Clock, MoreVertical, Download, Phone } from 'lucide-react';
-
+import { ArrowLeft, Calendar, Mail, Plus, Upload, X, Search, FileText, Printer, Send, MessageCircle, CheckCircle, CheckCircle2, Clock, Briefcase, MapPin, CalendarDays, Users, UserCheck, Leaf, Smartphone, Phone } from 'lucide-react';
+import QuiriesDetailsHeader from '../components/Headers/Search/QuiriesDetailsHeader';
+import { FaPencilAlt, FaWhatsapp } from "react-icons/fa";
+import DetailRow from '../components/Quiries/DetailRow';
 const LeadDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -28,7 +30,6 @@ const LeadDetails = () => {
   const [selectedOption, setSelectedOption] = useState(null);
   const [quotationData, setQuotationData] = useState(null);
   const [loadingQuotation, setLoadingQuotation] = useState(false);
-  const [maxHotelOptions, setMaxHotelOptions] = useState(4);
   const [itineraryFormData, setItineraryFormData] = useState({
     itinerary_name: '',
     start_date: '',
@@ -70,23 +71,6 @@ const LeadDetails = () => {
     due_date: ''
   });
   const [addingPayment, setAddingPayment] = useState(false);
-  const [vouchers, setVouchers] = useState([]);
-  const [documents, setDocuments] = useState([]);
-  const [invoices, setInvoices] = useState([]);
-  const [activityHistory, setActivityHistory] = useState([]);
-  const [callHistory, setCallHistory] = useState([]);
-  const [callSummary, setCallSummary] = useState({ total_calls: 0, total_talk_time_seconds: 0 });
-  const [loadingCalls, setLoadingCalls] = useState(false);
-  const [showDocumentModal, setShowDocumentModal] = useState(false);
-  const [uploadingDocument, setUploadingDocument] = useState(false);
-  const [documentForm, setDocumentForm] = useState({
-    title: '',
-    document_type: 'other',
-    document_category: 'other',
-    description: '',
-    file: null
-  });
-  const [sendingVoucher, setSendingVoucher] = useState(false);
 
   // Email states
   const [leadEmails, setLeadEmails] = useState([]);
@@ -103,12 +87,6 @@ const LeadDetails = () => {
   const [companySettings, setCompanySettings] = useState(null);
   const [gmailEmails, setGmailEmails] = useState([]);
   const [loadingGmail, setLoadingGmail] = useState(false);
-  const [whatsappMessages, setWhatsappMessages] = useState([]);
-  const [loadingWhatsappMessages, setLoadingWhatsappMessages] = useState(false);
-  const [openActionMenuId, setOpenActionMenuId] = useState(null);
-  const [calling, setCalling] = useState(false);
-  const [outgoingNumbers, setOutgoingNumbers] = useState([]);
-  const [selectedOutgoingNumber, setSelectedOutgoingNumber] = useState('');
 
   useEffect(() => {
     fetchLeadDetails();
@@ -116,28 +94,7 @@ const LeadDetails = () => {
     loadProposals();
     fetchSuppliers();
     fetchCompanySettings();
-    fetchMaxHotelOptions();
-    fetchCallHistory();
   }, [id]);
-
-  useEffect(() => {
-    if (user?.id) {
-      fetchOutgoingNumbers();
-    }
-  }, [user?.id]);
-
-  useEffect(() => {
-    if (activeTab !== 'calls') {
-      return;
-    }
-
-    fetchCallHistory();
-    const interval = setInterval(() => {
-      fetchCallHistory();
-    }, 5000);
-
-    return () => clearInterval(interval);
-  }, [activeTab, id]);
 
   // Fetch company settings
   const fetchCompanySettings = async () => {
@@ -147,59 +104,8 @@ const LeadDetails = () => {
         setCompanySettings(response.data.data);
       }
     } catch (err) {
-      // Error logged for debugging
-      // TODO: Add proper error reporting service
+      console.error('Failed to fetch company settings:', err);
     }
-  };
-
-  const fetchMaxHotelOptions = async () => {
-    try {
-      const response = await settingsAPI.getMaxHotelOptions();
-      if (response.data.success && response.data.data?.max_hotel_options) {
-        setMaxHotelOptions(response.data.data.max_hotel_options);
-      }
-    } catch (err) {
-      // Default to 4 if settings endpoint fails
-    }
-  };
-
-  const getFilteredOptionNumbers = () => {
-    if (!quotationData?.hotelOptions) return [];
-    return Object.keys(quotationData.hotelOptions)
-      .map(optionNum => parseInt(optionNum, 10))
-      .filter(optionNum => Number.isFinite(optionNum) && optionNum > 0 && optionNum <= maxHotelOptions)
-      .sort((a, b) => a - b)
-      .map(optionNum => optionNum.toString());
-  };
-
-  const buildAllOptionsTextMessage = (optionNumbers) => {
-    if (!quotationData || !lead) return '';
-    let message = `Travel Quotation - ${quotationData.itinerary.itinerary_name || 'Itinerary'}\n`;
-    message += `Query ID: ${formatLeadId(lead.id)}\n`;
-    message += `Destination: ${quotationData.itinerary.destinations || 'N/A'}\n`;
-    message += `Duration: ${quotationData.itinerary.duration || 0} Days\n\n`;
-
-    optionNumbers.forEach(optNum => {
-      const hotels = quotationData.hotelOptions[optNum] || [];
-      const totalPrice = hotels.reduce((sum, h) => sum + (parseFloat(h.price) || 0), 0);
-
-      message += `Option ${optNum}\n`;
-      hotels.forEach(hotel => {
-        message += `- Day ${hotel.day}: ${hotel.hotelName || 'Hotel'} (${hotel.category || 'N/A'} Star)\n`;
-        message += `  Room: ${hotel.roomName || 'N/A'} | Meal: ${hotel.mealPlan || 'N/A'}\n`;
-      });
-      message += `Total Price: ₹${totalPrice.toLocaleString('en-IN')}\n\n`;
-    });
-
-    return message.trim();
-  };
-
-  const buildAllOptionsWhatsAppMessage = (optionNumbers) => {
-    let message = buildAllOptionsTextMessage(optionNumbers);
-    if (message.length > 980) {
-      message = `${message.slice(0, 980)}...\n\n(Message trimmed)`;
-    }
-    return message;
   };
 
   // Update subject when lead or confirmed proposal changes
@@ -207,7 +113,7 @@ const LeadDetails = () => {
     if (lead) {
       const confirmedOption = getConfirmedOption();
       const queryId = lead.query_id || lead.id || id;
-      const destination = lead.destinations || 'Destination';
+      const destination = lead.destination || 'Destination';
       const subject = `Travel Enquiry for ${destination} from (Query Id- ${queryId})`;
 
       if (confirmedOption) {
@@ -228,12 +134,9 @@ const LeadDetails = () => {
 
   // Load hotels from confirmed option
   useEffect(() => {
-    let isMounted = true;
-    
     const loadHotelsFromConfirmedOption = async () => {
       const confirmedOption = getConfirmedOption();
-      // Debug: Confirmed option data
-      // TODO: Add proper logging service
+      console.log('Confirmed Option:', confirmedOption);
 
       // Check for hotels in different possible structures
       let hotelsList = [];
@@ -253,10 +156,9 @@ const LeadDetails = () => {
         }
       }
 
-      // Debug: Hotels list data
-      // TODO: Add proper logging service
+      console.log('Hotels List:', hotelsList);
 
-      if (hotelsList.length > 0 && isMounted) {
+      if (hotelsList.length > 0) {
         try {
           // Fetch hotel details for each hotel
           const hotelPromises = hotelsList.map(async (hotel, index) => {
@@ -265,28 +167,28 @@ const LeadDetails = () => {
             const hotelName = hotel.hotel_name || hotel.hotelName || hotel.name || 'Hotel';
             const roomType = hotel.room_type || hotel.roomType || hotel.roomName || '';
             const mealPlan = hotel.meal_plan || hotel.mealPlan || '';
-            const price = hotel.price || 0;
-            const day = hotel.day || 1;
+            const day = hotel.day || '';
+            const price = hotel.price || '';
 
-            if (hotelId && hotelId !== 'hotel_' + hotelName + '_' + index) {
+            if (hotelId) {
               try {
-                const hotelData = await hotelsAPI.getById(hotelId);
+                const response = await hotelsAPI.get(hotelId);
+                const hotelData = response.data.data;
                 return {
-                  id: hotelData.data.data.id,
+                  id: `hotel_${hotelId}_${index}`,
                   hotel_id: hotelId,
-                  company_name: hotelData.data.data.name,
-                  name: hotelData.data.data.contact_person || '',
-                  email: hotelData.data.data.email || '',
+                  company_name: hotelData.name || hotelName,
+                  name: hotelData.contact_person || '',
+                  email: hotelData.email || '',
                   type: 'hotel',
-                  hotel_name: hotelData.data.data.name || hotelName,
+                  hotel_name: hotelData.name || hotelName,
                   room_type: roomType,
                   meal_plan: mealPlan,
                   price: price,
                   day: day
                 };
               } catch (err) {
-                // Error fetching hotel details
-                // TODO: Add proper error reporting
+                console.error(`Failed to fetch hotel ${hotelId}:`, err);
                 // If hotel fetch fails, use the data from confirmed option
                 return {
                   id: `hotel_${hotelId || hotelName}_${index}`,
@@ -303,9 +205,10 @@ const LeadDetails = () => {
                 };
               }
             } else {
+              // If no hotel_id, use the data from confirmed option
               return {
-                id: `hotel_${hotelId || hotelName}_${index}`,
-                hotel_id: hotelId,
+                id: `hotel_${hotelName}_${index}_${Date.now()}`,
+                hotel_id: null,
                 company_name: hotelName,
                 name: '',
                 email: hotel.email || '',
@@ -320,8 +223,7 @@ const LeadDetails = () => {
           });
 
           const hotelsData = await Promise.all(hotelPromises);
-          // Debug: Processed hotels data
-          // TODO: Add proper logging service
+          console.log('Processed Hotels Data:', hotelsData);
           // Show all hotels, but prioritize those with email
           const validHotels = hotelsData.filter(h => h.company_name && h.company_name !== 'Hotel');
           // Sort: hotels with email first
@@ -330,50 +232,19 @@ const LeadDetails = () => {
             if (!a.email && b.email) return 1;
             return 0;
           });
-          
-          if (isMounted) {
-            setHotelsFromConfirmedOption(validHotels);
-            // Debug: Hotels set in state
-            // TODO: Add proper logging service
-          }
+          setHotelsFromConfirmedOption(validHotels);
+          console.log('Hotels set in state:', validHotels);
         } catch (err) {
-          // Error loading hotels
-          // TODO: Add proper error reporting
-          if (isMounted) {
-            setHotelsFromConfirmedOption([]);
-          }
-        }
-      } else {
-        if (isMounted) {
+          console.error('Failed to load hotels:', err);
           setHotelsFromConfirmedOption([]);
         }
+      } else {
+        setHotelsFromConfirmedOption([]);
       }
     };
 
     loadHotelsFromConfirmedOption();
-    
-    return () => {
-      isMounted = false;
-    };
   }, [proposals, quotationData]);
-
-  useEffect(() => {
-    if (!quotationData?.hotelOptions) {
-      return;
-    }
-
-    const optionKeys = Object.keys(quotationData.hotelOptions)
-      .filter(optionNum => parseInt(optionNum, 10) <= maxHotelOptions)
-      .sort((a, b) => parseInt(a, 10) - parseInt(b, 10));
-
-    if (optionKeys.length === 0) {
-      return;
-    }
-
-    if (!selectedOption || parseInt(selectedOption, 10) > maxHotelOptions) {
-      setSelectedOption(optionKeys[0]);
-    }
-  }, [quotationData, maxHotelOptions, selectedOption]);
 
   // Load proposals from localStorage
   const loadProposals = () => {
@@ -386,14 +257,13 @@ const LeadDetails = () => {
         proposals = JSON.parse(storedProposals);
       }
 
-      // Load proposals for itineraries already added to this lead
-      const itineraryIds = proposals
-        .map(proposal => proposal.itinerary_id)
-        .filter(Boolean);
-
-      itineraryIds.forEach(itineraryId => {
+      // Also load proposals from all itineraries (for options added from itinerary detail page)
+      // This ensures all options from Final tab are available
+      const allItineraryKeys = Object.keys(localStorage).filter(key => key.startsWith('itinerary_') && key.endsWith('_proposals'));
+      allItineraryKeys.forEach(key => {
         try {
-          const itineraryProposals = JSON.parse(localStorage.getItem(`itinerary_${itineraryId}_proposals`) || '[]');
+          const itineraryProposals = JSON.parse(localStorage.getItem(key) || '[]');
+          // Add proposals that don't already exist (check by itinerary_id + optionNumber)
           itineraryProposals.forEach(ip => {
             const exists = proposals.some(p =>
               p.itinerary_id === ip.itinerary_id &&
@@ -404,8 +274,7 @@ const LeadDetails = () => {
             }
           });
         } catch (e) {
-          // Error loading itinerary proposals
-          // TODO: Add proper error reporting
+          console.error('Error loading itinerary proposals:', e);
         }
       });
 
@@ -421,8 +290,7 @@ const LeadDetails = () => {
       localStorage.setItem(`lead_${id}_proposals`, JSON.stringify(newProposals));
       setProposals(newProposals);
     } catch (err) {
-      // Error saving proposals
-      // TODO: Add proper error reporting
+      console.error('Failed to save proposals:', err);
     }
   };
 
@@ -440,8 +308,7 @@ const LeadDetails = () => {
       try {
         await handleViewQuotation(confirmedProposal);
       } catch (err) {
-        // Error loading quotation data
-        // TODO: Add proper error reporting
+        console.error('Failed to load quotation data:', err);
       }
     }
 
@@ -455,63 +322,30 @@ const LeadDetails = () => {
 
   const fetchLeadDetails = async () => {
     try {
-      const response = await queryDetailAPI.getDetail(id);
-      const data = response.data.data;
-      const leadData = data.lead;
+      const response = await leadsAPI.get(id);
+      const leadData = response.data.data.lead;
       setLead(leadData);
 
-      const followupsData = data.followups || [];
-      const notesList = followupsData
-        .filter(followup => followup.remark && followup.remark.trim() !== '' && !followup.reminder_time)
-        .map(followup => ({
-          content: followup.remark,
-          created_at: followup.created_at,
-          created_by: followup.created_by?.name || followup.user?.name || 'System'
-        }));
-      setNotes(notesList);
-
-      const taskList = followupsData.filter(followup => Boolean(followup.reminder_time));
-      setFollowups(taskList);
-
-      setVouchers(data.vouchers || []);
-      setDocuments(data.documents || []);
-      setInvoices(data.invoices || []);
-      setActivityHistory(data.activity_history || []);
+      // Extract notes from followups (those with remarks)
+      if (leadData.followups) {
+        const notesList = leadData.followups
+          .filter(followup => followup.remark && followup.remark.trim() !== '')
+          .map(followup => ({
+            content: followup.remark,
+            created_at: followup.created_at,
+            created_by: followup.user?.name || 'System'
+          }));
+        setNotes(notesList);
+        // Store all followups
+        setFollowups(leadData.followups || []);
+      } else {
+        setFollowups([]);
+      }
     } catch (err) {
-      // Error fetching lead details
-      // TODO: Add proper error reporting service
+      console.error('Failed to fetch lead details:', err);
       alert('Failed to load lead details');
     } finally {
       setLoading(false);
-    }
-  };
-
-  const fetchCallHistory = async () => {
-    if (!id) return;
-    setLoadingCalls(true);
-    try {
-      const response = await callsAPI.getLeadHistory(id);
-      const data = response.data.data;
-      setCallHistory(data.calls || []);
-      setCallSummary(data.summary || { total_calls: 0, total_talk_time_seconds: 0 });
-    } catch (err) {
-      console.error('Failed to load call history', err);
-    } finally {
-      setLoadingCalls(false);
-    }
-  };
-
-  const fetchOutgoingNumbers = async () => {
-    try {
-      const response = await callsAPI.getMappings();
-      const mappings = response.data.data.mappings || [];
-      const activeForUser = mappings.filter(mapping => mapping.is_active && mapping.user_id === user?.id);
-      setOutgoingNumbers(activeForUser);
-      if (!selectedOutgoingNumber && activeForUser.length > 0) {
-        setSelectedOutgoingNumber(activeForUser[0].phone_number);
-      }
-    } catch (err) {
-      console.error('Failed to load outgoing numbers', err);
     }
   };
 
@@ -520,8 +354,7 @@ const LeadDetails = () => {
       const response = await usersAPI.list();
       setUsers(response.data.data.users || []);
     } catch (err) {
-      // Error fetching users
-      // TODO: Add proper error reporting service
+      console.error('Failed to fetch users:', err);
     }
   };
 
@@ -530,8 +363,7 @@ const LeadDetails = () => {
       const response = await suppliersAPI.list();
       setSuppliers(response.data.data || []);
     } catch (err) {
-      // Error fetching suppliers
-      // TODO: Add proper error reporting service
+      console.error('Failed to fetch suppliers:', err);
     }
   };
 
@@ -545,27 +377,9 @@ const LeadDetails = () => {
         setLeadEmails(response.data.data.emails || []);
       }
     } catch (err) {
-      // Error fetching lead emails
-      // TODO: Add proper error reporting service
+      console.error('Failed to fetch lead emails:', err);
     } finally {
       setLoadingEmails(false);
-    }
-  };
-
-  const fetchWhatsAppMessages = async () => {
-    if (!id) return;
-    setLoadingWhatsappMessages(true);
-    try {
-      const response = await whatsappAPI.messages(id);
-      if (response.data.success) {
-        setWhatsappMessages(response.data.data.messages || []);
-      } else {
-        setWhatsappMessages([]);
-      }
-    } catch (err) {
-      setWhatsappMessages([]);
-    } finally {
-      setLoadingWhatsappMessages(false);
     }
   };
 
@@ -626,8 +440,7 @@ const LeadDetails = () => {
         }
       }
     } catch (err) {
-      // Error sending email
-      // TODO: Add proper error reporting service
+      console.error('Failed to send email:', err);
       alert(err.response?.data?.message || 'Failed to send email');
     } finally {
       setSendingClientEmail(false);
@@ -644,8 +457,7 @@ const LeadDetails = () => {
         setGmailEmails(response.data.data.emails || []);
       }
     } catch (err) {
-      // Error fetching Gmail emails
-      // TODO: Add proper error reporting service
+      console.error('Failed to fetch Gmail emails:', err);
     } finally {
       setLoadingGmail(false);
     }
@@ -673,8 +485,7 @@ const LeadDetails = () => {
         setPaymentSummary(response.data.data.summary || { total_amount: 0, total_paid: 0, total_due: 0 });
       }
     } catch (err) {
-      // Error fetching payments
-      // TODO: Add proper error reporting service
+      console.error('Failed to fetch payments:', err);
       setPayments([]);
       setPaymentSummary({ total_amount: 0, total_paid: 0, total_due: 0 });
     } finally {
@@ -717,8 +528,7 @@ const LeadDetails = () => {
         alert(response.data.message || 'Failed to add payment');
       }
     } catch (err) {
-      // Error adding payment
-      // TODO: Add proper error reporting service
+      console.error('Failed to add payment:', err);
       const errorMsg = err.response?.data?.message || err.response?.data?.errors
         ? Object.values(err.response.data.errors).flat().join(', ')
         : 'Failed to add payment';
@@ -744,12 +554,6 @@ const LeadDetails = () => {
       }
     }
   }, [activeTab, id, user?.google_token]);
-
-  useEffect(() => {
-    if (activeTab === 'whatsapp' && id) {
-      fetchWhatsAppMessages();
-    }
-  }, [activeTab, id]);
 
   // Generate email body with enquiry details
   const generateEmailBody = () => {
@@ -950,8 +754,7 @@ const LeadDetails = () => {
         alert(`${errorMsg}${errors.length > 0 ? '\n\nErrors:\n' + errors.join('\n') : ''}`);
       }
     } catch (err) {
-      // Error sending email
-      // TODO: Add proper error reporting service
+      console.error('Failed to send email:', err);
       const errorMsg = err.response?.data?.message || 'Failed to send email';
       const errors = err.response?.data?.data?.errors || [];
       const errorDetails = err.response?.data?.error || '';
@@ -997,110 +800,10 @@ const LeadDetails = () => {
       setNoteText('');
       setShowNoteInput(false);
     } catch (err) {
-      // Error adding note
-      // TODO: Add proper error reporting service
+      console.error('Failed to add note:', err);
       alert(err.response?.data?.message || 'Failed to add note');
     } finally {
       setAddingNote(false);
-    }
-  };
-
-  const handleDocumentFileChange = (event) => {
-    const file = event.target.files?.[0] || null;
-    setDocumentForm(prev => ({ ...prev, file }));
-  };
-
-  const handleUploadDocument = async (event) => {
-    event.preventDefault();
-    if (!documentForm.title.trim() || !documentForm.file) {
-      alert('Title and file are required');
-      return;
-    }
-
-    setUploadingDocument(true);
-    try {
-      await documentsAPI.upload({
-        lead_id: id,
-        title: documentForm.title.trim(),
-        document_type: documentForm.document_type,
-        document_category: documentForm.document_category,
-        description: documentForm.description,
-        file: documentForm.file
-      });
-      await fetchLeadDetails();
-      setDocumentForm({
-        title: '',
-        document_type: 'other',
-        document_category: 'other',
-        description: '',
-        file: null
-      });
-      setShowDocumentModal(false);
-    } catch (err) {
-      alert(err.response?.data?.message || 'Failed to upload document');
-    } finally {
-      setUploadingDocument(false);
-    }
-  };
-
-  const handleDownloadDocument = async (doc) => {
-    try {
-      const response = await documentsAPI.download(doc.id);
-      const blob = new Blob([response.data], { type: doc.file_type || 'application/octet-stream' });
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = doc.file_name || 'document';
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.URL.revokeObjectURL(url);
-    } catch (err) {
-      alert('Failed to download document');
-    }
-  };
-
-  const handlePreviewVoucher = async () => {
-    try {
-      const response = await vouchersAPI.preview(id);
-      const blob = new Blob([response.data], { type: 'text/html' });
-      const url = window.URL.createObjectURL(blob);
-      window.open(url, '_blank', 'noopener,noreferrer');
-      setTimeout(() => window.URL.revokeObjectURL(url), 5000);
-    } catch (err) {
-      alert('Failed to preview voucher');
-    }
-  };
-
-  const handleDownloadVoucher = async () => {
-    try {
-      const response = await vouchersAPI.download(id);
-      const blob = new Blob([response.data], { type: 'text/html' });
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `voucher-lead-${id}.html`;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.URL.revokeObjectURL(url);
-    } catch (err) {
-      alert('Failed to download voucher');
-    }
-  };
-
-  const handleSendVoucher = async () => {
-    setSendingVoucher(true);
-    try {
-      await vouchersAPI.send(id, {
-        to_email: lead?.email || undefined,
-        subject: `Travel Voucher - ${lead?.client_name || 'Customer'}`
-      });
-      alert('Voucher sent successfully');
-    } catch (err) {
-      alert(err.response?.data?.message || 'Failed to send voucher');
-    } finally {
-      setSendingVoucher(false);
     }
   };
 
@@ -1221,8 +924,7 @@ const LeadDetails = () => {
       setShowFollowupModal(false);
       alert('Follow-up added successfully!');
     } catch (err) {
-      // Error adding followup
-      // TODO: Add proper error reporting service
+      console.error('Failed to add followup:', err);
       const errorMsg = err.response?.data?.message ||
         (err.response?.data?.errors ? Object.values(err.response.data.errors).flat().join(', ') : null) ||
         err.response?.data?.error ||
@@ -1241,7 +943,7 @@ const LeadDetails = () => {
       end_date: lead?.travel_end_date ? formatDateForInput(lead.travel_end_date) : '',
       adult: lead?.adult?.toString() || '1',
       child: lead?.child?.toString() || '0',
-      destination: lead?.destinations || lead?.destination || '',
+      destinations: lead?.destination || '',
       notes: lead?.remark || ''
     });
     setShowItineraryModal(true);
@@ -1273,8 +975,7 @@ const LeadDetails = () => {
 
       setDayItineraries(processedData);
     } catch (err) {
-      // Error fetching itineraries
-      // TODO: Add proper error reporting service
+      console.error('Failed to fetch itineraries:', err);
       alert('Failed to load itineraries');
     } finally {
       setLoadingItineraries(false);
@@ -1340,7 +1041,6 @@ const LeadDetails = () => {
   const handleItinerarySave = async (e) => {
     e.preventDefault();
     // TODO: Implement itinerary save API call
-    // TODO: Add proper error handling
     alert('Itinerary save functionality will be implemented once API is ready');
     // For now, just close the modal
     setShowItineraryModal(false);
@@ -1366,13 +1066,6 @@ const LeadDetails = () => {
     const ampm = hours >= 12 ? 'PM' : 'AM';
     const displayHours = hours % 12 || 12;
     return `${day}/${month}/${year} - ${displayHours}:${minutes} ${ampm}`;
-  };
-
-  const formatDuration = (seconds) => {
-    const total = Number(seconds || 0);
-    const mins = Math.floor(total / 60);
-    const secs = total % 60;
-    return `${mins}m ${secs}s`;
   };
 
   const getTravelMonth = (dateString) => {
@@ -1459,13 +1152,12 @@ const LeadDetails = () => {
 
       return details;
     } catch (err) {
-      // Error getting package details
-      // TODO: Add proper error reporting service
+      console.error('Error getting package details:', err);
       return null;
     }
   };
 
-  const handleViewQuotation = async (proposal, { openModal = true } = {}) => {
+  const handleViewQuotation = async (proposal) => {
     setLoadingQuotation(true);
     setSelectedProposal(proposal);
     setSelectedOption(null);
@@ -1497,13 +1189,7 @@ const LeadDetails = () => {
         events.forEach(event => {
           if (event.eventType === 'accommodation' && event.hotelOptions) {
             event.hotelOptions.forEach(option => {
-              const optNum = parseInt(option.optionNumber, 10);
-              if (!Number.isFinite(optNum) || optNum < 1) {
-                return;
-              }
-              if (optNum > maxHotelOptions) {
-                return;
-              }
+              const optNum = option.optionNumber || 1;
               if (!hotelOptions[optNum]) {
                 hotelOptions[optNum] = [];
               }
@@ -1526,7 +1212,7 @@ const LeadDetails = () => {
         itinerary: {
           ...itinerary,
           duration: proposal.duration || itinerary.duration,
-          destination: proposal.destination || itinerary.destinations || itinerary.destination
+          destinations: proposal.destination || itinerary.destinations
         },
         hotelOptions: hotelOptions
       });
@@ -1539,10 +1225,9 @@ const LeadDetails = () => {
         setSelectedOption(proposal.optionNumber.toString());
       }
 
-      setShowQuotationModal(openModal);
+      setShowQuotationModal(true);
     } catch (err) {
-      // Error loading quotation
-      // TODO: Add proper error reporting service
+      console.error('Failed to load quotation:', err);
       alert('Failed to load quotation data');
     } finally {
       setLoadingQuotation(false);
@@ -1557,8 +1242,7 @@ const LeadDetails = () => {
         ? response.data.data.value
         : 'template-1'; // Default template
     } catch (err) {
-      // Error loading template
-      // TODO: Add proper error reporting service
+      console.error('Failed to load template:', err);
       return 'template-1';
     }
   };
@@ -1584,8 +1268,7 @@ const LeadDetails = () => {
         thankYouMessage: thankYouRes.data.success && thankYouRes.data.data?.value ? thankYouRes.data.data.value : ''
       };
     } catch (err) {
-      // Error loading policies
-      // TODO: Add proper error reporting service
+      console.error('Failed to load policies:', err);
       return {
         remarks: '',
         termsConditions: '',
@@ -1677,7 +1360,7 @@ const LeadDetails = () => {
           <h2 style="margin-top: 0; font-size: 32px; color: #667eea; text-align: center;">Travel Quotation</h2>
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 20px;">
             <div style="padding: 15px; background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%); border-radius: 10px; box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);"><strong>Query ID:</strong> ${formatLeadId(lead?.id)}</div>
-            <div style="padding: 15px; background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%); border-radius: 10px; box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);"><strong>Destination:</strong> ${itinerary.destinations || itinerary.destination || 'N/A'}</div>
+            <div style="padding: 15px; background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%); border-radius: 10px; box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);"><strong>Destination:</strong> ${itinerary.destinations || 'N/A'}</div>
             <div style="padding: 15px; background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%); border-radius: 10px; box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);"><strong>Duration:</strong> ${itinerary.duration || 0} Nights & ${(itinerary.duration || 0) + 1} Days</div>
             <div style="padding: 15px; background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%); border-radius: 10px; box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);"><strong>Adults:</strong> ${lead?.adult || 1} | <strong>Children:</strong> ${lead?.child || 0}</div>
           </div>
@@ -1739,7 +1422,7 @@ const LeadDetails = () => {
           <h2 style="margin-top: 0; font-size: 32px; color: #1e3c72; text-align: center;">Travel Quotation</h2>
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 20px;">
             <div style="padding: 15px; background: #f0f4ff; border-radius: 10px; border-left: 4px solid #2a5298; box-shadow: 0 5px 15px rgba(0,0,0,0.1);"><strong>Query ID:</strong> ${formatLeadId(lead?.id)}</div>
-            <div style="padding: 15px; background: #f0f4ff; border-radius: 10px; border-left: 4px solid #2a5298; box-shadow: 0 5px 15px rgba(0,0,0,0.1);"><strong>Destination:</strong> ${itinerary.destinations || itinerary.destination || 'N/A'}</div>
+            <div style="padding: 15px; background: #f0f4ff; border-radius: 10px; border-left: 4px solid #2a5298; box-shadow: 0 5px 15px rgba(0,0,0,0.1);"><strong>Destination:</strong> ${itinerary.destinations || 'N/A'}</div>
             <div style="padding: 15px; background: #f0f4ff; border-radius: 10px; border-left: 4px solid #2a5298; box-shadow: 0 5px 15px rgba(0,0,0,0.1);"><strong>Duration:</strong> ${itinerary.duration || 0} Nights & ${(itinerary.duration || 0) + 1} Days</div>
             <div style="padding: 15px; background: #f0f4ff; border-radius: 10px; border-left: 4px solid #2a5298; box-shadow: 0 5px 15px rgba(0,0,0,0.1);"><strong>Adults:</strong> ${lead?.adult || 1} | <strong>Children:</strong> ${lead?.child || 0}</div>
           </div>
@@ -1826,7 +1509,7 @@ const LeadDetails = () => {
             <h2 style="margin-top: 0; font-size: 32px; color: #0f2027; text-align: center;">Travel Quotation</h2>
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 20px;">
               <div style="padding: 15px; background: linear-gradient(135deg, #e0f2f1 0%, #b2dfdb 100%); border-radius: 10px; box-shadow: 0 5px 15px rgba(0,0,0,0.1), inset 0 2px 5px rgba(255,255,255,0.5);"><strong>Query ID:</strong> ${formatLeadId(lead?.id)}</div>
-              <div style="padding: 15px; background: linear-gradient(135deg, #e0f2f1 0%, #b2dfdb 100%); border-radius: 10px; box-shadow: 0 5px 15px rgba(0,0,0,0.1), inset 0 2px 5px rgba(255,255,255,0.5);"><strong>Destination:</strong> ${itinerary.destinations || itinerary.destination || 'N/A'}</div>
+              <div style="padding: 15px; background: linear-gradient(135deg, #e0f2f1 0%, #b2dfdb 100%); border-radius: 10px; box-shadow: 0 5px 15px rgba(0,0,0,0.1), inset 0 2px 5px rgba(255,255,255,0.5);"><strong>Destination:</strong> ${itinerary.destinations || 'N/A'}</div>
               <div style="padding: 15px; background: linear-gradient(135deg, #e0f2f1 0%, #b2dfdb 100%); border-radius: 10px; box-shadow: 0 5px 15px rgba(0,0,0,0.1), inset 0 2px 5px rgba(255,255,255,0.5);"><strong>Duration:</strong> ${itinerary.duration || 0} Nights & ${(itinerary.duration || 0) + 1} Days</div>
               <div style="padding: 15px; background: linear-gradient(135deg, #e0f2f1 0%, #b2dfdb 100%); border-radius: 10px; box-shadow: 0 5px 15px rgba(0,0,0,0.1), inset 0 2px 5px rgba(255,255,255,0.5);"><strong>Adults:</strong> ${lead?.adult || 1} | <strong>Children:</strong> ${lead?.child || 0}</div>
             </div>
@@ -1913,7 +1596,7 @@ const LeadDetails = () => {
             <h2 style="margin-top: 0; color: #365314; font-size: 24px;">Travel Quotation</h2>
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 15px;">
               <div><strong style="color: #365314;">Query ID:</strong> ${formatLeadId(lead?.id)}</div>
-              <div><strong style="color: #365314;">Destination:</strong> ${itinerary.destinations || itinerary.destination || 'N/A'}</div>
+              <div><strong style="color: #365314;">Destination:</strong> ${itinerary.destinations || 'N/A'}</div>
               <div><strong style="color: #365314;">Duration:</strong> ${itinerary.duration || 0} Nights & ${(itinerary.duration || 0) + 1} Days</div>
               <div><strong style="color: #365314;">Adults:</strong> ${lead?.adult || 1} | <strong>Children:</strong> ${lead?.child || 0}</div>
             </div>
@@ -2005,7 +1688,7 @@ const LeadDetails = () => {
             <h2 style="margin-top: 0; color: #0891b2; font-size: 28px;">Travel Quotation</h2>
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 15px;">
               <div><strong style="color: #164e63;">Query ID:</strong> ${formatLeadId(lead?.id)}</div>
-              <div><strong style="color: #164e63;">Destination:</strong> ${itinerary.destinations || itinerary.destination || 'N/A'}</div>
+              <div><strong style="color: #164e63;">Destination:</strong> ${itinerary.destinations || 'N/A'}</div>
               <div><strong style="color: #164e63;">Duration:</strong> ${itinerary.duration || 0} Nights & ${(itinerary.duration || 0) + 1} Days</div>
               <div><strong style="color: #164e63;">Adults:</strong> ${lead?.adult || 1} | <strong>Children:</strong> ${lead?.child || 0}</div>
             </div>
@@ -2093,7 +1776,7 @@ const LeadDetails = () => {
             <h2 style="margin-top: 0; color: #365314; font-size: 24px;">Quote Details</h2>
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
               <div><strong style="color: #3f6212;">Query ID:</strong> ${formatLeadId(lead?.id)}</div>
-              <div><strong style="color: #3f6212;">Destination:</strong> ${itinerary.destinations || itinerary.destination || 'N/A'}</div>
+              <div><strong style="color: #3f6212;">Destination:</strong> ${itinerary.destinations || 'N/A'}</div>
               <div><strong style="color: #3f6212;">Duration:</strong> ${itinerary.duration || 0} Nights & ${(itinerary.duration || 0) + 1} Days</div>
               <div><strong style="color: #3f6212;">Adults:</strong> ${lead?.adult || 1} | <strong>Children:</strong> ${lead?.child || 0}</div>
             </div>
@@ -2162,7 +1845,7 @@ const LeadDetails = () => {
     const templateId = await getSelectedTemplate();
     const allPolicies = await getAllPolicies();
     const itinerary = quotationData.itinerary;
-    const allOptions = getFilteredOptionNumbers();
+    const allOptions = Object.keys(quotationData.hotelOptions).sort((a, b) => parseInt(a) - parseInt(b));
 
     // Use special templates
     if (templateId === 'template-2') {
@@ -2248,7 +1931,7 @@ const LeadDetails = () => {
               <h3 style="margin-top: 0;">Quote Details</h3>
               <table>
                 <tr><td class="label">Query ID:</td><td>${formatLeadId(lead?.id)}</td></tr>
-                <tr><td class="label">Destination:</td><td>${itinerary.destinations || itinerary.destination || 'N/A'}</td></tr>
+                <tr><td class="label">Destination:</td><td>${itinerary.destinations || 'N/A'}</td></tr>
                 <tr><td class="label">Duration:</td><td>${itinerary.duration || 0} Nights & ${(itinerary.duration || 0) + 1} Days</td></tr>
                 <tr><td class="label">Adults:</td><td>${lead?.adult || 1}</td></tr>
                 <tr><td class="label">Children:</td><td>${lead?.child || 0}</td></tr>
@@ -2327,47 +2010,43 @@ const LeadDetails = () => {
     return htmlContent;
   };
 
-  const handleSendMail = async () => {
+  const handleSendMail = async (optionNum) => {
     if (!quotationData || !lead) {
       alert('Please load quotation first');
       return;
     }
 
-    const subject = `Travel Quotation - ${quotationData.itinerary.itinerary_name || 'Itinerary'} - ${formatLeadId(lead.id)}`;
-    const optionNumbers = getFilteredOptionNumbers();
-    const recipientEmail = lead.email || '';
+    const emailContent = await generateEmailContent();
+    const subject = encodeURIComponent(`Travel Quotation - ${quotationData.itinerary.itinerary_name || 'Itinerary'} - ${formatLeadId(lead.id)}`);
 
-    if (!recipientEmail) {
-      alert('Client email not available');
-      return;
-    }
+    // Create a blob with HTML content
+    const blob = new Blob([emailContent], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
 
-    if (user?.google_token) {
-      const emailContent = await generateEmailContent();
-      await googleMailAPI.sendMail({
-        to: recipientEmail,
-        subject,
-        body: emailContent,
-        lead_id: id,
-      });
-      fetchGmailEmails();
-      alert('Email sent successfully via Gmail!');
-      return;
-    }
+    // Open email client with HTML content
+    const mailtoLink = `mailto:${lead.email || ''}?subject=${subject}&body=${encodeURIComponent('Please find the detailed travel quotation attached.')}`;
 
-    const textBody = buildAllOptionsTextMessage(optionNumbers);
-    const response = await leadsAPI.sendEmail(id, {
-      to_email: recipientEmail,
-      subject,
-      body: textBody,
+    // For better email experience, we'll copy HTML to clipboard and open email
+    navigator.clipboard.writeText(emailContent).then(() => {
+      window.open(mailtoLink);
+      alert('Email content copied to clipboard! Paste it in your email client. You can also print this quotation as PDF and attach it.');
+    }).catch(() => {
+      // Fallback: open email with text body
+      const textBody = `Dear ${lead.client_name || 'Client'},
+
+Please find below the travel quotation for your query:
+
+${quotationData.itinerary.itinerary_name || 'Itinerary'}
+Destination: ${quotationData.itinerary.destinations || 'N/A'}
+Duration: ${quotationData.itinerary.duration || 0} Days
+
+For detailed quotation with images, please use the Print option to generate PDF.
+
+Best regards,
+TravelOps Team`;
+
+      window.location.href = `mailto:${lead.email || ''}?subject=${subject}&body=${encodeURIComponent(textBody)}`;
     });
-
-    if (response.data.success) {
-      fetchLeadEmails();
-      alert('Email sent successfully!');
-    } else {
-      alert(response.data.message || 'Failed to send email');
-    }
   };
 
   const handlePrint = (optionNum) => {
@@ -2404,89 +2083,46 @@ const LeadDetails = () => {
     }
   };
 
-  const handleSendWhatsApp = async () => {
+  const handleSendWhatsApp = (optionNum) => {
     if (!quotationData || !lead) {
       alert('Please load quotation first');
       return;
     }
-    const optionNumbers = getFilteredOptionNumbers();
-    const message = buildAllOptionsWhatsAppMessage(optionNumbers);
 
-    try {
-      const response = await whatsappAPI.send(id, message);
-      if (response.data.success) {
-        fetchWhatsAppMessages();
-        alert('WhatsApp message sent successfully!');
-      } else {
-        alert(response.data.message || 'Failed to send WhatsApp message');
-      }
-    } catch (error) {
-      alert(error.response?.data?.message || 'Failed to send WhatsApp message');
-    }
-  };
-
-  const handleSendAllFromGroup = async (group, channel) => {
-    if (!group?.options?.length) {
-      alert('No options found for this itinerary.');
+    const phone = lead.phone?.replace(/[^0-9]/g, '') || '';
+    if (!phone) {
+      alert('Phone number not available');
       return;
     }
 
-    const proposal = [...group.options].sort((a, b) => (a.optionNumber || 0) - (b.optionNumber || 0))[0];
-    if (!proposal) {
-      alert('Unable to load quotation data.');
-      return;
-    }
+    // Create WhatsApp message with all options
+    let message = `*Travel Quotation - ${quotationData.itinerary.itinerary_name || 'Itinerary'}*\n\n`;
+    message += `Query ID: ${formatLeadId(lead.id)}\n`;
+    message += `Destination: ${quotationData.itinerary.destinations || 'N/A'}\n`;
+    message += `Duration: ${quotationData.itinerary.duration || 0} Days\n\n`;
 
-    await handleViewQuotation(proposal, { openModal: false });
+    const allOptions = Object.keys(quotationData.hotelOptions).sort((a, b) => parseInt(a) - parseInt(b));
 
-    if (channel === 'email') {
-      await handleSendMail();
-    } else {
-      await handleSendWhatsApp();
-    }
+    allOptions.forEach(optNum => {
+      const hotels = quotationData.hotelOptions[optNum] || [];
+      const totalPrice = hotels.reduce((sum, h) => sum + (parseFloat(h.price) || 0), 0);
 
-    setShowQuotationModal(false);
-  };
+      message += `*Option ${optNum}*\n`;
+      message += `Hotels:\n`;
 
-  const handleDownloadAllOptionsPdf = async (group) => {
-    if (!group?.options?.length) {
-      alert('No options found for this itinerary.');
-      return;
-    }
+      hotels.forEach(hotel => {
+        message += `• Day ${hotel.day}: ${hotel.hotelName || 'Hotel'} (${hotel.category || 'N/A'} Star)\n`;
+        message += `  Room: ${hotel.roomName || 'N/A'} | Meal: ${hotel.mealPlan || 'N/A'}\n`;
+      });
 
-    const proposal = [...group.options].sort((a, b) => (a.optionNumber || 0) - (b.optionNumber || 0))[0];
-    if (!proposal) {
-      alert('Unable to load quotation data.');
-      return;
-    }
+      message += `Total Price: ₹${totalPrice.toLocaleString('en-IN')}\n\n`;
+    });
 
-    await handleViewQuotation(proposal, { openModal: false });
-    const emailContent = await generateEmailContent();
+    message += `For detailed quotation with images, please check your email or contact us.\n\n`;
+    message += `Best regards,\nTravelOps Team`;
 
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) {
-      alert('Popup blocked. Please allow popups for this site.');
-      return;
-    }
-    printWindow.document.write(`
-      <html>
-        <head>
-          <title>Travel Quotation - ${quotationData?.itinerary?.itinerary_name || 'Itinerary'}</title>
-          <style>
-            body { font-family: Arial, sans-serif; padding: 20px; }
-            img { max-width: 100%; height: auto; }
-          </style>
-        </head>
-        <body>
-          ${emailContent}
-        </body>
-      </html>
-    `);
-    printWindow.document.close();
-    printWindow.focus();
-    setTimeout(() => {
-      printWindow.print();
-    }, 250);
+    const whatsappUrl = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+    window.open(whatsappUrl, '_blank');
   };
 
   // Generate email content for confirmed option only
@@ -2565,7 +2201,7 @@ const LeadDetails = () => {
               <h3 style="margin-top: 0;">Quote Details</h3>
               <table>
                 <tr><td class="label">Query ID:</td><td>${formatLeadId(lead?.id)}</td></tr>
-                <tr><td class="label">Destination:</td><td>${itinerary.destinations || itinerary.destination || 'N/A'}</td></tr>
+                <tr><td class="label">Destination:</td><td>${itinerary.destinations || 'N/A'}</td></tr>
                 <tr><td class="label">Duration:</td><td>${itinerary.duration || 0} Nights & ${(itinerary.duration || 0) + 1} Days</td></tr>
                 <tr><td class="label">Adults:</td><td>${lead?.adult || 1}</td></tr>
                 <tr><td class="label">Children:</td><td>${lead?.child || 0}</td></tr>
@@ -2710,31 +2346,16 @@ const LeadDetails = () => {
     window.open(whatsappUrl, '_blank');
   };
 
-  const handleClickToCall = async () => {
-    if (!lead?.phone) {
-      alert('Client phone number not available');
-      return;
-    }
 
-    setCalling(true);
+  const handleStatusChange = async (newStatus) => {
     try {
-      const payload = {
-        to_number: lead.phone,
-        lead_id: lead.id,
-      };
-      if (selectedOutgoingNumber) {
-        payload.from_number = selectedOutgoingNumber;
-      }
-      await callsAPI.clickToCall(payload);
-      await fetchCallHistory();
-      alert('Call initiated successfully');
+      await leadsAPI.updateStatus(id, newStatus);
+      fetchLeadDetails();
     } catch (err) {
-      alert(err.response?.data?.message || 'Failed to initiate call');
-    } finally {
-      setCalling(false);
+      console.error('Failed to update status:', err);
+      alert('Failed to update status');
     }
   };
-
 
   if (loading) {
     return (
@@ -2760,197 +2381,321 @@ const LeadDetails = () => {
 
   const assignedUser = users.find(u => u.id === lead.assigned_to);
 
+
+
   return (
-    <Layout>
-      <div className="p-6" style={{ backgroundColor: '#D8DEF5', minHeight: '100vh' }}>
+    <Layout Header={QuiriesDetailsHeader} padding={20}>
+      <div className="p-6 " style={{ backgroundColor: '#D8DEF5', minHeight: '100vh' }}>
         {/* Header */}
-        <div className="mb-6">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => navigate('/leads')}
-                className="text-gray-700 hover:text-gray-900"
-              >
-                <ArrowLeft className="h-5 w-5" />
-              </button>
-              <h1 className="text-xl font-semibold text-gray-800">Query ID: {formatLeadId(lead.id)}</h1>
-              {lead.priority === 'hot' && (
-                <span className="px-2 py-0.5 text-xs font-semibold bg-red-500 text-white rounded">HOT</span>
-              )}
+        <div className="mb-2 rounded-lg   bg-white p-4 ">
+          <div className="flex items-center  justify-between mb-4">
+            <div className="flex flex-col  items-start gap-2">
+
+              <div className="flex  items-center gap-2">
+                <button
+                  onClick={() => navigate('/leads')}
+                  className="text-gray-700 hover:text-gray-900"
+                >
+                  <ArrowLeft className="h-5 w-5" />
+                </button>
+                <h1 className="text-xl font-[700] text-gray-800">Query ID: {formatLeadId(lead.id)}</h1>
+                {lead.priority === 'hot' && (
+                  <span className="px-2 py-0.5 text-xs font-semibold bg-red-500 text-white rounded">HOT</span>
+                )}
+              </div>
+              <div className="text-sm text-gray-600 mb-4">
+                <b>Created</b>: {formatDate(lead.created_at)} | <b>Last Updated</b>: {formatDateTime(lead.updated_at)}
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={handleClickToCall}
-                disabled={calling}
-                className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center gap-2 text-sm disabled:opacity-60"
-              >
-                <Phone className="h-4 w-4" />
-                {calling ? 'Calling...' : 'Call'}
+            <div className="flex  items-center gap-2">
+              <button className="bg-primary text-white px-4 py-2 rounded-lg hover:bg-secondary flex items-center gap-2 text-sm">
+                <Plus className="h-4 w-4" />
+                Shortcut
               </button>
+              <div className="border flex items-center border-gray-600 rounded-md">
+                <button className="p-2 hover:bg-gray-100 rounded">
+                  <Calendar className="h-5 w-5 text-gray-600" />
+                </button>
+                |
+                <button className="p-2 hover:bg-gray-100 rounded">
+                  <Mail className="h-5 w-5 text-gray-600" />
+                </button>
+                |
+                <button className="p-2 hover:bg-gray-100 rounded">
+                  <FaWhatsapp className="h-5 w-5 text-gray-600" />
+                </button>
+                |
+                <button className="p-2 hover:bg-gray-100 rounded">
+                  <FaPencilAlt className="h-4 w-4 text-gray-600" />
+                </button>
+              </div>
             </div>
           </div>
-          <div className="text-sm text-gray-600 mb-4">
-            Created: {formatDate(lead.created_at)} | Last Updated: {formatDateTime(lead.updated_at)}
-          </div>
+
+
+
 
         </div>
 
         {/* Main Content */}
         <div className="grid grid-cols-3 gap-6">
           {/* Left Column */}
-          <div className="col-span-1 space-y-6">
+          <div className="col-span-1 p-6 shadow rounded-lg bg-white space-y-6">
             {/* Query Information */}
-            <div className="bg-white rounded-lg shadow p-6 border-2 border-dashed border-blue-500">
-              <h2 className="text-lg font-semibold text-gray-800 mb-4">Query Information</h2>
-              <div className="space-y-3 text-sm">
-                <div>
-                  <span className="text-gray-600">Destination:</span>
-                  <span className="ml-2 font-medium text-gray-900">{lead.destination || 'N/A'}</span>
-                </div>
-                <div>
-                  <span className="text-gray-600">From Date:</span>
-                  <span className="ml-2 font-medium text-gray-900">{lead.travel_start_date ? formatDate(lead.travel_start_date) : 'N/A'}</span>
-                </div>
-                <div>
-                  <span className="text-gray-600">To Date:</span>
-                  <span className="ml-2 font-medium text-gray-900">{lead.travel_end_date ? formatDate(lead.travel_end_date) : lead.travel_start_date ? formatDate(lead.travel_start_date) : 'N/A'}</span>
-                </div>
-                <div>
-                  <span className="text-gray-600">Travel Month:</span>
-                  <span className="ml-2 font-medium text-gray-900">{lead.travel_start_date ? getTravelMonth(lead.travel_start_date) : 'N/A'}</span>
-                </div>
-                <div>
-                  <span className="text-gray-600">Lead Source:</span>
-                  <span className="ml-2 font-medium text-gray-900">{lead.source || 'N/A'}</span>
-                </div>
-                <div>
-                  <span className="text-gray-600">Services:</span>
-                  <span className="ml-2 font-medium text-gray-900">{lead.service || 'Activities only'}</span>
-                </div>
-                <div>
-                  <span className="text-gray-600">Pax:</span>
-                  <span className="ml-2 font-medium text-gray-900">Adult: {lead.adult || '1'} - Child: {lead.child || '0'} - Infant: {lead.infant || '0'}</span>
-                </div>
-                <div>
-                  <span className="text-gray-600">Assign To:</span>
-                  <span className="ml-2 font-medium text-gray-900">{assignedUser?.name || 'N/A'}</span>
-                </div>
-                {lead.remark && (
-                  <div>
-                    <span className="text-gray-600">Description:</span>
-                    <span className="ml-2 font-medium text-gray-900">{lead.remark}</span>
+            <div className="  ">
+              <h2 className="text-xl font-[700] text-gray-800 mb-4">Query Information</h2>
+              <div
+                className="rounded-2xl border border-gray-200 p-4 space-y-4 text-sm"
+                style={{
+                  background: `
+          linear-gradient(rgba(255,255,255,0.8), rgba(255,255,255,0.8)),
+          url(/images/quiries/detailsback.png)
+        `,
+                  backgroundRepeat: "no-repeat",
+                  backgroundSize: "cover",
+                  backdropFilter: "blur(6px)"
+                }}
+              >
+                {/* ROW */}
+                <DetailRow
+                  icon={<MapPin className="text-yellow-500" size={18} />}
+                  label="Destination"
+                  value={lead.destination || "N/A"}
+                />
+
+                <DetailRow
+                  icon={<Calendar className="text-sky-500" size={18} />}
+                  label="From Date"
+                  value={
+                    lead.travel_start_date
+                      ? formatDate(lead.travel_start_date)
+                      : "N/A"
+                  }
+                />
+
+                <DetailRow
+                  icon={<CalendarDays className="text-red-500" size={18} />}
+                  label="To Date"
+                  value={
+                    lead.travel_end_date
+                      ? formatDate(lead.travel_end_date)
+                      : lead.travel_start_date
+                        ? formatDate(lead.travel_start_date)
+                        : "N/A"
+                  }
+                />
+
+                <DetailRow
+                  icon={<Calendar className="text-teal-600" size={18} />}
+                  label="Travel Month"
+                  value={
+                    lead.travel_start_date
+                      ? getTravelMonth(lead.travel_start_date)
+                      : "N/A"
+                  }
+                />
+
+                <DetailRow
+                  icon={<Leaf className="text-green-600" size={18} />}
+                  label="Lead Source"
+                  value={lead.source || "N/A"}
+                />
+
+                <DetailRow
+                  icon={<Briefcase className="text-purple-600" size={18} />}
+                  label="Services"
+                  value={lead.service || "Activities only"}
+                />
+
+                {/* Pax */}
+                <div className="flex items-start gap-3">
+                  <Users className="text-black mt-[2px]" size={18} />
+                  <div className="flex gap-2 flex-wrap">
+                    <span className="text-blue-600 font-medium">Pax:</span>
+                    <span className="text-gray-900">
+                      Adult: {lead.adult || 1}
+                    </span>
+                    <span className="text-blue-600">
+                      Child: {lead.child || 0}
+                    </span>
+                    <span className="text-blue-600">
+                      Infant: {lead.infant || 0}
+                    </span>
                   </div>
+                </div>
+
+                <DetailRow
+                  icon={<UserCheck className="text-orange-500" size={18} />}
+                  label="Assign To"
+                  value={assignedUser?.name || "N/A"}
+                />
+
+                {lead.remark && (
+                  <DetailRow
+                    icon={<Briefcase className="text-gray-600" size={18} />}
+                    label="Description"
+                    value={lead.remark}
+                  />
                 )}
               </div>
             </div>
 
             {/* Related Customer */}
-            <div className="bg-white rounded-lg shadow p-6">
-              <h2 className="text-lg font-semibold text-gray-800 mb-4">Related Customer</h2>
-              <div className="space-y-2 text-sm">
-                <div className="font-medium text-gray-900">
-                  {lead.client_title ? `${lead.client_title} ` : 'Mr. '}{lead.client_name}
+          
+            <div className="bg-white rounded-xl shadow-sm border p-5">
+              <h2 className="text-lg font-semibold text-gray-800 mb-3">
+                Related Customer
+              </h2>
+
+              <div className="flex items-center justify-between gap-6">
+                {/* LEFT INFO */}
+                <div className="flex-1">
+                  <div className="text-sm text-gray-500 mb-1">
+                    {lead.client_title ? `${lead.client_title} ` : 'Mr. '}
+                    {lead.client_name}
+                  </div>
+
+                  <div className="flex items-center gap-2 text-sm text-gray-600 mb-1">
+                    <Smartphone className="w-4 h-4 text-gray-700" />
+                    <span>{lead.phone || 'N/A'}</span>
+                  </div>
+
+                  <div className="flex items-center gap-2 text-sm text-gray-600">
+                    <Mail className="w-4 h-4 text-gray-700" />
+                    <span>{lead.email || 'N/A'}</span>
+                  </div>
                 </div>
-                <div className="text-gray-600">Phone: {lead.phone || 'N/A'}</div>
-                <div className="text-gray-600">Email: {lead.email || 'N/A'}</div>
+
+                {/* DIVIDER */}
+                <div className="h-16 w-px bg-gray-300"></div>
+
+                {/* RIGHT ACTIONS */}
+                <div className="flex flex-col gap-3 min-w-[200px]">
+                  <a
+                    href={lead.phone ? `tel:${lead.phone}` : '#'}
+                    className="flex items-center justify-center gap-2 bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium py-2 px-4 rounded-full transition"
+                  >
+                    <Phone className="w-4 h-4" />
+                    {lead.phone || 'Call'}
+                  </a>
+
+                  <a
+                    href={lead.email ? `mailto:${lead.email}` : '#'}
+                    className="flex items-center justify-center gap-2 bg-[#E78175] hover:bg-[#f79176] text-white text-sm font-medium py-2 px-4 rounded-full transition"
+                  >
+                    <Mail className="w-4 h-4" />
+                    {lead.email || 'Email'}
+                  </a>
+                </div>
               </div>
             </div>
 
             {/* Notes */}
-            <div className="bg-white rounded-lg shadow p-6">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-lg font-semibold text-gray-800">Notes</h2>
-                {!showNoteInput && (
-                  <button
-                    onClick={() => setShowNoteInput(true)}
-                    className="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700 flex items-center gap-1"
-                  >
-                    <Plus className="h-4 w-4" />
-                    Add Note
-                  </button>
-                )}
-              </div>
+              <div className={` rounded-[28px] relative border-2 border-gray-200 p-5 ${showNoteInput  ? 'bg-gray-400' :'bg-white'}`}>
+                    {/* TITLE */}
+                    <h2 className="text-lg font-semibold text-black mb-6">
+                      Related Company
+                    </h2>
 
-              {showNoteInput && (
-                <div className="mb-4">
-                  <textarea
-                    value={noteText}
-                    onChange={(e) => setNoteText(e.target.value)}
-                    placeholder="Type Note Here"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                    rows="3"
-                  />
-                  <div className="flex justify-end gap-2 mt-2">
-                    <button
-                      onClick={() => {
-                        setShowNoteInput(false);
-                        setNoteText('');
-                      }}
-                      className="px-3 py-1 text-sm text-gray-600 hover:text-gray-800"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      onClick={handleAddNote}
-                      disabled={addingNote}
-                      className="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700 flex items-center gap-1 disabled:opacity-50"
-                    >
-                      {addingNote ? 'Adding...' : (
-                        <>
-                          <Plus className="h-4 w-4" />
-                          Add Note
-                        </>
-                      )}
-                    </button>
-                  </div>
-                </div>
-              )}
+                    <div className="flex justify-between items-start">
+                      {/* LEFT SIDE */}
+                      <div className="space-y-6">
+                        {/* COMPANY NAME */}
+                        <div className="text-sm font-medium text-black">
+                          {lead.company_name || 'Triplive b2b'}
+                        </div>
 
-              <div className="space-y-3">
-                {notes.length === 0 ? (
-                  <div className="text-gray-500 text-sm">No Notes</div>
-                ) : (
-                  notes.map((note, index) => (
-                    <div key={index} className="bg-yellow-50 border-l-4 border-yellow-400 p-3 rounded">
-                      <div className="flex items-start gap-2">
-                        <span className="text-yellow-600">📌</span>
-                        <div className="flex-1">
-                          <p className="text-sm text-gray-800">{note.content}</p>
-                          <p className="text-xs text-gray-500 mt-1">{formatDateTime(note.created_at)} by {note.created_by || 'System'}</p>
+                        {/* NOTES + ADD BUTTON */}
+                        <div className="flex items-center gap-4">
+                          <span className="text-sm text-black">Notes :</span>
+
+                          {!showNoteInput && (
+                            <button
+                              onClick={() => setShowNoteInput(true)}
+                              className="flex items-center gap-2 bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-full text-sm font-medium transition"
+                            >
+                              <Plus className="w-5 h-5" />
+                              Add Note
+                            </button>
+                          )}
+                        </div>
+
+                        {/* NOTE INPUT */}
+                        {showNoteInput && (
+                          <div className="w-[420px] bottom-0 z-10 absolute">
+                            <textarea
+                              value={noteText}
+                              onChange={(e) => setNoteText(e.target.value)}
+                              placeholder="Type Note Here"
+                              rows={3}
+                              className="w-full border border-gray-300 rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+
+                            <div className="flex justify-end gap-3 mt-3">
+                              <button
+                                onClick={() => {
+                                  setShowNoteInput(false);
+                                  setNoteText('');
+                                }}
+                                className="text-gray-600 hover:text-gray-800 text-sm"
+                              >
+                                Cancel
+                              </button>
+
+                              <button
+                                onClick={handleAddNote}
+                                disabled={addingNote}
+                                className="bg-blue-500 hover:bg-blue-600 text-white px-5 py-1.5 rounded-full text-sm font-medium disabled:opacity-50"
+                              >
+                                {addingNote ? 'Adding...' : 'Add Note'}
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* RIGHT SIDE */}
+                      <div className="text-right space-y-8">
+                        {/* GST */}
+                        <div className="text-sm text-gray-400 font-medium">
+                          GST: {lead.gst_number || '16409164-1741099H0'}
+                        </div>
+
+                        {/* NOTES STATUS */}
+                        <div className="text-sm text-gray-400 font-light">
+                          {notes.length === 0 ? 'No Notes Yet..' : `${notes.length} Notes`}
                         </div>
                       </div>
                     </div>
-                  ))
-                )}
-              </div>
-            </div>
+                </div>
           </div>
 
           {/* Right Column */}
-          <div className="col-span-2">
+          <div className="col-span-2   p-4 bg-white rounded-lg">
             {/* Tabs */}
-            <div className="bg-white rounded-lg shadow">
-              <div className="border-b border-gray-200">
-                <div className="flex overflow-x-auto">
+            <div className="bg-white  rounded-lg ">
+
+              <div className=" p-4 flex justify-center border-gray-200">
+                <div className="flex rounded-full w-fit custom-scroll overflow-x-auto">
                   {[
                     { key: 'proposals', label: 'Proposals' },
                     { key: 'mails', label: 'Mails' },
                     { key: 'whatsapp', label: 'WhatsApp' },
                     { key: 'followups', label: "Followup's" },
                     { key: 'suppComm', label: 'Supp. Comm.' },
+                    { key: 'postSales', label: 'Post Sales' },
                     { key: 'voucher', label: 'Voucher' },
                     { key: 'docs', label: 'Docs.' },
                     { key: 'invoice', label: 'Invoice' },
                     { key: 'billing', label: 'Billing' },
-                    { key: 'calls', label: 'Calls' },
                     { key: 'history', label: 'History' }
-                  ].map(({ key, label }) => (
+                  ].map(({ key, label },index) => (
                     <button
                       key={key}
                       onClick={() => setActiveTab(key)}
-                      className={`px-4 py-3 text-sm font-medium whitespace-nowrap ${activeTab === key
-                        ? 'border-b-2 border-blue-600 text-blue-600'
-                        : 'text-gray-600 hover:text-gray-900'
+                      className={`px-4  py-3 ${index==0  ?  "border-l rounded-l-full " : index == 10 ? " border-r rounded-r-full":null}  border-l-0 border   text-sm font-medium whitespace-nowrap ${activeTab === key
+                        ? 'bg-[#333] text-white'
+                        : 'text-gray-600 bg-white hover:text-gray-900'
                         }`}
                     >
                       {label}
@@ -2961,8 +2706,8 @@ const LeadDetails = () => {
 
               {/* Tab Content */}
               <div className="p-6">
-                {activeTab === 'proposals' && (
-                  <div>
+                {activeTab === 'proposals' ? (
+                  <div className=" flex space-x-2 ">
                     {/* Confirmed Option Banner */}
                     {getConfirmedOption() && (() => {
                       const confirmedOption = getConfirmedOption();
@@ -3008,26 +2753,11 @@ const LeadDetails = () => {
                       );
                     })()}
 
-                    <div className="flex gap-3 mb-6">
-                      <button
-                        onClick={handleCreateItinerary}
-                        className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 flex items-center gap-2 font-medium"
-                      >
-                        <Plus className="h-5 w-5" />
-                        Create itinerary
-                      </button>
-                      <button
-                        onClick={handleInsertItinerary}
-                        className="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 flex items-center gap-2 font-medium"
-                      >
-                        <Upload className="h-5 w-5" />
-                        Insert itinerary
-                      </button>
-                    </div>
+                   
 
                     {/* Proposals List */}
                     {proposals.length === 0 ? (
-                      <div className="text-center py-12 text-gray-500 bg-gray-50 rounded-lg border border-gray-200">
+                      <div className="text-center flex-1 py-12 text-gray-500 bg-gray-50 rounded-lg border border-gray-200">
                         <p className="mb-2">No proposals added yet</p>
                         <p className="text-sm">Click "Insert itinerary" to add an itinerary as a proposal</p>
                       </div>
@@ -3051,438 +2781,123 @@ const LeadDetails = () => {
                       });
 
                       return (
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                          {Object.values(groupedProposals).map((group) => {
-                            const limitedOptions = group.options.filter(option => {
-                              const optNum = parseInt(option.optionNumber, 10);
-                              if (!Number.isFinite(optNum) || optNum < 1) {
-                                return false;
-                              }
-                              return optNum <= maxHotelOptions;
-                            });
-                            const uniqueOptionCount = new Set(
-                              limitedOptions.map(option => parseInt(option.optionNumber, 10))
-                            ).size;
-                            const sortedOptions = limitedOptions.sort(
-                              (a, b) => (a.optionNumber || 0) - (b.optionNumber || 0)
-                            );
-
-                            return (
+                        <div className="flex-1  gap-4">
+                          {Object.values(groupedProposals).map((group) => (
                             <div
                               key={group.itinerary_id || group.itinerary_name}
                               className="bg-white border-2 border-gray-200 rounded-xl overflow-hidden shadow-md hover:shadow-xl transition-all duration-300"
                             >
                               {/* Image */}
-                              <div className="w-full h-48 bg-gradient-to-br from-gray-100 to-gray-200 relative overflow-hidden">
-                                {group.image ? (
-                                  <img
-                                    src={group.image}
-                                    alt={group.itinerary_name}
-                                    className="w-full h-full object-cover"
-                                    onError={(e) => {
-                                      e.target.style.display = 'none';
-                                      const parent = e.target.parentElement;
-                                      if (parent && !parent.querySelector('.no-photo-text')) {
-                                        const span = document.createElement('span');
-                                        span.className = 'no-photo-text text-xs text-gray-400 font-medium absolute inset-0 flex items-center justify-center';
-                                        span.textContent = 'NO PHOTO';
-                                        parent.appendChild(span);
-                                      }
-                                    }}
-                                  />
-                                ) : (
-                                  <div className="w-full h-full flex items-center justify-center">
-                                    <span className="text-sm text-gray-400 font-medium">NO PHOTO</span>
-                                  </div>
-                                )}
-                              </div>
+                           {/* IMAGE HEADER */}
+<div className="relative h-60 w-full overflow-hidden rounded-t-xl">
+  {group.image ? (
+    <img
+      src={group.image}
+      alt={group.itinerary_name}
+      className="w-full h-full object-cover"
+    />
+  ) : (
+    <div className="w-full h-full bg-gray-200 flex items-center justify-center">
+      <span className="text-gray-500 font-semibold">NO IMAGE</span>
+    </div>
+  )}
 
-                              {/* Content */}
-                              <div className="p-4">
-                                <div className="flex items-start justify-between gap-3">
-                                  {/* Title, Destination, Duration in separate lines */}
-                                  <div
-                                    className="mb-4 cursor-pointer hover:text-blue-600 transition-colors space-y-1"
-                                    onClick={() => {
-                                      if (group.itinerary_id) {
-                                        navigate(`/itineraries/${group.itinerary_id}`);
-                                      }
-                                    }}
-                                  >
-                                    <h3 className="text-lg font-bold text-gray-800">
-                                      {group.itinerary_name}
-                                    </h3>
-                                    {(group.destination || group.duration > 0) && (
-                                      <div className="text-sm text-gray-600 font-medium flex flex-col gap-0.5">
-                                        {group.destination && (
-                                          <span>Destination: {group.destination}</span>
-                                        )}
-                                        {group.duration > 0 && (
-                                          <span>Duration: {group.duration} Days</span>
-                                        )}
-                                      </div>
-                                    )}
-                                  </div>
+  {/* DELETE BUTTON */}
+  <button
+    onClick={(e) => {
+      e.stopPropagation();
+      if (window.confirm('Delete this itinerary?')) {
+        const updatedProposals = proposals.filter(
+          p => !group.options.some(opt => opt.id === p.id)
+        );
+        saveProposals(updatedProposals);
+      }
+    }}
+    className="absolute top-4 right-4 bg-red-500 hover:bg-red-600 text-white text-sm font-semibold px-4 py-1.5 rounded-full shadow"
+  >
+    Delete
+  </button>
 
-                                  {/* Action Menu */}
-                                  <div className="relative">
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        const key = group.itinerary_id || group.itinerary_name;
-                                        setOpenActionMenuId(prev => (prev === key ? null : key));
-                                      }}
-                                      className="p-2 rounded-lg border border-gray-200 hover:bg-gray-50"
-                                      title="Send Options"
-                                    >
-                                      <MoreVertical className="h-4 w-4 text-gray-600" />
-                                    </button>
-                                    {openActionMenuId === (group.itinerary_id || group.itinerary_name) && (
-                                      <div className="absolute right-0 mt-2 w-56 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
-                                        <button
-                                          type="button"
-                                          onClick={async () => {
-                                            await handleSendAllFromGroup(group, 'email');
-                                            setOpenActionMenuId(null);
-                                          }}
-                                          className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2"
-                                        >
-                                          <Mail className="h-4 w-4 text-blue-600" />
-                                          Send All Options (Email)
-                                        </button>
-                                        <button
-                                          type="button"
-                                          onClick={async () => {
-                                            await handleSendAllFromGroup(group, 'whatsapp');
-                                            setOpenActionMenuId(null);
-                                          }}
-                                          className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2"
-                                        >
-                                          <MessageCircle className="h-4 w-4 text-green-600" />
-                                          Send All Options (WhatsApp)
-                                        </button>
-                                        <button
-                                          type="button"
-                                          onClick={async () => {
-                                            await handleDownloadAllOptionsPdf(group);
-                                            setOpenActionMenuId(null);
-                                          }}
-                                          className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2"
-                                        >
-                                          <Download className="h-4 w-4 text-gray-700" />
-                                          Download PDF (All Options)
-                                        </button>
-                                      </div>
-                                    )}
-                                  </div>
-                                </div>
+  {/* DARK OVERLAY */}
+  <div className="absolute bottom-0 left-0 right-0 bg-black/55 p-4">
+    <h3 className="text-xl font-semibold text-white">
+      {group.itinerary_name}
+    </h3>
+    <p className="text-sm text-gray-200">
+      {group.destination} · ID: {group.itinerary_id}
+    </p>
+  </div>
+</div>
 
-                                {/* Options Display */}
-                                <div className="mt-3 mb-3">
-                                  <div className="text-xs font-bold text-gray-700 mb-3 flex items-center gap-2">
-                                    <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded">Options</span>
-                                    <span className="px-2 py-1 bg-gray-200 text-gray-700 rounded font-semibold">
-                                      {uniqueOptionCount}
-                                    </span>
-                                  </div>
-                                  <div className="space-y-3">
-                                    {sortedOptions.map((option) => {
-                                      const packageDetails = getPackageDetails(option);
-                                      return (
-                                        <div
-                                          key={option.id}
-                                          className={`border-2 rounded-xl p-4 transition-all duration-200 ${option.confirmed
-                                            ? 'bg-gradient-to-br from-green-50 to-emerald-50 border-green-400 shadow-md'
-                                            : 'bg-white border-gray-200 hover:border-blue-300 hover:shadow-sm'
-                                            }`}
-                                        >
-                                          <div className="flex items-center justify-between mb-3">
-                                            <div className="flex items-center gap-2 flex-wrap">
-                                              <span className={`px-3 py-1.5 text-xs font-bold rounded-lg shadow-sm ${option.confirmed
-                                                ? 'bg-green-500 text-white border-2 border-green-600'
-                                                : 'bg-blue-500 text-white border-2 border-blue-600'
-                                                }`}>
-                                                Option {option.optionNumber || 'N/A'}
-                                                {option.confirmed && (
-                                                  <span className="ml-1.5">✓</span>
-                                                )}
-                                              </span>
-                                              {option.confirmed && (
-                                                <span className="px-3 py-1 bg-gradient-to-r from-green-500 to-emerald-500 text-white text-xs font-bold rounded-full shadow-md flex items-center gap-1">
-                                                  <CheckCircle className="h-3 w-3" />
-                                                  CONFIRMED
-                                                </span>
-                                              )}
-                                            </div>
-                                            {option.price > 0 && (
-                                              <span className={`text-base font-bold ${option.confirmed ? 'text-green-700' : 'text-gray-800'
-                                                }`}>
-                                                ₹{option.price.toLocaleString('en-IN')}
-                                              </span>
-                                            )}
-                                          </div>
+{/* DETAILS */}
+<div className="p-5">
+  <div className="text-lg text-blue-500 font-medium mb-2">
+    Pax: <span className="font-semibold">1</span> Adult(s) – 0 Child(s)
+  </div>
 
-                                          {/* Package Details */}
-                                          {packageDetails && (
-                                            <div className="mt-2 space-y-2 text-xs">
-                                              {/* Hotels */}
-                                              {packageDetails.hotels.length > 0 && (
-                                                <div className={`rounded-lg p-3 border ${option.confirmed
-                                                  ? 'bg-white border-green-200 shadow-sm'
-                                                  : 'bg-gray-50 border-gray-200'
-                                                  }`}>
-                                                  <span className="font-bold text-gray-800 block mb-2 flex items-center gap-1">
-                                                    <span className="text-base">🏨</span>
-                                                    <span>Hotels:</span>
-                                                  </span>
-                                                  <div className="space-y-2">
-                                                    {packageDetails.hotels.map((hotel, idx) => (
-                                                      <div key={idx} className="flex gap-3 items-start p-2 bg-white rounded-lg border border-gray-100">
-                                                        {/* Hotel Image */}
-                                                        {hotel.image && (
-                                                          <div className="flex-shrink-0">
-                                                            <img
-                                                              src={hotel.image}
-                                                              alt={hotel.name}
-                                                              className="w-20 h-20 object-cover rounded-lg border-2 border-gray-200 shadow-sm"
-                                                              onError={(e) => {
-                                                                e.target.style.display = 'none';
-                                                              }}
-                                                            />
-                                                          </div>
-                                                        )}
-                                                        <div className="flex-1 text-gray-700 text-xs">
-                                                          <div className="mb-1">
-                                                            <span className="font-bold text-blue-600">Day {hotel.day}:</span>{' '}
-                                                            <span className="font-semibold text-gray-800">{hotel.name}</span>
-                                                            <span className="text-gray-600 ml-1">({hotel.category})</span>
-                                                          </div>
-                                                          <div className="text-gray-700 mt-1 font-medium">
-                                                            {hotel.room} • {hotel.mealPlan}
-                                                          </div>
-                                                          {(hotel.checkIn || hotel.checkOut) && (
-                                                            <div className="text-gray-600 text-xs mt-1.5">
-                                                              {hotel.checkIn && `Check-in: ${hotel.checkIn} ${hotel.checkInTime || ''}`}
-                                                              {hotel.checkIn && hotel.checkOut && ' • '}
-                                                              {hotel.checkOut && `Check-out: ${hotel.checkOut} ${hotel.checkOutTime || ''}`}
-                                                            </div>
-                                                          )}
-                                                        </div>
-                                                      </div>
-                                                    ))}
-                                                  </div>
-                                                </div>
-                                              )}
+  <div className="text-sm text-gray-700 mb-1">
+    <strong>Date:</strong> 1 Jul 2025 &nbsp;
+    <strong>Till:</strong> 5 Jul 2025
+  </div>
 
-                                              {/* Meals */}
-                                              {packageDetails.meals.length > 0 && (
-                                                <div className={`rounded-lg p-3 border ${option.confirmed
-                                                  ? 'bg-white border-green-200 shadow-sm'
-                                                  : 'bg-gray-50 border-gray-200'
-                                                  }`}>
-                                                  <span className="font-bold text-gray-800 block mb-1 flex items-center gap-1">
-                                                    <span className="text-base">🍽️</span>
-                                                    <span>Meals:</span>
-                                                  </span>
-                                                  <div className="space-y-1">
-                                                    {packageDetails.meals.map((meal, idx) => (
-                                                      <div key={idx} className="text-gray-700 pl-2 text-xs">
-                                                        <span className="font-semibold text-gray-800">Day {meal.day}:</span>{' '}
-                                                        <span className="font-medium">{meal.name}</span>
-                                                        {meal.type && <span className="text-gray-600"> • {meal.type}</span>}
-                                                      </div>
-                                                    ))}
-                                                  </div>
-                                                </div>
-                                              )}
+  <div className="text-sm font-semibold text-gray-800 mb-4">
+    Created: {new Date(group.inserted_at).toLocaleDateString('en-GB')}
+  </div>
 
-                                              {/* Activities */}
-                                              {packageDetails.activities.length > 0 && (
-                                                <div className={`rounded-lg p-3 border ${option.confirmed
-                                                  ? 'bg-white border-green-200 shadow-sm'
-                                                  : 'bg-gray-50 border-gray-200'
-                                                  }`}>
-                                                  <span className="font-bold text-gray-800 block mb-2 flex items-center gap-1">
-                                                    <span className="text-base">🎯</span>
-                                                    <span>Activities:</span>
-                                                  </span>
-                                                  <div className="space-y-2">
-                                                    {packageDetails.activities.map((activity, idx) => (
-                                                      <div key={idx} className="flex gap-3 items-start p-2 bg-white rounded-lg border border-gray-100">
-                                                        {/* Activity Image */}
-                                                        {activity.image && (
-                                                          <div className="flex-shrink-0">
-                                                            <img
-                                                              src={activity.image}
-                                                              alt={activity.name}
-                                                              className="w-20 h-20 object-cover rounded-lg border-2 border-gray-200 shadow-sm"
-                                                              onError={(e) => {
-                                                                e.target.style.display = 'none';
-                                                              }}
-                                                            />
-                                                          </div>
-                                                        )}
-                                                        <div className="flex-1 text-gray-700 text-xs">
-                                                          <div className="mb-1">
-                                                            <span className="font-bold text-blue-600">Day {activity.day}:</span>{' '}
-                                                            <span className="font-semibold text-gray-800">{activity.name}</span>
-                                                          </div>
-                                                          {activity.details && (
-                                                            <div className="text-gray-600 mt-1">{activity.details}</div>
-                                                          )}
-                                                        </div>
-                                                      </div>
-                                                    ))}
-                                                  </div>
-                                                </div>
-                                              )}
+  <hr className="mb-4" />
 
-                                              {/* Transport */}
-                                              {packageDetails.transport.length > 0 && (
-                                                <div className={`rounded-lg p-3 border ${option.confirmed
-                                                  ? 'bg-white border-green-200 shadow-sm'
-                                                  : 'bg-gray-50 border-gray-200'
-                                                  }`}>
-                                                  <span className="font-bold text-gray-800 block mb-1 flex items-center gap-1">
-                                                    <span className="text-base">🚗</span>
-                                                    <span>Transport:</span>
-                                                  </span>
-                                                  <div className="space-y-1">
-                                                    {packageDetails.transport.map((trans, idx) => (
-                                                      <div key={idx} className="text-gray-700 pl-2 text-xs">
-                                                        <span className="font-semibold text-gray-800">Day {trans.day}:</span>{' '}
-                                                        <span className="font-medium">{trans.name}</span>
-                                                        {trans.details && <span className="text-gray-600"> • {trans.details}</span>}
-                                                      </div>
-                                                    ))}
-                                                  </div>
-                                                </div>
-                                              )}
+  {/* PRICE OPTIONS (STATIC PREVIEW LIKE IMAGE) */}
+  <div className="space-y-1 mb-4">
+    {group.options.map((opt, i) => (
+      <div key={i} className="text-sm font-semibold text-gray-800">
+        Option {opt.optionNumber}: ₹{opt.price?.toLocaleString('en-IN')}
+      </div>
+    ))}
+  </div>
 
-                                              {/* Other Services */}
-                                              {packageDetails.other.length > 0 && (
-                                                <div className={`rounded-lg p-3 border ${option.confirmed
-                                                  ? 'bg-white border-green-200 shadow-sm'
-                                                  : 'bg-gray-50 border-gray-200'
-                                                  }`}>
-                                                  <span className="font-bold text-gray-800 block mb-1 flex items-center gap-1">
-                                                    <span className="text-base">📋</span>
-                                                    <span>Other Services:</span>
-                                                  </span>
-                                                  <div className="space-y-1">
-                                                    {packageDetails.other.map((other, idx) => (
-                                                      <div key={idx} className="text-gray-700 pl-2 text-xs">
-                                                        <span className="font-semibold text-gray-800">Day {other.day}:</span>{' '}
-                                                        <span className="font-medium">{other.name}</span>
-                                                        {other.details && <span className="text-gray-600"> • {other.details}</span>}
-                                                      </div>
-                                                    ))}
-                                                  </div>
-                                                </div>
-                                              )}
+  {/* ACTION BUTTONS */}
+  <div className="flex gap-3">
+    <button
+      className="flex-1 bg-orange-400 hover:bg-orange-500 text-white py-2.5 rounded-full font-semibold"
+    >
+      Make Confirm
+    </button>
 
-                                              {packageDetails.hotels.length === 0 &&
-                                                packageDetails.meals.length === 0 &&
-                                                packageDetails.activities.length === 0 &&
-                                                packageDetails.transport.length === 0 &&
-                                                packageDetails.other.length === 0 && (
-                                                  <div className="text-gray-500 italic text-center py-2">
-                                                    Package details not available
-                                                  </div>
-                                                )}
-                                            </div>
-                                          )}
+    <button
+      onClick={() => handleViewQuotation(group.options[0])}
+      className="flex-1 bg-blue-500 hover:bg-blue-600 text-white py-2.5 rounded-full font-semibold"
+    >
+      View Quotation
+    </button>
+  </div>
+</div>
 
-                                          <div className="flex gap-2 mt-4 pt-3 border-t border-gray-200">
-                                            {!option.confirmed ? (
-                                              <button
-                                                onClick={(e) => {
-                                                  e.stopPropagation();
-                                                  if (window.confirm(`Are you sure you want to confirm Option ${option.optionNumber}?`)) {
-                                                    handleConfirmOption(option.id);
-                                                  }
-                                                }}
-                                                className="flex-1 bg-gradient-to-r from-green-600 to-emerald-600 text-white px-4 py-2.5 rounded-lg hover:from-green-700 hover:to-emerald-700 flex items-center justify-center gap-2 text-xs font-bold shadow-md hover:shadow-lg transition-all duration-200 transform hover:scale-105"
-                                              >
-                                                <CheckCircle className="h-4 w-4" />
-                                                Confirm Option
-                                              </button>
-                                            ) : (
-                                              <div className="flex gap-2 w-full">
-                                                <button
-                                                  onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    handleSendConfirmedOptionEmail();
-                                                  }}
-                                                  className="flex-1 bg-gradient-to-r from-blue-600 to-blue-700 text-white px-3 py-2.5 rounded-lg hover:from-blue-700 hover:to-blue-800 flex items-center justify-center gap-2 text-xs font-bold shadow-md hover:shadow-lg transition-all duration-200 transform hover:scale-105"
-                                                  title="Share Confirmed Itinerary via Email"
-                                                >
-                                                  <Mail className="h-4 w-4" />
-                                                  Share Email
-                                                </button>
-                                                <button
-                                                  onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    handleSendConfirmedOptionWhatsApp();
-                                                  }}
-                                                  className="flex-1 bg-gradient-to-r from-green-600 to-emerald-600 text-white px-3 py-2.5 rounded-lg hover:from-green-700 hover:to-emerald-700 flex items-center justify-center gap-2 text-xs font-bold shadow-md hover:shadow-lg transition-all duration-200 transform hover:scale-105"
-                                                  title="Share Confirmed Itinerary via WhatsApp"
-                                                >
-                                                  <MessageCircle className="h-4 w-4" />
-                                                  Share WhatsApp
-                                                </button>
-                                              </div>
-                                            )}
-                                            <button
-                                              onClick={(e) => {
-                                                e.stopPropagation();
-                                                handleViewQuotation(option);
-                                              }}
-                                              className={`px-4 py-2.5 rounded-lg flex items-center justify-center gap-2 text-xs font-bold shadow-md hover:shadow-lg transition-all duration-200 transform hover:scale-105 ${option.confirmed
-                                                ? 'bg-gradient-to-r from-gray-600 to-gray-700 text-white hover:from-gray-700 hover:to-gray-800'
-                                                : 'bg-gradient-to-r from-blue-600 to-blue-700 text-white hover:from-blue-700 hover:to-blue-800'
-                                                }`}
-                                            >
-                                              <FileText className="h-4 w-4" />
-                                              View
-                                            </button>
-                                          </div>
-                                        </div>
-                                      );
-                                    })}
-                                  </div>
-                                </div>
-
-
-                                <div className="pt-4 mt-4 border-t-2 border-gray-200 flex items-center justify-between">
-                                  <span className="text-xs text-gray-600 font-medium">
-                                    Added: {new Date(group.inserted_at).toLocaleDateString('en-GB')}
-                                  </span>
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      if (window.confirm('Are you sure you want to remove all options from this itinerary?')) {
-                                        const updatedProposals = proposals.filter(p =>
-                                          !group.options.some(opt => opt.id === p.id)
-                                        );
-                                        saveProposals(updatedProposals);
-                                      }
-                                    }}
-                                    className="text-red-600 hover:text-red-700 text-sm font-bold px-3 py-1.5 rounded-lg hover:bg-red-50 transition-colors"
-                                  >
-                                    Remove All
-                                  </button>
-                                </div>
-                              </div>
                             </div>
-                          );
-                          })}
+                          ))}
                         </div>
                       );
                     })()}
+                  
+                       <div className="flex flex-col items-center justify-start flex-1 gap-3 border rounded-md mb-6">
+                          <button
+                            onClick={handleCreateItinerary}
+                            className="bg-[#3F8CFF] text-white px-16 md:mt-6 py-3 rounded-full hover:bg-secondary flex items-center gap-2 font-medium"
+                          >
+                            <Plus className="h-5 w-5" />
+                            Create itinerary
+                          </button>
+                          <button
+                            onClick={handleInsertItinerary}
+                            className="bg-[#E78175] text-white px-16 py-3 rounded-full hover:bg-[#F78175] flex items-center gap-2 font-medium"
+                          >
+                            <Upload className="h-5 w-5" />
+                            Insert itinerary
+                          </button>
+                        </div>
+                       
                   </div>
-                )}
-                {activeTab === 'mails' && (
+                ):
+                activeTab === 'mails' ? (
                   <div className="space-y-4">
                     {/* Header with Compose Button and Customer Email */}
                     <div className="flex items-center gap-4 mb-6">
@@ -3613,42 +3028,13 @@ const LeadDetails = () => {
                       </div>
                     )}
                   </div>
-                )}
-                {activeTab === 'whatsapp' && (
-                  <div>
-                    {loadingWhatsappMessages ? (
-                      <div className="flex items-center justify-center py-12">
-                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600"></div>
-                      </div>
-                    ) : whatsappMessages.length === 0 ? (
-                      <div className="text-center py-12 text-gray-500">
-                        No WhatsApp messages yet
-                      </div>
-                    ) : (
-                      <div className="space-y-3">
-                        {whatsappMessages.map((msg) => (
-                          <div
-                            key={msg.id}
-                            className="p-4 bg-white border border-gray-200 rounded-lg hover:shadow-md transition-shadow"
-                          >
-                            <div className="flex items-center justify-between mb-2">
-                              <div className="text-sm font-semibold text-gray-800">
-                                Sent to {msg.sent_to}
-                              </div>
-                              <div className="text-xs text-gray-500">
-                                {msg.sent_at ? new Date(msg.sent_at).toLocaleString('en-IN') : ''}
-                              </div>
-                            </div>
-                            <div className="text-sm text-gray-700 whitespace-pre-wrap">
-                              {msg.message}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
+                )
+                : activeTab === 'whatsapp' ? (
+                  <div className="text-center py-12 text-gray-500">
+                    No WhatsApp messages yet
                   </div>
-                )}
-                {activeTab === 'followups' && (
+                )
+                : activeTab === 'followups' ? (
                   <div>
                     {/* Header with Add Button */}
                     <div className="flex justify-between items-center mb-4">
@@ -3744,7 +3130,7 @@ const LeadDetails = () => {
                                           <p className="text-gray-700 mt-2">{followup.remark || followup.description}</p>
                                         )}
                                         <div className="mt-2 flex items-center gap-2 text-sm text-gray-500">
-                                          <span>Created by: {followup.created_by?.name || followup.user?.name || 'Unknown'}</span>
+                                          <span>Created by: {followup.user?.name || 'Unknown'}</span>
                                           <span>•</span>
                                           <span>
                                             {new Date(followup.created_at).toLocaleDateString('en-IN', {
@@ -3782,8 +3168,7 @@ const LeadDetails = () => {
                                             await followupsAPI.complete(followup.id);
                                             await fetchLeadDetails();
                                           } catch (err) {
-                                            // Error completing followup
-                                            // TODO: Add proper error reporting service
+                                            console.error('Failed to complete followup:', err);
                                             alert(err.response?.data?.message || 'Failed to mark as completed');
                                           }
                                         }}
@@ -3800,8 +3185,8 @@ const LeadDetails = () => {
                       </div>
                     )}
                   </div>
-                )}
-                {activeTab === 'suppComm' && (
+                )
+                : activeTab === 'suppComm' ? (
                   <div className="grid grid-cols-3 gap-6">
                     {/* Left Panel - Email Form */}
                     <div className="col-span-2">
@@ -4008,194 +3393,70 @@ const LeadDetails = () => {
                       )}
                     </div>
                   </div>
-                )}
-                {activeTab === 'voucher' && (
+                ):
+                activeTab === 'postSales' ? (
+                  <div className="space-y-6">
+                    <div className="bg-white border border-gray-200 rounded-lg p-6">
+                      <h3 className="text-lg font-semibold text-gray-800 mb-4">Post Sales</h3>
+                      <div className="text-center py-8 text-gray-500">
+                        <p>Post sales management coming soon</p>
+                        <p className="text-sm mt-2">Track and manage post-sale activities here</p>
+                      </div>
+                    </div>
+                  </div>
+                ):
+                activeTab === 'voucher' ? (
                   <div className="space-y-6">
                     <div className="bg-white border border-gray-200 rounded-lg p-6">
                       <h3 className="text-lg font-semibold text-gray-800 mb-4">Vouchers</h3>
-                      <div className="flex flex-wrap justify-end gap-2 mb-4">
-                        <button
-                          onClick={handlePreviewVoucher}
-                          className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
-                        >
-                          <FileText className="h-4 w-4" />
-                          Preview
-                        </button>
-                        <button
-                          onClick={handleDownloadVoucher}
-                          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                        >
-                          <Download className="h-4 w-4" />
-                          Download
-                        </button>
-                        <button
-                          onClick={handleSendVoucher}
-                          disabled={sendingVoucher}
-                          className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
-                        >
-                          <Send className="h-4 w-4" />
-                          {sendingVoucher ? 'Sending...' : 'Send to Client'}
+                      <div className="flex justify-end mb-4">
+                        <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+                          <Plus className="h-4 w-4" />
+                          Create Voucher
                         </button>
                       </div>
-                      {vouchers.length === 0 ? (
-                        <div className="text-center py-8 text-gray-500">
-                          <p>No vouchers created yet</p>
-                          <p className="text-sm mt-2">Use the buttons above to generate and share the voucher</p>
-                        </div>
-                      ) : (
-                        <div className="space-y-3">
-                          {vouchers.map((voucher) => (
-                            <div key={voucher.id} className="border border-gray-200 rounded-lg p-4">
-                              <div className="flex items-center justify-between">
-                                <div>
-                                  <p className="font-medium text-gray-900">{voucher.title || 'Voucher'}</p>
-                                  <p className="text-xs text-gray-500">
-                                    {voucher.voucher_number || 'N/A'} • {voucher.voucher_type || 'General'}
-                                  </p>
-                                </div>
-                                <span className="px-2 py-1 text-xs font-medium bg-green-100 text-green-700 rounded">
-                                  {voucher.status || 'active'}
-                                </span>
-                              </div>
-                              <p className="text-sm text-gray-600 mt-2">{voucher.description || '—'}</p>
-                            </div>
-                          ))}
-                        </div>
-                      )}
+                      <div className="text-center py-8 text-gray-500">
+                        <p>No vouchers created yet</p>
+                        <p className="text-sm mt-2">Create hotel, transport, and activity vouchers here</p>
+                      </div>
                     </div>
                   </div>
-                )}
-                {activeTab === 'docs' && (
+                ):
+                activeTab === 'docs' ? (
                   <div className="space-y-6">
                     <div className="bg-white border border-gray-200 rounded-lg p-6">
                       <h3 className="text-lg font-semibold text-gray-800 mb-4">Documents</h3>
                       <div className="flex justify-end mb-4">
-                        <button
-                          onClick={() => setShowDocumentModal(true)}
-                          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                        >
+                        <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
                           <Upload className="h-4 w-4" />
                           Upload Document
                         </button>
                       </div>
-                      {documents.length === 0 ? (
-                        <div className="text-center py-8 text-gray-500">
-                          <p>No documents uploaded</p>
-                          <p className="text-sm mt-2">Upload passports, tickets, confirmations and other documents here</p>
-                        </div>
-                      ) : (
-                        <div className="space-y-3">
-                          {documents.map((doc) => (
-                            <div key={doc.id} className="border border-gray-200 rounded-lg p-4 flex items-center justify-between">
-                              <div>
-                                <p className="font-medium text-gray-900">{doc.title || doc.file_name}</p>
-                                <p className="text-xs text-gray-500">{doc.document_type} • {doc.document_category}</p>
-                                <p className="text-xs text-gray-500 mt-1">
-                                  Uploaded {doc.created_at ? new Date(doc.created_at).toLocaleString('en-IN') : 'N/A'}
-                                </p>
-                              </div>
-                              <button
-                                onClick={() => handleDownloadDocument(doc)}
-                                className="flex items-center gap-2 px-3 py-1.5 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50"
-                              >
-                                <Download className="h-4 w-4" />
-                                Download
-                              </button>
-                            </div>
-                          ))}
-                        </div>
-                      )}
+                      <div className="text-center py-8 text-gray-500">
+                        <p>No documents uploaded</p>
+                        <p className="text-sm mt-2">Upload passports, tickets, confirmations and other documents here</p>
+                      </div>
                     </div>
                   </div>
-                )}
-                {activeTab === 'invoice' && (
+                ):
+                activeTab === 'invoice' ? (
                   <div className="space-y-6">
                     <div className="bg-white border border-gray-200 rounded-lg p-6">
                       <h3 className="text-lg font-semibold text-gray-800 mb-4">Invoices</h3>
-
-                      {(() => {
-                        const confirmedOption = getConfirmedOption();
-                        const confirmedOptionNum = confirmedOption?.optionNumber;
-                        const hotels = quotationData?.hotelOptions?.[confirmedOptionNum?.toString()] || [];
-                        const packagePrice = confirmedOption?.price || hotels.reduce((sum, h) => sum + (parseFloat(h.price) || 0), 0);
-
-                        return confirmedOption ? (
-                          <div className="mb-6 bg-gray-50 border border-gray-200 rounded-lg p-4">
-                            <p className="text-sm text-gray-600 mb-2">Final Package (Confirmed Option)</p>
-                            <div className="flex flex-wrap gap-6 text-sm text-gray-700">
-                              <div>
-                                <span className="font-medium">Option:</span> {confirmedOptionNum}
-                              </div>
-                              {quotationData?.itinerary?.destinations && (
-                                <div>
-                                  <span className="font-medium">Destination:</span> {quotationData.itinerary.destinations}
-                                </div>
-                              )}
-                              <div>
-                                <span className="font-medium">Total:</span> ₹{packagePrice.toLocaleString('en-IN')}
-                              </div>
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="mb-6 bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-sm text-yellow-800">
-                            ⚠️ No confirmed package found. Please confirm an option in the Proposals tab first.
-                          </div>
-                        );
-                      })()}
-
-                      {invoices.length === 0 ? (
-                        <div className="text-center py-8 text-gray-500">
-                          <p>No invoices generated</p>
-                          <p className="text-sm mt-2">Generate and manage client invoices here</p>
-                        </div>
-                      ) : (
-                        <div className="overflow-x-auto">
-                          <table className="w-full">
-                            <thead className="bg-gray-50">
-                              <tr>
-                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Invoice</th>
-                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Date</th>
-                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Total</th>
-                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Paid</th>
-                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Status</th>
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-200">
-                              {invoices.map((invoice) => (
-                                <tr key={invoice.id} className="hover:bg-gray-50">
-                                  <td className="px-4 py-3 text-sm font-medium text-gray-900">
-                                    {invoice.invoice_number || 'N/A'}
-                                  </td>
-                                  <td className="px-4 py-3 text-sm text-gray-600">
-                                    {invoice.invoice_date ? new Date(invoice.invoice_date).toLocaleDateString('en-IN') : 'N/A'}
-                                  </td>
-                                  <td className="px-4 py-3 text-sm text-gray-600">
-                                    ₹{(invoice.total_amount || 0).toLocaleString('en-IN')}
-                                  </td>
-                                  <td className="px-4 py-3 text-sm text-gray-600">
-                                    ₹{(invoice.paid_amount || 0).toLocaleString('en-IN')}
-                                  </td>
-                                  <td className="px-4 py-3 text-sm">
-                                    <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                                      invoice.status === 'paid'
-                                        ? 'bg-green-100 text-green-800'
-                                        : invoice.status === 'partial'
-                                          ? 'bg-yellow-100 text-yellow-800'
-                                          : 'bg-red-100 text-red-800'
-                                    }`}>
-                                      {invoice.status || 'pending'}
-                                    </span>
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      )}
+                      <div className="flex justify-end mb-4">
+                        <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+                          <Plus className="h-4 w-4" />
+                          Create Invoice
+                        </button>
+                      </div>
+                      <div className="text-center py-8 text-gray-500">
+                        <p>No invoices generated</p>
+                        <p className="text-sm mt-2">Generate and manage client invoices here</p>
+                      </div>
                     </div>
                   </div>
-                )}
-                {activeTab === 'billing' && (
+                ):
+                activeTab === 'billing' ? (
                   <div className="space-y-6">
                     {/* Package Details Section */}
                     {(() => {
@@ -4371,87 +3632,10 @@ const LeadDetails = () => {
                       )}
                     </div>
                   </div>
-                )}
-                {activeTab === 'history' && (
-                  <div>
-                    {activityHistory.length === 0 ? (
-                      <div className="text-center py-12 text-gray-500">
-                        No history available
-                      </div>
-                    ) : (
-                      <div className="space-y-3">
-                        {activityHistory.map((activity) => (
-                          <div key={activity.id} className="border border-gray-200 rounded-lg p-4">
-                            <div className="flex items-start justify-between gap-4">
-                              <div>
-                                <p className="text-sm font-semibold text-gray-800">
-                                  {activity.activity_description || activity.activity_type}
-                                </p>
-                                <p className="text-xs text-gray-500 mt-1">
-                                  {activity.module ? `${activity.module} • ` : ''}
-                                  {activity.created_at ? new Date(activity.created_at).toLocaleString('en-IN') : 'N/A'}
-                                </p>
-                              </div>
-                              <div className="text-xs text-gray-500">
-                                {activity.user?.name || 'System'}
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
-                {activeTab === 'calls' && (
-                  <div>
-                    <div className="flex items-center justify-between mb-4">
-                      <div>
-                        <h3 className="text-lg font-semibold text-gray-800">Call History</h3>
-                        <p className="text-xs text-gray-500">
-                          Total Calls: {callSummary.total_calls} · Talk Time: {formatDuration(callSummary.total_talk_time_seconds)}
-                        </p>
-                      </div>
-                      <button
-                        onClick={fetchCallHistory}
-                        className="text-sm text-blue-600 hover:text-blue-700"
-                      >
-                        Refresh
-                      </button>
-                    </div>
-                    {loadingCalls ? (
-                      <div className="text-center py-8 text-gray-500">Loading calls...</div>
-                    ) : callHistory.length === 0 ? (
-                      <div className="text-center py-8 text-gray-500">No calls recorded</div>
-                    ) : (
-                      <div className="overflow-x-auto border border-gray-200 rounded-lg">
-                        <table className="min-w-full divide-y divide-gray-200">
-                          <thead className="bg-gray-50">
-                            <tr>
-                              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Employee</th>
-                              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Number</th>
-                              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Duration</th>
-                              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
-                              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Notes</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-gray-200 bg-white">
-                            {callHistory.map(call => (
-                              <tr key={call.id}>
-                                <td className="px-4 py-2 text-sm text-gray-700">{call.employee?.name || 'Unassigned'}</td>
-                                <td className="px-4 py-2 text-sm text-gray-700">{call.from_number || 'N/A'} → {call.to_number || 'N/A'}</td>
-                                <td className="px-4 py-2 text-sm text-gray-700">{formatDuration(call.duration_seconds)}</td>
-                                <td className="px-4 py-2 text-sm text-gray-700 capitalize">{call.status || 'unknown'}</td>
-                                <td className="px-4 py-2 text-sm text-gray-700">{formatDateTime(call.call_started_at || call.created_at)}</td>
-                                <td className="px-4 py-2 text-sm text-gray-700">
-                                  {call.notes?.length ? `${call.notes.length} note(s)` : '—'}
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    )}
+                ):
+                activeTab === 'history' && (
+                  <div className="text-center py-12 text-gray-500">
+                    No history available
                   </div>
                 )}
               </div>
@@ -4744,100 +3928,6 @@ const LeadDetails = () => {
         </div>
       )}
 
-      {/* Upload Document Modal */}
-      {showDocumentModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 overflow-y-auto py-8">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl mx-4 my-auto">
-            <div className="flex justify-between items-center p-6 border-b border-gray-200">
-              <h2 className="text-xl font-bold text-gray-800">Upload Document</h2>
-              <button
-                onClick={() => setShowDocumentModal(false)}
-                className="text-gray-400 hover:text-gray-600 transition-colors"
-              >
-                <X className="h-6 w-6" />
-              </button>
-            </div>
-            <form onSubmit={handleUploadDocument}>
-              <div className="p-6 space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
-                  <input
-                    type="text"
-                    value={documentForm.title}
-                    onChange={(e) => setDocumentForm(prev => ({ ...prev, title: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="Document title"
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
-                    <select
-                      value={documentForm.document_type}
-                      onChange={(e) => setDocumentForm(prev => ({ ...prev, document_type: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                    >
-                      <option value="other">Other</option>
-                      <option value="voucher">Voucher</option>
-                      <option value="invoice">Invoice</option>
-                      <option value="ticket">Ticket</option>
-                      <option value="receipt">Receipt</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
-                    <select
-                      value={documentForm.document_category}
-                      onChange={(e) => setDocumentForm(prev => ({ ...prev, document_category: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                    >
-                      <option value="other">Other</option>
-                      <option value="client">Client</option>
-                      <option value="supplier">Supplier</option>
-                      <option value="payment">Payment</option>
-                    </select>
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
-                  <textarea
-                    value={documentForm.description}
-                    onChange={(e) => setDocumentForm(prev => ({ ...prev, description: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                    rows="3"
-                    placeholder="Optional notes"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">File</label>
-                  <input
-                    type="file"
-                    onChange={handleDocumentFileChange}
-                    className="w-full text-sm"
-                  />
-                </div>
-              </div>
-              <div className="flex justify-end gap-3 p-6 border-t border-gray-200">
-                <button
-                  type="button"
-                  onClick={() => setShowDocumentModal(false)}
-                  className="px-4 py-2 text-gray-700 hover:text-gray-900"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={uploadingDocument}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
-                >
-                  {uploadingDocument ? 'Uploading...' : 'Upload'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
       {/* Add Follow-up Modal */}
       {showFollowupModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 overflow-y-auto py-8">
@@ -5110,11 +4200,8 @@ const LeadDetails = () => {
                       <label className="block text-sm font-medium text-gray-700 mb-2">
                         Select Option:
                       </label>
-                      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                        {Object.keys(quotationData.hotelOptions)
-                          .filter(optionNum => parseInt(optionNum, 10) <= maxHotelOptions)
-                          .sort((a, b) => parseInt(a, 10) - parseInt(b, 10))
-                          .map(optionNum => (
+                      <div className="flex gap-2 flex-wrap">
+                        {Object.keys(quotationData.hotelOptions).map(optionNum => (
                           <button
                             key={optionNum}
                             onClick={() => setSelectedOption(optionNum)}

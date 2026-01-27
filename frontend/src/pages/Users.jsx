@@ -130,11 +130,10 @@ const Users = () => {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span
-                          className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                            user.is_active
+                          className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${user.is_active
                               ? 'bg-green-100 text-green-800'
                               : 'bg-red-100 text-red-800'
-                          }`}
+                            }`}
                         >
                           {user.is_active ? 'Active' : 'Inactive'}
                         </span>
@@ -149,11 +148,10 @@ const Users = () => {
                           </button>
                           <button
                             onClick={() => handleDeactivate(user)}
-                            className={`px-3 py-1 border rounded hover:bg-opacity-80 ${
-                              user.is_active
+                            className={`px-3 py-1 border rounded hover:bg-opacity-80 ${user.is_active
                                 ? 'text-red-600 border-red-600 hover:bg-red-50'
                                 : 'text-green-600 border-green-600 hover:bg-green-50'
-                            }`}
+                              }`}
                           >
                             {user.is_active ? 'Deactivate' : 'Activate'}
                           </button>

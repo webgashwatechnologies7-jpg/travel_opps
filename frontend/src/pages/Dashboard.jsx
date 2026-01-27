@@ -1,30 +1,43 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { dashboardAPI, paymentsAPI } from '../services/api';
+import { dashboardAPI, followupsAPI, paymentsAPI } from '../services/api';
 import Layout from '../components/Layout';
 import BarChart from '../components/BarChart';
 import LineChart from '../components/LineChart';
 import HorizontalBarChart from '../components/HorizontalBarChart';
 import DonutChart from '../components/DonutChart';
-import TaskFollowupsWidget from '../components/TaskFollowupsWidget';
 import SalesRepsTable from '../components/SalesRepsTable';
 import TopDestinationsTable from '../components/TopDestinationsTable';
 import PaymentCollectionTable from '../components/PaymentCollectionTable';
 import EmployeePerformance from '../components/EmployeePerformance';
-import { 
+import {
   Calendar,
   FileText,
   Users,
   BarChart3 as BarChartIcon
 } from 'lucide-react';
+import { useNavigate } from "react-router";
+import TodayQueriesCard from '../components/dashboard/TodayQueriesCard';
+import UpcomingTours from '../components/dashboard/UpcomingTours';
+import RevenueGrowthCard from '../components/dashboard/RevenueGrowthCard';
+import DashboardStatsCards from '../components/dashboard/DashboardStatsCards';
+import RevenueChart from '../components/dashboard/RevenueChart';
+import YearQueriesChart from '../components/dashboard/YearQueriesChart';
+import LatestQuery from '../components/dashboard/LatestQuery';
+import TopLeadSource from '../components/dashboard/TopLeadSource';
+import TaskFollowups from '../components/dashboard/TaskFollowups';
+import TopDestinationAndPerformance from '../components/dashboard/TopDestinationAndPerformance';
+import DashboardHeader from '../components/Headers/Search/DashboardHeader';
 
 const Dashboard = () => {
   const [stats, setStats] = useState(null);
   const [revenueData, setRevenueData] = useState([]);
   const [upcomingTours, setUpcomingTours] = useState([]);
   const [latestNotes, setLatestNotes] = useState([]);
+  const [followups, setFollowups] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  let navigate = useNavigate();
 
   useEffect(() => {
     fetchAllData();
@@ -36,22 +49,27 @@ const Dashboard = () => {
         statsRes,
         revenueRes,
         toursRes,
-        notesRes
+        notesRes,
+        followupsRes
       ] = await Promise.all([
         dashboardAPI.stats(),
         dashboardAPI.getRevenueGrowthMonthly(),
         dashboardAPI.upcomingTours(),
-        dashboardAPI.latestLeadNotes()
+        dashboardAPI.latestLeadNotes(),
+        followupsAPI.today()
       ]);
-
+      console.log(revenueRes.data.data)
+      console.log("check", followupsRes.data.data?.followups)
       setStats(statsRes.data.data);
       setRevenueData(revenueRes.data.data || []);
       setUpcomingTours(toursRes.data.data || []);
       setLatestNotes(notesRes.data.data || []);
+      setFollowups(followupsRes.data.data?.followups || []);
+
     } catch (err) {
       console.error('Dashboard error:', err);
       const errorMessage = err.response?.data?.message || err.message || 'Failed to load dashboard data';
-      
+
       // If unauthorized, redirect to login
       if (err.response?.status === 401) {
         localStorage.removeItem('auth_token');
@@ -59,7 +77,7 @@ const Dashboard = () => {
         window.location.href = '/login';
         return;
       }
-      
+
       setError(errorMessage + (err.response?.status ? ` (Status: ${err.response.status})` : ''));
     } finally {
       setLoading(false);
@@ -116,187 +134,119 @@ const Dashboard = () => {
     { name: 'Confirmed', color: '#10b981', dataKey: 'confirmed', link: '/leads?status=confirmed', linkText: 'View All Confirmed' },
     { name: 'Total Queries', color: '#1e40af', dataKey: 'total_queries', link: '/leads', linkText: 'View All Queries' }
   ];
-
   return (
-    <Layout>
-      <div className="space-y-6">
-        {/* Header Section */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Dashboard Overview</h1>
-          <p className="text-gray-600 mt-1">Monitor your business metrics and performance</p>
-        </div>
-
-        {/* Top Row - Stats Cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-8 gap-4">
-          {cardConfigs.map((card, index) => (
-            <div key={index} className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 hover:shadow-md transition-shadow">
-              <div className="flex items-center justify-between mb-3">
-                <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${card.color}15` }}>
-                  <FileText className="h-5 w-5" style={{ color: card.color }} />
-                </div>
-                <BarChartIcon className="h-4 w-4 text-gray-400" />
-              </div>
-              <h3 className="text-xs font-semibold text-gray-700 mb-1 uppercase tracking-wider">{card.name}</h3>
-              <p className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">{stats?.[card.dataKey] || 0}</p>
-              <Link to={card.link} className="text-xs text-blue-600 hover:text-blue-800 font-medium inline-flex items-center">
-                {card.linkText}
-                <svg className="w-3 h-3 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
-              </Link>
-            </div>
-          ))}
-        </div>
-
-        {/* Main Content - 3 Column Layout */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-          {/* Left Column */}
-          <div className="lg:col-span-3 space-y-6">
-            {/* Upcoming Tours - Donut Chart */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">Upcoming Tours</h2>
-              <DonutChart
-                title="Queries Status"
-                data={queriesStatusData}
-                height={250}
-                colors={['#3b82f6', '#60a5fa', '#ef4444', '#f59e0b', '#8b5cf6', '#ec4899', '#10b981']}
-              />
-            </div>
-
-            {/* Revenue Growth */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">Revenue Growth</h2>
-              <div className="space-y-3">
-                {revenueGrowthPercentages.map((item, index) => (
-                  <div key={index} className="flex items-center justify-between py-3 border-b border-gray-100 last:border-b-0">
-                    <span className="text-sm font-medium text-gray-700">{item.label}</span>
-                    <span className="text-sm font-bold text-gray-900 bg-green-50 text-green-700 px-2 py-1 rounded">{item.value}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* This Year Queries Button */}
-            <Link
-              to="/reports"
-              className="block w-full px-6 py-3 bg-blue-600 text-white rounded-xl text-center font-medium hover:bg-blue-700 transition-colors shadow-sm"
-            >
-              View Full Report's
-            </Link>
+    <Layout Header={DashboardHeader}>
+      <div className="p-4 ">
+        {/* =========================================
+            DESKTOP LAYOUT (Visible on 1440px and up)
+           ========================================= */}
+        <div className="hidden min-[1440px]:grid grid-cols-12 gap-6">
+          {/* Left Column (Span 3) */}
+          <div className='col-span-3 space-y-2'>
+            <TodayQueriesCard />
+            <UpcomingTours data={upcomingTours} />
+            <RevenueGrowthCard
+              title="Revenue Growth"
+              data={revenueGrowthPercentages}
+              buttonText="View Full Report's"
+              onButtonClick={() => navigate("/reports")}
+            />
           </div>
 
-          {/* Center Column */}
-          <div className="lg:col-span-6 space-y-6">
-            {/* Revenue Growth Line Chart */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">Revenue Growth</h2>
-              <LineChart
-                data={revenueData}
-                xAxisKey="month"
-                height={250}
-                lines={[
-                  {
-                    dataKey: 'amount',
-                    name: 'Revenue',
-                    color: '#10b981'
-                  }
-                ]}
-              />
-            </div>
+          {/* Middle Column (Span 6) */}
+          <div className='col-span-6 space-y-6'>
+            <DashboardStatsCards
+              stats={{
+                totalQueries: stats?.total_queries || 0,
+                pendingQueries: stats?.pending_queries || 0,
+                resolvedQueries: stats?.resolved_queries || 0,
+                closedQueries: stats?.closed_queries || 0,
+                todayQueries: stats?.today_queries || 0,
+                weeklyQueries: stats?.weekly_queries || 0,
+                monthlyQueries: stats?.monthly_queries || 0,
+                yearlyQueries: stats?.yearly_queries || 0,
+              }}
+            />
+            <RevenueChart revenueData={revenueData} />
+            <YearQueriesChart
+              title="This Year Queries / Confirmed"
+              data={stats?.this_year_queries_confirmed || []}
+            />
 
-            {/* This Year Queries / Confirmed Bar Chart */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">This Year Queries / Confirmed</h2>
-              <BarChart
-                data={stats?.this_year_queries_confirmed || []}
-                xAxisKey="month"
-                height={250}
-                bars={[
-                  {
-                    dataKey: 'queries',
-                    name: 'Queries',
-                    color: '#3b82f6'
-                  },
-                  {
-                    dataKey: 'confirmed',
-                    name: 'Confirmed',
-                    color: '#10b981'
-                  }
-                ]}
-              />
-            </div>
-
-            {/* Latest Query Notes */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">Latest Query Notes</h2>
-              <div className="space-y-3 max-h-64 overflow-y-auto">
-                {latestNotes.length === 0 ? (
-                  <div className="text-center py-8">
-                    <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                      <FileText className="w-6 h-6 text-gray-400" />
-                    </div>
-                    <p className="text-gray-500 text-sm">No notes available</p>
-                  </div>
-                ) : (
-                  latestNotes.map((note, index) => (
-                    <div key={index} className="border-l-4 border-blue-500 bg-blue-50 pl-4 py-3 rounded-r-lg">
-                      <p className="font-medium text-sm text-gray-900">Travbizz Travel IT Solutions</p>
-                      <p className="text-xs text-gray-700 mt-1">{note.note || 'lollipop'}</p>
-                      <p className="text-xs text-gray-500 mt-2">
-                        {new Date(note.created_at).toLocaleString('en-US', { 
-                          month: '2-digit', 
-                          day: '2-digit', 
-                          year: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit',
-                          hour12: true
-                        })}
-                      </p>
-                    </div>
-                  ))
-                )}
+            <div className='flex w-full mt-2 gap-4'>
+              <div className='w-[35%]'>
+                <LatestQuery latestNotes={latestNotes} />
               </div>
-            </div>
-
-            {/* Top Lead Source Horizontal Bar Chart */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">Top Lead Source</h2>
-              <HorizontalBarChart
-                data={stats?.top_lead_sources || []}
-                yAxisKey="source"
-                height={250}
-                bars={[
-                  {
-                    dataKey: 'total',
-                    name: 'Total Queries',
-                    color: '#8b5cf6'
-                  },
-                  {
-                    dataKey: 'confirmed',
-                    name: 'Confirmed',
-                    color: '#10b981'
-                  }
-                ]}
-              />
+              <div className='w-[65%]'>
+                <TopLeadSource leadData={stats?.top_lead_sources || []} />
+              </div>
             </div>
           </div>
 
-          {/* Right Column */}
-          <div className="lg:col-span-3 space-y-6">
-            {/* Task / Followups */}
-            <TaskFollowupsWidget maxItems={4} showViewAll={false} />
-
-            {/* Payment Collection */}
+          {/* Right Column (Span 3) */}
+          <div className='col-span-3 space-y-6'>
+            <TaskFollowups followups={followups} />
             <PaymentCollectionTable />
+            <SalesRepsTable title={"Sales"} />
+            <TopDestinationAndPerformance />
+          </div>
+        </div>
 
-            {/* Sales Reps */}
-            <SalesRepsTable title="Sales Reps." />
+        {/* =========================================
+            MOBILE & TABLET LAYOUT (Visible below 1440px)
+           ========================================= */}
+        <div className="min-[1440px]:hidden space-y-6">
+          {/* Top Stats */}
+          <DashboardStatsCards
+            stats={{
+              totalQueries: stats?.total_queries || 0,
+              pendingQueries: stats?.pending_queries || 0,
+              resolvedQueries: stats?.resolved_queries || 0,
+              closedQueries: stats?.closed_queries || 0,
+              todayQueries: stats?.today_queries || 0,
+              weeklyQueries: stats?.weekly_queries || 0,
+              monthlyQueries: stats?.monthly_queries || 0,
+              yearlyQueries: stats?.yearly_queries || 0,
+            }}
+          />
 
-            {/* Top Destinations */}
-            <TopDestinationsTable />
+          {/* Today Queries & Upcoming Tours - 1 col mobile, 2 col tab */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <TodayQueriesCard />
+            <UpcomingTours data={upcomingTours} />
+          </div>
 
-            {/* Monthly Employee Performance */}
-            <EmployeePerformance />
+          {/* Charts & Growth - Stacked */}
+          <RevenueChart revenueData={revenueData} />
+
+          <YearQueriesChart
+            title="This Year Queries / Confirmed"
+            data={stats?.this_year_queries_confirmed || []}
+          />
+
+          <RevenueGrowthCard
+            title="Revenue Growth"
+            data={revenueGrowthPercentages}
+            buttonText="View Full Report's"
+            onButtonClick={() => navigate("/reports")}
+          />
+
+          {/* Latest Query & Top Lead Source - Custom Split */}
+          <div className='flex flex-col md:flex-row w-full mt-2 gap-4'>
+            <div className='md:w-[35%] w-full'>
+              <LatestQuery latestNotes={latestNotes} />
+            </div>
+            <div className='md:w-[65%] w-full'>
+              <TopLeadSource leadData={stats?.top_lead_sources || []} />
+            </div>
+          </div>
+
+          {/* Bottom Section - 1 col mobile, 2 col tab */}
+          <div className='grid grid-cols-1 md:grid-cols-2 gap-6'>
+            <TaskFollowups followups={followups} />
+            <PaymentCollectionTable />
+            <SalesRepsTable title={"Sales"} />
+            <TopDestinationAndPerformance />
           </div>
         </div>
       </div>

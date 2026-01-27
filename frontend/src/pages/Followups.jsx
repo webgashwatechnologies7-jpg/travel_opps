@@ -56,21 +56,19 @@ const Followups = () => {
         <div className="flex space-x-4 mb-6">
           <button
             onClick={() => setActiveTab('today')}
-            className={`px-6 py-2 rounded-lg ${
-              activeTab === 'today'
+            className={`px-6 py-2 rounded-lg ${activeTab === 'today'
                 ? 'bg-blue-600 text-white'
                 : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-            }`}
+              }`}
           >
             Today ({todayFollowups.length})
           </button>
           <button
             onClick={() => setActiveTab('overdue')}
-            className={`px-6 py-2 rounded-lg ${
-              activeTab === 'overdue'
+            className={`px-6 py-2 rounded-lg ${activeTab === 'overdue'
                 ? 'bg-red-600 text-white'
                 : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-            }`}
+              }`}
           >
             Overdue ({overdueFollowups.length})
           </button>

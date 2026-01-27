@@ -1,9 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { leadsAPI, leadSourcesAPI, usersAPI, servicesAPI } from '../services/api';
+import { leadsAPI, leadSourcesAPI, usersAPI } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import Layout from '../components/Layout';
 import { X, ChevronDown, Filter, Eye, Mail, MessageSquare, Edit, MoreVertical } from 'lucide-react';
+import QueriesHeader from '../components/Headers/QueriesHeader';
+import HeaderComponent from '../components/Headers/HeaderComponent';
+import LeadCard from '../components/Quiries/LeadCard';
+import { History } from 'lucide-react';
 
 const Leads = () => {
   const navigate = useNavigate();
@@ -11,7 +15,6 @@ const Leads = () => {
   const [leads, setLeads] = useState([]);
   const [leadSources, setLeadSources] = useState([]);
   const [users, setUsers] = useState([]);
-  const [services, setServices] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [showAssignModal, setShowAssignModal] = useState(false);
@@ -46,7 +49,6 @@ const Leads = () => {
     fetchLeads();
     fetchLeadSources();
     fetchUsers();
-    fetchServices();
   }, []);
 
   // Close dropdown when clicking outside
@@ -97,24 +99,6 @@ const Leads = () => {
     }
   };
 
-  const fetchServices = async () => {
-    try {
-      const response = await servicesAPI.getActive();
-      if (response.data.success) {
-        setServices(response.data.data);
-      }
-    } catch (err) {
-      console.error('Failed to fetch services:', err);
-      // Fallback to static services if API fails
-      setServices([
-        { id: 1, name: 'Full Package' },
-        { id: 2, name: 'Hotel Only' },
-        { id: 3, name: 'Visa Only' },
-        { id: 4, name: 'Flight Only' }
-      ]);
-    }
-  };
-
   const handleCreate = async (e) => {
     e.preventDefault();
     try {
@@ -128,7 +112,7 @@ const Leads = () => {
         priority: formData.priority === 'General Query' ? 'warm' : formData.priority.toLowerCase(),
         assigned_to: formData.assigned_to || (currentUser ? currentUser.id : null),
       };
-      
+
       await leadsAPI.create(apiData);
       setShowModal(false);
       // Reset form
@@ -349,310 +333,104 @@ const Leads = () => {
       </Layout>
     );
   }
+  const FinalHeader = () => {
+    return (
+      <>
+        <HeaderComponent />
+        <QueriesHeader />
+      </>
+    )
+  }
+
+
+  const handleRefresh = () => {
+    setActiveFilter("total");
+  }
+
 
   return (
-    <Layout>
-      <div className="p-6" style={{ backgroundColor: '#D8DEF5', minHeight: '100vh' }}>
+    <Layout Header={FinalHeader}>
+      <div className="p-6 mt-2 rounded-md" style={{ backgroundColor: '#fff', minHeight: 'fit-content' }}>
         {/* Header Section */}
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-3xl font-bold text-gray-800">Queries</h1>
-          <div className="flex gap-3">
-            <button
-              onClick={() => {
-                setFormData({
-                  ...formData,
-                  assigned_to: currentUser?.id || '',
-                });
-                setShowModal(true);
-              }}
-              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2 font-medium"
-            >
-              + Add New
-            </button>
-            <div className="relative">
-              <button
-                onClick={() => setShowOptionsDropdown(!showOptionsDropdown)}
-                className="bg-white border border-blue-600 text-blue-600 px-4 py-2 rounded-lg hover:bg-blue-50 flex items-center gap-2"
-              >
-                Options
-                <ChevronDown className="h-4 w-4" />
-              </button>
-              {showOptionsDropdown && (
-                <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-50">
-                  <button
-                    onClick={handleDownloadCSVTemplate}
-                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 first:rounded-t-lg"
-                  >
-                    Download CSV Format
-                  </button>
-                  <button
-                    onClick={() => {
-                      setShowImportModal(true);
-                      setShowOptionsDropdown(false);
-                    }}
-                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                  >
-                    Import CSV
-                  </button>
-                  <button
-                    onClick={handleExportData}
-                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 last:rounded-b-lg"
-                  >
-                    Export Data
-                  </button>
-                </div>
-              )}
-            </div>
-            <button className="bg-white border border-green-600 text-green-600 px-4 py-2 rounded-lg hover:bg-green-50">
-              Load Leads
-            </button>
-            <button className="bg-white border border-green-600 text-green-600 px-4 py-2 rounded-lg hover:bg-green-50 flex items-center gap-2">
-              <Filter className="h-4 w-4" />
-              Filter
-              <ChevronDown className="h-4 w-4" />
-            </button>
-          </div>
-        </div>
+
 
         {/* Summary Cards */}
-        <div className="grid grid-cols-11 gap-3 mb-6 overflow-x-auto">
-          <div 
-            onClick={() => setActiveFilter('total')}
-            className={`bg-gray-800 text-white px-4 py-3 rounded-lg text-center min-w-[120px] cursor-pointer transition-all hover:opacity-90 ${activeFilter === 'total' ? 'ring-4 ring-blue-400 ring-offset-2' : ''}`}
-          >
-            <div className="text-2xl font-bold">{stats.total}</div>
-            <div className="text-xs font-medium">TOTAL</div>
-          </div>
-          <div 
-            onClick={() => setActiveFilter('new')}
-            className={`bg-blue-200 text-blue-900 px-4 py-3 rounded-lg text-center min-w-[120px] cursor-pointer transition-all hover:opacity-90 ${activeFilter === 'new' ? 'ring-4 ring-blue-400 ring-offset-2' : ''}`}
-          >
-            <div className="text-2xl font-bold">{stats.new}</div>
-            <div className="text-xs font-medium">NEW</div>
-          </div>
-          <div 
-            onClick={() => setActiveFilter('proposalSent')}
-            className={`bg-orange-200 text-orange-900 px-4 py-3 rounded-lg text-center min-w-[120px] cursor-pointer transition-all hover:opacity-90 ${activeFilter === 'proposalSent' ? 'ring-4 ring-blue-400 ring-offset-2' : ''}`}
-          >
-            <div className="text-2xl font-bold">{stats.proposalSent}</div>
-            <div className="text-xs font-medium">PROPOSAL SENT</div>
-          </div>
-          <div 
-            onClick={() => setActiveFilter('noConnect')}
-            className={`bg-blue-600 text-white px-4 py-3 rounded-lg text-center min-w-[120px] cursor-pointer transition-all hover:opacity-90 ${activeFilter === 'noConnect' ? 'ring-4 ring-blue-400 ring-offset-2' : ''}`}
-          >
-            <div className="text-2xl font-bold">{stats.noConnect}</div>
-            <div className="text-xs font-medium">NO CONNECT</div>
-          </div>
-          <div 
-            onClick={() => setActiveFilter('hotLead')}
-            className={`bg-red-500 text-white px-4 py-3 rounded-lg text-center min-w-[120px] cursor-pointer transition-all hover:opacity-90 ${activeFilter === 'hotLead' ? 'ring-4 ring-blue-400 ring-offset-2' : ''}`}
-          >
-            <div className="text-2xl font-bold">{stats.hotLead}</div>
-            <div className="text-xs font-medium">HOT LEAD</div>
-          </div>
-          <div 
-            onClick={() => setActiveFilter('proposalConfirmed')}
-            className={`bg-purple-500 text-white px-4 py-3 rounded-lg text-center min-w-[120px] cursor-pointer transition-all hover:opacity-90 ${activeFilter === 'proposalConfirmed' ? 'ring-4 ring-blue-400 ring-offset-2' : ''}`}
-          >
-            <div className="text-2xl font-bold">{stats.proposalConfirmed}</div>
-            <div className="text-xs font-medium">PROPOSAL CON..</div>
-          </div>
-          <div 
-            onClick={() => setActiveFilter('cancel')}
-            className={`bg-red-700 text-white px-4 py-3 rounded-lg text-center min-w-[120px] cursor-pointer transition-all hover:opacity-90 ${activeFilter === 'cancel' ? 'ring-4 ring-blue-400 ring-offset-2' : ''}`}
-          >
-            <div className="text-2xl font-bold">{stats.cancel}</div>
-            <div className="text-xs font-medium">CANCEL</div>
-          </div>
-          <div 
-            onClick={() => setActiveFilter('followUp')}
-            className={`bg-orange-400 text-white px-4 py-3 rounded-lg text-center min-w-[120px] cursor-pointer transition-all hover:opacity-90 ${activeFilter === 'followUp' ? 'ring-4 ring-blue-400 ring-offset-2' : ''}`}
-          >
-            <div className="text-2xl font-bold">{stats.followUp}</div>
-            <div className="text-xs font-medium">FOLLOW UP</div>
-          </div>
-          <div 
-            onClick={() => setActiveFilter('confirmed')}
-            className={`bg-green-500 text-white px-4 py-3 rounded-lg text-center min-w-[120px] cursor-pointer transition-all hover:opacity-90 ${activeFilter === 'confirmed' ? 'ring-4 ring-blue-400 ring-offset-2' : ''}`}
-          >
-            <div className="text-2xl font-bold">{stats.confirmed}</div>
-            <div className="text-xs font-medium">CONFIRMED</div>
-          </div>
-          <div 
-            onClick={() => setActiveFilter('postponed')}
-            className={`bg-black text-white px-4 py-3 rounded-lg text-center min-w-[120px] cursor-pointer transition-all hover:opacity-90 ${activeFilter === 'postponed' ? 'ring-4 ring-blue-400 ring-offset-2' : ''}`}
-          >
-            <div className="text-2xl font-bold">{stats.postponed}</div>
-            <div className="text-xs font-medium">POSTPONED</div>
-          </div>
-          <div 
-            onClick={() => setActiveFilter('invalid')}
-            className={`bg-red-800 text-white px-4 py-3 rounded-lg text-center min-w-[120px] cursor-pointer transition-all hover:opacity-90 ${activeFilter === 'invalid' ? 'ring-4 ring-blue-400 ring-offset-2' : ''}`}
-          >
-            <div className="text-2xl font-bold">{stats.invalid}</div>
-            <div className="text-xs font-medium">INVALID</div>
+        {/* SUMMARY CARDS – IMAGE MATCH */}
+        <div className="w-full ">
+          <div className="flex md:p-1 gap-3 overflow-x-auto custom-scroll pb-3 mb-6">
+            {[
+              { key: "total", label: "Total Queries", value: stats.total, bg: "bg-blue-800" },
+              { key: "new", label: "New", value: stats.new, bg: "bg-orange-400" },
+              { key: "proposalSent", label: "Proposal sent", value: stats.proposalSent, bg: "bg-teal-500" },
+              { key: "noConnect", label: "No Connect", value: stats.noConnect, bg: "bg-red-500" },
+              { key: "hotLead", label: "Hot Lead", value: stats.hotLead, bg: "bg-purple-500" },
+              { key: "proposalConfirmed", label: "Proposal Conn.", value: stats.proposalConfirmed, bg: "bg-teal-600" },
+              { key: "cancel", label: "Cancel", value: stats.cancel, bg: "bg-blue-900" },
+              { key: "followUp", label: "Follow ups", value: stats.followUp, bg: "bg-red-400" },
+              { key: "confirmed", label: "Confirmed", value: stats.confirmed, bg: "bg-purple-600" },
+              { key: "postponed", label: "Postponed", value: stats.postponed, bg: "bg-orange-400" },
+              { key: "invalid", label: "Invalid", value: stats.invalid, bg: "bg-teal-500" },
+            ].map(item => (
+              <div
+                key={item.key}
+                onClick={() => setActiveFilter(item.key)}
+                className={`
+          ${item.bg} text-white
+          min-w-[60px] h-[60px]
+          md:w-[80px] md:h-[80px]
+          lg:min-w-[100px] lg:h-[100px]
+          flex flex-col items-center justify-center
+          rounded-xl cursor-pointer
+          text-center px-2
+          transition-all duration-200
+          hover:scale-105
+          ${activeFilter === item.key ? "ring-4 ring-blue-300 scale-105" : ""}
+        `}
+              >
+                <div className=" text-sm md:text-xl lg:text-3xl font-bold leading-none">
+                  {item.value}
+                </div>
+                <div className="text-xs mt-1 whitespace-nowrap">
+                  {item.label}
+                </div>
+              </div>
+            ))}
           </div>
         </div>
 
+
+
         {/* Queries Table */}
-        <div className="bg-white rounded-lg shadow overflow-visible">
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">ID</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Customer</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Destination</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tour Date</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Package</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Assign</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {filteredLeads.map((lead) => {
-                  const assignedUser = users.find(u => u.id === lead.assigned_to);
-                  return (
-                    <tr key={lead.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          <input type="checkbox" className="rounded" />
-                          <button 
-                            onClick={() => navigate(`/leads/${lead.id}`)}
-                            className="text-blue-600 hover:text-blue-800 font-medium cursor-pointer"
-                          >
-                            {formatLeadId(lead.id)}
-                          </button>
-                          {lead.priority === 'hot' && (
-                            <span className="px-1.5 py-0.5 text-xs font-semibold bg-red-500 text-white rounded">HOT</span>
-                          )}
-                        </div>
-                        <div className="text-xs text-gray-500 mt-1">
-                          {formData.adult || '1'} Adult {formData.child || '0'} Child {formData.infant || '0'} Infant
-                        </div>
-                        <div className="text-xs text-gray-500">{formatDate(lead.created_at)}</div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="text-sm font-medium text-gray-900">{lead.client_name}</div>
-                        <div className="text-sm text-gray-600">{lead.phone || 'N/A'}</div>
-                        <div className="text-xs text-gray-500">Client</div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                          {lead.destination || 'N/A'}
-                        </span>
-                        <div className="text-xs text-gray-500 mt-1">Full package</div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-1 text-sm text-gray-700">
-                          <span>📅</span>
-                          <span>{lead.travel_start_date ? formatDate(lead.travel_start_date) : 'N/A'}</span>
-                        </div>
-                        <div className="text-xs text-gray-500">Till {lead.travel_start_date ? formatDate(lead.travel_start_date) : 'N/A'}</div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="text-sm text-gray-700">Package details</div>
-                        <div className="text-xs text-gray-500">Price info</div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <select
-                          className="text-sm border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          value={lead.assigned_to || (currentUser?.id || '')}
-                          onChange={(e) => {
-                            if (e.target.value && lead.id) {
-                              handleAssign(lead.id, e.target.value);
-                            }
-                          }}
-                        >
-                          <option value={currentUser?.id || ''}>
-                            Assign to me {currentUser ? `(${currentUser.id})` : ''}
-                          </option>
-                          {users.map((user) => (
-                            <option key={user.id} value={user.id}>
-                              {user.name} ({user.id})
-                            </option>
-                          ))}
-                        </select>
-                      </td>
-                      <td className="px-4 py-3">
-                        <select
-                          className={`text-xs font-semibold rounded-full px-2 py-1 border-0 ${getStatusColor(lead.status)} focus:outline-none focus:ring-2 focus:ring-blue-500`}
-                          value={lead.status}
-                          onChange={(e) => {
-                            handleStatusChange(lead.id, e.target.value);
-                          }}
-                        >
-                          <option value="new">New</option>
-                          <option value="proposal">Proposal</option>
-                          <option value="followup">Follow Up</option>
-                          <option value="confirmed">Confirmed</option>
-                          <option value="cancelled">Cancelled</option>
-                        </select>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="relative">
-                          <button
-                            onClick={() => setOpenActionMenu(openActionMenu === lead.id ? null : lead.id)}
-                            className="p-1.5 hover:bg-gray-100 rounded transition-colors border border-gray-300"
-                            title="Actions"
-                          >
-                            <MoreVertical className="h-4 w-4 text-gray-700" />
-                          </button>
-                          {openActionMenu === lead.id && (
-                            <div className="absolute right-0 mt-1 w-40 bg-white border border-gray-300 rounded-md shadow-md z-50 py-1">
-                              <button
-                                onClick={() => {
-                                  setOpenActionMenu(null);
-                                  navigate(`/leads/${lead.id}`);
-                                }}
-                                className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-3 transition-colors"
-                              >
-                                <Eye className="h-4 w-4 text-gray-500" />
-                                <span>View</span>
-                              </button>
-                              <button
-                                onClick={() => {
-                                  setOpenActionMenu(null);
-                                  // Handle email action
-                                  if (lead.email) {
-                                    window.location.href = `mailto:${lead.email}`;
-                                  } else {
-                                    alert('No email address available');
-                                  }
-                                }}
-                                className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-3 transition-colors"
-                              >
-                                <Mail className="h-4 w-4 text-gray-500" />
-                                <span>Email</span>
-                              </button>
-                              <button
-                                onClick={() => {
-                                  setOpenActionMenu(null);
-                                  // Handle WhatsApp action
-                                  if (lead.phone) {
-                                    const whatsappUrl = `https://wa.me/${lead.phone.replace(/[^0-9]/g, '')}`;
-                                    window.open(whatsappUrl, '_blank');
-                                  } else {
-                                    alert('No phone number available');
-                                  }
-                                }}
-                                className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-3 transition-colors"
-                              >
-                                <MessageSquare className="h-4 w-4 text-gray-500" />
-                                <span>WhatsApp</span>
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+        <div className='flex justify-between items-center mb-6'>
+          <div className='flex items-center gap-2'>
+            <h2 className="text-lg font-bold">Queries</h2>
+            <span className="text-lg font-bold">• All</span>
+
           </div>
+          <button className="flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-md" onClick={handleRefresh}><History size={20} />Refresh</button>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6">
+          {filteredLeads.map((lead) => (
+            <LeadCard
+              id={lead.id}
+              key={lead.id}
+              name={lead.client_name}
+              phone={lead.phone || "N/A"}
+              avatar="/avatar.png"
+              tag={
+                lead.status === "confirmed"
+                  ? "Confirmed"
+                  : lead.status === "new"
+                    ? "New"
+                    : ""
+              }
+              location={lead.destination || "N/A"}
+              date={formatDate(lead.created_at)}
+              followUpText="Follow Ups"
+              amount={lead.amount || 0}
+              onAssign={() => handleAssign(lead.id)}
+            />
+          ))}
         </div>
 
         {/* ADD QUERY Modal */}
@@ -939,11 +717,10 @@ const Leads = () => {
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
                       <option value="">Select Service</option>
-                      {services.map((service) => (
-                        <option key={service.id} value={service.name}>
-                          {service.name}
-                        </option>
-                      ))}
+                      <option value="Full Package">Full Package</option>
+                      <option value="Hotel Only">Hotel Only</option>
+                      <option value="Visa Only">Visa Only</option>
+                      <option value="Flight Only">Flight Only</option>
                     </select>
                   </div>
 

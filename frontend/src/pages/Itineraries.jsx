@@ -1,7 +1,7 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
-import { Search, Plus, Edit, Eye, X, Image as ImageIcon, Upload, Camera } from 'lucide-react';
+import { Search, Plus, Edit, Eye, X, Image as ImageIcon, Hash, MapPin, CalendarDays, Trash } from 'lucide-react';
 import { packagesAPI } from '../services/api';
 
 const Itineraries = () => {
@@ -16,12 +16,6 @@ const Itineraries = () => {
   const [editingItineraryId, setEditingItineraryId] = useState(null);
   const [saving, setSaving] = useState(false);
   const [imagePreview, setImagePreview] = useState(null);
-  const fileInputRef = useRef(null);
-  const [showImageModal, setShowImageModal] = useState(false);
-  const [imageSource, setImageSource] = useState('upload'); // 'upload' or 'library'
-  const [libraryImages, setLibraryImages] = useState([]);
-  const [librarySearchTerm, setLibrarySearchTerm] = useState('travel');
-  const [libraryLoading, setLibraryLoading] = useState(false);
   const [formData, setFormData] = useState({
     itinerary_name: '',
     start_date: '',
@@ -34,12 +28,12 @@ const Itineraries = () => {
   });
 
   useEffect(() => {
-    fetchItineraries();
+    fetchItineraries(true);
   }, []);
 
-  const fetchItineraries = async () => {
+  const fetchItineraries = async (newSite = true) => {
     try {
-      setLoading(true);
+      newSite ? setLoading(true) : setLoading(false);
       const response = await packagesAPI.list();
       const data = response.data.data || [];
       // Process image URLs - handle both relative and absolute URLs
@@ -47,21 +41,20 @@ const Itineraries = () => {
         if (itinerary.image) {
           // Log original image URL for debugging
           console.log('Original image URL:', itinerary.image);
-          
+
           // If image is a relative URL (starts with /storage or /), convert to absolute
           if (itinerary.image.startsWith('/storage') || (itinerary.image.startsWith('/') && !itinerary.image.startsWith('http'))) {
             let baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
             // Remove /api from base URL for public assets (images are served from public folder)
             baseUrl = baseUrl.replace('/api', '');
             itinerary.image = `${baseUrl}${itinerary.image}`;
-            console.log('Converted to absolute URL:', itinerary.image);
           }
           // If image already has http/https, keep it as is
           // Also handle cases where asset() returns full URL but might have wrong domain
           if (itinerary.image.includes('localhost') && !itinerary.image.includes(':8000')) {
             itinerary.image = itinerary.image.replace('localhost', 'localhost:8000');
           }
-          
+
           // Ensure URL is properly formatted
           if (!itinerary.image.startsWith('http')) {
             const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
@@ -116,9 +109,6 @@ const Itineraries = () => {
       image: null
     });
     setImagePreview(null);
-    setShowImageModal(false);
-    setImageSource('upload');
-    setLibraryImages([]);
     setShowModal(true);
   };
 
@@ -126,7 +116,7 @@ const Itineraries = () => {
     try {
       const response = await packagesAPI.get(itinerary.id);
       const data = response.data.data;
-      
+
       // Convert image URL to absolute if needed
       if (data.image) {
         if (data.image.startsWith('/storage') || (data.image.startsWith('/') && !data.image.startsWith('http'))) {
@@ -139,7 +129,7 @@ const Itineraries = () => {
           data.image = data.image.replace('localhost', 'localhost:8000');
         }
       }
-      
+
       setViewingItinerary(data);
       setShowViewModal(true);
     } catch (err) {
@@ -153,7 +143,7 @@ const Itineraries = () => {
       setEditingItineraryId(itinerary.id);
       const response = await packagesAPI.get(itinerary.id);
       const data = response.data.data;
-      
+
       // Convert image URL to absolute if needed
       let imageUrl = data.image || null;
       if (imageUrl) {
@@ -167,7 +157,7 @@ const Itineraries = () => {
           imageUrl = imageUrl.replace('localhost', 'localhost:8000');
         }
       }
-      
+
       setFormData({
         itinerary_name: data.itinerary_name || '',
         start_date: data.start_date || '',
@@ -200,9 +190,6 @@ const Itineraries = () => {
       image: null
     });
     setImagePreview(null);
-    setShowImageModal(false);
-    setImageSource('upload');
-    setLibraryImages([]);
   };
 
   const handleFileChange = (e) => {
@@ -212,7 +199,6 @@ const Itineraries = () => {
         ...prev,
         image: file
       }));
-      setImageSource('upload');
       // Create preview
       const reader = new FileReader();
       reader.onloadend = () => {
@@ -220,52 +206,6 @@ const Itineraries = () => {
       };
       reader.readAsDataURL(file);
     }
-  };
-
-  const openFilePicker = () => {
-    if (fileInputRef.current) {
-      fileInputRef.current.click();
-    }
-  };
-
-  // Fetch images from library (Picsum Photos)
-  const fetchLibraryImages = async () => {
-    setLibraryLoading(true);
-    try {
-      const query = librarySearchTerm || 'travel';
-      const imageUrls = [];
-      const seed = Date.now();
-
-      for (let i = 0; i < 12; i++) {
-        imageUrls.push({
-          id: `picsum-${i}-${seed}`,
-          urls: {
-            thumb: `https://picsum.photos/seed/${query}-${i}-${seed}/400/300`,
-            regular: `https://picsum.photos/seed/${query}-${i}-${seed}/1200/800`
-          },
-          alt_description: query
-        });
-      }
-      setLibraryImages(imageUrls);
-    } catch (err) {
-      console.error('Failed to fetch images:', err);
-      alert('Failed to load images. Please try again.');
-    } finally {
-      setLibraryLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    if (showImageModal && imageSource === 'library' && libraryImages.length === 0) {
-      fetchLibraryImages();
-    }
-  }, [showImageModal, imageSource]);
-
-  const handleImageSelect = (imageUrl) => {
-    setImagePreview(imageUrl);
-    setFormData(prev => ({ ...prev, image: null }));
-    setImageSource('library');
-    setShowImageModal(false);
   };
 
   const handleSave = async (e) => {
@@ -282,11 +222,6 @@ const Itineraries = () => {
       if (formData.notes) packageData.append('notes', formData.notes);
       if (formData.image) {
         packageData.append('image', formData.image);
-      } else if (imagePreview && imageSource === 'library') {
-        const response = await fetch(imagePreview);
-        const blob = await response.blob();
-        const file = new File([blob], 'itinerary-image.jpg', { type: blob.type });
-        packageData.append('image', file);
       }
 
       if (editingItineraryId) {
@@ -294,12 +229,12 @@ const Itineraries = () => {
       } else {
         await packagesAPI.create(packageData);
       }
-      
+
       await fetchItineraries();
       handleCloseModal();
     } catch (err) {
       console.error('Failed to save itinerary:', err);
-      const errorMessage = err.response?.data?.message || err.response?.data?.errors 
+      const errorMessage = err.response?.data?.message || err.response?.data?.errors
         ? Object.values(err.response.data.errors).flat().join(', ')
         : 'Failed to save itinerary';
       alert(errorMessage);
@@ -311,30 +246,30 @@ const Itineraries = () => {
   const handleToggleStatus = async (itinerary) => {
     try {
       const newStatus = !itinerary.show_on_website;
-      
+
       // Optimistic update - update UI immediately
-      setItineraries(prevItineraries => 
-        prevItineraries.map(item => 
-          item.id === itinerary.id 
+      setItineraries(prevItineraries =>
+        prevItineraries.map(item =>
+          item.id === itinerary.id
             ? { ...item, show_on_website: newStatus }
             : item
         )
       );
-      
+
       const packageData = new FormData();
       packageData.append('show_on_website', newStatus ? '1' : '0');
       packageData.append('_method', 'PUT');
-      
+
       console.log(`Updating itinerary ${itinerary.id}: show_on_website = ${newStatus} (sending as ${newStatus ? '1' : '0'})`);
-      
+
       await packagesAPI.update(itinerary.id, packageData);
-      
+
       // Refresh the list to get updated data from server
-      await fetchItineraries();
+      await fetchItineraries(false);
     } catch (err) {
       console.error('Failed to update status:', err);
       // Revert optimistic update on error
-      await fetchItineraries();
+      await fetchItineraries(false);
       alert('Failed to update itinerary status. Please try again.');
     }
   };
@@ -358,10 +293,10 @@ const Itineraries = () => {
   }
 
   return (
-    <Layout>
-      <div className="p-6">
+    <Layout >
+      <div className="p-6  ">
         {/* Header */}
-        <div className="mb-6">
+        <div className="mb-6 mt-20">
           <div className="flex justify-between items-center mb-4">
             <h1 className="text-3xl font-bold text-gray-800">Itineraries</h1>
             <div className="flex items-center gap-4">
@@ -394,163 +329,124 @@ const Itineraries = () => {
           </div>
         )}
 
-        {/* Itineraries Table */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50 border-b border-gray-200">
-                <tr>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                    Title
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                    Duration
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider bg-yellow-50">
-                    Price
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider bg-yellow-50">
-                    Website Cost
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                    Website
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                    Last Updated
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {filteredItineraries.length === 0 ? (
-                  <tr>
-                    <td colSpan="8" className="px-6 py-12 text-center text-gray-500">
-                      {searchTerm ? 'No itineraries found matching your search' : 'No itineraries available'}
-                    </td>
-                  </tr>
-                ) : (
-                  filteredItineraries.map((itinerary) => (
-                    <tr key={itinerary.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4">
-                        <div 
-                          className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity"
-                          onClick={() => navigate(`/itineraries/${itinerary.id}`)}
-                        >
-                          <div className="w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center overflow-hidden border border-gray-200 flex-shrink-0">
-                            {itinerary.image ? (
-                              <img 
-                                src={itinerary.image} 
-                                alt={itinerary.title || itinerary.itinerary_name || 'Itinerary'} 
-                                className="w-full h-full object-cover"
-                                onError={(e) => {
-                                  e.target.style.display = 'none';
-                                  const parent = e.target.parentElement;
-                                  if (parent && !parent.querySelector('.no-photo-text')) {
-                                    const span = document.createElement('span');
-                                    span.className = 'no-photo-text text-xs text-gray-400 font-medium';
-                                    span.textContent = 'NO PHOTO';
-                                    parent.appendChild(span);
-                                  }
-                                }}
-                              />
-                            ) : (
-                              <span className="text-xs text-gray-400 font-medium">NO PHOTO</span>
-                            )}
-                          </div>
-                          <div className="min-w-0">
-                            <div className="text-sm font-semibold text-gray-900 truncate">{itinerary.title || itinerary.itinerary_name || 'Untitled'}</div>
-                            {itinerary.id && (
-                              <div className="text-xs text-gray-500 mt-1">ID: {itinerary.id} - {itinerary.destination || itinerary.destinations || ''}</div>
-                            )}
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="text-sm font-medium text-gray-900">
-                          {itinerary.duration ? `${itinerary.duration} Days` : 'N/A'}
+        {/* Itineraries Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6">
+          {filteredItineraries.length === 0 ? (
+            <div className="col-span-full text-center py-12 text-gray-500 bg-white rounded-xl border border-dashed border-gray-300">
+              {searchTerm
+                ? "No itineraries found matching your search"
+                : "No itineraries available"}
+            </div>
+          ) : (
+            filteredItineraries.map((itinerary) => (
+              <div
+                key={itinerary.id}
+                className="bg-white flex flex-col border border-gray-200 rounded-2xl shadow-sm hover:shadow-md transition-all overflow-hidden group"
+              >
+                {/* Image & Actions Container */}
+                <div className="relative h-72 overflow-hidden">
+                  {itinerary.image ? (
+                    <img
+                      src={itinerary.image}
+                      alt={itinerary.title}
+                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                      onError={(e) => (e.target.src = 'https://via.placeholder.com/400x300?text=No+Image')}
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-gray-100 flex items-center justify-center">
+                      <span className="text-xs text-gray-400 font-semibold uppercase tracking-wider">No Photo</span>
+                    </div>
+                  )}
+                  
+                  {/* Top Actions Overlay */}
+                  <div className="absolute top-3 right-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                    <button
+                      onClick={() => handleView(itinerary)}
+                      className="w-8 h-8 rounded-full bg-white/90 backdrop-blur text-blue-600 hover:bg-white flex items-center justify-center shadow-lg"
+                      title="View Details"
+                    >
+                      <Eye className="h-4 w-4" />
+                    </button>
+                    <button
+                      onClick={() => handleEdit(itinerary)}
+                      className="w-8 h-8 rounded-full bg-white/90 backdrop-blur text-green-600 hover:bg-white flex items-center justify-center shadow-lg"
+                      title="Edit Itinerary"
+                    >
+                      <Edit className="h-4 w-4" />
+                    </button>
+                     <button
+                      onClick={() => handleEdit(itinerary)}
+                      className="w-8 h-8 rounded-full bg-white/90 backdrop-blur text-red-600 hover:bg-white flex items-center justify-center shadow-lg"
+                      title="Delete Itinerary"
+                    >
+                      <Trash className="h-4 w-4" />
+                    </button>
+                  </div>
+
+                  {/* Bottom Info Overlay */}
+                  <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-4">
+                    <h3 className="text-white font-bold text-lg truncate mb-1">
+                      {itinerary.title || itinerary.itinerary_name || "Untitled"}
+                    </h3>
+                    <div className="flex items-center gap-3 text-white/90 text-xs">
+                      <span className="flex items-center gap-1">
+                        <CalendarDays className="w-3 h-3" />
+                        {itinerary.duration ? `${itinerary.duration} Days` : "N/A"}
+                      </span>
+                      {itinerary.destination && (
+                        <span className="flex items-center gap-1 truncate max-w-[120px]">
+                          <MapPin className="w-3 h-3" />
+                          {itinerary.destination}
                         </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap bg-yellow-50">
-                        <span className="text-sm font-semibold text-gray-900">
-                          {formatPrice(itinerary.price)}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap bg-yellow-50">
-                        <span className="text-sm font-semibold text-gray-900">
-                          {formatPrice(itinerary.website_cost)}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span
-                          className={`inline-flex px-3 py-1 text-xs font-semibold rounded-full ${
-                            itinerary.show_on_website
-                              ? 'bg-green-100 text-green-800'
-                              : 'bg-red-100 text-red-800'
-                          }`}
-                        >
-                          {itinerary.show_on_website ? 'Yes' : 'No'}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleToggleStatus(itinerary);
-                          }}
-                          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
-                            itinerary.show_on_website
-                              ? 'bg-green-600'
-                              : 'bg-gray-300'
-                          }`}
-                          title={itinerary.show_on_website ? 'Click to deactivate' : 'Click to activate'}
-                        >
-                          <span
-                            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                              itinerary.show_on_website ? 'translate-x-6' : 'translate-x-1'
-                            }`}
-                          />
-                        </button>
-                        <span className={`ml-2 text-xs font-medium ${
-                          itinerary.show_on_website ? 'text-green-700' : 'text-gray-500'
-                        }`}>
-                          {itinerary.show_on_website ? 'Active' : 'Inactive'}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="text-sm text-gray-700">
-                          {formatDate(itinerary.updated_at || itinerary.last_updated)}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => handleView(itinerary)}
-                            className="w-9 h-9 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 flex items-center justify-center transition-colors shadow-sm"
-                            title="View Details"
-                          >
-                            <Eye className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={() => handleEdit(itinerary)}
-                            className="w-9 h-9 rounded-lg bg-green-50 text-green-600 hover:bg-green-100 flex items-center justify-center transition-colors shadow-sm"
-                            title="Edit Itinerary"
-                          >
-                            <Edit className="h-4 w-4" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Details Section */}
+                <div className="p-4 flex-grow">
+                  <div className="grid grid-cols-2 gap-4 mb-4">
+                    <div className="bg-blue-50/50 p-2 rounded-lg">
+                      <p className="text-[10px] uppercase tracking-wider text-blue-600 font-bold mb-0.5">Price</p>
+                      <p className="text-sm font-bold text-gray-900">{formatPrice(itinerary.price)}</p>
+                    </div>
+                    <div className="bg-gray-50 p-2 rounded-lg">
+                      <p className="text-[10px] uppercase tracking-wider text-gray-500 font-bold mb-0.5">Web Cost</p>
+                      <p className="text-sm font-bold text-gray-900">{formatPrice(itinerary.website_cost)}</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-2 border-t border-gray-100">
+                    <div className="flex flex-col">
+                      <span className="text-[10px] text-gray-400 uppercase font-medium">Status</span>
+                      <span className={`text-xs font-bold ${itinerary.show_on_website ? "text-green-600" : "text-red-500"}`}>
+                        {itinerary.show_on_website ? "Visible" : "Hidden"}
+                      </span>
+                    </div>
+                    <button
+                      onClick={() => handleToggleStatus(itinerary)}
+                      className={`relative inline-flex h-5 w-10 items-center rounded-full transition-colors focus:outline-none ${
+                        itinerary.show_on_website ? "bg-green-500" : "bg-red-500"
+                      }`}
+                    >
+                      <span
+                        className={`h-3.5 w-3.5 bg-white rounded-full transform transition-transform duration-200 ease-in-out ${
+                          itinerary.show_on_website ? "translate-x-5" : "translate-x-1"
+                        }`}
+                      />
+                    </button>
+                  </div>
+                </div>
+                
+                <div className="px-4 py-2 bg-gray-50 border-t border-gray-100 text-[10px] text-gray-400 flex justify-between">
+                  <span>ID: {itinerary.id}</span>
+                  <span>Updated: {formatDate(itinerary.updated_at || itinerary.last_updated)}</span>
+                </div>
+              </div>
+            ))
+          )}
         </div>
+
       </div>
 
       {/* Create Itinerary Modal */}
@@ -683,48 +579,16 @@ const Itineraries = () => {
                   <div className="space-y-3">
                     {/* File Input */}
                     <div className="flex items-center gap-4">
-                      <input
-                        ref={fileInputRef}
-                        type="file"
-                        accept="image/*"
-                        onChange={handleFileChange}
-                        className="hidden"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setImageSource('upload');
-                          openFilePicker();
-                        }}
-                        className={`flex items-center gap-2 px-4 py-2 rounded-lg border ${
-                          imageSource === 'upload'
-                            ? 'bg-blue-50 border-blue-200 text-blue-700'
-                            : 'bg-white border-gray-200 text-gray-700'
-                        }`}
-                      >
-                        <Upload className="h-4 w-4" />
-                        Upload Image
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setImageSource('library');
-                          setShowImageModal(true);
-                        }}
-                        className={`flex items-center gap-2 px-4 py-2 rounded-lg border ${
-                          imageSource === 'library'
-                            ? 'bg-blue-50 border-blue-200 text-blue-700'
-                            : 'bg-white border-gray-200 text-gray-700'
-                        }`}
-                      >
-                        <Camera className="h-4 w-4" />
-                        Choose from Library
-                      </button>
-                      <span className="text-sm text-gray-600">
-                        {formData.image ? formData.image.name : imageSource === 'library' && imagePreview ? 'Library image selected' : 'No file chosen'}
-                      </span>
+                      <div className="flex-1">
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={handleFileChange}
+                          className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
                     </div>
-                    
+
                     {/* Image Preview */}
                     {(imagePreview || formData.image) && (
                       <div className="mt-3">
@@ -759,14 +623,9 @@ const Itineraries = () => {
                             ✓ New image selected. This will replace the current image.
                           </p>
                         )}
-                        {imageSource === 'library' && imagePreview && (
-                          <p className="text-xs text-green-600 mt-2 font-medium">
-                            ✓ Library image selected.
-                          </p>
-                        )}
                       </div>
                     )}
-                    
+
                     {/* No Image Message */}
                     {!imagePreview && !formData.image && (
                       <div className="flex items-center gap-2 text-sm text-gray-500 bg-gray-50 p-3 rounded-lg border border-gray-200">
@@ -796,74 +655,6 @@ const Itineraries = () => {
                 </button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
-
-      {/* Image Library Modal */}
-      {showImageModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden">
-            <div className="flex items-center justify-between px-6 py-4 border-b">
-              <h3 className="text-lg font-semibold text-gray-900">Choose from Library</h3>
-              <button
-                type="button"
-                onClick={() => setShowImageModal(false)}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
-            <div className="p-6 border-b">
-              <div className="flex items-center gap-3">
-                <input
-                  type="text"
-                  value={librarySearchTerm}
-                  onChange={(e) => setLibrarySearchTerm(e.target.value)}
-                  placeholder="Search images..."
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-                <button
-                  type="button"
-                  onClick={fetchLibraryImages}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                >
-                  Search
-                </button>
-              </div>
-            </div>
-
-            <div className="p-6 max-h-[70vh] overflow-y-auto">
-              {libraryLoading ? (
-                <div className="flex items-center justify-center h-64">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-                </div>
-              ) : libraryImages.length === 0 ? (
-                <div className="text-center py-12 text-gray-500">
-                  <p>No images found. Try searching for something else.</p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-3 gap-4">
-                  {libraryImages.map((image) => (
-                    <div
-                      key={image.id}
-                      onClick={() => handleImageSelect(image.urls.regular)}
-                      className="relative aspect-video cursor-pointer group overflow-hidden rounded-lg border-2 border-gray-200 hover:border-blue-500 transition-colors"
-                    >
-                      <img
-                        src={image.urls.thumb}
-                        alt={image.alt_description}
-                        className="w-full h-full object-cover"
-                      />
-                      <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-opacity flex items-center justify-center">
-                        <span className="text-white opacity-0 group-hover:opacity-100 font-medium">Select</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
           </div>
         </div>
       )}
@@ -990,11 +781,10 @@ const Itineraries = () => {
                     Show on Website
                   </label>
                   <span
-                    className={`inline-flex px-3 py-1.5 text-xs font-bold rounded-full ${
-                      viewingItinerary.show_on_website
+                    className={`inline-flex px-3 py-1.5 text-xs font-bold rounded-full ${viewingItinerary.show_on_website
                         ? 'bg-green-100 text-green-800 border border-green-300'
                         : 'bg-red-100 text-red-800 border border-red-300'
-                    }`}
+                      }`}
                   >
                     {viewingItinerary.show_on_website ? 'Yes' : 'No'}
                   </span>

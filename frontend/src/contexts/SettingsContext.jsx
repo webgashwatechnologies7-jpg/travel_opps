@@ -13,15 +13,29 @@ export const useSettings = () => {
 
 export const SettingsProvider = ({ children }) => {
   const [settings, setSettings] = useState({
-    sidebar_color: '#2765B0',
+    sidebar_color1: '#2765B0',
+    sidebar_color2: '#629DE5',
     dashboard_background_color: '#D8DEF5',
     header_background_color: '#D8DEF5',
   });
   const [loading, setLoading] = useState(true);
 
+  const [isSidebarOpen, setIsSidebarOpen] = useState(() => {
+    const saved = localStorage.getItem('sidebarOpen');
+    return saved !== null ? JSON.parse(saved) : true;
+  });
+
   useEffect(() => {
     loadSettings();
   }, []);
+
+  const toggleSidebar = () => {
+    setIsSidebarOpen(prev => {
+      const newState = !prev;
+      localStorage.setItem('sidebarOpen', JSON.stringify(newState));
+      return newState;
+    });
+  };
 
   const loadSettings = async () => {
     try {
@@ -70,7 +84,15 @@ export const SettingsProvider = ({ children }) => {
   };
 
   return (
-    <SettingsContext.Provider value={{ settings, loading, updateSettings, resetSettings, loadSettings }}>
+    <SettingsContext.Provider value={{
+      settings,
+      loading,
+      updateSettings,
+      resetSettings,
+      loadSettings,
+      isSidebarOpen,
+      toggleSidebar
+    }}>
       {children}
     </SettingsContext.Provider>
   );

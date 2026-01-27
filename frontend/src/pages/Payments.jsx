@@ -56,21 +56,19 @@ const Payments = () => {
         <div className="flex space-x-4 mb-6">
           <button
             onClick={() => setActiveTab('due-today')}
-            className={`px-6 py-2 rounded-lg ${
-              activeTab === 'due-today'
+            className={`px-6 py-2 rounded-lg ${activeTab === 'due-today'
                 ? 'bg-blue-600 text-white'
                 : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-            }`}
+              }`}
           >
             Due Today ({dueToday.length})
           </button>
           <button
             onClick={() => setActiveTab('pending')}
-            className={`px-6 py-2 rounded-lg ${
-              activeTab === 'pending'
+            className={`px-6 py-2 rounded-lg ${activeTab === 'pending'
                 ? 'bg-yellow-600 text-white'
                 : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-            }`}
+              }`}
           >
             Pending ({pending.length})
           </button>
