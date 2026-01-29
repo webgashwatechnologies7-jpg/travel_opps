@@ -509,6 +509,12 @@ export const packagesAPI = {
   delete: (id) => api.delete(`/packages/${id}`),
 };
 
+// Itinerary Pricing APIs
+export const itineraryPricingAPI = {
+  get: (packageId) => api.get(`/packages/${packageId}/pricing`),
+  save: (packageId, data) => api.put(`/packages/${packageId}/pricing`, data),
+};
+
 // Destinations APIs
 export const destinationsAPI = {
   list: () => api.get('/destinations'),

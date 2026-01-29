@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+<<<<<<< HEAD
 import { Link } from 'react-router-dom';
 import { dashboardAPI, followupsAPI, paymentsAPI } from '../services/api';
 import Layout from '../components/Layout';
@@ -17,6 +18,12 @@ import {
   BarChart3 as BarChartIcon
 } from 'lucide-react';
 import { useNavigate } from "react-router";
+=======
+import { dashboardAPI, followupsAPI, leadsAPI } from '../services/api';
+import Layout from '../components/Layout';
+import PaymentCollectionTable from '../components/PaymentCollectionTable';
+import SalesRepsTable from '../components/SalesRepsTable';
+>>>>>>> 685a818 (Added itinerary pricing, frontend updates, and backend improvements)
 import TodayQueriesCard from '../components/dashboard/TodayQueriesCard';
 import UpcomingTours from '../components/dashboard/UpcomingTours';
 import RevenueGrowthCard from '../components/dashboard/RevenueGrowthCard';
@@ -27,7 +34,12 @@ import LatestQuery from '../components/dashboard/LatestQuery';
 import TopLeadSource from '../components/dashboard/TopLeadSource';
 import TaskFollowups from '../components/dashboard/TaskFollowups';
 import TopDestinationAndPerformance from '../components/dashboard/TopDestinationAndPerformance';
+<<<<<<< HEAD
 import DashboardHeader from '../components/Headers/Search/DashboardHeader';
+=======
+import { useNavigate } from "react-router";
+import { useAuth } from '../contexts/AuthContext';
+>>>>>>> 685a818 (Added itinerary pricing, frontend updates, and backend improvements)
 
 const Dashboard = () => {
   const [stats, setStats] = useState(null);
@@ -35,16 +47,36 @@ const Dashboard = () => {
   const [upcomingTours, setUpcomingTours] = useState([]);
   const [latestNotes, setLatestNotes] = useState([]);
   const [followups, setFollowups] = useState([]);
+<<<<<<< HEAD
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   let navigate = useNavigate();
+=======
+  const [todayQueries, setTodayQueries] = useState([]);
+  const [loadingTodayQueries, setLoadingTodayQueries] = useState(true);
+  const [leadStats, setLeadStats] = useState({
+    total: 0,
+    new: 0,
+    pending: 0,
+    closed: 0,
+    weekly: 0,
+    monthly: 0,
+    yearly: 0,
+    hot: 0,
+  });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  let navigate = useNavigate();
+  const { user } = useAuth();
+>>>>>>> 685a818 (Added itinerary pricing, frontend updates, and backend improvements)
 
   useEffect(() => {
     fetchAllData();
-  }, []);
+  }, [user?.id]);
 
   const fetchAllData = async () => {
     try {
+      setLoadingTodayQueries(true);
       const [
         statsRes,
         revenueRes,
@@ -58,14 +90,101 @@ const Dashboard = () => {
         dashboardAPI.latestLeadNotes(),
         followupsAPI.today()
       ]);
+<<<<<<< HEAD
+=======
+
+>>>>>>> 685a818 (Added itinerary pricing, frontend updates, and backend improvements)
       console.log(revenueRes.data.data)
       console.log("check", followupsRes.data.data?.followups)
       setStats(statsRes.data.data);
       setRevenueData(revenueRes.data.data || []);
       setUpcomingTours(toursRes.data.data || []);
       setLatestNotes(notesRes.data.data || []);
+<<<<<<< HEAD
       setFollowups(followupsRes.data.data?.followups || []);
 
+=======
+
+      // Today follow-ups widget should show only real followups/tasks,
+      // not plain notes. In this app, tasks have a reminder_time set.
+      const rawFollowups = followupsRes.data.data?.followups || [];
+      const taskFollowups = rawFollowups.filter((item) => Boolean(item.reminder_time));
+      const followupColors = ["bg-blue-500", "bg-red-500", "bg-orange-400"];
+      const formattedFollowups = taskFollowups.map((item, index) => {
+        const dateValue = item.reminder_date || item.created_at || null;
+        const dateLabel = dateValue
+          ? new Date(dateValue).toLocaleDateString("en-GB", {
+              day: "2-digit",
+              month: "short",
+            })
+          : "Today";
+        const timeLabel = item.reminder_time ? ` - ${item.reminder_time}` : "";
+        return {
+          id: item.id,
+          leadId: item.lead_id || item.lead?.id || null,
+          date: `${dateLabel}${timeLabel}`,
+          title: item.remark || "Followup",
+          color: followupColors[index % followupColors.length],
+          highlight: false,
+        };
+      });
+      setFollowups(formattedFollowups);
+
+      if (user?.id) {
+        const leadsRes = await leadsAPI.list({ assigned_to: user.id, per_page: 1000 });
+        const leads = leadsRes.data.data?.leads || [];
+        const now = new Date();
+        const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const startOfWeek = new Date(startOfToday);
+        startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        const startOfYear = new Date(now.getFullYear(), 0, 1);
+        const toDate = (value) => (value ? new Date(value) : null);
+        const isSameDay = (value) => {
+          const d = toDate(value);
+          return d
+            && d.getFullYear() === now.getFullYear()
+            && d.getMonth() === now.getMonth()
+            && d.getDate() === now.getDate();
+        };
+
+        const todayLeads = leads.filter(lead => lead.created_at && isSameDay(lead.created_at));
+        const formatted = todayLeads.map(lead => ({
+          id: lead.id,
+          title: lead.destination ? `${lead.destination} Tour` : "New Query",
+          name: lead.client_name || "Client",
+          date: new Date(lead.created_at).toLocaleDateString("en-GB"),
+        }));
+        setTodayQueries(formatted);
+
+        const inRange = (value, start) => {
+          const d = toDate(value);
+          return d && d >= start;
+        };
+        setLeadStats({
+          total: leads.length,
+          new: leads.filter(lead => lead.status === 'new').length,
+          pending: leads.filter(lead => lead.status === 'proposal').length,
+          closed: leads.filter(lead => lead.status === 'cancelled').length,
+          weekly: leads.filter(lead => inRange(lead.created_at, startOfWeek)).length,
+          monthly: leads.filter(lead => inRange(lead.created_at, startOfMonth)).length,
+          yearly: leads.filter(lead => inRange(lead.created_at, startOfYear)).length,
+          hot: leads.filter(lead => lead.priority === 'hot').length,
+        });
+      } else {
+        setTodayQueries([]);
+        setLeadStats({
+          total: 0,
+          new: 0,
+          pending: 0,
+          closed: 0,
+          weekly: 0,
+          monthly: 0,
+          yearly: 0,
+          hot: 0,
+        });
+      }
+>>>>>>> 685a818 (Added itinerary pricing, frontend updates, and backend improvements)
     } catch (err) {
       console.error('Dashboard error:', err);
       const errorMessage = err.response?.data?.message || err.message || 'Failed to load dashboard data';
@@ -81,6 +200,7 @@ const Dashboard = () => {
       setError(errorMessage + (err.response?.status ? ` (Status: ${err.response.status})` : ''));
     } finally {
       setLoading(false);
+      setLoadingTodayQueries(false);
     }
   };
 
@@ -104,37 +224,22 @@ const Dashboard = () => {
     );
   }
 
-  // Prepare donut chart data for Queries Status
-  const queriesStatusData = [
-    { name: 'Confirmed', value: stats?.confirmed || 0 },
-    { name: 'Proposal Conv.', value: stats?.proposal_confirmed || 0 },
-    { name: 'Cancel', value: stats?.cancelled || 0 },
-    { name: 'Hot Lead', value: stats?.hot_leads || 0 },
-    { name: 'Proposal Sent', value: stats?.proposal_sent || 0 },
-    { name: 'Followups', value: stats?.followups || 0 },
-    { name: 'Other', value: (stats?.total_queries || 0) - (stats?.confirmed || 0) - (stats?.proposal_confirmed || 0) - (stats?.cancelled || 0) - (stats?.hot_leads || 0) - (stats?.proposal_sent || 0) - (stats?.followups || 0) }
-  ].filter(item => item.value > 0);
+  // Revenue Growth percentages (dynamic from stats)
+  const totalQueries = stats?.total_queries || 0;
+  const toPercent = (count) => {
+    if (!totalQueries || !count) return '0%';
+    const value = (count / totalQueries) * 100;
+    return `${value.toFixed(1)}%`;
+  };
 
-  // Revenue Growth percentages (simplified)
   const revenueGrowthPercentages = [
-    { label: 'Proposal Sent', value: '4.2%' },
-    { label: 'Hot Lead', value: '4.2%' },
-    { label: 'Cancel', value: '4.2%' },
-    { label: 'Proposal Conv.', value: '4.2%' }
-  ];
-
-  // Card configuration with names, colors, and data keys
-  const cardConfigs = [
-    { name: "Today's Queries", color: '#3b82f6', dataKey: 'today_queries', link: '/leads?status=new', linkText: 'View All Queries' },
-    { name: 'Proposal Sent', color: '#f59e0b', dataKey: 'proposal_sent', link: '/leads?status=proposal', linkText: 'View All Proposal Sent' },
-    { name: 'Hot Lead', color: '#ef4444', dataKey: 'hot_leads', link: '/leads?priority=hot', linkText: 'View All Hot Lead' },
-    { name: 'Proposal Conv.', color: '#8b5cf6', dataKey: 'proposal_confirmed', link: '/leads?status=confirmed', linkText: 'View All Proposal Conv.' },
-    { name: 'Cancel', color: '#ef4444', dataKey: 'cancelled', link: '/leads?status=cancelled', linkText: 'View All Cancel' },
-    { name: 'Follow Up', color: '#eab308', dataKey: 'followups', link: '/leads?status=followup', linkText: 'View All Follow Up' },
-    { name: 'Confirmed', color: '#10b981', dataKey: 'confirmed', link: '/leads?status=confirmed', linkText: 'View All Confirmed' },
-    { name: 'Total Queries', color: '#1e40af', dataKey: 'total_queries', link: '/leads', linkText: 'View All Queries' }
+    { label: 'Proposal Sent', value: toPercent(stats?.proposal_sent || 0) },
+    { label: 'Hot Lead', value: toPercent(stats?.hot_leads || 0) },
+    { label: 'Cancel', value: toPercent(stats?.cancelled || 0) },
+    { label: 'Proposal Conv.', value: toPercent(stats?.proposal_confirmed || 0) }
   ];
   return (
+<<<<<<< HEAD
     <Layout Header={DashboardHeader}>
       <div className="p-4 ">
         {/* =========================================
@@ -180,9 +285,100 @@ const Dashboard = () => {
               <div className='w-[65%]'>
                 <TopLeadSource leadData={stats?.top_lead_sources || []} />
               </div>
+=======
+    <Layout>
+      <div className="p-4 overflow-x-auto">
+        <div className="min-w-[1280px] grid grid-cols-12 gap-6 items-stretch">
+          {/* Row 1 */}
+          <div className="col-span-3 flex h-[300px]">
+            <div className="w-full">
+              <TodayQueriesCard
+                queries={todayQueries}
+                totalCount={todayQueries.length}
+                loading={loadingTodayQueries}
+                onViewAll={() => navigate("/leads?today=1")}
+                onQueryClick={(query) => {
+                  if (query?.id) {
+                    navigate(`/leads/${query.id}`);
+                  }
+                }}
+              />
+            </div>
+          </div>
+          <div className="col-span-6 flex h-[300px]">
+            <div className="w-full">
+              <DashboardStatsCards
+                stats={{
+                  totalQueries: leadStats.total,
+                  newQueries: leadStats.new,
+                  pendingQueries: leadStats.pending,
+                  closedQueries: leadStats.closed,
+                  weeklyQueries: leadStats.weekly,
+                  monthlyQueries: leadStats.monthly,
+                  yearlyQueries: leadStats.yearly,
+                  hotQueries: leadStats.hot,
+                }}
+              />
+            </div>
+          </div>
+          <div className="col-span-3 flex h-[300px]">
+            <div className="w-full">
+              <TaskFollowups
+                followups={followups}
+                onViewMore={() => navigate("/followups")}
+                onFollowupClick={(item) => {
+                  if (item?.leadId) {
+                    navigate(`/leads/${item.leadId}?tab=followups`);
+                  }
+                }}
+              />
             </div>
           </div>
 
+          {/* Row 2 */}
+          <div className="col-span-3 flex h-[300px]">
+            <div className="w-full">
+              <UpcomingTours data={upcomingTours} />
+            </div>
+          </div>
+          <div className="col-span-6 flex h-[300px]">
+            <div className="w-full">
+              <RevenueChart revenueData={revenueData} />
+            </div>
+          </div>
+          <div className="col-span-3 flex h-[300px]">
+            <div className="w-full">
+              <PaymentCollectionTable />
+            </div>
+          </div>
+
+          {/* Row 3 */}
+          <div className="col-span-3 flex h-[300px]">
+            <div className="w-full">
+              <RevenueGrowthCard
+                title="Revenue Growth"
+                data={revenueGrowthPercentages}
+                buttonText="View Full Report's"
+                onButtonClick={() => navigate("/reports")}
+              />
+            </div>
+          </div>
+          <div className="col-span-6 flex h-[300px]">
+            <div className="w-full">
+              <YearQueriesChart
+                title="This Year Queries / Confirmed"
+                data={stats?.this_year_queries_confirmed || []}
+              />
+>>>>>>> 685a818 (Added itinerary pricing, frontend updates, and backend improvements)
+            </div>
+          </div>
+          <div className="col-span-3 flex h-[300px]">
+            <div className="w-full">
+              <SalesRepsTable title={"Sales"} />
+            </div>
+          </div>
+
+<<<<<<< HEAD
           {/* Right Column (Span 3) */}
           <div className='col-span-3 space-y-6'>
             <TaskFollowups followups={followups} />
@@ -247,6 +443,23 @@ const Dashboard = () => {
             <PaymentCollectionTable />
             <SalesRepsTable title={"Sales"} />
             <TopDestinationAndPerformance />
+=======
+          {/* Row 4 */}
+          <div className="col-span-3 flex h-[300px]">
+            <div className="w-full">
+              <LatestQuery latestNotes={latestNotes} />
+            </div>
+          </div>
+          <div className="col-span-6 flex h-[300px]">
+            <div className="w-full">
+              <TopLeadSource leadData={stats?.top_lead_sources || []} />
+            </div>
+          </div>
+          <div className="col-span-3 flex h-[300px]">
+            <div className="w-full">
+              <TopDestinationAndPerformance />
+            </div>
+>>>>>>> 685a818 (Added itinerary pricing, frontend updates, and backend improvements)
           </div>
         </div>
       </div>

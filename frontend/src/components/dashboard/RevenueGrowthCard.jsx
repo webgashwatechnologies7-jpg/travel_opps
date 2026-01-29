@@ -14,14 +14,22 @@ const RevenueGrowthCard = ({ title, data, buttonText, onButtonClick }) => {
     [data]
   );
   return (
+<<<<<<< HEAD
     <div className="rounded-xl px-4 bg-[#fff] p-6 w-full">
+=======
+    <div className="rounded-xl px-4 bg-[#fff] p-6 w-full h-full flex flex-col">
+>>>>>>> 685a818 (Added itinerary pricing, frontend updates, and backend improvements)
       {/* Title */}
       <h2 className="text-[16px] font-bold text-gray-900 mb-4">
         {title}
       </h2>
 
       {/* Card */}
+<<<<<<< HEAD
       <div className="rounded-lg border border-[#c9c7ff] bg-[#ededf8] p-4">
+=======
+      <div className="rounded-lg border border-[#c9c7ff] bg-[#ededf8] p-4 flex-1 overflow-y-auto custom-scroll pr-2 -mr-2">
+>>>>>>> 685a818 (Added itinerary pricing, frontend updates, and backend improvements)
         {coloredData.map((item, index) => (
           <div key={index}>
             <div className="flex items-center justify-between py-1">

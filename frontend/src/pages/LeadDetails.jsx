@@ -1,19 +1,30 @@
 import { useState, useEffect, useMemo } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { leadsAPI, usersAPI, followupsAPI, dayItinerariesAPI, packagesAPI, settingsAPI, suppliersAPI, hotelsAPI, paymentsAPI, googleMailAPI } from '../services/api';
 import Layout from '../components/Layout';
+<<<<<<< HEAD
 import { ArrowLeft, Calendar, Mail, Plus, Upload, X, Search, FileText, Printer, Send, MessageCircle, CheckCircle, CheckCircle2, Clock, Briefcase, MapPin, CalendarDays, Users, UserCheck, Leaf, Smartphone, Phone } from 'lucide-react';
 import QuiriesDetailsHeader from '../components/Headers/Search/QuiriesDetailsHeader';
 import { FaPencilAlt, FaWhatsapp } from "react-icons/fa";
 import DetailRow from '../components/Quiries/DetailRow';
+=======
+import { ArrowLeft, Calendar, Mail, Plus, Upload, X, Search, FileText, Printer, Send, MessageCircle, CheckCircle, CheckCircle2, Clock, MoreVertical, Download, Phone } from 'lucide-react';
+import html2pdf from 'html2pdf.js';
+
+>>>>>>> 685a818 (Added itinerary pricing, frontend updates, and backend improvements)
 const LeadDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
   const [lead, setLead] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('proposals');
+  const [activeTab, setActiveTab] = useState(() => {
+    const params = new URLSearchParams(location.search);
+    const tab = params.get('tab');
+    return tab || 'proposals';
+  });
   const [users, setUsers] = useState([]);
   const [notes, setNotes] = useState([]);
   const [noteText, setNoteText] = useState('');
@@ -96,6 +107,36 @@ const LeadDetails = () => {
     fetchCompanySettings();
   }, [id]);
 
+<<<<<<< HEAD
+=======
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const tab = params.get('tab');
+    if (tab) {
+      setActiveTab(tab);
+    }
+  }, [location.search]);
+
+  useEffect(() => {
+    if (user?.id) {
+      fetchOutgoingNumbers();
+    }
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (activeTab !== 'calls') {
+      return;
+    }
+
+    fetchCallHistory();
+    const interval = setInterval(() => {
+      fetchCallHistory();
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, [activeTab, id]);
+
+>>>>>>> 685a818 (Added itinerary pricing, frontend updates, and backend improvements)
   // Fetch company settings
   const fetchCompanySettings = async () => {
     try {
@@ -1838,6 +1879,21 @@ const LeadDetails = () => {
     return html;
   };
 
+  // Extract only the <body> inner HTML from a full HTML string
+  const extractBodyContent = (htmlString) => {
+    if (!htmlString) return '';
+    try {
+      const bodyMatch = htmlString.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
+      if (bodyMatch && bodyMatch[1]) {
+        return bodyMatch[1];
+      }
+      return htmlString;
+    } catch (e) {
+      console.error('Failed to extract body content from HTML', e);
+      return htmlString;
+    }
+  };
+
   // Generate professional email content with all options using selected template
   const generateEmailContent = async () => {
     if (!quotationData || !selectedProposal) return '';
@@ -2023,6 +2079,7 @@ const LeadDetails = () => {
     const blob = new Blob([emailContent], { type: 'text/html' });
     const url = URL.createObjectURL(blob);
 
+<<<<<<< HEAD
     // Open email client with HTML content
     const mailtoLink = `mailto:${lead.email || ''}?subject=${subject}&body=${encodeURIComponent('Please find the detailed travel quotation attached.')}`;
 
@@ -2047,6 +2104,63 @@ TravelOps Team`;
 
       window.location.href = `mailto:${lead.email || ''}?subject=${subject}&body=${encodeURIComponent(textBody)}`;
     });
+=======
+    try {
+      if (user?.google_token) {
+        const emailContent = await generateEmailContent();
+        await googleMailAPI.sendMail({
+          to: recipientEmail,
+          subject,
+          body: emailContent,
+          lead_id: id,
+        });
+        fetchGmailEmails();
+        
+        // Update lead status to PROPOSAL if not already
+        if (lead.status !== 'proposal') {
+          try {
+            await leadsAPI.updateStatus(id, { status: 'proposal' });
+            await fetchLeadDetails(); // Refresh lead data
+          } catch (statusError) {
+            console.error('Failed to update lead status:', statusError);
+            // Don't show error to user as email was sent successfully
+          }
+        }
+        
+        alert('Email sent successfully via Gmail! Lead status updated to PROPOSAL.');
+        return;
+      }
+
+      const textBody = buildAllOptionsTextMessage(optionNumbers);
+      const response = await leadsAPI.sendEmail(id, {
+        to_email: recipientEmail,
+        subject,
+        body: textBody,
+      });
+
+      if (response.data.success) {
+        fetchLeadEmails();
+        
+        // Update lead status to PROPOSAL if not already
+        if (lead.status !== 'proposal') {
+          try {
+            await leadsAPI.updateStatus(id, { status: 'proposal' });
+            await fetchLeadDetails(); // Refresh lead data
+          } catch (statusError) {
+            console.error('Failed to update lead status:', statusError);
+            // Don't show error to user as email was sent successfully
+          }
+        }
+        
+        alert('Email sent successfully! Lead status updated to PROPOSAL.');
+      } else {
+        alert(response.data.message || 'Failed to send email');
+      }
+    } catch (error) {
+      console.error('Error sending email:', error);
+      alert(error.response?.data?.message || 'Failed to send email');
+    }
+>>>>>>> 685a818 (Added itinerary pricing, frontend updates, and backend improvements)
   };
 
   const handlePrint = (optionNum) => {
@@ -2083,15 +2197,106 @@ TravelOps Team`;
     }
   };
 
+<<<<<<< HEAD
   const handleSendWhatsApp = (optionNum) => {
+=======
+  const handleDownloadSingleOptionPdf = async (optionNum) => {
+    if (!quotationData || !optionNum) {
+      alert('Please select an option first.');
+      return;
+    }
+
+    try {
+      // Use the same HTML email content but restrict to the selected option only
+      const fullHtml = await generateEmailContent();
+      let emailContent = extractBodyContent(fullHtml);
+
+      // If needed, we could further filter for a single option inside emailContent using optionNum
+      // For now, we keep full content so the PDF looks same as email.
+
+      const tempDiv = document.createElement('div');
+      tempDiv.innerHTML = emailContent;
+      tempDiv.style.position = 'absolute';
+      tempDiv.style.left = '-9999px';
+      tempDiv.style.width = '210mm'; // A4 width
+      tempDiv.style.backgroundColor = '#ffffff';
+      document.body.appendChild(tempDiv);
+
+      // Configure PDF options
+      const opt = {
+        margin: [10, 10, 10, 10],
+        filename: `Travel_Quotation_Option_${optionNum}_${quotationData?.itinerary?.itinerary_name || 'Itinerary'}_${formatLeadId(lead?.id)}_${new Date().toISOString().split('T')[0]}.pdf`,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { 
+          scale: 2,
+          useCORS: true,
+          logging: false,
+          letterRendering: true
+        },
+        jsPDF: { 
+          unit: 'mm', 
+          format: 'a4', 
+          orientation: 'portrait',
+          compress: true
+        },
+        pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
+      };
+
+      // Generate and download PDF
+      await html2pdf().set(opt).from(tempDiv).save();
+      
+      // Clean up
+      document.body.removeChild(tempDiv);
+      
+      alert(`PDF downloaded successfully for Option ${optionNum}!`);
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      alert('Failed to generate PDF. Please try the Print option instead.');
+    }
+  };
+
+  const handleSendWhatsApp = async () => {
+>>>>>>> 685a818 (Added itinerary pricing, frontend updates, and backend improvements)
     if (!quotationData || !lead) {
       alert('Please load quotation first');
       return;
     }
 
+<<<<<<< HEAD
     const phone = lead.phone?.replace(/[^0-9]/g, '') || '';
     if (!phone) {
       alert('Phone number not available');
+=======
+    try {
+      const response = await whatsappAPI.send(id, message);
+      if (response.data.success) {
+        fetchWhatsAppMessages();
+        
+        // Update lead status to PROPOSAL if not already
+        if (lead.status !== 'proposal') {
+          try {
+            await leadsAPI.updateStatus(id, { status: 'proposal' });
+            await fetchLeadDetails(); // Refresh lead data
+          } catch (statusError) {
+            console.error('Failed to update lead status:', statusError);
+            // Don't show error to user as WhatsApp was sent successfully
+          }
+        }
+        
+        alert('WhatsApp message sent successfully! Lead status updated to PROPOSAL.');
+      } else {
+        alert(response.data.message || 'Failed to send WhatsApp message');
+      }
+    } catch (error) {
+      console.error('Error sending WhatsApp:', error);
+      alert(error.response?.data?.message || 'Failed to send WhatsApp message');
+    }
+  };
+
+  const handleSendAllFromGroup = async (group, channel) => {
+    if (!group?.options?.length) {
+      alert('No options found for this itinerary.');
+>>>>>>> 685a818 (Added itinerary pricing, frontend updates, and backend improvements)
       return;
     }
 
@@ -2107,8 +2312,14 @@ TravelOps Team`;
       const hotels = quotationData.hotelOptions[optNum] || [];
       const totalPrice = hotels.reduce((sum, h) => sum + (parseFloat(h.price) || 0), 0);
 
+<<<<<<< HEAD
       message += `*Option ${optNum}*\n`;
       message += `Hotels:\n`;
+=======
+    setShowQuotationModal(false);
+    // Note: Status update is handled inside handleSendMail() and handleSendWhatsApp()
+  };
+>>>>>>> 685a818 (Added itinerary pricing, frontend updates, and backend improvements)
 
       hotels.forEach(hotel => {
         message += `• Day ${hotel.day}: ${hotel.hotelName || 'Hotel'} (${hotel.category || 'N/A'} Star)\n`;
@@ -2118,11 +2329,84 @@ TravelOps Team`;
       message += `Total Price: ₹${totalPrice.toLocaleString('en-IN')}\n\n`;
     });
 
+<<<<<<< HEAD
     message += `For detailed quotation with images, please check your email or contact us.\n\n`;
     message += `Best regards,\nTravelOps Team`;
 
     const whatsappUrl = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
     window.open(whatsappUrl, '_blank');
+=======
+    try {
+      await handleViewQuotation(proposal, { openModal: false });
+      const fullHtml = await generateEmailContent();
+      const emailContent = extractBodyContent(fullHtml);
+
+      // Create a temporary container for PDF generation
+      const tempDiv = document.createElement('div');
+      tempDiv.innerHTML = emailContent;
+      tempDiv.style.position = 'absolute';
+      tempDiv.style.left = '-9999px';
+      tempDiv.style.width = '210mm'; // A4 width
+      tempDiv.style.backgroundColor = '#ffffff';
+      document.body.appendChild(tempDiv);
+
+      // Configure PDF options
+      const opt = {
+        margin: [10, 10, 10, 10],
+        filename: `Travel_Quotation_${quotationData?.itinerary?.itinerary_name || 'Itinerary'}_${formatLeadId(lead?.id)}_${new Date().toISOString().split('T')[0]}.pdf`,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { 
+          scale: 2,
+          useCORS: true,
+          logging: false,
+          letterRendering: true
+        },
+        jsPDF: { 
+          unit: 'mm', 
+          format: 'a4', 
+          orientation: 'portrait',
+          compress: true
+        },
+        pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
+      };
+
+      // Generate and download PDF
+      await html2pdf().set(opt).from(tempDiv).save();
+      
+      // Clean up
+      document.body.removeChild(tempDiv);
+      
+      alert('PDF downloaded successfully!');
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      alert('Failed to generate PDF. Please try again or use the Print option.');
+      
+      // Fallback to print window
+      const emailContent = await generateEmailContent();
+      const printWindow = window.open('', '_blank');
+      if (printWindow) {
+        printWindow.document.write(`
+          <html>
+            <head>
+              <title>Travel Quotation - ${quotationData?.itinerary?.itinerary_name || 'Itinerary'}</title>
+              <style>
+                body { font-family: Arial, sans-serif; padding: 20px; }
+                img { max-width: 100%; height: auto; }
+              </style>
+            </head>
+            <body>
+              ${emailContent}
+            </body>
+          </html>
+        `);
+        printWindow.document.close();
+        printWindow.focus();
+        setTimeout(() => {
+          printWindow.print();
+        }, 500);
+      }
+    }
+>>>>>>> 685a818 (Added itinerary pricing, frontend updates, and backend improvements)
   };
 
   // Generate email content for confirmed option only
@@ -4153,6 +4437,14 @@ TravelOps Team`;
                     >
                       <Mail className="h-4 w-4" />
                       Send All Options
+                    </button>
+                    <button
+                      onClick={() => handleDownloadSingleOptionPdf(selectedOption)}
+                      className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 text-sm font-medium"
+                      title="Download PDF (Current Option)"
+                    >
+                      <Download className="h-4 w-4" />
+                      Download PDF
                     </button>
                     <button
                       onClick={() => handlePrint(selectedOption)}

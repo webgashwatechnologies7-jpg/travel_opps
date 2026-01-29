@@ -322,7 +322,7 @@ class DashboardController extends Controller
     public function latestLeadNotes(Request $request): JsonResponse
     {
         try {
-            // Query latest 10 lead notes with join to leads table
+            // Notes = remark present and no reminder_time (tasks have reminder_time set). Same as LeadDetails "notes".
             $leadNotes = DB::table('lead_followups')
                 ->join('leads', 'lead_followups.lead_id', '=', 'leads.id')
                 ->select(
@@ -333,6 +333,7 @@ class DashboardController extends Controller
                 )
                 ->whereNotNull('lead_followups.remark')
                 ->where('lead_followups.remark', '!=', '')
+                ->whereNull('lead_followups.reminder_time')
                 ->orderBy('lead_followups.created_at', 'desc')
                 ->limit(10)
                 ->get()

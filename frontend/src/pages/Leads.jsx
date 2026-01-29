@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+<<<<<<< HEAD
 import { useNavigate } from 'react-router-dom';
 import { leadsAPI, leadSourcesAPI, usersAPI } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
@@ -8,6 +9,15 @@ import QueriesHeader from '../components/Headers/QueriesHeader';
 import HeaderComponent from '../components/Headers/HeaderComponent';
 import LeadCard from '../components/Quiries/LeadCard';
 import { History } from 'lucide-react';
+=======
+import { useNavigate, useLocation } from 'react-router-dom';
+import { leadsAPI, leadSourcesAPI, usersAPI, servicesAPI } from '../services/api';
+import { useAuth } from '../contexts/AuthContext';
+import Layout from '../components/Layout';
+import { X, ChevronDown, Filter, Eye, Mail, MessageSquare, Edit, MoreVertical, History } from 'lucide-react';
+import QueriesHeader from '../components/Headers/QueriesHeader';
+import LeadCard from '../components/Quiries/LeadCard';
+>>>>>>> 685a818 (Added itinerary pricing, frontend updates, and backend improvements)
 
 const Leads = () => {
   const navigate = useNavigate();
@@ -24,6 +34,9 @@ const Leads = () => {
   const [selectedLead, setSelectedLead] = useState(null);
   const [importFile, setImportFile] = useState(null);
   const [activeFilter, setActiveFilter] = useState('total'); // 'total', 'new', 'proposal', etc.
+  const [destinationFilter, setDestinationFilter] = useState('');
+  const [assignedToFilter, setAssignedToFilter] = useState('');
+  const [assignedNameFilter, setAssignedNameFilter] = useState('');
   const [openActionMenu, setOpenActionMenu] = useState(null); // Track which row's action menu is open
   const [formData, setFormData] = useState({
     type: 'Client',
@@ -46,10 +59,100 @@ const Leads = () => {
   });
 
   useEffect(() => {
-    fetchLeads();
     fetchLeadSources();
     fetchUsers();
+<<<<<<< HEAD
+=======
+    fetchServices();
+    // Initial fetch of leads
+    fetchLeads();
+>>>>>>> 685a818 (Added itinerary pricing, frontend updates, and backend improvements)
   }, []);
+
+  const location = useLocation();
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const assignedName = params.get('assigned_name');
+    if (assignedName) {
+      setAssignedNameFilter(assignedName);
+      const normalized = assignedName.toLowerCase().trim();
+      const matchedUser = users.find((u) => {
+        const name = (u.name || '').toLowerCase().trim();
+        return name && name === normalized;
+      });
+      if (matchedUser?.id) {
+        setAssignedToFilter(String(matchedUser.id));
+        setActiveFilter('assigned_to');
+        fetchLeads({ assigned_to: matchedUser.id });
+      } else {
+        setActiveFilter('assigned_name');
+        fetchLeads();
+      }
+      return;
+    }
+    const assignedTo = params.get('assigned_to');
+    if (assignedTo) {
+      setAssignedToFilter(assignedTo);
+      setActiveFilter('assigned_to');
+      fetchLeads({ assigned_to: assignedTo });
+      return;
+    }
+    const destination = params.get('destination');
+    if (destination) {
+      setDestinationFilter(destination);
+      setActiveFilter('destination');
+      fetchLeads({ destination });
+      return;
+    }
+    if (params.get('today') === '1') {
+      setActiveFilter('today');
+      fetchLeads();
+      return;
+    }
+    const range = params.get('range');
+    if (range === 'week') {
+      setActiveFilter('weekly');
+      fetchLeads();
+      return;
+    }
+    if (range === 'month') {
+      setActiveFilter('monthly');
+      fetchLeads();
+      return;
+    }
+    if (range === 'year') {
+      setActiveFilter('yearly');
+      fetchLeads();
+      return;
+    }
+    const status = params.get('status');
+    if (status === 'new') {
+      setActiveFilter('new');
+      fetchLeads({ status: 'new' });
+      return;
+    }
+    if (status === 'proposal') {
+      setActiveFilter('pending');
+      fetchLeads({ status: 'proposal' });
+      return;
+    }
+    if (status === 'cancelled') {
+      setActiveFilter('closed');
+      fetchLeads({ status: 'cancelled' });
+      return;
+    }
+    const priority = params.get('priority');
+    if (priority === 'hot') {
+      setActiveFilter('hot');
+      fetchLeads({ priority: 'hot' });
+      return;
+    }
+    setDestinationFilter('');
+    setAssignedToFilter('');
+    setAssignedNameFilter('');
+    fetchLeads();
+  }, [location.search, users]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -67,12 +170,36 @@ const Leads = () => {
     };
   }, [showOptionsDropdown, openActionMenu]);
 
-  const fetchLeads = async () => {
+  const fetchLeads = async (filters = {}) => {
     try {
-      const response = await leadsAPI.list();
-      setLeads(response.data.data.leads || []);
+      setLoading(true);
+      const response = await leadsAPI.list(filters);
+      console.log('Full API Response:', response);
+      console.log('Response Data:', response.data);
+      
+      // Handle different response structures
+      let leadsData = [];
+      if (response.data?.data?.leads) {
+        // Standard paginated response: { success: true, data: { leads: [...], pagination: {...} } }
+        leadsData = response.data.data.leads;
+      } else if (response.data?.data && Array.isArray(response.data.data)) {
+        // Direct array response: { success: true, data: [...] }
+        leadsData = response.data.data;
+      } else if (response.data?.leads) {
+        // Alternative structure: { success: true, leads: [...] }
+        leadsData = response.data.leads;
+      } else if (Array.isArray(response.data)) {
+        // Direct array: [...]
+        leadsData = response.data;
+      }
+      
+      console.log('Extracted leads:', leadsData);
+      console.log('Leads count:', leadsData.length);
+      setLeads(leadsData);
     } catch (err) {
       console.error('Failed to fetch leads:', err);
+      console.error('Error details:', err.response?.data || err.message);
+      setLeads([]);
     } finally {
       setLoading(false);
     }
@@ -146,17 +273,44 @@ const Leads = () => {
     try {
       await leadsAPI.assign(leadId, parseInt(assignedTo));
       fetchLeads();
+      setShowAssignModal(false);
+      setSelectedLead(null);
     } catch (err) {
       alert('Failed to assign lead');
     }
+  };
+
+  const handleOpenAssignModal = (leadId) => {
+    const lead = leads.find(l => l.id === leadId);
+    setSelectedLead(lead);
+    setShowAssignModal(true);
   };
 
   const handleStatusChange = async (leadId, status) => {
     try {
       await leadsAPI.updateStatus(leadId, status);
       fetchLeads();
+      setShowStatusModal(false);
+      setSelectedLead(null);
     } catch (err) {
       alert('Failed to update status');
+    }
+  };
+
+  const handleOpenStatusModal = (leadId) => {
+    const lead = leads.find(l => l.id === leadId);
+    setSelectedLead(lead);
+    setShowStatusModal(true);
+  };
+
+  const handleDelete = async (leadId) => {
+    try {
+      await leadsAPI.delete(leadId);
+      fetchLeads();
+      alert('Lead deleted successfully');
+    } catch (err) {
+      alert('Failed to delete lead');
+      console.error(err);
     }
   };
 
@@ -182,6 +336,21 @@ const Leads = () => {
 
   // Calculate summary statistics
   const calculateStats = () => {
+    const today = new Date();
+    const isSameDay = (date) => {
+      const d = new Date(date);
+      return d.getFullYear() === today.getFullYear()
+        && d.getMonth() === today.getMonth()
+        && d.getDate() === today.getDate();
+    };
+    const startOfWeek = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
+    const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+    const startOfYear = new Date(today.getFullYear(), 0, 1);
+    const inRange = (date, start) => {
+      const d = new Date(date);
+      return d >= start;
+    };
     const stats = {
       total: leads.length,
       new: leads.filter(l => l.status === 'new').length,
@@ -192,6 +361,10 @@ const Leads = () => {
       cancel: leads.filter(l => l.status === 'cancelled').length,
       followUp: leads.filter(l => l.status === 'followup').length,
       confirmed: leads.filter(l => l.status === 'confirmed').length,
+      today: leads.filter(l => l.created_at && isSameDay(l.created_at)).length,
+      weekly: leads.filter(l => l.created_at && inRange(l.created_at, startOfWeek)).length,
+      monthly: leads.filter(l => l.created_at && inRange(l.created_at, startOfMonth)).length,
+      yearly: leads.filter(l => l.created_at && inRange(l.created_at, startOfYear)).length,
       postponed: 0, // Not in current data model
       invalid: 0, // Not in current data model
     };
@@ -202,8 +375,65 @@ const Leads = () => {
 
   // Filter leads based on active filter
   const getFilteredLeads = () => {
+    if (activeFilter === 'assigned_name') {
+      const target = (assignedNameFilter || '').toLowerCase().trim();
+      if (!target) return leads;
+      return leads.filter((lead) => {
+        const assignedName =
+          lead.assigned_to?.name ||
+          lead.assigned_to_name ||
+          lead.assigned_user_name ||
+          '';
+        const nameValue = assignedName.toLowerCase().trim();
+        return nameValue === target || nameValue.includes(target);
+      });
+    }
+    if (activeFilter === 'assigned_to') {
+      const target = Number(assignedToFilter);
+      if (!Number.isFinite(target)) return leads;
+      return leads.filter((lead) => {
+        const assigned = lead.assigned_to?.id ?? lead.assigned_to_id ?? lead.assigned_to;
+        return Number(assigned) === target;
+      });
+    }
+    if (activeFilter === 'destination') {
+      const target = (destinationFilter || '').toLowerCase().trim();
+      if (!target) return leads;
+      return leads.filter((lead) => {
+        const value = (lead.destination || '').toLowerCase().trim();
+        return value === target || value.includes(target);
+      });
+    }
     if (activeFilter === 'total') {
       return leads;
+    } else if (activeFilter === 'today') {
+      const today = new Date();
+      return leads.filter(l => {
+        if (!l.created_at) return false;
+        const d = new Date(l.created_at);
+        return d.getFullYear() === today.getFullYear()
+          && d.getMonth() === today.getMonth()
+          && d.getDate() === today.getDate();
+      });
+    } else if (activeFilter === 'weekly') {
+      const today = new Date();
+      const startOfWeek = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+      startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
+      return leads.filter(l => l.created_at && new Date(l.created_at) >= startOfWeek);
+    } else if (activeFilter === 'monthly') {
+      const today = new Date();
+      const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+      return leads.filter(l => l.created_at && new Date(l.created_at) >= startOfMonth);
+    } else if (activeFilter === 'yearly') {
+      const today = new Date();
+      const startOfYear = new Date(today.getFullYear(), 0, 1);
+      return leads.filter(l => l.created_at && new Date(l.created_at) >= startOfYear);
+    } else if (activeFilter === 'pending') {
+      return leads.filter(l => l.status === 'proposal');
+    } else if (activeFilter === 'closed') {
+      return leads.filter(l => l.status === 'cancelled');
+    } else if (activeFilter === 'hot') {
+      return leads.filter(l => l.priority === 'hot');
     } else if (activeFilter === 'new') {
       return leads.filter(l => l.status === 'new');
     } else if (activeFilter === 'proposalSent') {
@@ -229,6 +459,14 @@ const Leads = () => {
   };
 
   const filteredLeads = getFilteredLeads();
+  
+  // Debug logging
+  useEffect(() => {
+    console.log('Current leads state:', leads);
+    console.log('Active filter:', activeFilter);
+    console.log('Filtered leads:', filteredLeads);
+    console.log('Filtered leads count:', filteredLeads.length);
+  }, [leads, activeFilter, filteredLeads]);
 
   // Format date helper
   const formatDate = (dateString) => {
@@ -348,6 +586,14 @@ const Leads = () => {
   }
 
 
+  const handleRefresh = () => {
+    setActiveFilter("total");
+    setDestinationFilter('');
+    setAssignedToFilter('');
+    setAssignedNameFilter('');
+    fetchLeads();
+  }
+
   return (
     <Layout Header={FinalHeader}>
       <div className="p-6 mt-2 rounded-md" style={{ backgroundColor: '#fff', minHeight: 'fit-content' }}>
@@ -355,11 +601,18 @@ const Leads = () => {
 
 
         {/* Summary Cards */}
+<<<<<<< HEAD
         {/* SUMMARY CARDS – IMAGE MATCH */}
+=======
+>>>>>>> 685a818 (Added itinerary pricing, frontend updates, and backend improvements)
         <div className="w-full ">
           <div className="flex md:p-1 gap-3 overflow-x-auto custom-scroll pb-3 mb-6">
             {[
               { key: "total", label: "Total Queries", value: stats.total, bg: "bg-blue-800" },
+<<<<<<< HEAD
+=======
+              { key: "today", label: "Today", value: stats.today, bg: "bg-blue-600" },
+>>>>>>> 685a818 (Added itinerary pricing, frontend updates, and backend improvements)
               { key: "new", label: "New", value: stats.new, bg: "bg-orange-400" },
               { key: "proposalSent", label: "Proposal sent", value: stats.proposalSent, bg: "bg-teal-500" },
               { key: "noConnect", label: "No Connect", value: stats.noConnect, bg: "bg-red-500" },
@@ -375,6 +628,7 @@ const Leads = () => {
                 key={item.key}
                 onClick={() => setActiveFilter(item.key)}
                 className={`
+<<<<<<< HEAD
           ${item.bg} text-white
           min-w-[60px] h-[60px]
           md:w-[80px] md:h-[80px]
@@ -386,6 +640,19 @@ const Leads = () => {
           hover:scale-105
           ${activeFilter === item.key ? "ring-4 ring-blue-300 scale-105" : ""}
         `}
+=======
+                  ${item.bg} text-white
+                  min-w-[60px] h-[60px]
+                  md:w-[80px] md:h-[80px]
+                  lg:min-w-[100px] lg:h-[100px]
+                  flex flex-col items-center justify-center
+                  rounded-xl cursor-pointer
+                  text-center px-2
+                  transition-all duration-200
+                  hover:scale-105
+                  ${activeFilter === item.key ? "ring-4 ring-blue-300 scale-105" : ""}
+                `}
+>>>>>>> 685a818 (Added itinerary pricing, frontend updates, and backend improvements)
               >
                 <div className=" text-sm md:text-xl lg:text-3xl font-bold leading-none">
                   {item.value}
@@ -398,13 +665,18 @@ const Leads = () => {
           </div>
         </div>
 
+<<<<<<< HEAD
 
 
         {/* Queries Table */}
+=======
+        {/* Queries Section */}
+>>>>>>> 685a818 (Added itinerary pricing, frontend updates, and backend improvements)
         <div className='flex justify-between items-center mb-6'>
           <div className='flex items-center gap-2'>
             <h2 className="text-lg font-bold">Queries</h2>
             <span className="text-lg font-bold">• All</span>
+<<<<<<< HEAD
 
           </div>
           <button className="flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-md" onClick={handleRefresh}><History size={20} />Refresh</button>
@@ -431,7 +703,61 @@ const Leads = () => {
               onAssign={() => handleAssign(lead.id)}
             />
           ))}
+=======
+          </div>
+          <button className="flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-md" onClick={handleRefresh}>
+            <History size={20} />
+            Refresh
+          </button>
+>>>>>>> 685a818 (Added itinerary pricing, frontend updates, and backend improvements)
         </div>
+
+        {filteredLeads.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-12 bg-white rounded-lg shadow">
+            <p className="text-gray-500 text-lg mb-2">No leads found</p>
+            <p className="text-gray-400 text-sm">Click "+ Add New" to create your first lead</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {filteredLeads.map((lead) => {
+              // Get assigned user name from various possible fields
+              // Backend returns assignedUser relationship or assigned_user object
+              const assignedUserName = 
+                lead.assignedUser?.name || 
+                lead.assigned_user?.name || 
+                lead.assigned_to?.name || 
+                lead.assigned_to_name || 
+                lead.assigned_user_name || 
+                null;
+              
+              return (
+                <LeadCard
+                  id={lead.id}
+                  key={lead.id}
+                  name={lead.client_name}
+                  phone={lead.phone || "N/A"}
+                  email={lead.email}
+                  tag={
+                    lead.status === "confirmed"
+                      ? "Confirmed"
+                      : lead.status === "new"
+                        ? "New"
+                        : ""
+                  }
+                  location={lead.destination || "N/A"}
+                  date={formatDate(lead.created_at)}
+                  amount={lead.amount || 0}
+                  status={lead.status}
+                  assignedTo={lead.assignedUser || lead.assigned_user || lead.assigned_to}
+                  assignedUserName={assignedUserName}
+                  onAssign={handleOpenAssignModal}
+                  onStatusChange={handleOpenStatusModal}
+                  onDelete={handleDelete}
+                />
+              );
+            })}
+          </div>
+        )}
 
         {/* ADD QUERY Modal */}
         {showModal && (
@@ -765,25 +1091,40 @@ const Leads = () => {
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
             <div className="bg-white rounded-lg p-6 w-full max-w-md">
               <h2 className="text-xl font-bold mb-4">Assign Lead</h2>
-              <p className="mb-4">Assign lead to user ID:</p>
-              <input
-                type="number"
-                placeholder="User ID"
+              <p className="mb-4">Assign lead to:</p>
+              <select
                 id="assignUserId"
                 className="w-full px-4 py-2 border rounded-lg mb-4"
-              />
+                defaultValue={currentUser?.id || ''}
+              >
+                <option value={currentUser?.id || ''}>
+                  {currentUser?.name || 'Select User'}
+                </option>
+                {users.filter(u => u.id !== currentUser?.id).map((user) => (
+                  <option key={user.id} value={user.id}>
+                    {user.name}
+                  </option>
+                ))}
+              </select>
               <div className="flex space-x-2">
                 <button
                   onClick={() => {
                     const userId = document.getElementById('assignUserId').value;
-                    if (userId && selectedLead) handleAssign(selectedLead.id, parseInt(userId));
+                    if (userId && selectedLead) {
+                      handleAssign(selectedLead.id, parseInt(userId));
+                    } else {
+                      alert('Please select a user');
+                    }
                   }}
                   className="flex-1 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700"
                 >
                   Assign
                 </button>
                 <button
-                  onClick={() => setShowAssignModal(false)}
+                  onClick={() => {
+                    setShowAssignModal(false);
+                    setSelectedLead(null);
+                  }}
                   className="flex-1 bg-gray-300 text-gray-700 py-2 rounded-lg hover:bg-gray-400"
                 >
                   Cancel
@@ -810,7 +1151,10 @@ const Leads = () => {
                 ))}
               </div>
               <button
-                onClick={() => setShowStatusModal(false)}
+                onClick={() => {
+                  setShowStatusModal(false);
+                  setSelectedLead(null);
+                }}
                 className="mt-4 w-full bg-gray-300 text-gray-700 py-2 rounded-lg hover:bg-gray-400"
               >
                 Cancel

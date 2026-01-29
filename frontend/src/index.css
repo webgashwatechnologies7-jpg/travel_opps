@@ -66,6 +66,10 @@ body {
     color: hsl(var(--foreground));
   }
 }
+<<<<<<< HEAD
+=======
+
+>>>>>>> 685a818 (Added itinerary pricing, frontend updates, and backend improvements)
 .custom-scroll {
   overflow-y: auto;
   scroll-behavior: smooth;
@@ -85,4 +89,8 @@ body {
   background: #9DC7F1;
   border-radius: 20px;
   border: 2px solid #ffffff;
+<<<<<<< HEAD
 }
+=======
+}
+>>>>>>> 685a818 (Added itinerary pricing, frontend updates, and backend improvements)

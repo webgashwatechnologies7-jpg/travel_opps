@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Edit, Plus } from 'lucide-react';
+import { Edit, Plus, Building2, Star } from 'lucide-react';
+import { itineraryPricingAPI } from '../services/api';
 
 const PricingTab = ({
   itinerary,
@@ -22,10 +23,21 @@ const PricingTab = ({
   setTcs,
   discount,
   setDiscount,
+  initialOptionGstSettings = {},
   onAddToProposals
 }) => {
-  // Individual GST settings for each option
-  const [optionGstSettings, setOptionGstSettings] = useState({});
+  // Individual GST settings for each option (overrides global gst)
+  const [optionGstSettings, setOptionGstSettings] = useState(initialOptionGstSettings || {});
+
+  // Sync internal GST settings when server-provided settings change
+  useEffect(() => {
+    if (initialOptionGstSettings && Object.keys(initialOptionGstSettings).length > 0) {
+      setOptionGstSettings(prev => ({
+        ...prev,
+        ...initialOptionGstSettings
+      }));
+    }
+  }, [initialOptionGstSettings]);
   // Collect all accommodation events with hotel options
   const allOptions = [];
   Object.keys(dayEvents).forEach(day => {
@@ -222,6 +234,35 @@ const PricingTab = ({
     setPricingData(updatedPricing);
   };
 
+  // Explicitly save GST + pricing for a single option (on button click)
+  const handleSaveOptionSettings = async (optNum) => {
+    if (!itinerary?.id) {
+      alert('Itinerary ID not found. Please save the itinerary first.');
+      return;
+    }
+
+    try {
+      const payload = {
+        pricing_data: pricingData,
+        final_client_prices: finalClientPrices,
+        option_gst_settings: optionGstSettings,
+        base_markup: baseMarkup,
+        extra_markup: extraMarkup,
+        cgst,
+        sgst,
+        igst,
+        tcs,
+        discount,
+      };
+
+      await itineraryPricingAPI.save(itinerary.id, payload);
+      alert(`Pricing & GST for Option ${optNum} saved to server.`);
+    } catch (e) {
+      console.error('Failed to save option settings to server', e);
+      alert('Failed to save settings to server. Please try again.');
+    }
+  };
+
   return (
     <div className="p-6">
       <div className="mb-4">
@@ -231,147 +272,161 @@ const PricingTab = ({
         </p>
       </div>
 
-      {/* Options Sections - Each Option in Separate Card */}
-      {Object.keys(optionsByNumber).length === 0 ? (
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 text-center">
-          <p className="text-gray-500">No accommodation options found. Please add hotels in the Build tab.</p>
-        </div>
-      ) : (
-        <div className="space-y-6 mb-6">
-          {Object.keys(optionsByNumber).sort((a, b) => parseInt(a) - parseInt(b)).map(optNum => {
-            const options = optionsByNumber[optNum];
-            const totals = optionTotals[optNum];
-            const dayGroups = options.reduce((acc, option, idx) => {
-              const optionKey = `${optNum}-${option.day}-${idx}`;
-              const currentPricing = pricingData[optionKey] || {
-                net: parseFloat(option.price) || 0,
-                markup: 0,
-                gross: parseFloat(option.price) || 0
-              };
-              const dayKey = option.day;
-              if (!acc[dayKey]) {
-                acc[dayKey] = {
-                  items: [],
-                  totalNet: 0,
-                  totalMarkup: 0,
-                  totalGross: 0
-                };
-              }
-              acc[dayKey].items.push({ optionKey, option, pricing: currentPricing });
-              acc[dayKey].totalNet += currentPricing.net || 0;
-              acc[dayKey].totalMarkup += currentPricing.markup || 0;
-              acc[dayKey].totalGross += currentPricing.gross || 0;
-              return acc;
-            }, {});
-            const sortedDays = Object.keys(dayGroups).sort((a, b) => parseInt(a) - parseInt(b));
-            
-            return (
-              <div key={optNum} className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-                {/* Option Header */}
-                <div className="bg-blue-50 px-6 py-4 border-b border-gray-200">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-3">
-                      <button className="px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg">
+      {/* Hotel Options Summary - Shows hotels per option per night */}
+      {Object.keys(optionsByNumber).length > 0 && (
+        <div className="mb-6 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border-2 border-blue-200 p-6">
+          <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+            <Building2 className="h-5 w-5 text-blue-600" />
+            Hotel Options Summary (Per Night Per Option)
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {Object.keys(optionsByNumber).sort((a, b) => parseInt(a) - parseInt(b)).map(optNum => {
+              const options = optionsByNumber[optNum];
+              // Sort options by day
+              const sortedOptions = [...options].sort((a, b) => a.day - b.day);
+              
+              return (
+                <div key={optNum} className="bg-white rounded-lg border-2 border-blue-300 p-4 shadow-sm flex flex-col gap-3">
+                  {/* Header */}
+                  <div className="flex items-center justify-between mb-1">
+                    <div className="flex items-center gap-2">
+                      <span className="px-3 py-1 bg-blue-600 text-white text-sm font-bold rounded-lg">
                         Option {optNum}
-                      </button>
-                      <div className="flex items-center gap-4">
-                        <div>
-                          <div className="text-xs text-gray-500 mb-1">Calculated Total:</div>
-                          <div className="text-lg font-bold text-gray-900">
-                            ₹{totals?.finalTotal.toLocaleString('en-IN') || '0'}
-                          </div>
-                        </div>
-                        <div className="border-l border-gray-300 pl-4">
-                          <label className="text-xs text-gray-500 mb-1 block">Final Client Price:</label>
-                          <div className="flex items-center gap-2">
-                            <input
-                              type="number"
-                              value={finalClientPrices[optNum] !== undefined && finalClientPrices[optNum] !== null ? finalClientPrices[optNum] : totals?.finalTotal || ''}
-                              onChange={(e) => {
-                                const value = e.target.value === '' ? null : parseFloat(e.target.value) || 0;
-                                setFinalClientPrices(prev => ({
-                                  ...prev,
-                                  [optNum]: value
-                                }));
-                              }}
-                              onBlur={() => {
-                                // Auto-save when user leaves the input field
-                                if (finalClientPrices[optNum] !== undefined && finalClientPrices[optNum] !== null) {
-                                  // Price is already saved in state
-                                }
-                              }}
-                              className="w-40 px-3 py-2 border-2 border-blue-500 rounded-lg text-lg font-bold text-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                              placeholder="Set price"
-                              min="0"
-                              step="1"
-                            />
-                            {finalClientPrices[optNum] !== undefined && finalClientPrices[optNum] !== null && finalClientPrices[optNum] !== totals?.finalTotal && (
-                              <span className="text-xs text-green-600 font-semibold" title="Custom price set">
-                                ✓
-                              </span>
-                            )}
-                          </div>
-                          <div className="text-xs text-gray-400 mt-1">
-                            {finalClientPrices[optNum] !== undefined && finalClientPrices[optNum] !== null ? 'Price saved automatically' : 'Enter price to save'}
-                          </div>
-                        </div>
+                      </span>
+                      <span className="text-xs text-gray-500">
+                        {sortedOptions.length} Night{sortedOptions.length !== 1 ? 's' : ''}
+                      </span>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-xs text-gray-500">Total (Client)</div>
+                      <div className="text-lg font-bold text-gray-900">
+                        ₹{(optionTotals[optNum]?.clientPrice || 0).toLocaleString('en-IN')}
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => {
-                          handleUpdateOption(optNum);
-                          // Final client price is already saved in state via onChange
-                          // Show confirmation
-                          alert(`Option ${optNum} pricing updated successfully!`);
-                        }}
-                        className="px-4 py-2 bg-green-600 text-white text-sm font-medium rounded hover:bg-green-700 flex items-center gap-2"
-                      >
-                        <Edit className="h-4 w-4" />
-                        Update Option {optNum}
-                      </button>
-                      {finalClientPrices[optNum] !== undefined && finalClientPrices[optNum] !== null && (
-                        <span className="text-xs text-green-600 font-medium">
-                          ✓ Price Saved
-                        </span>
-                      )}
+                  </div>
+
+                  <div className="space-y-2">
+                    {sortedOptions.map((option, idx) => {
+                      const optionKey = `${optNum}-${option.day}-${idx}`;
+                      const currentPricing = pricingData[optionKey] || {
+                        net: parseFloat(option.price) || 0,
+                        markup: 0,
+                        gross: parseFloat(option.price) || 0
+                      };
+
+                      return (
+                        <div key={idx} className="bg-gray-50 rounded p-2 border border-gray-200">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex-1">
+                              <div className="text-xs text-gray-500 mb-1">Night {idx + 1} (Day {option.day})</div>
+                              <div className="font-semibold text-sm text-gray-800">
+                                {option.hotelName || 'Hotel'}
+                              </div>
+                              <div className="text-xs text-gray-600 mt-1">
+                                {option.roomName || 'Standard'} | {option.mealPlan || 'Room Only'}
+                              </div>
+                              {option.category && (
+                                <div className="flex items-center gap-1 mt-1">
+                                  {[...Array(parseInt(option.category || 1))].map((_, i) => (
+                                    <Star key={i} className="h-3 w-3 fill-yellow-400 text-yellow-400" />
+                                  ))}
+                                  <span className="text-xs text-gray-500 ml-1">{option.category} Star</span>
+                                </div>
+                              )}
+                            </div>
+                            <div className="text-right">
+                              <div className="text-[11px] text-gray-500 mb-1">Net / Markup</div>
+                              <div className="flex flex-col items-end gap-1">
+                                <div className="flex gap-1">
+                                  <input
+                                    type="number"
+                                    value={currentPricing.net || ''}
+                                    onChange={(e) => {
+                                      const inputValue = e.target.value;
+                                      const net = inputValue === '' ? 0 : parseFloat(inputValue) || 0;
+                                      const markup = currentPricing.markup || 0;
+                                      const gross = net + markup;
+                                      setPricingData({
+                                        ...pricingData,
+                                        [optionKey]: { net, markup, gross }
+                                      });
+                                    }}
+                                    className="w-16 px-2 py-1 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                    placeholder="Net"
+                                    min="0"
+                                    step="1"
+                                  />
+                                  <input
+                                    type="number"
+                                    value={currentPricing.markup || ''}
+                                    onChange={(e) => {
+                                      const inputValue = e.target.value;
+                                      const markup = inputValue === '' ? 0 : parseFloat(inputValue) || 0;
+                                      const net = currentPricing.net || 0;
+                                      const gross = net + markup;
+                                      setPricingData({
+                                        ...pricingData,
+                                        [optionKey]: { net, markup, gross }
+                                      });
+                                    }}
+                                    className="w-16 px-2 py-1 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                    placeholder="MUP"
+                                    min="0"
+                                    step="1"
+                                  />
+                                </div>
+                                <div className="text-xs font-bold text-blue-600">
+                                  ₹{currentPricing.gross.toLocaleString('en-IN')}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {/* Totals + Final Client Price */}
+                  <div className="mt-2 pt-2 border-t border-gray-200 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-gray-500">Total Base:</span>
+                      <span className="text-sm font-bold text-gray-800">
+                        ₹{optionTotals[optNum]?.totalGross.toLocaleString('en-IN') || '0'}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs text-gray-500">Final Client Price:</span>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="number"
+                          value={
+                            finalClientPrices[optNum] !== undefined && finalClientPrices[optNum] !== null
+                              ? finalClientPrices[optNum]
+                              : optionTotals[optNum]?.finalTotal || ''
+                          }
+                          onChange={(e) => {
+                            const value = e.target.value === '' ? null : parseFloat(e.target.value) || 0;
+                            setFinalClientPrices(prev => ({
+                              ...prev,
+                              [optNum]: value
+                            }));
+                          }}
+                          className="w-32 px-3 py-1.5 border-2 border-blue-500 rounded-lg text-sm font-semibold text-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          placeholder="Set price"
+                          min="0"
+                          step="1"
+                        />
+                      </div>
                     </div>
                   </div>
-                  
-                  {/* Breakdown */}
-                  <div className="grid grid-cols-6 gap-4 text-xs mb-3">
-                    <div>
-                      <span className="text-gray-600">Markup:</span>
-                      <span className="ml-1 font-semibold text-gray-900">₹{totals?.totalMarkup.toLocaleString('en-IN') || '0'}</span>
+
+                  {/* Compact GST settings per option */}
+                  <div className="mt-2 pt-2 border-t border-gray-200">
+                    <div className="text-xs font-semibold text-gray-700 mb-1">
+                      GST Settings for Option {optNum}
                     </div>
-                    <div>
-                      <span className="text-gray-600">CGST ({totals?.gstSettings?.cgst || cgst}%):</span>
-                      <span className="ml-1 font-semibold text-gray-900">₹{totals?.cgstAmount.toLocaleString('en-IN') || '0'}</span>
-                    </div>
-                    <div>
-                      <span className="text-gray-600">SGST ({totals?.gstSettings?.sgst || sgst}%):</span>
-                      <span className="ml-1 font-semibold text-gray-900">₹{totals?.sgstAmount.toLocaleString('en-IN') || '0'}</span>
-                    </div>
-                    <div>
-                      <span className="text-gray-600">IGST ({totals?.gstSettings?.igst || igst}%):</span>
-                      <span className="ml-1 font-semibold text-gray-900">₹{totals?.igstAmount.toLocaleString('en-IN') || '0'}</span>
-                    </div>
-                    <div>
-                      <span className="text-gray-600">TCS ({totals?.gstSettings?.tcs || tcs}%):</span>
-                      <span className="ml-1 font-semibold text-gray-900">₹{totals?.tcsAmount.toLocaleString('en-IN') || '0'}</span>
-                    </div>
-                    <div>
-                      <span className="text-gray-600">Discount ({totals?.gstSettings?.discount || discount}%):</span>
-                      <span className="ml-1 font-semibold text-green-600">-₹{totals?.discountAmount.toLocaleString('en-IN') || '0'}</span>
-                    </div>
-                  </div>
-                  
-                  {/* GST Settings for this Option */}
-                  <div className="bg-white rounded-lg p-3 border border-gray-200">
-                    <div className="text-xs font-semibold text-gray-700 mb-2">GST Settings for Option {optNum}:</div>
-                    <div className="grid grid-cols-5 gap-2">
+                    <div className="grid grid-cols-5 gap-2 text-xs">
                       <div>
-                        <label className="block text-xs text-gray-600 mb-1">CGST %</label>
+                        <label className="block text-gray-600 mb-1">CGST %</label>
                         <input
                           type="number"
                           value={optionGstSettings[optNum]?.cgst ?? cgst}
@@ -380,18 +435,18 @@ const PricingTab = ({
                             setOptionGstSettings(prev => ({
                               ...prev,
                               [optNum]: {
-                                ...(prev[optNum] || { cgst: cgst, sgst: sgst, igst: igst, tcs: tcs, discount: discount }),
+                                ...(prev[optNum] || { cgst, sgst, igst, tcs, discount }),
                                 cgst: value
                               }
                             }));
                           }}
-                          className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
+                          className="w-full px-2 py-1 border border-gray-300 rounded"
                           min="0"
                           step="0.01"
                         />
                       </div>
                       <div>
-                        <label className="block text-xs text-gray-600 mb-1">SGST %</label>
+                        <label className="block text-gray-600 mb-1">SGST %</label>
                         <input
                           type="number"
                           value={optionGstSettings[optNum]?.sgst ?? sgst}
@@ -400,18 +455,18 @@ const PricingTab = ({
                             setOptionGstSettings(prev => ({
                               ...prev,
                               [optNum]: {
-                                ...(prev[optNum] || { cgst: cgst, sgst: sgst, igst: igst, tcs: tcs, discount: discount }),
+                                ...(prev[optNum] || { cgst, sgst, igst, tcs, discount }),
                                 sgst: value
                               }
                             }));
                           }}
-                          className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
+                          className="w-full px-2 py-1 border border-gray-300 rounded"
                           min="0"
                           step="0.01"
                         />
                       </div>
                       <div>
-                        <label className="block text-xs text-gray-600 mb-1">IGST %</label>
+                        <label className="block text-gray-600 mb-1">IGST %</label>
                         <input
                           type="number"
                           value={optionGstSettings[optNum]?.igst ?? igst}
@@ -420,18 +475,18 @@ const PricingTab = ({
                             setOptionGstSettings(prev => ({
                               ...prev,
                               [optNum]: {
-                                ...(prev[optNum] || { cgst: cgst, sgst: sgst, igst: igst, tcs: tcs, discount: discount }),
+                                ...(prev[optNum] || { cgst, sgst, igst, tcs, discount }),
                                 igst: value
                               }
                             }));
                           }}
-                          className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
+                          className="w-full px-2 py-1 border border-gray-300 rounded"
                           min="0"
                           step="0.01"
                         />
                       </div>
                       <div>
-                        <label className="block text-xs text-gray-600 mb-1">TCS %</label>
+                        <label className="block text-gray-600 mb-1">TCS %</label>
                         <input
                           type="number"
                           value={optionGstSettings[optNum]?.tcs ?? tcs}
@@ -440,18 +495,18 @@ const PricingTab = ({
                             setOptionGstSettings(prev => ({
                               ...prev,
                               [optNum]: {
-                                ...(prev[optNum] || { cgst: cgst, sgst: sgst, igst: igst, tcs: tcs, discount: discount }),
+                                ...(prev[optNum] || { cgst, sgst, igst, tcs, discount }),
                                 tcs: value
                               }
                             }));
                           }}
-                          className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
+                          className="w-full px-2 py-1 border border-gray-300 rounded"
                           min="0"
                           step="0.01"
                         />
                       </div>
                       <div>
-                        <label className="block text-xs text-gray-600 mb-1">Discount %</label>
+                        <label className="block text-gray-600 mb-1">Discount %</label>
                         <input
                           type="number"
                           value={optionGstSettings[optNum]?.discount ?? discount}
@@ -460,162 +515,38 @@ const PricingTab = ({
                             setOptionGstSettings(prev => ({
                               ...prev,
                               [optNum]: {
-                                ...(prev[optNum] || { cgst: cgst, sgst: sgst, igst: igst, tcs: tcs, discount: discount }),
+                                ...(prev[optNum] || { cgst, sgst, igst, tcs, discount }),
                                 discount: value
                               }
                             }));
                           }}
-                          className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
+                          className="w-full px-2 py-1 border border-gray-300 rounded"
                           min="0"
                           step="0.01"
                         />
                       </div>
                     </div>
-                  </div>
-                </div>
-
-                {/* Day-wise Itinerary Summary */}
-                <div className="px-6 py-4 bg-slate-50 border-b border-gray-200">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="text-sm font-semibold text-gray-800">
-                      Option {optNum} Itinerary (Day-wise)
-                    </div>
-                    <div className="text-xs text-gray-500">
-                      Per-day hotel selection with cost breakup
+                    <div className="mt-2 flex justify-end">
+                      <button
+                        type="button"
+                        onClick={() => handleSaveOptionSettings(optNum)}
+                        className="px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded hover:bg-blue-700"
+                      >
+                        Save GST & Pricing
+                      </button>
                     </div>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {sortedDays.map(day => {
-                      const dayData = dayGroups[day];
-                      return (
-                        <div key={`day-${optNum}-${day}`} className="bg-white border border-gray-200 rounded-lg p-4">
-                          <div className="flex items-center justify-between mb-2">
-                            <div className="text-sm font-semibold text-gray-800">Day {day}</div>
-                            <div className="text-sm font-bold text-blue-700">
-                              ₹{dayData.totalGross.toLocaleString('en-IN')}
-                            </div>
-                          </div>
-                          <div className="space-y-1">
-                            {dayData.items.map(item => (
-                              <div key={item.optionKey} className="text-xs text-gray-600">
-                                {item.option.hotelName || 'Hotel'} • {item.option.roomName || 'Standard'}
-                              </div>
-                            ))}
-                          </div>
-                          <div className="mt-2 text-xs text-gray-500">
-                            Net ₹{dayData.totalNet.toLocaleString('en-IN')} • Markup ₹{dayData.totalMarkup.toLocaleString('en-IN')}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
                 </div>
-
-                {/* Option Details Table */}
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead className="bg-gray-50 border-b border-gray-200">
-                      <tr>
-                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Item</th>
-                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Day</th>
-                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Type</th>
-                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Net</th>
-                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Markup</th>
-                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Gross</th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {options.map((option, idx) => {
-                        const optionKey = `${optNum}-${option.day}-${idx}`;
-                        const currentPricing = pricingData[optionKey] || {
-                          net: parseFloat(option.price) || 0,
-                          markup: 0,
-                          gross: parseFloat(option.price) || 0
-                        };
-
-                        return (
-                          <tr key={optionKey} className="hover:bg-gray-50">
-                            <td className="px-4 py-3 text-sm text-gray-900">
-                              <div className="font-medium">{option.hotelName || 'Hotel'}</div>
-                              <div className="text-xs text-gray-500 mt-1">
-                                {option.roomName || 'Standard'} - {option.checkIn ? new Date(option.checkIn).toLocaleDateString('en-GB') : 'N/A'} TO {option.checkOut ? new Date(option.checkOut).toLocaleDateString('en-GB') : 'N/A'}
-                              </div>
-                            </td>
-                            <td className="px-4 py-3 text-sm text-gray-600">Day {option.day}</td>
-                            <td className="px-4 py-3 text-sm text-gray-600">Accommodation</td>
-                            <td className="px-4 py-3">
-                              <input
-                                type="number"
-                                value={currentPricing.net || ''}
-                                onChange={(e) => {
-                                  const inputValue = e.target.value;
-                                  const net = inputValue === '' ? 0 : parseFloat(inputValue) || 0;
-                                  const markup = currentPricing.markup || 0;
-                                  const gross = net + markup;
-                                  setPricingData({
-                                    ...pricingData,
-                                    [optionKey]: { net, markup, gross }
-                                  });
-                                }}
-                                onClick={(e) => e.stopPropagation()}
-                                className="w-32 px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white cursor-text"
-                                placeholder="0"
-                                min="0"
-                                step="1"
-                              />
-                              <div className="text-xs text-gray-500 mt-1">INR</div>
-                            </td>
-                            <td className="px-4 py-3">
-                              <input
-                                type="number"
-                                value={currentPricing.markup || ''}
-                                onChange={(e) => {
-                                  const inputValue = e.target.value;
-                                  const markup = inputValue === '' ? 0 : parseFloat(inputValue) || 0;
-                                  const net = currentPricing.net || 0;
-                                  const gross = net + markup;
-                                  setPricingData({
-                                    ...pricingData,
-                                    [optionKey]: { net, markup, gross }
-                                  });
-                                }}
-                                onClick={(e) => e.stopPropagation()}
-                                className="w-32 px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white cursor-text"
-                                placeholder="0"
-                                min="0"
-                                step="1"
-                              />
-                              <div className="text-xs text-gray-500 mt-1">INR</div>
-                            </td>
-                            <td className="px-4 py-3">
-                              <div className="text-sm font-semibold text-gray-900">
-                                ₹{currentPricing.gross.toLocaleString('en-IN')}
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                      {/* Option Total Summary Row */}
-                      <tr className="bg-gray-50 font-semibold border-t-2 border-gray-300">
-                        <td colSpan="3" className="px-4 py-3 text-sm text-gray-700 text-right">
-                          Option {optNum} Total:
-                        </td>
-                        <td className="px-4 py-3 text-sm font-semibold text-gray-900">
-                          ₹{totals?.totalNet.toLocaleString('en-IN') || '0'}
-                        </td>
-                        <td className="px-4 py-3 text-sm font-semibold text-gray-900">
-                          ₹{totals?.totalMarkup.toLocaleString('en-IN') || '0'}
-                        </td>
-                        <td className="px-4 py-3 text-sm font-bold text-blue-600">
-                          ₹{totals?.finalTotal.toLocaleString('en-IN') || '0'}
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
+          <div className="mt-4 p-3 bg-blue-100 rounded-lg border border-blue-300">
+            <p className="text-xs text-blue-800">
+              <strong>Note:</strong> Each option can have different hotels for each night. 
+              For example, Option 1 Night 1 = Hotel A, Option 1 Night 2 = Hotel D. 
+              Set prices for each hotel in the sections below.
+            </p>
+          </div>
         </div>
       )}
 

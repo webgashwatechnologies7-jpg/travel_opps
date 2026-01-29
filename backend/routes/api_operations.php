@@ -7,6 +7,7 @@ use App\Http\Controllers\DestinationController;
 use App\Http\Controllers\HotelController;
 use App\Http\Controllers\HotelRateController;
 use App\Http\Controllers\MealPlanController;
+use App\Http\Controllers\ItineraryPricingController;
 use App\Http\Controllers\PackageController;
 use App\Http\Controllers\RoomTypeController;
 use App\Http\Controllers\TransferController;
@@ -104,6 +105,10 @@ Route::middleware('auth:sanctum')->prefix('packages')->group(function () {
     Route::get('/{id}', [PackageController::class, 'show']);
     Route::put('/{id}', [PackageController::class, 'update']);
     Route::delete('/{id}', [PackageController::class, 'destroy']);
+
+    // Itinerary pricing routes
+    Route::get('/{id}/pricing', [ItineraryPricingController::class, 'show']);
+    Route::put('/{id}/pricing', [ItineraryPricingController::class, 'upsert']);
 });
 
 // Destinations routes - require authentication

@@ -59,12 +59,12 @@ class LeadRepository implements LeadRepositoryInterface
         // Order by latest first with created_at index
         $query->latest();
 
-        // Select only necessary columns to reduce memory usage
-        return $query->select([
-            'id', 'client_name', 'email', 'phone', 'source', 
-            'destination', 'status', 'assigned_to', 'priority', 
-            'travel_start_date', 'created_at', 'company_id'
-        ])->paginate($perPage);
+        // Load assigned user relationship
+        $query->with('assignedUser:id,name,email');
+
+        // Paginate without select to avoid relationship loading issues
+        // Laravel will handle the relationship loading properly
+        return $query->paginate($perPage);
     }
 
     /**

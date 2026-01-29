@@ -16,6 +16,10 @@ class CallWebhookController extends Controller
 {
     public function twilio(Request $request): JsonResponse
     {
+        if (config('services.telephony.webhook_skip_signature')) {
+            return $this->handleWebhook($request, 'twilio');
+        }
+
         $signatureCheck = $this->validateTwilioSignature($request);
         if ($signatureCheck !== true) {
             return response()->json([
@@ -29,6 +33,10 @@ class CallWebhookController extends Controller
 
     public function exotel(Request $request): JsonResponse
     {
+        if (config('services.telephony.webhook_skip_signature')) {
+            return $this->handleWebhook($request, 'exotel');
+        }
+
         $signatureCheck = $this->validateExotelSignature($request);
         if ($signatureCheck !== true) {
             return response()->json([
@@ -55,8 +63,27 @@ class CallWebhookController extends Controller
             $from = $this->getFirstValue($payload, ['From', 'from', 'Call.From', 'caller']);
             $to = $this->getFirstValue($payload, ['To', 'to', 'Call.To', 'called']);
             $status = $this->mapStatus($this->getFirstValue($payload, ['CallStatus', 'status', 'Call.Status']));
-            $duration = (int) $this->getFirstValue($payload, ['CallDuration', 'Duration', 'duration'], 0);
-            $recordingUrl = $this->getFirstValue($payload, ['RecordingUrl', 'RecordingURL', 'recording_url']);
+            $duration = (int) $this->getFirstValue($payload, [
+                'CallDuration',
+                'Duration',
+                'duration',
+                'call_duration',
+                'Call.Duration',
+                'DialDuration',
+                'DialCallDuration',
+                'ConversationDuration',
+                'call_duration_seconds',
+            ], 0);
+            $recordingUrl = $this->getFirstValue($payload, [
+                'RecordingUrl',
+                'RecordingURL',
+                'recording_url',
+                'CallRecordingUrl',
+                'recordingUrl',
+                'Call.RecordingUrl',
+                'Call.RecordingURL',
+                'record_url',
+            ]);
             $recordingSid = $this->getFirstValue($payload, ['RecordingSid', 'recording_sid']);
 
             if ($provider === 'twilio' && $recordingUrl && !Str::endsWith($recordingUrl, ['.mp3', '.wav'])) {
@@ -78,7 +105,11 @@ class CallWebhookController extends Controller
                 $existingCall = CallLog::where('provider_call_id', $providerCallId)->first();
             }
 
-            $companyId = $existingCall?->company_id ?? tenant('id');
+            $companyId = $existingCall?->company_id;
+            if (!$companyId && app()->bound('tenant')) {
+                $tenant = app('tenant');
+                $companyId = is_object($tenant) && isset($tenant->id) ? $tenant->id : null;
+            }
 
             $mapping = $this->resolveMapping($normalizedFrom, $normalizedTo, $companyId);
             if (!$companyId && $mapping?->company_id) {
@@ -96,6 +127,9 @@ class CallWebhookController extends Controller
             }
 
             $lead = $this->resolveLead($normalizedFrom, $normalizedTo, $companyId);
+            if (!$companyId && $lead?->company_id) {
+                $companyId = $lead->company_id;
+            }
 
             if (!$companyId) {
                 Log::warning('Call webhook missing company context', [
@@ -172,21 +206,35 @@ class CallWebhookController extends Controller
 
     private function resolveLead(?string $normalizedFrom, ?string $normalizedTo, ?int $companyId): ?Lead
     {
-        if (!$companyId) {
-            return null;
-        }
-
         $phone = $normalizedFrom ?: $normalizedTo;
         if (!$phone) {
             return null;
         }
 
-        return Lead::where('company_id', $companyId)
-            ->where(function ($query) use ($phone) {
-                $query->where('phone', 'like', '%' . $phone)
-                    ->orWhere('phone_secondary', 'like', '%' . $phone);
-            })
-            ->first();
+        $baseQuery = Lead::where(function ($query) use ($phone) {
+            $query->where('phone', 'like', '%' . $phone)
+                ->orWhere('phone_secondary', 'like', '%' . $phone);
+        });
+
+        if ($companyId) {
+            return $baseQuery->where('company_id', $companyId)->first();
+        }
+
+        $candidates = $baseQuery->get(['id', 'company_id', 'client_name', 'phone', 'phone_secondary']);
+        if ($candidates->isEmpty()) {
+            return null;
+        }
+
+        $companyIds = $candidates->pluck('company_id')->filter()->unique();
+        if ($companyIds->count() > 1) {
+            Log::warning('Call webhook lead match ambiguous across companies', [
+                'phone' => $phone,
+                'company_ids' => $companyIds->values()->all(),
+            ]);
+            return null;
+        }
+
+        return $candidates->first();
     }
 
     private function resolveMapping(?string $normalizedFrom, ?string $normalizedTo, ?int $companyId): ?PhoneNumberMapping

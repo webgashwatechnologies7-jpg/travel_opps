@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 
+<<<<<<< HEAD
 // const followups = [
 //   {
 //     id: 1,
@@ -152,12 +153,25 @@ const TaskFollowups = ({followups}) => {
 
   return (
     <div className="bg-[#F4F6FF] rounded-xl p-4 w-full">
+=======
+const TaskFollowups = ({ followups, onViewMore, onFollowupClick }) => {
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <div className="bg-[#F4F6FF] rounded-xl p-4 w-full h-full flex flex-col">
+>>>>>>> 685a818 (Added itinerary pricing, frontend updates, and backend improvements)
       {/* Header */}
       <div className="flex items-center justify-between mb-3">
         <h2 className="text-[16px] font triggered">Task / <span className="text-[#3B82F6]">Followup's</span></h2>
         <button
+<<<<<<< HEAD
           onClick={() => setExpanded(!expanded && followups?.length > 3)}
           className={`text-[#3B82F6] text-sm font-medium flex ${followups?.length > 3 ? "cursor-pointer" : "cursor-not-allowed"} items-center gap-1`}
+=======
+          type="button"
+          onClick={onViewMore}
+          className="text-[#3B82F6] text-sm font-medium flex items-center gap-1"
+>>>>>>> 685a818 (Added itinerary pricing, frontend updates, and backend improvements)
         >
           View more
           <span className={`transition-transform ${expanded && followups?.length > 3 ? "rotate-180" : ""}`}>
@@ -171,8 +185,13 @@ const TaskFollowups = ({followups}) => {
       {/* List */}
       <div
         className={`
+<<<<<<< HEAD
           transition-all duration-300
           ${expanded ? "h-[500px] overflow-y-auto custom-scroll" : "h-[200px] overflow-hidden"}
+=======
+          transition-all duration-300 flex-1
+          ${expanded ? "overflow-y-auto custom-scroll" : "overflow-hidden"}
+>>>>>>> 685a818 (Added itinerary pricing, frontend updates, and backend improvements)
         `}
       >
         {followups?.length === 0 ? (
@@ -180,9 +199,16 @@ const TaskFollowups = ({followups}) => {
         ) : followups.map((item) => (
           <div
             key={item.id}
+<<<<<<< HEAD
             className={`
               flex items-center gap-4 px-3 py-3 rounded-md
               ${item.highlight ? "bg-[#FFF5E8]" : ""}
+=======
+            onClick={() => onFollowupClick?.(item)}
+            className={`
+              flex items-center gap-4 px-3 py-3 rounded-md cursor-pointer
+              ${item.highlight ? "bg-[#FFF5E8]" : "hover:bg-gray-50"}
+>>>>>>> 685a818 (Added itinerary pricing, frontend updates, and backend improvements)
             `}
           >
             {/* Left Color Bar */}

@@ -58,6 +58,7 @@ return [
 
     'telephony' => [
         'provider' => env('CALL_PROVIDER'),
+        'webhook_skip_signature' => env('CALL_WEBHOOK_SKIP_SIGNATURE', false),
         'twilio' => [
             'account_sid' => env('TWILIO_ACCOUNT_SID'),
             'auth_token' => env('TWILIO_AUTH_TOKEN'),

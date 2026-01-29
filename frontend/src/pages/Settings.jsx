@@ -58,8 +58,24 @@ const Settings = () => {
     }
   };
 
+<<<<<<< HEAD
   // Check if user is Admin
   const isAdmin = user?.role === 'Admin' || user?.roles?.some(role => role.name === 'Admin') || false;
+=======
+  // Check if user has admin access (support different role shapes/names)
+  const roleValues = [
+    user?.role,
+    user?.role_name,
+    user?.roleName,
+    user?.user_role,
+    ...(user?.roles?.map(role => (typeof role === 'string' ? role : role?.name)) || [])
+  ].filter(Boolean);
+  const normalizedRoles = roleValues.map(role => role.toString().toLowerCase());
+  const hasAdminRole = normalizedRoles.some(role => role.includes('admin'));
+  const hasSettingsPermission = Array.isArray(user?.permissions)
+    && user.permissions.some(permission => permission?.toString().toLowerCase() === 'manage_company_settings');
+  const isSettingsAdmin = Boolean(user?.is_super_admin || hasAdminRole || hasSettingsPermission);
+>>>>>>> 685a818 (Added itinerary pricing, frontend updates, and backend improvements)
 
   if (!isAdmin) {
     return (

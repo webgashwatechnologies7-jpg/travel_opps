@@ -48,8 +48,10 @@
 
 
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { dashboardAPI } from '../services/api';
 
+<<<<<<< HEAD
 const salesRepsData = [
   { id: 1, name: "Harshit Kumar", total: 895, confirmed: 895 },
   { id: 2, name: "Harshit Kumar", total: 895, confirmed: 895 },
@@ -61,6 +63,11 @@ const salesRepsData = [
 const SalesRepsTable = ({ title }) => {
 
   const [salesRepsData, setSalesReps] = useState([]);
+=======
+const SalesRepsTable = ({ title = "Sales" }) => {
+  const navigate = useNavigate();
+  const [salesReps, setSalesReps] = useState([]);
+>>>>>>> 685a818 (Added itinerary pricing, frontend updates, and backend improvements)
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -106,12 +113,27 @@ const SalesRepsTable = ({ title }) => {
     );
   }
   return (
+<<<<<<< HEAD
     <div className="bg-[#F4F6FF] mt-2 rounded-xl p-4 w-full h-[400px] flex flex-col">
+=======
+    <div className="bg-[#F4F6FF] rounded-xl p-4 w-full h-full flex flex-col">
+>>>>>>> 685a818 (Added itinerary pricing, frontend updates, and backend improvements)
       {/* Component Title */}
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-[16px] font-semibold text-gray-900">
           {title} <span className="text-red-500">Reps.</span>
         </h2>
+<<<<<<< HEAD
+=======
+        <button
+          type="button"
+          onClick={() => navigate('/sales-reps')}
+          className="text-[#3B82F6] text-xs font-medium flex items-center gap-1"
+        >
+          View more
+          <span className="transition-transform duration-200">▼</span>
+        </button>
+>>>>>>> 685a818 (Added itinerary pricing, frontend updates, and backend improvements)
       </div>
 
       {/* Table Header */}
@@ -123,12 +145,18 @@ const SalesRepsTable = ({ title }) => {
       </div>
 
       {/* Table Body */}
+<<<<<<< HEAD
       <div className="flex-1 overflow-y-auto custom-scroll bg-[#F7F8FF] rounded-lg border border-[#E5E7EB]">
         {salesRepsData.length === 0 ? (
+=======
+      <div className="flex-1 min-h-0 overflow-y-auto custom-scroll bg-[#F7F8FF] rounded-lg border border-[#E5E7EB]">
+        {salesReps.length === 0 ? (
+>>>>>>> 685a818 (Added itinerary pricing, frontend updates, and backend improvements)
           <div className="flex items-center justify-center h-full text-gray-400 text-sm">
             No data available
           </div>
         ) : (
+<<<<<<< HEAD
           salesRepsData.map((item, index) => (
             <div
               key={item.id || index}
@@ -160,6 +188,56 @@ const SalesRepsTable = ({ title }) => {
               </div>
             </div>
           ))
+=======
+          salesReps.map((rep, index) => {
+            const assigned = rep.assigned || 0;
+            const confirmed = rep.confirmed || 0;
+            const total = rep.total ?? assigned + confirmed;
+            const repId = rep.id || rep.user_id || rep.user?.id || rep.user?.user_id;
+            const repName = rep.name || rep.user?.name || rep.user_name || '';
+
+            return (
+              <div
+                key={repId || index}
+                className={`
+                  grid grid-cols-[30px_1fr_60px_70px] gap-2
+                  items-center px-3 py-3 text-sm border-b last:border-0 border-gray-100
+                  ${index % 2 === 0 ? "bg-[#E9ECFF]" : "bg-white"}
+                  hover:opacity-90 transition-opacity cursor-pointer
+                `}
+                onClick={() => {
+                  if (repId) {
+                    navigate(`/leads?assigned_to=${repId}`);
+                    return;
+                  }
+                  if (repName) {
+                    navigate(`/leads?assigned_name=${encodeURIComponent(repName)}`);
+                  }
+                }}
+              >
+                {/* Index */}
+                <div className="font-medium text-gray-600">
+                  {index + 1}.
+                </div>
+
+                {/* Name */}
+                <div className="font-semibold text-gray-900 truncate" title={rep.name}>
+                  {rep.name}
+                </div>
+
+                {/* Total */}
+                <div className="text-center font-medium text-gray-700 bg-white/50 rounded py-1">
+                  {total}
+                </div>
+
+                {/* Confirmed */}
+                <div className="text-center font-bold text-green-600 bg-white/80 rounded py-1 shadow-sm border border-green-100">
+                  {confirmed}
+                </div>
+              </div>
+            );
+          })
+>>>>>>> 685a818 (Added itinerary pricing, frontend updates, and backend improvements)
         )}
       </div>
     </div>

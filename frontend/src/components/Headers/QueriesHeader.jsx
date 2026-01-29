@@ -106,8 +106,12 @@ export default function QueriesHeader({
   );
 }
 
+<<<<<<< HEAD
 /* 🔹 Small Components */
 
+=======
+/* Small Components */
+>>>>>>> 685a818 (Added itinerary pricing, frontend updates, and backend improvements)
 function ActionButton({ icon, label, onClick }) {
   return (
     <button

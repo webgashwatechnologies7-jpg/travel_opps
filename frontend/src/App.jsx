@@ -16,6 +16,8 @@ import Leads from './pages/Leads';
 import LeadDetails from './pages/LeadDetails';
 import Followups from './pages/Followups';
 import Payments from './pages/Payments';
+import SalesReps from './pages/SalesReps';
+import Notes from './pages/Notes';
 import WhatsAppInbox from './pages/WhatsAppInbox';
 import Performance from './pages/Performance';
 import Analytics from './pages/Analytics';
@@ -62,6 +64,7 @@ import Services from './pages/Services';
 import EmployeeManagement from './pages/EmployeeManagement';
 import TeamManagement from './pages/TeamManagement.jsx';
 import TeamReports from './pages/TeamReports';
+import Reports from './pages/Reports';
 import CompanyMailSettings from './pages/CompanyMailSettings';
 import CallManagement from './pages/CallManagement';
 
@@ -194,6 +197,30 @@ const AppRoutes = () => {
         element={
           <ProtectedRoute>
             <Payments />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/sales-reps"
+        element={
+          <ProtectedRoute>
+            <SalesReps />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/reports"
+        element={
+          <ProtectedRoute>
+            <Reports />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/notes"
+        element={
+          <ProtectedRoute>
+            <Notes />
           </ProtectedRoute>
         }
       />

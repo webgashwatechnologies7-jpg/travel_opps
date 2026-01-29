@@ -3,6 +3,7 @@ import React from "react";
 const YearQueriesChart = ({
   title = "This Year Queries / Confirmed",
   height = 220,
+<<<<<<< HEAD
   data=[
     
   ]
@@ -10,13 +11,21 @@ const YearQueriesChart = ({
 
   console.log(data);
   
+=======
+  data = []
+}) => {
+>>>>>>> 685a818 (Added itinerary pricing, frontend updates, and backend improvements)
   const maxValue = Math.max(
     ...data.map(item => item.queries + item.confirmed),
     1
   );
 
   return (
+<<<<<<< HEAD
     <div className="bg-[#faf9fe] rounded-lg  p-4 mt-2">
+=======
+    <div className="bg-[#faf9fe] rounded-lg p-4 h-full flex flex-col">
+>>>>>>> 685a818 (Added itinerary pricing, frontend updates, and backend improvements)
       {/* Title */}
       <h2 className="text-lg font-semibold text-gray-800 mb-4">
         {title.split("/")[0]}
@@ -25,8 +34,13 @@ const YearQueriesChart = ({
 
       {/* Chart wrapper */}
       <div
+<<<<<<< HEAD
         className="relative"
         style={{ height }}
+=======
+        className="relative flex-1 min-h-0"
+        style={{ height: "100%" }}
+>>>>>>> 685a818 (Added itinerary pricing, frontend updates, and backend improvements)
       >
         {/* Grid (behind bars) */}
         <div className="absolute inset-0 z-0 flex flex-col justify-between">
@@ -54,7 +68,10 @@ const YearQueriesChart = ({
                   />
 
                   {/* Queries */}
+<<<<<<< HEAD
                   {/* <p className=" absolute top-[50%] rotate-90">{item.month}</p> */}
+=======
+>>>>>>> 685a818 (Added itinerary pricing, frontend updates, and backend improvements)
                   <div
                     className="bg-blue-400"
                     style={{ height: queriesHeight }}

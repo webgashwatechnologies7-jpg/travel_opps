@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
-import { packagesAPI, dayItinerariesAPI, hotelsAPI, activitiesAPI, settingsAPI } from '../services/api';
+import { packagesAPI, dayItinerariesAPI, hotelsAPI, activitiesAPI, settingsAPI, destinationsAPI, itineraryPricingAPI } from '../services/api';
 import { ArrowLeft, Camera, Edit, Plus, ChevronRight, FileText, Share2, Download, Send, Search, X, Bed, Image as ImageIcon, Car, FileText as PassportIcon, UtensilsCrossed, Plane, User, Ship, Star, Calendar, Hash, Building2 } from 'lucide-react';
 import PricingTab from '../components/PricingTab';
 import FinalTab from '../components/FinalTab';
@@ -13,6 +13,7 @@ const ItineraryDetail = () => {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('build');
   const [dayItineraries, setDayItineraries] = useState([]);
+  const [destinations, setDestinations] = useState([]);
   const [selectedDay, setSelectedDay] = useState(null);
   const [dayDetails, setDayDetails] = useState('');
   const [showDayDetailsModal, setShowDayDetailsModal] = useState(false);
@@ -108,13 +109,38 @@ const ItineraryDetail = () => {
   const [igst, setIgst] = useState(0);
   const [tcs, setTcs] = useState(0);
   const [discount, setDiscount] = useState(0);
+  const [optionGstSettingsFromServer, setOptionGstSettingsFromServer] = useState({});
+  const [days, setDays] = useState([]);
 
   useEffect(() => {
     fetchItinerary();
     fetchDayItineraries();
+    fetchDestinations();
     loadEventsFromStorage();
     fetchMaxHotelOptions();
+    loadPricingFromServer();
   }, [id]);
+
+  const loadPricingFromServer = async () => {
+    try {
+      const response = await itineraryPricingAPI.get(id);
+      if (response.data?.success && response.data.data) {
+        const data = response.data.data;
+        if (data.pricing_data) setPricingData(data.pricing_data);
+        if (data.final_client_prices) setFinalClientPrices(data.final_client_prices);
+        if (data.option_gst_settings) setOptionGstSettingsFromServer(data.option_gst_settings);
+        if (data.base_markup !== undefined && data.base_markup !== null) setBaseMarkup(Number(data.base_markup));
+        if (data.extra_markup !== undefined && data.extra_markup !== null) setExtraMarkup(Number(data.extra_markup));
+        if (data.cgst !== undefined && data.cgst !== null) setCgst(Number(data.cgst));
+        if (data.sgst !== undefined && data.sgst !== null) setSgst(Number(data.sgst));
+        if (data.igst !== undefined && data.igst !== null) setIgst(Number(data.igst));
+        if (data.tcs !== undefined && data.tcs !== null) setTcs(Number(data.tcs));
+        if (data.discount !== undefined && data.discount !== null) setDiscount(Number(data.discount));
+      }
+    } catch (error) {
+      console.error('Failed to load pricing from server', error);
+    }
+  };
 
   const fetchMaxHotelOptions = async () => {
     try {
@@ -254,6 +280,19 @@ const ItineraryDetail = () => {
         setDayEvents(JSON.parse(storedEvents));
       }
       
+      // Load days data (destinations per day)
+      const storedDays = localStorage.getItem(`itinerary_${id}_days`);
+      if (storedDays) {
+        try {
+          const parsedDays = JSON.parse(storedDays);
+          if (Array.isArray(parsedDays) && parsedDays.length > 0) {
+            setDays(parsedDays);
+          }
+        } catch (e) {
+          console.error('Failed to parse stored days:', e);
+        }
+      }
+      
       // Load pricing data
       const storedPricing = localStorage.getItem(`itinerary_${id}_pricing`);
       if (storedPricing) {
@@ -282,6 +321,17 @@ const ItineraryDetail = () => {
       console.error('Failed to load data from storage:', err);
     }
   };
+
+  // Save days to localStorage whenever they change
+  useEffect(() => {
+    if (id && days.length > 0) {
+      try {
+        localStorage.setItem(`itinerary_${id}_days`, JSON.stringify(days));
+      } catch (err) {
+        console.error('Failed to save days to storage:', err);
+      }
+    }
+  }, [days, id]);
 
   // Save events to localStorage whenever they change
   useEffect(() => {
@@ -385,6 +435,52 @@ const ItineraryDetail = () => {
       // Set first day as selected if available
       if (data.duration && data.duration > 0) {
         setSelectedDay(1);
+        // Initialize days - check localStorage first, otherwise use defaults
+        const storedDays = localStorage.getItem(`itinerary_${id}_days`);
+        if (storedDays) {
+          try {
+            const parsedDays = JSON.parse(storedDays);
+            if (Array.isArray(parsedDays) && parsedDays.length === data.duration) {
+              setDays(parsedDays);
+            } else {
+              // Duration changed, need to update days
+              const initialDays = [];
+              for (let i = 1; i <= data.duration; i++) {
+                const existingDay = parsedDays.find(d => d.day === i);
+                initialDays.push({
+                  day: i,
+                  destination: existingDay?.destination || data.destinations?.split(',')[0]?.trim() || '',
+                  details: existingDay?.details || ''
+                });
+              }
+              setDays(initialDays);
+              localStorage.setItem(`itinerary_${id}_days`, JSON.stringify(initialDays));
+            }
+          } catch (e) {
+            // If parsing fails, use defaults
+            const initialDays = [];
+            for (let i = 1; i <= data.duration; i++) {
+              initialDays.push({
+                day: i,
+                destination: data.destinations?.split(',')[0]?.trim() || '',
+                details: ''
+              });
+            }
+            setDays(initialDays);
+          }
+        } else {
+          // No stored days, initialize with defaults
+          const initialDays = [];
+          for (let i = 1; i <= data.duration; i++) {
+            initialDays.push({
+              day: i,
+              destination: data.destinations?.split(',')[0]?.trim() || '',
+              details: ''
+            });
+          }
+          setDays(initialDays);
+          localStorage.setItem(`itinerary_${id}_days`, JSON.stringify(initialDays));
+        }
       }
     } catch (err) {
       console.error('Failed to fetch itinerary:', err);
@@ -409,7 +505,7 @@ const ItineraryDetail = () => {
             itinerary.image = `${baseUrl}${itinerary.image}`;
           }
           if (itinerary.image.includes('localhost') && !itinerary.image.includes(':8000')) {
-            itinerary.image = itinerary.image.replace('localhost', 'localhost:8000');
+itinerary.image = itinerary.image.replace('localhost', 'localhost:8000');
           }
         }
         return itinerary;
@@ -418,6 +514,34 @@ const ItineraryDetail = () => {
       setDayItineraries(processedData);
     } catch (err) {
       console.error('Failed to fetch day itineraries:', err);
+    }
+  };
+
+  const fetchDestinations = async () => {
+    try {
+      const response = await destinationsAPI.list();
+      const data = response.data.data || response.data || [];
+      
+      // Check if Shimla exists, if not create it
+      const shimlaExists = data.some(dest => dest.name.toLowerCase() === 'shimla');
+      if (!shimlaExists) {
+        try {
+          await destinationsAPI.create({ name: 'Shimla' });
+          // Fetch again to get updated list
+          const updatedResponse = await destinationsAPI.list();
+          const updatedData = updatedResponse.data.data || updatedResponse.data || [];
+          setDestinations(updatedData.map(d => d.name));
+        } catch (createErr) {
+          // If creation fails (maybe already exists), just use the fetched list
+          console.error('Failed to create Shimla destination:', createErr);
+          setDestinations(data.map(d => d.name));
+        }
+      } else {
+        setDestinations(data.map(d => d.name));
+      }
+    } catch (err) {
+      console.error('Failed to fetch destinations:', err);
+      setDestinations([]);
     }
   };
 
@@ -1005,20 +1129,26 @@ const ItineraryDetail = () => {
     return date.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
   };
 
-  const generateDays = () => {
-    if (!itinerary || !itinerary.duration) return [];
-    const days = [];
-    for (let i = 1; i <= itinerary.duration; i++) {
-      days.push({
-        day: i,
-        destination: itinerary.destinations?.split(',')[0]?.trim() || 'Destination',
-        details: ''
-      });
+  const handleDayDestinationChange = (dayNumber, newDestination) => {
+    if (!newDestination || newDestination.trim() === '' || newDestination === 'Select Destination') {
+      return; // Don't update if empty or placeholder
     }
-    return days;
+    
+    const updatedDays = days.map(day => 
+      day.day === dayNumber 
+        ? { ...day, destination: newDestination.trim() }
+        : day
+    );
+    
+    setDays(updatedDays);
+    
+    // Save to localStorage for persistence
+    try {
+      localStorage.setItem(`itinerary_${id}_days`, JSON.stringify(updatedDays));
+    } catch (err) {
+      console.error('Failed to save days to localStorage:', err);
+    }
   };
-
-  const days = generateDays();
 
   if (loading) {
     return (
@@ -1174,11 +1304,26 @@ const ItineraryDetail = () => {
                           </div>
                           <ChevronRight className={`h-4 w-4 ${selectedDay === day.day ? 'text-blue-600' : 'text-gray-400'}`} />
                         </div>
-                        <select className="mt-2 w-full text-sm border border-gray-300 rounded px-2 py-1 bg-white">
-                          <option>{day.destination}</option>
-                          {dayItineraries.map((di) => (
-                            <option key={di.id} value={di.destination}>{di.destination}</option>
+                        <select 
+                          className="mt-2 w-full text-sm border border-gray-300 rounded px-2 py-1 bg-white"
+                          value={day.destination || ''}
+                          onChange={(e) => {
+                            e.stopPropagation();
+                            const selectedValue = e.target.value;
+                            if (selectedValue && selectedValue !== '') {
+                              handleDayDestinationChange(day.day, selectedValue);
+                            }
+                          }}
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <option value="">Select Destination</option>
+                          {destinations.map((dest) => (
+                            <option key={dest} value={dest}>{dest}</option>
                           ))}
+                          {/* Show current destination if it's not in the list */}
+                          {day.destination && !destinations.includes(day.destination) && day.destination !== 'Destination' && (
+                            <option value={day.destination}>{day.destination}</option>
+                          )}
                         </select>
                       </div>
                     ))}
@@ -2010,6 +2155,7 @@ const ItineraryDetail = () => {
             setTcs={setTcs}
             discount={discount}
             setDiscount={setDiscount}
+            initialOptionGstSettings={optionGstSettingsFromServer}
             onAddToProposals={handleAddOptionsToProposals}
           />
         )}
@@ -2210,10 +2356,10 @@ const ItineraryDetail = () => {
                             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                           >
                             <option value="">Select Destination</option>
-                            {dayItineraries.map((di) => (
-                              <option key={di.id} value={di.destination}>{di.destination}</option>
+                            {destinations.map((dest) => (
+                              <option key={dest} value={dest}>{dest}</option>
                             ))}
-                            {days[selectedDay - 1]?.destination && (
+                            {days[selectedDay - 1]?.destination && !destinations.includes(days[selectedDay - 1].destination) && (
                               <option value={days[selectedDay - 1].destination}>{days[selectedDay - 1].destination}</option>
                             )}
                           </select>
@@ -2664,10 +2810,10 @@ const ItineraryDetail = () => {
                           className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                         >
                           <option value="">Select Destination</option>
-                          {dayItineraries.map((di) => (
-                            <option key={di.id} value={di.destination}>{di.destination}</option>
+                          {destinations.map((dest) => (
+                            <option key={dest} value={dest}>{dest}</option>
                           ))}
-                          {days[selectedDay - 1]?.destination && (
+                          {days[selectedDay - 1]?.destination && !destinations.includes(days[selectedDay - 1].destination) && (
                             <option value={days[selectedDay - 1].destination}>{days[selectedDay - 1].destination}</option>
                           )}
                         </select>
@@ -2791,10 +2937,10 @@ const ItineraryDetail = () => {
                           className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                         >
                           <option value="">Select Destination</option>
-                          {dayItineraries.map((di) => (
-                            <option key={di.id} value={di.destination}>{di.destination}</option>
+                          {destinations.map((dest) => (
+                            <option key={dest} value={dest}>{dest}</option>
                           ))}
-                          {days[selectedDay - 1]?.destination && (
+                          {days[selectedDay - 1]?.destination && !destinations.includes(days[selectedDay - 1].destination) && (
                             <option value={days[selectedDay - 1].destination}>{days[selectedDay - 1].destination}</option>
                           )}
                         </select>
@@ -2926,8 +3072,8 @@ const ItineraryDetail = () => {
                           className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                         >
                           <option value="">Select Destination</option>
-                          {dayItineraries.map((di) => (
-                            <option key={di.id} value={di.destination}>{di.destination}</option>
+                          {destinations.map((dest) => (
+                            <option key={dest} value={dest}>{dest}</option>
                           ))}
                         </select>
                       </div>
@@ -3042,8 +3188,8 @@ const ItineraryDetail = () => {
                           className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                         >
                           <option value="">Select Destination</option>
-                          {dayItineraries.map((di) => (
-                            <option key={di.id} value={di.destination}>{di.destination}</option>
+                          {destinations.map((dest) => (
+                            <option key={dest} value={dest}>{dest}</option>
                           ))}
                         </select>
                       </div>
@@ -3146,8 +3292,8 @@ const ItineraryDetail = () => {
                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                       >
                         <option value="">Select Destination</option>
-                        {dayItineraries.map((di) => (
-                          <option key={di.id} value={di.destination}>{di.destination}</option>
+                        {destinations.map((dest) => (
+                          <option key={dest} value={dest}>{dest}</option>
                         ))}
                       </select>
                     </div>
@@ -3203,8 +3349,8 @@ const ItineraryDetail = () => {
                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                       >
                         <option value="">Select Destination</option>
-                        {dayItineraries.map((di) => (
-                          <option key={di.id} value={di.destination}>{di.destination}</option>
+                        {destinations.map((dest) => (
+                          <option key={dest} value={dest}>{dest}</option>
                         ))}
                       </select>
                     </div>
@@ -3248,8 +3394,8 @@ const ItineraryDetail = () => {
                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                       >
                         <option value="">Select Destination</option>
-                        {dayItineraries.map((di) => (
-                          <option key={di.id} value={di.destination}>{di.destination}</option>
+                        {destinations.map((dest) => (
+                          <option key={dest} value={dest}>{dest}</option>
                         ))}
                       </select>
                     </div>

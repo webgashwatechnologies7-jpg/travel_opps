@@ -25,7 +25,14 @@ import {
   Plane,
   Hotel,
   Menu,
+<<<<<<< HEAD
   ChevronLeft
+=======
+  Users,
+  Phone,
+  ClipboardList,
+  Package
+>>>>>>> 685a818 (Added itinerary pricing, frontend updates, and backend improvements)
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { settingsAPI } from '../services/api';
@@ -153,11 +160,31 @@ const Layout = ({ children, Header,padding=0 }) => {
     { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { path: '/leads', label: 'Queries', icon: MessageSquare },
     { path: '/itineraries', label: 'Itineraries', icon: FileText },
+<<<<<<< HEAD
     { path: '/payments', label: 'Accounts', icon: CreditCard },
     { path: '/whatsapp', label: 'WhatsApp', icon: MessageCircle },
     { path: '/mail', label: 'Mail', icon: Mail },
     {
       label: 'Reports',
+=======
+    { path: '/payments', label: 'Payments', icon: CreditCard },
+    { path: '/sales-reps', label: 'Sales Reps', icon: Users },
+    { 
+      label: 'Accounts', 
+      icon: CreditCard,
+      submenu: [
+        { path: '/accounts/clients', label: 'Clients' },
+        { path: '/accounts/agents', label: 'Agents' },
+        { path: '/accounts/corporate', label: 'Corporate' }
+      ]
+    },
+    { path: '/whatsapp', label: 'WhatsApp', icon: MessageCircle },
+    { path: '/mail', label: 'Mail', icon: Mail },
+    { path: '/call-management', label: 'Call Management System', icon: Phone },
+    { path: '/followups', label: 'Followups', icon: ClipboardList },
+    { 
+      label: 'Reports', 
+>>>>>>> 685a818 (Added itinerary pricing, frontend updates, and backend improvements)
       icon: BarChart3,
       submenu: [
         { path: '/dashboard/employee-performance', label: 'Performance' },
@@ -559,8 +586,15 @@ const Layout = ({ children, Header,padding=0 }) => {
         </div>
 
         {/* Content Area */}
+<<<<<<< HEAD
         <div style={{ backgroundColor: settings?.dashboard_background_color || '#D8DEF5' }}>
           {children}
+=======
+        <div className="pt-16" style={{ backgroundColor: settings?.dashboard_background_color || '#D8DEF5' }}>
+          <div className="p-4 pb-0 md:p-6 md:pb-0 lg:p-8 lg:pb-0">
+            {children}
+          </div>
+>>>>>>> 685a818 (Added itinerary pricing, frontend updates, and backend improvements)
         </div>
       </div>
     </div>

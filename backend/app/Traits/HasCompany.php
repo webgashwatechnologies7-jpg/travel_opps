@@ -6,6 +6,20 @@ use Illuminate\Database\Eloquent\Builder;
 
 trait HasCompany
 {
+    private static function resolveTenantId(): ?int
+    {
+        if (!app()->bound('tenant')) {
+            return null;
+        }
+
+        $tenant = app('tenant');
+        if (is_object($tenant) && isset($tenant->id)) {
+            return (int) $tenant->id;
+        }
+
+        return null;
+    }
+
     /**
      * Boot the trait.
      */
@@ -13,14 +27,15 @@ trait HasCompany
     {
         // Automatically add company_id when creating
         static::creating(function ($model) {
-            if (!$model->company_id && tenant('id')) {
-                $model->company_id = tenant('id');
+            $tenantId = self::resolveTenantId();
+            if (!$model->company_id && $tenantId) {
+                $model->company_id = $tenantId;
             }
         });
 
         // Add global scope to filter by company
         static::addGlobalScope('company', function (Builder $builder) {
-            $companyId = tenant('id');
+            $companyId = self::resolveTenantId();
             if ($companyId && !auth()->user()?->isSuperAdmin()) {
                 $builder->where('company_id', $companyId);
             }
@@ -35,7 +50,7 @@ trait HasCompany
      */
     public function scopeForCompany($query, $companyId = null)
     {
-        $companyId = $companyId ?? tenant('id');
+        $companyId = $companyId ?? self::resolveTenantId();
         return $query->where('company_id', $companyId);
     }
 }
