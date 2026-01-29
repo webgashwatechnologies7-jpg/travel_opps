@@ -7,16 +7,19 @@ import {
   ChevronDown,
   Bell,
   MessageCircle,
+  Plus,
 } from "lucide-react";
 
 export default function QueriesHeader({
   title = "Queries",
+  addLabel = "Add Query",
 
   searchLabel = "Search",
   filterLabel = "Filter",
   dateLabel = "Data Range",
   destinationLabel = "Destination",
 
+  onAddClick,
   onSearchClick,
   onFilterClick,
   onDateClick,
@@ -57,14 +60,23 @@ export default function QueriesHeader({
           {/* LEFT SIDE: Title + Action Buttons */}
           <div className="flex flex-col md:flex-row md:items-center gap-4 w-full md:w-auto">
 
-            {/* Mobile Top Row: Title + Mobile Icons */}
-            <div className="flex items-center justify-between w-full md:w-auto">
+            {/* Mobile Top Row: Title + Add Query + Mobile Icons */}
+            <div className="flex items-center justify-between w-full md:w-auto gap-2">
               <h2 className="text-[20px] font-semibold text-gray-900 whitespace-nowrap">
                 {title}
               </h2>
-
+              {onAddClick && (
+                <button
+                  type="button"
+                  onClick={onAddClick}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium shrink-0"
+                >
+                  <Plus size={16} />
+                  <span>{addLabel}</span>
+                </button>
+              )}
               {/* Visible only on Mobile */}
-              <div className="flex md:hidden items-center gap-2">
+              <div className="flex md:hidden items-center gap-2 ml-auto">
                 <IconsGroup />
               </div>
             </div>
@@ -106,12 +118,7 @@ export default function QueriesHeader({
   );
 }
 
-<<<<<<< HEAD
-/* 🔹 Small Components */
-
-=======
 /* Small Components */
->>>>>>> 685a818 (Added itinerary pricing, frontend updates, and backend improvements)
 function ActionButton({ icon, label, onClick }) {
   return (
     <button

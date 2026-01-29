@@ -16,8 +16,4 @@ function DetailRow({ icon, label, value }) {
   );
 }
 
-<<<<<<< HEAD
 export default DetailRow;
-=======
-export default DetailRow;
->>>>>>> 685a818 (Added itinerary pricing, frontend updates, and backend improvements)

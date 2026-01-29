@@ -28,6 +28,7 @@ Route::prefix('webhooks/whatsapp')->group(function () {
 // WhatsApp routes - require authentication
 Route::middleware('auth:sanctum')->prefix('whatsapp')->group(function () {
     Route::get('/inbox', [InboxController::class, 'inbox']);
+    Route::get('/inbox-by-user/{userId}', [InboxController::class, 'inboxByUser']);
     Route::get('/messages/{leadId}', [InboxController::class, 'messagesByLead']);
     Route::post('/send', [WhatsappController::class, 'send']);
 });

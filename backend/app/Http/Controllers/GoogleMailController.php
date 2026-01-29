@@ -23,6 +23,11 @@ class GoogleMailController extends Controller
     {
         $this->applyCompanyGoogleConfig();
 
+        if (!config('services.google.client_id')) {
+            $frontendUrl = config('app.frontend_url', '/');
+            return redirect(rtrim($frontendUrl, '/') . '/settings?google_connected=false&error=' . urlencode('Google Client ID not set. Add GOOGLE_CLIENT_ID in .env or configure in Settings → Email Integration.'));
+        }
+
         // We use Socialite for the initial redirect to handle scopes easily
         return Socialite::driver('google')
             ->scopes([
@@ -112,15 +117,11 @@ class GoogleMailController extends Controller
 
     private function applyCompanyGoogleConfig(): void
     {
-        $company = app('tenant') ?? (Auth::user() ? Auth::user()->company : null);
+        $company = (app()->bound('tenant') ? app('tenant') : null) ?? (Auth::user() ? Auth::user()->company : null);
 
-        if (!$company) {
-            return;
-        }
-
-        $clientId = $company->google_client_id ?: config('services.google.client_id');
-        $clientSecret = $company->google_client_secret ?: config('services.google.client_secret');
-        $redirectUri = $company->google_redirect_uri ?: config('services.google.redirect_uri');
+        $clientId = $company?->google_client_id ?? config('services.google.client_id');
+        $clientSecret = $company?->google_client_secret ?? config('services.google.client_secret');
+        $redirectUri = $company?->google_redirect_uri ?? config('services.google.redirect') ?? config('services.google.redirect_uri');
 
         $this->gmailService->setClientConfig($clientId, $clientSecret, $redirectUri);
 
@@ -128,6 +129,7 @@ class GoogleMailController extends Controller
             'services.google.client_id' => $clientId,
             'services.google.client_secret' => $clientSecret,
             'services.google.redirect_uri' => $redirectUri,
+            'services.google.redirect' => $redirectUri,
         ]);
     }
 }

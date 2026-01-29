@@ -1,6 +1,7 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { SettingsProvider } from './contexts/SettingsContext';
+import { ContentProvider } from './contexts/ContentContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import SuperAdminRoute from './components/SuperAdminRoute';
 import Login from './pages/Login';
@@ -65,7 +66,9 @@ import EmployeeManagement from './pages/EmployeeManagement';
 import TeamManagement from './pages/TeamManagement.jsx';
 import TeamReports from './pages/TeamReports';
 import Reports from './pages/Reports';
+import ManagementDashboard from './pages/ManagementDashboard';
 import CompanyMailSettings from './pages/CompanyMailSettings';
+import CompanyWhatsAppSettings from './pages/CompanyWhatsAppSettings';
 import CallManagement from './pages/CallManagement';
 
 const AppRoutes = () => {
@@ -217,6 +220,34 @@ const AppRoutes = () => {
         }
       />
       <Route
+        path="/staff-management"
+        element={<Navigate to="/staff-management/dashboard" replace />}
+      />
+      <Route
+        path="/staff-management/dashboard"
+        element={
+          <ProtectedRoute>
+            <ManagementDashboard />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/staff-management/users"
+        element={<Navigate to="/company-settings/team-management?tab=users" replace />}
+      />
+      <Route
+        path="/staff-management/teams"
+        element={<Navigate to="/company-settings/team-management?tab=branches" replace />}
+      />
+      <Route
+        path="/staff-management/branches"
+        element={<Navigate to="/company-settings/team-management?tab=branches" replace />}
+      />
+      <Route
+        path="/staff-management/roles"
+        element={<Navigate to="/company-settings/team-management?tab=roles" replace />}
+      />
+      <Route
         path="/notes"
         element={
           <ProtectedRoute>
@@ -361,6 +392,18 @@ const AppRoutes = () => {
         }
       />
       <Route
+        path="/management"
+        element={
+          <ProtectedRoute>
+            <ManagementDashboard />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/management/*"
+        element={<Navigate to="/staff-management/dashboard" replace />}
+      />
+      <Route
         path="/employee-management"
         element={
           <ProtectedRoute>
@@ -381,6 +424,14 @@ const AppRoutes = () => {
         element={
           <ProtectedRoute>
             <Settings />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/settings/whatsapp"
+        element={
+          <ProtectedRoute>
+            <CompanyWhatsAppSettings />
           </ProtectedRoute>
         }
       />
@@ -635,7 +686,9 @@ function App() {
     <Router>
       <AuthProvider>
         <SettingsProvider>
-          <AppRoutes />
+          <ContentProvider>
+            <AppRoutes />
+          </ContentProvider>
         </SettingsProvider>
       </AuthProvider>
     </Router>

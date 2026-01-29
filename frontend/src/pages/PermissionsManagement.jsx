@@ -40,8 +40,7 @@ const PermissionsManagement = () => {
           try {
             // First check if plan has permissions column with feature IDs
             const permissionIds = plan.permissions || [];
-            console.log(`📋 Plan ${plan.id} (${plan.name}) - Permission IDs from database:`, permissionIds);
-            
+
             // Get features for this plan
             const featuresResponse = await superAdminAPI.getPlanFeatures(plan.id);
             if (featuresResponse.data.success && featuresResponse.data.data && Array.isArray(featuresResponse.data.data) && featuresResponse.data.data.length > 0) {
@@ -53,9 +52,6 @@ const PermissionsManagement = () => {
                 ...f,
                 is_enabled: f.is_enabled === true || f.is_enabled === 'true' || f.is_enabled === 1 || f.is_enabled === '1'
               }));
-              
-              const enabledCount = normalizedFeatures.filter(f => f.is_enabled === true).length;
-              console.log(`✅ Plan ${plan.id} (${plan.name}): ${normalizedFeatures.length} features loaded, ${enabledCount} enabled`);
               
               return { planId: plan.id, features: normalizedFeatures };
             } else {
@@ -71,8 +67,7 @@ const PermissionsManagement = () => {
               }));
               return { planId: plan.id, features: defaultFeatures };
             }
-          } catch (err) {
-            console.error(`Failed to load features for plan ${plan.id}:`, err);
+          } catch {
             // Create default features if API fails
             const defaultFeatures = Object.keys(availableFeaturesData).map(key => ({
               feature_key: key,
@@ -99,9 +94,8 @@ const PermissionsManagement = () => {
           setActiveTab(plansData[0].id);
         }
       }
-    } catch (err) {
+    } catch {
       setError('Failed to load subscription plans. Please refresh the page.');
-      console.error('Plans error:', err);
     } finally {
       setLoading(false);
     }
@@ -114,7 +108,6 @@ const PermissionsManagement = () => {
     const currentValue = updated[planId][featureIndex].is_enabled;
     updated[planId][featureIndex].is_enabled = !(currentValue === true || currentValue === 'true' || currentValue === 1);
     setPlanFeatures(updated);
-    console.log(`🔄 Toggled feature ${updated[planId][featureIndex].feature_key}: ${updated[planId][featureIndex].is_enabled}`);
   };
 
   const updateFeatureLimit = (planId, featureIndex, value) => {
@@ -139,11 +132,6 @@ const PermissionsManagement = () => {
     }));
     
     setPlanFeatures(updated);
-    
-    // Debug: Verify state update
-    const enabledCount = updated[planId].filter(f => f.is_enabled === true || f.is_enabled === 'true' || f.is_enabled === 1).length;
-    console.log(`🔄 Toggled all features for plan ${planId}: ${enabledCount}/${updated[planId].length} enabled`);
-    console.log('Sample feature after toggle:', updated[planId][0]);
   };
 
   const areAllFeaturesEnabled = (planId) => {
@@ -187,23 +175,13 @@ const PermissionsManagement = () => {
         return featureData;
       });
 
-      // Debug: Check enabled count before saving
-      const enabledCountBeforeSave = featuresToSave.filter(f => f.is_enabled === true).length;
-      console.log(`💾 Saving features for plan ${planId}: ${featuresToSave.length} total, ${enabledCountBeforeSave} enabled`);
-      console.log('Features data:', featuresToSave);
-
       const response = await superAdminAPI.updatePlanFeatures(planId, featuresToSave);
-      
-      console.log('Save response:', response);
-      
+
       if (response.data.success) {
         const planName = plans.find(p => p.id === planId)?.name || 'plan';
         setSuccess(`Permissions saved successfully for ${planName} plan!`);
         setTimeout(() => setSuccess(''), 5000);
-        
-        // Use response data if available, otherwise reload
-        console.log('📦 Full save response:', response.data);
-        
+
         if (response.data.data && Array.isArray(response.data.data) && response.data.data.length > 0) {
           // Normalize features from response - ensure is_enabled is boolean
           const normalizedFeatures = response.data.data.map(f => ({
@@ -214,13 +192,7 @@ const PermissionsManagement = () => {
           // Update features from response
           const updated = { ...planFeatures };
           updated[planId] = normalizedFeatures;
-          
-          // Debug: Check first few features
-          console.log('📋 First 3 normalized features from response:', normalizedFeatures.slice(0, 3));
-          
           setPlanFeatures(updated);
-          const enabledCount = normalizedFeatures.filter(f => f.is_enabled === true).length;
-          console.log(`✅ Save response: ${normalizedFeatures.length} features, ${enabledCount} enabled`);
         } else {
           // Reload features from API
           try {
@@ -229,15 +201,11 @@ const PermissionsManagement = () => {
               const updated = { ...planFeatures };
               updated[planId] = featuresResponse.data.data;
               setPlanFeatures(updated);
-              console.log('Features reloaded from API:', updated[planId]);
             } else {
-              // Fallback: reload all plans
-              console.log('Reloading all plans...');
               await fetchPlans();
             }
-          } catch (err) {
-            console.error('Failed to reload features:', err);
-            // Fallback: reload all plans
+          } catch {
+            await fetchPlans();
             await fetchPlans();
           }
         }

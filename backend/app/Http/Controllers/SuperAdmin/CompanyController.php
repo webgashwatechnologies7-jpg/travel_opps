@@ -3,7 +3,9 @@
 namespace App\Http\Controllers\SuperAdmin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\MenuController;
 use App\Models\Company;
+use App\Models\Setting;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -111,6 +113,14 @@ class CompanyController extends Controller
             'dashboard_background_color' => '#D8DEF5',
             'header_background_color' => '#D8DEF5',
         ]);
+
+        // Seed default sidebar menu for this company (includes WhatsApp & Email Integration under Settings)
+        Setting::setValue(
+            'company_' . $company->id . '_sidebar_menu',
+            MenuController::getDefaultMenu(),
+            'text',
+            'Sidebar navigation menu (JSON)'
+        );
 
         // Send credentials email if requested
         if ($request->boolean('send_credentials_email', true)) {

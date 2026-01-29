@@ -22,12 +22,11 @@ class FollowupController extends Controller
             $validator = Validator::make($request->all(), [
                 'lead_id' => 'required|exists:leads,id',
                 'remark' => 'nullable|string',
-                'reminder_date' => 'required|date',
+                'reminder_date' => 'nullable|date',
                 'reminder_time' => 'nullable|date_format:H:i:s',
             ], [
                 'lead_id.required' => 'The lead_id field is required.',
                 'lead_id.exists' => 'The selected lead does not exist.',
-                'reminder_date.required' => 'The reminder_date field is required.',
                 'reminder_date.date' => 'The reminder_date must be a valid date.',
                 'reminder_time.date_format' => 'The reminder_time must be in HH:MM:SS format.',
             ]);
@@ -52,7 +51,7 @@ class FollowupController extends Controller
                 'lead_id' => $request->lead_id,
                 'user_id' => $request->user()->id,
                 'remark' => $request->remark ?? null,
-                'reminder_date' => $request->reminder_date,
+                'reminder_date' => $request->reminder_date ?? null,
                 'reminder_time' => $request->reminder_time ?? null,
                 'is_completed' => false,
             ]);
@@ -176,6 +175,135 @@ class FollowupController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'An error occurred while completing followup',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
+            ], 500);
+        }
+    }
+
+    /**
+     * Update a followup/note.
+     * PUT /api/followups/{id}
+     */
+    public function update(Request $request, int $id): JsonResponse
+    {
+        try {
+            $followup = LeadFollowup::with(['lead.assignedUser', 'lead.creator', 'user'])->find($id);
+
+            if (!$followup) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Followup not found',
+                ], 404);
+            }
+
+            if (!$request->user()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'User not authenticated',
+                ], 401);
+            }
+
+            // Simple authorization: only creator can edit (adjust later for admin roles if needed)
+            if ((int) $followup->user_id !== (int) $request->user()->id) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'You are not allowed to update this item',
+                ], 403);
+            }
+
+            $validator = Validator::make($request->all(), [
+                'remark' => 'nullable|string',
+                'reminder_date' => 'nullable|date',
+                'reminder_time' => 'nullable|date_format:H:i:s',
+            ], [
+                'reminder_date.date' => 'The reminder_date must be a valid date.',
+                'reminder_time.date_format' => 'The reminder_time must be in HH:MM:SS format.',
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Validation failed',
+                    'errors' => $validator->errors(),
+                ], 422);
+            }
+
+            $followup->update($validator->validated());
+            $followup->refresh();
+            $followup->load(['lead.assignedUser', 'lead.creator', 'user']);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Followup updated successfully',
+                'data' => [
+                    'followup' => [
+                        'id' => $followup->id,
+                        'lead_id' => $followup->lead_id,
+                        'user_id' => $followup->user_id,
+                        'user' => $followup->user ? [
+                            'id' => $followup->user->id,
+                            'name' => $followup->user->name,
+                            'email' => $followup->user->email,
+                        ] : null,
+                        'remark' => $followup->remark,
+                        'reminder_date' => $followup->reminder_date,
+                        'reminder_time' => $followup->reminder_time,
+                        'is_completed' => $followup->is_completed,
+                        'created_at' => $followup->created_at,
+                        'updated_at' => $followup->updated_at,
+                    ],
+                ],
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'An error occurred while updating followup',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
+            ], 500);
+        }
+    }
+
+    /**
+     * Delete a followup/note.
+     * DELETE /api/followups/{id}
+     */
+    public function destroy(Request $request, int $id): JsonResponse
+    {
+        try {
+            $followup = LeadFollowup::find($id);
+
+            if (!$followup) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Followup not found',
+                ], 404);
+            }
+
+            if (!$request->user()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'User not authenticated',
+                ], 401);
+            }
+
+            // Simple authorization: only creator can delete (adjust later for admin roles if needed)
+            if ((int) $followup->user_id !== (int) $request->user()->id) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'You are not allowed to delete this item',
+                ], 403);
+            }
+
+            $followup->delete();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Followup deleted successfully',
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'An error occurred while deleting followup',
                 'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
             ], 500);
         }

@@ -2,10 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\CompanySettings;
 use App\Services\CompanyMailSettingsService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Validator;
 
 class CompanyMailSettingsController extends Controller
@@ -68,6 +70,13 @@ class CompanyMailSettingsController extends Controller
         });
 
         $settings = CompanyMailSettingsService::saveSettings($payload);
+
+        // Update integration flag for company (used for reports / quick checks)
+        $companyId = CompanyMailSettingsService::getCompanyId();
+        if ($companyId && Schema::hasColumn('company_settings', 'email_integration_enabled')) {
+            $enabled = filter_var($settings['enabled'] ?? false, FILTER_VALIDATE_BOOLEAN);
+            CompanySettings::where('company_id', $companyId)->update(['email_integration_enabled' => $enabled]);
+        }
 
         return response()->json([
             'success' => true,

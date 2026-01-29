@@ -20,13 +20,6 @@ class SettingsController extends Controller
             
             if ($key) {
                 $setting = Setting::where('key', $key)->first();
-                if (!$setting) {
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'Setting not found',
-                    ], 404);
-                }
-                
                 return response()->json([
                     'success' => true,
                     'data' => $setting,

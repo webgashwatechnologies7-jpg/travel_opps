@@ -162,15 +162,14 @@ const EmailTemplates = () => {
           type: 'json',
           description: 'Email templates for quotations and campaigns'
         });
-      } catch (saveErr) {
-        console.warn('Could not save to backend, but template is available locally:', saveErr);
+      } catch {
+        // Template saved locally only
       }
 
       setShowCreateModal(false);
       setNewTemplate({ name: '', subject: '', content: '', description: '' });
       alert('Template created successfully!');
-    } catch (err) {
-      console.error('Failed to create template:', err);
+    } catch {
       alert('Failed to create template');
     }
   };
@@ -189,8 +188,8 @@ const EmailTemplates = () => {
             type: 'json',
             description: 'Email templates for quotations and campaigns'
           });
-        } catch (saveErr) {
-          console.warn('Could not save to backend, but template is deleted locally:', saveErr);
+        } catch {
+          // Deleted locally only
         }
 
         if (selectedTemplate === templateId) {
@@ -198,8 +197,7 @@ const EmailTemplates = () => {
         }
         
         alert('Template deleted successfully!');
-      } catch (err) {
-        console.error('Failed to delete template:', err);
+      } catch {
         alert('Failed to delete template');
       }
     }

@@ -23,5 +23,10 @@ class DatabaseSeeder extends Seeder
         $this->call([
             RoleSeeder::class,
         ]);
+
+        // Content & menu (Phase 1 - dynamic labels/sidebar)
+        $this->call([
+            ContentSeeder::class,
+        ]);
     }
 }

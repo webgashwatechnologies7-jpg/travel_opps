@@ -13,34 +13,29 @@ class WhatsappService
      * @param string $phone Phone number (with country code, e.g., +1234567890)
      * @param string $message Message content
      * @param int|null $leadId Optional lead ID for logging
+     * @param int|null $userId Optional user (employee) who sent the message
      * @return bool
      */
-    public function sendMessage(string $phone, string $message, ?int $leadId = null): bool
+    public function sendMessage(string $phone, string $message, ?int $leadId = null, ?int $userId = null): bool
     {
         try {
-            // TODO: Implement actual WhatsApp API integration
-            // This is a placeholder that logs the message
-            // Example implementation would use:
-            // - Twilio WhatsApp API
-            // - WhatsApp Business API
-            // - Other WhatsApp service providers
-
+            // TODO: Implement actual WhatsApp API integration (use $userId to send from that user's number when multi-number is supported)
             Log::info("WhatsApp Message Sent (Placeholder)", [
                 'phone' => $phone,
                 'message' => $message,
                 'lead_id' => $leadId,
+                'user_id' => $userId,
             ]);
 
-            // Log in database
+            // Log in database (user_id = employee who sent, so admin can see per-user chats)
             WhatsappLog::create([
                 'lead_id' => $leadId,
+                'user_id' => $userId,
                 'sent_to' => $phone,
                 'message' => $message,
                 'sent_at' => now(),
             ]);
 
-            // Placeholder: Return true to simulate successful send
-            // In real implementation, return actual API response status
             return true;
 
         } catch (\Exception $e) {
@@ -48,6 +43,7 @@ class WhatsappService
                 'phone' => $phone,
                 'message' => $message,
                 'lead_id' => $leadId,
+                'user_id' => $userId,
                 'error' => $e->getMessage(),
             ]);
 
@@ -62,19 +58,12 @@ class WhatsappService
      * @param string $templateName Template name registered with WhatsApp
      * @param array $params Template parameters to replace placeholders
      * @param int|null $leadId Optional lead ID for logging
+     * @param int|null $userId Optional user (employee) who sent the message
      * @return bool
      */
-    public function sendTemplate(string $phone, string $templateName, array $params = [], ?int $leadId = null): bool
+    public function sendTemplate(string $phone, string $templateName, array $params = [], ?int $leadId = null, ?int $userId = null): bool
     {
         try {
-            // TODO: Implement actual WhatsApp Template API integration
-            // This is a placeholder that logs the template message
-            // Example implementation would use:
-            // - Twilio WhatsApp Template API
-            // - WhatsApp Business API Templates
-            // - Other WhatsApp service providers
-
-            // Build message from template and params (placeholder)
             $message = $this->buildTemplateMessage($templateName, $params);
 
             Log::info("WhatsApp Template Sent (Placeholder)", [
@@ -83,18 +72,17 @@ class WhatsappService
                 'params' => $params,
                 'message' => $message,
                 'lead_id' => $leadId,
+                'user_id' => $userId,
             ]);
 
-            // Log in database
             WhatsappLog::create([
                 'lead_id' => $leadId,
+                'user_id' => $userId,
                 'sent_to' => $phone,
                 'message' => $message,
                 'sent_at' => now(),
             ]);
 
-            // Placeholder: Return true to simulate successful send
-            // In real implementation, return actual API response status
             return true;
 
         } catch (\Exception $e) {
@@ -103,6 +91,7 @@ class WhatsappService
                 'template_name' => $templateName,
                 'params' => $params,
                 'lead_id' => $leadId,
+                'user_id' => $userId,
                 'error' => $e->getMessage(),
             ]);
 

@@ -39,13 +39,16 @@ export const SettingsProvider = ({ children }) => {
 
   const loadSettings = async () => {
     try {
-      const response = await settingsAPI.get();
-      if (response.data.success) {
-        setSettings(response.data.data);
+      const response = await settingsAPI.getAll();
+      if (response.data?.success && response.data?.data) {
+        const raw = response.data.data;
+        const obj = Array.isArray(raw)
+          ? raw.reduce((acc, s) => ({ ...acc, [s.key]: s.value }), {})
+          : raw;
+        setSettings(prev => ({ ...prev, ...obj }));
       }
     } catch (error) {
-      console.error('Failed to load settings:', error);
-      // Keep default values on error
+      // Keep default values on error (/admin/settings may 500 with tenant error)
     } finally {
       setLoading(false);
     }
@@ -54,11 +57,11 @@ export const SettingsProvider = ({ children }) => {
   const updateSettings = async (newSettings) => {
     try {
       const response = await settingsAPI.update(newSettings);
-      if (response.data.success) {
+      if (response.data?.success && response.data?.data) {
         setSettings(response.data.data);
         return { success: true };
       }
-      return { success: false, message: response.data.message };
+      return { success: false, message: response.data?.message };
     } catch (error) {
       return {
         success: false,
@@ -70,11 +73,11 @@ export const SettingsProvider = ({ children }) => {
   const resetSettings = async () => {
     try {
       const response = await settingsAPI.reset();
-      if (response.data.success) {
+      if (response.data?.success && response.data?.data) {
         setSettings(response.data.data);
         return { success: true };
       }
-      return { success: false, message: response.data.message };
+      return { success: false, message: response.data?.message };
     } catch (error) {
       return {
         success: false,

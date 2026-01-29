@@ -1,29 +1,8 @@
 import { useState, useEffect } from 'react';
-<<<<<<< HEAD
-import { Link } from 'react-router-dom';
-import { dashboardAPI, followupsAPI, paymentsAPI } from '../services/api';
-import Layout from '../components/Layout';
-import BarChart from '../components/BarChart';
-import LineChart from '../components/LineChart';
-import HorizontalBarChart from '../components/HorizontalBarChart';
-import DonutChart from '../components/DonutChart';
-import SalesRepsTable from '../components/SalesRepsTable';
-import TopDestinationsTable from '../components/TopDestinationsTable';
-import PaymentCollectionTable from '../components/PaymentCollectionTable';
-import EmployeePerformance from '../components/EmployeePerformance';
-import {
-  Calendar,
-  FileText,
-  Users,
-  BarChart3 as BarChartIcon
-} from 'lucide-react';
-import { useNavigate } from "react-router";
-=======
 import { dashboardAPI, followupsAPI, leadsAPI } from '../services/api';
 import Layout from '../components/Layout';
 import PaymentCollectionTable from '../components/PaymentCollectionTable';
 import SalesRepsTable from '../components/SalesRepsTable';
->>>>>>> 685a818 (Added itinerary pricing, frontend updates, and backend improvements)
 import TodayQueriesCard from '../components/dashboard/TodayQueriesCard';
 import UpcomingTours from '../components/dashboard/UpcomingTours';
 import RevenueGrowthCard from '../components/dashboard/RevenueGrowthCard';
@@ -34,12 +13,8 @@ import LatestQuery from '../components/dashboard/LatestQuery';
 import TopLeadSource from '../components/dashboard/TopLeadSource';
 import TaskFollowups from '../components/dashboard/TaskFollowups';
 import TopDestinationAndPerformance from '../components/dashboard/TopDestinationAndPerformance';
-<<<<<<< HEAD
-import DashboardHeader from '../components/Headers/Search/DashboardHeader';
-=======
 import { useNavigate } from "react-router";
 import { useAuth } from '../contexts/AuthContext';
->>>>>>> 685a818 (Added itinerary pricing, frontend updates, and backend improvements)
 
 const Dashboard = () => {
   const [stats, setStats] = useState(null);
@@ -47,11 +22,6 @@ const Dashboard = () => {
   const [upcomingTours, setUpcomingTours] = useState([]);
   const [latestNotes, setLatestNotes] = useState([]);
   const [followups, setFollowups] = useState([]);
-<<<<<<< HEAD
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  let navigate = useNavigate();
-=======
   const [todayQueries, setTodayQueries] = useState([]);
   const [loadingTodayQueries, setLoadingTodayQueries] = useState(true);
   const [leadStats, setLeadStats] = useState({
@@ -68,7 +38,6 @@ const Dashboard = () => {
   const [error, setError] = useState('');
   let navigate = useNavigate();
   const { user } = useAuth();
->>>>>>> 685a818 (Added itinerary pricing, frontend updates, and backend improvements)
 
   useEffect(() => {
     fetchAllData();
@@ -90,20 +59,10 @@ const Dashboard = () => {
         dashboardAPI.latestLeadNotes(),
         followupsAPI.today()
       ]);
-<<<<<<< HEAD
-=======
-
->>>>>>> 685a818 (Added itinerary pricing, frontend updates, and backend improvements)
-      console.log(revenueRes.data.data)
-      console.log("check", followupsRes.data.data?.followups)
       setStats(statsRes.data.data);
       setRevenueData(revenueRes.data.data || []);
       setUpcomingTours(toursRes.data.data || []);
       setLatestNotes(notesRes.data.data || []);
-<<<<<<< HEAD
-      setFollowups(followupsRes.data.data?.followups || []);
-
-=======
 
       // Today follow-ups widget should show only real followups/tasks,
       // not plain notes. In this app, tasks have a reminder_time set.
@@ -184,7 +143,6 @@ const Dashboard = () => {
           hot: 0,
         });
       }
->>>>>>> 685a818 (Added itinerary pricing, frontend updates, and backend improvements)
     } catch (err) {
       console.error('Dashboard error:', err);
       const errorMessage = err.response?.data?.message || err.message || 'Failed to load dashboard data';
@@ -239,53 +197,6 @@ const Dashboard = () => {
     { label: 'Proposal Conv.', value: toPercent(stats?.proposal_confirmed || 0) }
   ];
   return (
-<<<<<<< HEAD
-    <Layout Header={DashboardHeader}>
-      <div className="p-4 ">
-        {/* =========================================
-            DESKTOP LAYOUT (Visible on 1440px and up)
-           ========================================= */}
-        <div className="hidden min-[1440px]:grid grid-cols-12 gap-6">
-          {/* Left Column (Span 3) */}
-          <div className='col-span-3 space-y-2'>
-            <TodayQueriesCard />
-            <UpcomingTours data={upcomingTours} />
-            <RevenueGrowthCard
-              title="Revenue Growth"
-              data={revenueGrowthPercentages}
-              buttonText="View Full Report's"
-              onButtonClick={() => navigate("/reports")}
-            />
-          </div>
-
-          {/* Middle Column (Span 6) */}
-          <div className='col-span-6 space-y-6'>
-            <DashboardStatsCards
-              stats={{
-                totalQueries: stats?.total_queries || 0,
-                pendingQueries: stats?.pending_queries || 0,
-                resolvedQueries: stats?.resolved_queries || 0,
-                closedQueries: stats?.closed_queries || 0,
-                todayQueries: stats?.today_queries || 0,
-                weeklyQueries: stats?.weekly_queries || 0,
-                monthlyQueries: stats?.monthly_queries || 0,
-                yearlyQueries: stats?.yearly_queries || 0,
-              }}
-            />
-            <RevenueChart revenueData={revenueData} />
-            <YearQueriesChart
-              title="This Year Queries / Confirmed"
-              data={stats?.this_year_queries_confirmed || []}
-            />
-
-            <div className='flex w-full mt-2 gap-4'>
-              <div className='w-[35%]'>
-                <LatestQuery latestNotes={latestNotes} />
-              </div>
-              <div className='w-[65%]'>
-                <TopLeadSource leadData={stats?.top_lead_sources || []} />
-              </div>
-=======
     <Layout>
       <div className="p-4 overflow-x-auto">
         <div className="min-w-[1280px] grid grid-cols-12 gap-6 items-stretch">
@@ -369,7 +280,6 @@ const Dashboard = () => {
                 title="This Year Queries / Confirmed"
                 data={stats?.this_year_queries_confirmed || []}
               />
->>>>>>> 685a818 (Added itinerary pricing, frontend updates, and backend improvements)
             </div>
           </div>
           <div className="col-span-3 flex h-[300px]">
@@ -378,72 +288,6 @@ const Dashboard = () => {
             </div>
           </div>
 
-<<<<<<< HEAD
-          {/* Right Column (Span 3) */}
-          <div className='col-span-3 space-y-6'>
-            <TaskFollowups followups={followups} />
-            <PaymentCollectionTable />
-            <SalesRepsTable title={"Sales"} />
-            <TopDestinationAndPerformance />
-          </div>
-        </div>
-
-        {/* =========================================
-            MOBILE & TABLET LAYOUT (Visible below 1440px)
-           ========================================= */}
-        <div className="min-[1440px]:hidden space-y-6">
-          {/* Top Stats */}
-          <DashboardStatsCards
-            stats={{
-              totalQueries: stats?.total_queries || 0,
-              pendingQueries: stats?.pending_queries || 0,
-              resolvedQueries: stats?.resolved_queries || 0,
-              closedQueries: stats?.closed_queries || 0,
-              todayQueries: stats?.today_queries || 0,
-              weeklyQueries: stats?.weekly_queries || 0,
-              monthlyQueries: stats?.monthly_queries || 0,
-              yearlyQueries: stats?.yearly_queries || 0,
-            }}
-          />
-
-          {/* Today Queries & Upcoming Tours - 1 col mobile, 2 col tab */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <TodayQueriesCard />
-            <UpcomingTours data={upcomingTours} />
-          </div>
-
-          {/* Charts & Growth - Stacked */}
-          <RevenueChart revenueData={revenueData} />
-
-          <YearQueriesChart
-            title="This Year Queries / Confirmed"
-            data={stats?.this_year_queries_confirmed || []}
-          />
-
-          <RevenueGrowthCard
-            title="Revenue Growth"
-            data={revenueGrowthPercentages}
-            buttonText="View Full Report's"
-            onButtonClick={() => navigate("/reports")}
-          />
-
-          {/* Latest Query & Top Lead Source - Custom Split */}
-          <div className='flex flex-col md:flex-row w-full mt-2 gap-4'>
-            <div className='md:w-[35%] w-full'>
-              <LatestQuery latestNotes={latestNotes} />
-            </div>
-            <div className='md:w-[65%] w-full'>
-              <TopLeadSource leadData={stats?.top_lead_sources || []} />
-            </div>
-          </div>
-
-          {/* Bottom Section - 1 col mobile, 2 col tab */}
-          <div className='grid grid-cols-1 md:grid-cols-2 gap-6'>
-            <TaskFollowups followups={followups} />
-            <PaymentCollectionTable />
-            <SalesRepsTable title={"Sales"} />
-            <TopDestinationAndPerformance />
-=======
           {/* Row 4 */}
           <div className="col-span-3 flex h-[300px]">
             <div className="w-full">
@@ -459,7 +303,6 @@ const Dashboard = () => {
             <div className="w-full">
               <TopDestinationAndPerformance />
             </div>
->>>>>>> 685a818 (Added itinerary pricing, frontend updates, and backend improvements)
           </div>
         </div>
       </div>

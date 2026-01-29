@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react';
 import { useSettings } from '../contexts/SettingsContext';
 import { useAuth } from '../contexts/AuthContext';
+import { useContent } from '../contexts/ContentContext';
 import Layout from '../components/Layout';
 import { Settings as SettingsIcon, RotateCcw, Save, Hotel, Mail } from 'lucide-react';
 import { settingsAPI, googleMailAPI } from '../services/api';
 
 const Settings = () => {
   const { user } = useAuth();
+  const { t } = useContent();
   const { settings, updateSettings, resetSettings, loading: settingsLoading } = useSettings();
   const [formData, setFormData] = useState({
     sidebar_color: '#2765B0',
@@ -49,7 +51,7 @@ const Settings = () => {
         type: 'integer',
         description: 'Maximum number of hotel options allowed per day in itinerary'
       });
-      setMessage({ type: 'success', text: 'Itinerary settings saved successfully!' });
+      setMessage({ type: 'success', text: t('settings.itinerary_saved') });
     } catch (err) {
       console.error('Failed to save itinerary settings:', err);
       setMessage({ type: 'error', text: 'Failed to save itinerary settings. Please try again.' });
@@ -58,36 +60,7 @@ const Settings = () => {
     }
   };
 
-<<<<<<< HEAD
-  // Check if user is Admin
-  const isAdmin = user?.role === 'Admin' || user?.roles?.some(role => role.name === 'Admin') || false;
-=======
-  // Check if user has admin access (support different role shapes/names)
-  const roleValues = [
-    user?.role,
-    user?.role_name,
-    user?.roleName,
-    user?.user_role,
-    ...(user?.roles?.map(role => (typeof role === 'string' ? role : role?.name)) || [])
-  ].filter(Boolean);
-  const normalizedRoles = roleValues.map(role => role.toString().toLowerCase());
-  const hasAdminRole = normalizedRoles.some(role => role.includes('admin'));
-  const hasSettingsPermission = Array.isArray(user?.permissions)
-    && user.permissions.some(permission => permission?.toString().toLowerCase() === 'manage_company_settings');
-  const isSettingsAdmin = Boolean(user?.is_super_admin || hasAdminRole || hasSettingsPermission);
->>>>>>> 685a818 (Added itinerary pricing, frontend updates, and backend improvements)
 
-  if (!isAdmin) {
-    return (
-      <Layout>
-        <div className="p-6">
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-            <p className="text-red-800">You do not have permission to access this page. Admin access required.</p>
-          </div>
-        </div>
-      </Layout>
-    );
-  }
 
   const handleChange = (field, value) => {
     setFormData(prev => ({
@@ -105,7 +78,7 @@ const Settings = () => {
     try {
       const result = await updateSettings(formData);
       if (result.success) {
-        setMessage({ type: 'success', text: 'Settings updated successfully!' });
+        setMessage({ type: 'success', text: t('settings.settings_updated') });
       } else {
         setMessage({ type: 'error', text: result.message || 'Failed to update settings' });
       }
@@ -117,7 +90,7 @@ const Settings = () => {
   };
 
   const handleReset = async () => {
-    if (!window.confirm('Are you sure you want to reset all settings to default values?')) {
+    if (!window.confirm(t('settings.reset_confirm'))) {
       return;
     }
 
@@ -132,7 +105,7 @@ const Settings = () => {
           dashboard_background_color: '#D8DEF5',
           header_background_color: '#D8DEF5',
         });
-        setMessage({ type: 'success', text: 'Settings reset to default values!' });
+        setMessage({ type: 'success', text: t('settings.settings_reset') });
       } else {
         setMessage({ type: 'error', text: result.message || 'Failed to reset settings' });
       }
@@ -147,7 +120,7 @@ const Settings = () => {
     return (
       <Layout>
         <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+          <div className="w-12 h-12 border-b-2 border-blue-600 rounded-full animate-spin"></div>
         </div>
       </Layout>
     );
@@ -157,11 +130,11 @@ const Settings = () => {
     <Layout>
       <div className="p-6">
         <div className="mb-6">
-          <h1 className="text-3xl font-bold text-gray-800 flex items-center gap-2">
-            <SettingsIcon className="h-8 w-8" />
-            Company Settings
+          <h1 className="flex items-center gap-2 text-3xl font-bold text-gray-800">
+            <SettingsIcon className="w-8 h-8" />
+            {t('settings.page_title')}
           </h1>
-          <p className="text-gray-600 mt-2">Customize your dashboard colors</p>
+          <p className="mt-2 text-gray-600">{t('settings.subtitle')}</p>
         </div>
 
         {message.text && (
@@ -175,19 +148,19 @@ const Settings = () => {
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow p-6">
+        <form onSubmit={handleSubmit} className="p-6 bg-white rounded-lg shadow">
           <div className="space-y-6">
             {/* Sidebar Color */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Sidebar Color
+              <label className="block mb-2 text-sm font-medium text-gray-700">
+                {t('settings.sidebar_color')}
               </label>
               <div className="flex items-center gap-4">
                 <input
                   type="color"
                   value={formData.sidebar_color}
                   onChange={(e) => handleChange('sidebar_color', e.target.value)}
-                  className="h-12 w-24 rounded border border-gray-300 cursor-pointer"
+                  className="w-24 h-12 border border-gray-300 rounded cursor-pointer"
                 />
                 <input
                   type="text"
@@ -198,7 +171,7 @@ const Settings = () => {
                   className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
                 <div
-                  className="w-16 h-12 rounded border border-gray-300"
+                  className="w-16 h-12 border border-gray-300 rounded"
                   style={{ backgroundColor: formData.sidebar_color }}
                 ></div>
               </div>
@@ -207,15 +180,15 @@ const Settings = () => {
 
             {/* Dashboard Background Color */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Dashboard Background Color
+              <label className="block mb-2 text-sm font-medium text-gray-700">
+                {t('settings.dashboard_bg_color')}
               </label>
               <div className="flex items-center gap-4">
                 <input
                   type="color"
                   value={formData.dashboard_background_color}
                   onChange={(e) => handleChange('dashboard_background_color', e.target.value)}
-                  className="h-12 w-24 rounded border border-gray-300 cursor-pointer"
+                  className="w-24 h-12 border border-gray-300 rounded cursor-pointer"
                 />
                 <input
                   type="text"
@@ -226,7 +199,7 @@ const Settings = () => {
                   className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
                 <div
-                  className="w-16 h-12 rounded border border-gray-300"
+                  className="w-16 h-12 border border-gray-300 rounded"
                   style={{ backgroundColor: formData.dashboard_background_color }}
                 ></div>
               </div>
@@ -235,15 +208,15 @@ const Settings = () => {
 
             {/* Header Background Color */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Header Background Color
+              <label className="block mb-2 text-sm font-medium text-gray-700">
+                {t('settings.header_bg_color')}
               </label>
               <div className="flex items-center gap-4">
                 <input
                   type="color"
                   value={formData.header_background_color}
                   onChange={(e) => handleChange('header_background_color', e.target.value)}
-                  className="h-12 w-24 rounded border border-gray-300 cursor-pointer"
+                  className="w-24 h-12 border border-gray-300 rounded cursor-pointer"
                 />
                 <input
                   type="text"
@@ -254,7 +227,7 @@ const Settings = () => {
                   className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
                 <div
-                  className="w-16 h-12 rounded border border-gray-300"
+                  className="w-16 h-12 border border-gray-300 rounded"
                   style={{ backgroundColor: formData.header_background_color }}
                 ></div>
               </div>
@@ -263,42 +236,42 @@ const Settings = () => {
           </div>
 
           {/* Action Buttons */}
-          <div className="mt-8 flex items-center gap-4">
+          <div className="flex items-center gap-4 mt-8">
             <button
               type="submit"
               disabled={saving}
-              className="flex items-center gap-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex items-center gap-2 px-6 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <Save className="h-4 w-4" />
-              {saving ? 'Saving...' : 'Save Settings'}
+              <Save className="w-4 h-4" />
+              {saving ? t('settings.saving') : t('settings.save_settings')}
             </button>
             <button
               type="button"
               onClick={handleReset}
               disabled={saving}
-              className="flex items-center gap-2 px-6 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex items-center gap-2 px-6 py-2 text-white bg-gray-600 rounded-lg hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <RotateCcw className="h-4 w-4" />
-              Reset to Default
+              <RotateCcw className="w-4 h-4" />
+              {t('settings.reset_to_default')}
             </button>
           </div>
         </form>
 
         {/* Preview Section */}
-        <div className="mt-6 bg-white rounded-lg shadow p-6">
-          <h2 className="text-lg font-semibold text-gray-800 mb-4">Preview</h2>
+        <div className="p-6 mt-6 bg-white rounded-lg shadow">
+          <h2 className="mb-4 text-lg font-semibold text-gray-800">{t('settings.preview')}</h2>
           <div className="flex gap-4">
             <div className="flex-1">
-              <p className="text-sm text-gray-600 mb-2">Sidebar</p>
+              <p className="mb-2 text-sm text-gray-600">{t('settings.sidebar')}</p>
               <div
-                className="h-32 rounded-lg border-2 border-gray-300"
+                className="h-32 border-2 border-gray-300 rounded-lg"
                 style={{ backgroundColor: formData.sidebar_color }}
               ></div>
             </div>
             <div className="flex-1">
-              <p className="text-sm text-gray-600 mb-2">Dashboard & Header</p>
+              <p className="mb-2 text-sm text-gray-600">{t('settings.dashboard_and_header')}</p>
               <div
-                className="h-32 rounded-lg border-2 border-gray-300"
+                className="h-32 border-2 border-gray-300 rounded-lg"
                 style={{ backgroundColor: formData.dashboard_background_color }}
               ></div>
             </div>
@@ -306,27 +279,27 @@ const Settings = () => {
         </div>
 
         {/* Email Template Settings */}
-        <div className="mt-6 bg-white rounded-lg shadow p-6">
+        <div className="p-6 mt-6 bg-white rounded-lg shadow">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
-              <Mail className="h-6 w-6 text-blue-600" />
-              <h2 className="text-lg font-semibold text-gray-800">Email Template Settings</h2>
+              <Mail className="w-6 h-6 text-blue-600" />
+              <h2 className="text-lg font-semibold text-gray-800">{t('settings.email_template_settings')}</h2>
             </div>
             <a
               href="/email-templates"
-              className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+              className="text-sm font-medium text-blue-600 hover:text-blue-700"
             >
-              Manage Templates →
+              {t('settings.manage_templates')}
             </a>
           </div>
-          <p className="text-gray-600 mb-4 text-sm">
-            Select the email template to use when sending quotations to clients
+          <p className="mb-4 text-sm text-gray-600">
+            {t('settings.email_template_help')}
           </p>
 
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Default Email Template
+              <label className="block mb-2 text-sm font-medium text-gray-700">
+                {t('settings.default_email_template')}
               </label>
               <select
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -339,7 +312,7 @@ const Settings = () => {
                       type: 'string',
                       description: 'Selected email template for sending quotations'
                     });
-                    setMessage({ type: 'success', text: 'Email template updated successfully!' });
+                    setMessage({ type: 'success', text: t('settings.email_template_updated') });
                   } catch (err) {
                     setMessage({ type: 'error', text: 'Failed to update email template' });
                   }
@@ -355,63 +328,63 @@ const Settings = () => {
                 <option value="template-8">Modern Elegant</option>
                 <option value="template-9">Minimalist</option>
               </select>
-              <p className="text-xs text-gray-500 mt-1">
-                This template will be used when sending quotations via email
+              <p className="mt-1 text-xs text-gray-500">
+                {t('settings.template_used_for_quotations')}
               </p>
             </div>
           </div>
         </div>
 
         {/* Gmail Connection Section */}
-        <div className="mt-6 bg-white rounded-lg shadow p-6">
+        <div className="p-6 mt-6 bg-white rounded-lg shadow">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
-              <Mail className="h-6 w-6 text-red-600" />
-              <h2 className="text-lg font-semibold text-gray-800">Gmail Integration</h2>
+              <Mail className="w-6 h-6 text-red-600" />
+              <h2 className="text-lg font-semibold text-gray-800">{t('settings.gmail_integration')}</h2>
             </div>
           </div>
-          <p className="text-gray-600 mb-4 text-sm">
-            Connect your Gmail account to send and receive emails directly from the CRM.
+          <p className="mb-4 text-sm text-gray-600">
+            {t('settings.gmail_help')}
           </p>
           <div className="flex items-center gap-4">
             {user?.google_token ? (
               <div className="flex flex-col gap-2">
-                <div className="flex items-center gap-2 text-green-600 font-medium">
-                  <div className="h-2 w-2 rounded-full bg-green-600 animate-pulse"></div>
-                  Connected as {user.gmail_email}
+                <div className="flex items-center gap-2 font-medium text-green-600">
+                  <div className="w-2 h-2 bg-green-600 rounded-full animate-pulse"></div>
+                  {t('settings.connected_as')} {user.gmail_email}
                 </div>
                 <button
                   onClick={() => window.location.href = googleMailAPI.getConnectUrl()}
-                  className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 text-sm font-medium w-fit"
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 w-fit"
                 >
-                  Reconnect Account
+                  {t('settings.reconnect_account')}
                 </button>
               </div>
             ) : (
               <button
                 onClick={() => window.location.href = googleMailAPI.getConnectUrl()}
-                className="flex items-center gap-2 px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                className="flex items-center gap-2 px-6 py-2 text-white transition-colors bg-red-600 rounded-lg hover:bg-red-700"
               >
-                <Mail className="h-4 w-4" />
-                Connect Gmail Account
+                <Mail className="w-4 h-4" />
+                {t('settings.connect_gmail')}
               </button>
             )}
           </div>
         </div>
-        <div className="mt-6 bg-white rounded-lg shadow p-6">
+        <div className="p-6 mt-6 bg-white rounded-lg shadow">
           <div className="flex items-center gap-2 mb-4">
-            <Hotel className="h-6 w-6 text-blue-600" />
-            <h2 className="text-lg font-semibold text-gray-800">Itinerary Settings</h2>
+            <Hotel className="w-6 h-6 text-blue-600" />
+            <h2 className="text-lg font-semibold text-gray-800">{t('settings.itinerary_settings')}</h2>
           </div>
-          <p className="text-gray-600 mb-4 text-sm">Configure settings for itinerary management</p>
+          <p className="mb-4 text-sm text-gray-600">{t('settings.itinerary_help')}</p>
 
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Maximum Hotel Options Per Day
+              <label className="block mb-2 text-sm font-medium text-gray-700">
+                {t('settings.max_hotel_options')}
               </label>
-              <p className="text-xs text-gray-500 mb-2">
-                Set the maximum number of hotel options that can be added per day in an itinerary.
+              <p className="mb-2 text-xs text-gray-500">
+                {t('settings.max_hotel_help')}
               </p>
               <div className="flex items-center gap-4">
                 <input
@@ -422,10 +395,10 @@ const Settings = () => {
                   onChange={(e) => setMaxHotelOptions(parseInt(e.target.value) || 1)}
                   className="w-32 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
-                <span className="text-sm text-gray-600">option(s)</span>
+                <span className="text-sm text-gray-600">{t('settings.options_per_day')}</span>
               </div>
-              <p className="text-xs text-gray-400 mt-1">
-                Current value: {maxHotelOptions} option(s) per day
+              <p className="mt-1 text-xs text-gray-400">
+                Current value: {maxHotelOptions} {t('settings.options_per_day')}
               </p>
             </div>
 
@@ -433,10 +406,10 @@ const Settings = () => {
               <button
                 onClick={saveItinerarySettings}
                 disabled={savingItinerarySettings}
-                className="flex items-center gap-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex items-center gap-2 px-6 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <Save className="h-4 w-4" />
-                {savingItinerarySettings ? 'Saving...' : 'Save Itinerary Settings'}
+                <Save className="w-4 h-4" />
+                {savingItinerarySettings ? t('settings.saving') : t('settings.save_itinerary_settings')}
               </button>
             </div>
           </div>

@@ -2,6 +2,7 @@
 
 namespace App\Modules\Automation\Domain\Entities;
 
+use App\Models\User;
 use App\Modules\Leads\Domain\Entities\Lead;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -25,6 +26,7 @@ class WhatsappLog extends Model
      */
     protected $fillable = [
         'lead_id',
+        'user_id',
         'sent_to',
         'message',
         'sent_at',
@@ -49,6 +51,16 @@ class WhatsappLog extends Model
     public function lead(): BelongsTo
     {
         return $this->belongsTo(Lead::class, 'lead_id');
+    }
+
+    /**
+     * Get the user (employee) who sent this message.
+     *
+     * @return BelongsTo
+     */
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'user_id');
     }
 }
 

@@ -1,6 +1,8 @@
 <?php
 
 use App\Http\Controllers\CompanySettingsController;
+use App\Http\Controllers\MenuController;
+use App\Http\Controllers\ContentController;
 use App\Http\Controllers\CompanyMailSettingsController;
 use App\Http\Controllers\CurrencyController;
 use App\Http\Controllers\ExpenseTypeController;
@@ -32,6 +34,18 @@ Route::middleware('auth:sanctum')->prefix('settings')->group(function () {
     Route::post('/', [SettingsController::class, 'store']);
     Route::get('/max-hotel-options', [SettingsController::class, 'getMaxHotelOptions']);
     Route::post('/upload-logo', [SettingsController::class, 'uploadLogo']);
+});
+
+// Sidebar menu - dynamic (from settings or default)
+Route::middleware('auth:sanctum')->prefix('menu')->group(function () {
+    Route::get('/', [MenuController::class, 'index']);
+    Route::put('/', [MenuController::class, 'update']);
+});
+
+// Content / labels - dynamic (for Phase 1 & 2)
+Route::middleware('auth:sanctum')->prefix('content')->group(function () {
+    Route::get('/', [ContentController::class, 'index']);
+    Route::put('/', [ContentController::class, 'update']);
 });
 
 // Lead Sources routes - require authentication

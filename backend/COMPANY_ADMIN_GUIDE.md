@@ -203,14 +203,9 @@ curl -X POST http://127.0.0.1:8000/api/auth/login \
 ### Test System Status
 ```bash
 cd backend
-php setup_company_admin_system.php
-php test_company_admin_system.php
-```
-
-### Debug Features
-```bash
-cd backend
-php debug_features.php
+php artisan db:seed --class=RoleSeeder
+php artisan db:seed --class=PermissionSeeder
+# Run other seeders as needed for your environment
 ```
 
 ---

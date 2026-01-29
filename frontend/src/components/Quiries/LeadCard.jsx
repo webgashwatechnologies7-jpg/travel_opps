@@ -1,42 +1,10 @@
-<<<<<<< HEAD
-import React from "react";
-import { MoreVertical, MapPin } from "lucide-react";
-=======
 import React, { useState, useEffect, useRef } from "react";
-import { MoreVertical, MapPin, Trash2, MessageCircle, UserPlus, Mail, FileDown } from "lucide-react";
->>>>>>> 685a818 (Added itinerary pricing, frontend updates, and backend improvements)
+import { MoreVertical, MapPin, Trash2, MessageCircle, Mail, FileDown } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 export default function LeadCard({
   name,
   phone,
-<<<<<<< HEAD
-  avatar,
-  tag,
-  location,
-  date,
-  followUpText,
-  amount,
-  onAssign,
-  id,
-}) {
-  const navigate = useNavigate();
-  return (
-    <div className="w-full rounded-2xl border bg-white shadow-sm overflow-hidden">
-      {/* Top Section */}
-      <div className="p-4 flex justify-between items-start">
-        <div className="flex gap-3 items-center">
-          {/* Avatar */}
-          <div className="relative">
-            <img
-              src={avatar}
-              alt={name}
-              className="w-14 h-14 rounded-full object-cover border-2 border-blue-500"
-            />
-          </div>
-
-          {/* Name & Phone */}
-=======
   tag,
   location,
   date,
@@ -145,8 +113,6 @@ export default function LeadCard({
       {/* Top Section */}
       <div className="p-4 flex justify-between items-start">
         <div className="flex gap-3 items-center">
-          {/* Name & Phone - Avatar removed */}
->>>>>>> 685a818 (Added itinerary pricing, frontend updates, and backend improvements)
           <div>
             <h3 className="font-semibold text-[18px] text-gray-900">
               {name}
@@ -155,19 +121,12 @@ export default function LeadCard({
           </div>
         </div>
 
-<<<<<<< HEAD
-        <div className="flex items-center gap-2">
-=======
         <div className="flex items-center gap-2 relative">
->>>>>>> 685a818 (Added itinerary pricing, frontend updates, and backend improvements)
           {tag && (
             <span className="text-xs bg-orange-400 text-white px-2 py-0.5 rounded">
               {tag}
             </span>
           )}
-<<<<<<< HEAD
-          <MoreVertical className="text-gray-400" size={18} />
-=======
           <div className="relative" ref={menuRef}>
             <button
               onClick={handleMenuClick}
@@ -187,7 +146,6 @@ export default function LeadCard({
               </div>
             )}
           </div>
->>>>>>> 685a818 (Added itinerary pricing, frontend updates, and backend improvements)
         </div>
       </div>
 
@@ -200,33 +158,11 @@ export default function LeadCard({
           <MapPin size={14} />
           <span>{location}</span>
         </div>
-
         <span className="text-gray-400">|</span>
-
         <span>{date}</span>
 
-<<<<<<< HEAD
-        <button className="bg-red-400 text-white text-xs px-3 py-1 rounded-full">
-          {followUpText}
-        </button>
-      </div>
-
-      {/* Amount + Action */}
-      <div className="px-4 py-3 flex items-center justify-between">
-        <div className="text-lg font-semibold text-black">
-          RS {amount}
-        </div>
-
-        <button
-          onClick={onAssign}
-          className="border rounded-lg px-4 py-2 text-sm text-gray-600 flex items-center gap-2 hover:bg-gray-50"
-        >
-          Assign Now
-          <span className="text-blue-500">▼</span>
-        </button>
-=======
         <button 
-          onClick={handleStatusChangeClick}
+          onClick={(e) => { e.stopPropagation(); onStatusChange?.(id); }}
           className={`text-white text-xs px-3 py-1 rounded-full hover:opacity-90 transition-colors capitalize ${
             status === 'new' ? 'bg-blue-500' :
             status === 'proposal' ? 'bg-yellow-500' :
@@ -236,88 +172,37 @@ export default function LeadCard({
             'bg-gray-500'
           }`}
         >
-          {status ? status : 'Status Change'}
+          {status || 'Status Change'}
         </button>
       </div>
 
-      {/* Assign Action */}
       <div className="px-4 py-3 flex items-center justify-between">
         <button
-          onClick={handleAssignClick}
+          onClick={(e) => { e.stopPropagation(); onAssign?.(id); }}
           className="border rounded-lg px-4 py-2 text-sm text-gray-600 flex items-center gap-2 hover:bg-gray-50 transition-colors"
         >
           {assignedUserName || assignedTo?.name ? (
-            <>
-              <span className="text-blue-600 font-medium">
-                {assignedUserName || assignedTo?.name}
-              </span>
-              <span className="text-blue-500">▼</span>
-            </>
+            <><span className="text-blue-600 font-medium">{assignedUserName || assignedTo?.name}</span><span className="text-blue-500">▼</span></>
           ) : (
-            <>
-              Assign Now
-              <span className="text-blue-500">▼</span>
-            </>
+            <>Assign Now <span className="text-blue-500">▼</span></>
           )}
         </button>
-
-        {/* Action Icons */}
         <div className="flex items-center gap-2">
-          <button
-            onClick={handleWhatsAppClick}
-            className="bg-green-500 text-white p-2.5 rounded-lg shadow-md hover:bg-green-600 transition-all duration-200 flex items-center justify-center"
-            title="WhatsApp"
-          >
-            <MessageCircle className="h-5 w-5" />
-          </button>
-          <button
-            onClick={handleEmailClick}
-            className="bg-blue-500 text-white p-2.5 rounded-lg shadow-md hover:bg-blue-600 transition-all duration-200 flex items-center justify-center"
-            title="Email"
-          >
-            <Mail className="h-5 w-5" />
-          </button>
-          <button
-            onClick={handlePDFDownload}
-            className="bg-red-500 text-white p-2.5 rounded-lg shadow-md hover:bg-red-600 transition-all duration-200 flex items-center justify-center"
-            title="Download PDF"
-          >
-            <FileDown className="h-5 w-5" />
-          </button>
+          <button onClick={handleWhatsAppClick} className="bg-green-500 text-white p-2.5 rounded-lg hover:bg-green-600" title="WhatsApp"><MessageCircle className="h-5 w-5" /></button>
+          <button onClick={handleEmailClick} className="bg-blue-500 text-white p-2.5 rounded-lg hover:bg-blue-600" title="Email"><Mail className="h-5 w-5" /></button>
+          <button onClick={handlePDFDownload} className="bg-red-500 text-white p-2.5 rounded-lg hover:bg-red-600" title="Download PDF"><FileDown className="h-5 w-5" /></button>
         </div>
->>>>>>> 685a818 (Added itinerary pricing, frontend updates, and backend improvements)
       </div>
 
       {/* Bottom Bar */}
       <div className="bg-gradient-to-r from-blue-50 to-blue-200 px-4 py-3 flex justify-between items-center">
-<<<<<<< HEAD
-        <div onClick={()=>{
-          navigate(`/leads/${id}`);
-        }} className="flex cursor-pointer items-center gap-2 text-sm text-gray-700">
-=======
         <div className="flex items-center gap-2 text-sm text-gray-700">
->>>>>>> 685a818 (Added itinerary pricing, frontend updates, and backend improvements)
           <div className="bg-white p-1 rounded border">
             👤
           </div>
           <span>Details</span>
           <span className="text-blue-500 font-medium">CS</span>
         </div>
-<<<<<<< HEAD
-
-        <div className="flex gap-2">
-          <button className="bg-white p-2 rounded shadow text-blue-500">
-            👍
-          </button>
-          <button className="bg-white p-2 rounded shadow text-orange-400">
-            🧾
-          </button>
-          <button className="bg-white p-2 rounded shadow text-gray-400">
-            …
-          </button>
-        </div>
-=======
->>>>>>> 685a818 (Added itinerary pricing, frontend updates, and backend improvements)
       </div>
     </div>
   );

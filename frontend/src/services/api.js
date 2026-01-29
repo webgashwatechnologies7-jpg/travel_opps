@@ -175,7 +175,9 @@ export const followupsAPI = {
   today: () => api.get('/followups/today'),
   overdue: () => api.get('/followups/overdue'),
   create: (data) => api.post('/followups', data),
+  update: (id, data) => api.put(`/followups/${id}`, data),
   complete: (id) => api.put(`/followups/${id}/complete`),
+  delete: (id) => api.delete(`/followups/${id}`),
 };
 
 // Documents APIs
@@ -213,8 +215,9 @@ export const followUpAPI = {
 // WhatsApp APIs
 export const whatsappAPI = {
   inbox: () => api.get('/whatsapp/inbox'),
+  inboxByUser: (userId) => api.get(`/whatsapp/inbox-by-user/${userId}`),
   send: (leadId, message) => api.post('/whatsapp/send', { lead_id: leadId, message }),
-  messages: (leadId) => api.get(`/whatsapp/messages/${leadId}`),
+  messages: (leadId, params = {}) => api.get(`/whatsapp/messages/${leadId}`, { params }),
 };
 
 // Targets APIs (Admin only)
@@ -279,6 +282,19 @@ export const settingsAPI = {
   getByKey: (key) => api.get('/settings', { params: { key } }),
   save: (data) => api.post('/settings', data),
   getMaxHotelOptions: () => api.get('/settings/max-hotel-options'),
+};
+
+// Sidebar menu (dynamic from backend)
+export const menuAPI = {
+  get: () => api.get('/menu'),
+  update: (menu) => api.put('/menu', { menu }),
+};
+
+// Content / labels (dynamic - Phase 1 & 2)
+export const contentAPI = {
+  getAll: () => api.get('/content'),
+  getByKeys: (keys) => api.get('/content', { params: { keys: Array.isArray(keys) ? keys.join(',') : keys } }),
+  update: (content) => api.put('/content', { content }),
 };
 
 // Suppliers APIs

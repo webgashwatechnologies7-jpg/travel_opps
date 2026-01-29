@@ -39,5 +39,7 @@ Route::middleware('auth:sanctum')->prefix('followups')->group(function () {
     Route::get('/today', [FollowupController::class, 'today']);
     Route::get('/overdue', [FollowupController::class, 'overdue']);
     Route::post('/', [FollowupController::class, 'store']);
+    Route::put('/{id}', [FollowupController::class, 'update']);
     Route::put('/{id}/complete', [FollowupController::class, 'complete']);
+    Route::delete('/{id}', [FollowupController::class, 'destroy']);
 });

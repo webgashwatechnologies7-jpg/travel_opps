@@ -39,9 +39,6 @@ const Itineraries = () => {
       // Process image URLs - handle both relative and absolute URLs
       const processedData = data.map(itinerary => {
         if (itinerary.image) {
-          // Log original image URL for debugging
-          console.log('Original image URL:', itinerary.image);
-
           // If image is a relative URL (starts with /storage or /), convert to absolute
           if (itinerary.image.startsWith('/storage') || (itinerary.image.startsWith('/') && !itinerary.image.startsWith('http'))) {
             let baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
@@ -260,14 +257,11 @@ const Itineraries = () => {
       packageData.append('show_on_website', newStatus ? '1' : '0');
       packageData.append('_method', 'PUT');
 
-      console.log(`Updating itinerary ${itinerary.id}: show_on_website = ${newStatus} (sending as ${newStatus ? '1' : '0'})`);
-
       await packagesAPI.update(itinerary.id, packageData);
 
       // Refresh the list to get updated data from server
       await fetchItineraries(false);
-    } catch (err) {
-      console.error('Failed to update status:', err);
+    } catch {
       // Revert optimistic update on error
       await fetchItineraries(false);
       alert('Failed to update itinerary status. Please try again.');

@@ -25,17 +25,33 @@ import {
   Plane,
   Hotel,
   Menu,
-<<<<<<< HEAD
-  ChevronLeft
-=======
+  ChevronLeft,
   Users,
   Phone,
   ClipboardList,
   Package
->>>>>>> 685a818 (Added itinerary pricing, frontend updates, and backend improvements)
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
-import { settingsAPI } from '../services/api';
+import { settingsAPI, menuAPI } from '../services/api';
+
+// Icon name (from API) -> Lucide component for dynamic menu
+const MENU_ICON_MAP = {
+  LayoutDashboard,
+  MessageSquare,
+  FileText,
+  CreditCard,
+  MessageCircle,
+  Mail,
+  BarChart3,
+  Megaphone,
+  Receipt,
+  Settings,
+  Grid,
+  Users,
+  Phone,
+  ClipboardList,
+  Package,
+};
 
 const Layout = ({ children, Header,padding=0 }) => {
   const { user, logout } = useAuth();
@@ -48,8 +64,84 @@ const Layout = ({ children, Header,padding=0 }) => {
   const [openSubmenus, setOpenSubmenus] = useState({
     reports: false,
     masters: false,
-    settings: false
+    settings: false,
+    marketing: false
   });
+
+  // Dynamic sidebar menu (from API, fallback to default)
+  const staffManagementItem = {
+    label: 'Staff Management',
+    icon: 'Users',
+    submenu: [
+      { path: '/staff-management/dashboard', label: 'Dashboard' },
+      { path: '/staff-management/users', label: 'All Users' },
+      { path: '/staff-management/teams', label: 'All Team' },
+      { path: '/staff-management/roles', label: 'All Role' },
+      { path: '/staff-management/branches', label: 'All Branch' },
+    ],
+  };
+
+  const defaultMenuItems = [
+    { path: '/dashboard', label: 'Dashboard', icon: 'LayoutDashboard' },
+    { path: '/leads', label: 'Queries', icon: 'MessageSquare' },
+    { path: '/itineraries', label: 'Itineraries', icon: 'FileText' },
+    { path: '/payments', label: 'Payments', icon: 'CreditCard' },
+    { path: '/sales-reps', label: 'Sales Reps', icon: 'Users' },
+    { label: 'Accounts', icon: 'CreditCard', submenu: [{ path: '/accounts/clients', label: 'Clients' }, { path: '/accounts/agents', label: 'Agents' }, { path: '/accounts/corporate', label: 'Corporate' }] },
+    { path: '/whatsapp', label: 'WhatsApp', icon: 'MessageCircle' },
+    { path: '/mail', label: 'Mail', icon: 'Mail' },
+    { path: '/call-management', label: 'Call Management System', icon: 'Phone' },
+    { path: '/followups', label: 'Followups', icon: 'ClipboardList' },
+    staffManagementItem,
+    { label: 'Reports', icon: 'BarChart3', submenu: [{ path: '/dashboard/employee-performance', label: 'Performance' }, { path: '/dashboard/source-roi', label: 'Source ROI' }, { path: '/dashboard/destination-performance', label: 'Destination' }] },
+    { label: 'Marketing', icon: 'Megaphone', submenu: [{ path: '/marketing', label: 'Dashboard' }, { path: '/client-groups', label: 'Clients Group' }, { path: '/marketing/templates', label: 'Email Templates' }, { path: '/marketing/whatsapp-templates', label: 'WhatsApp Templates' }, { path: '/marketing/email-campaigns', label: 'Campaigns' }, { path: '/marketing/landing-pages', label: 'Landing Pages' }] },
+    { label: 'Settings', icon: 'Settings', submenu: [{ path: '/settings', label: 'Settings' }, { path: '/settings/whatsapp', label: 'WhatsApp Integration' }, { path: '/settings/mail', label: 'Email Integration' }, { path: '/email-templates', label: 'Email Templates' }, { path: '/settings/terms-conditions', label: 'Terms & Conditions' }, { path: '/settings/policies', label: 'Policies' }, { path: '/settings/account-details', label: 'Account Details' }, { path: '/settings/logo', label: 'Logo' }] },
+    { label: 'Masters', icon: 'Grid', submenu: [{ path: '/masters/suppliers', label: 'Suppliers' }, { path: '/masters/hotel', label: 'Hotel' }, { path: '/masters/activity', label: 'Activity' }, { path: '/masters/transfer', label: 'Transfer' }, { path: '/masters/day-itinerary', label: 'Day Itinerary' }, { path: '/masters/destinations', label: 'Destinations' }, { path: '/masters/room-type', label: 'Room Type' }, { path: '/masters/meal-plan', label: 'Meal Plan' }, { path: '/masters/lead-source', label: 'Lead Source' }, { path: '/masters/expense-type', label: 'Expense Type' }, { path: '/masters/package-theme', label: 'Package Theme' }, { path: '/masters/currency', label: 'Currency' }, { path: '/users', label: 'Users' }, { path: '/targets', label: 'Targets' }, { path: '/permissions', label: 'Permissions' }] },
+  ];
+  const [menuItems, setMenuItems] = useState(defaultMenuItems);
+
+  // Ensure Settings submenu has WhatsApp & Email Integration (company admin flow)
+  const ensureSettingsIntegrationItems = (menu) => {
+    return menu.map((item) => {
+      if (item.label === 'Settings' && item.submenu && Array.isArray(item.submenu)) {
+        const sub = [...item.submenu];
+        const hasWhatsApp = sub.some((s) => s.path === '/settings/whatsapp');
+        const hasEmail = sub.some((s) => s.path === '/settings/mail');
+        let insertAt = 1;
+        if (!hasWhatsApp) {
+          sub.splice(insertAt++, 0, { path: '/settings/whatsapp', label: 'WhatsApp Integration' });
+        }
+        if (!hasEmail) {
+          sub.splice(insertAt++, 0, { path: '/settings/mail', label: 'Email Integration' });
+        }
+        return { ...item, submenu: sub };
+      }
+      return item;
+    });
+  };
+
+  useEffect(() => {
+    menuAPI.get()
+      .then((res) => {
+        if (res.data?.success && Array.isArray(res.data.data) && res.data.data.length > 0) {
+          let apiMenu = [...res.data.data];
+          const hasStaff = apiMenu.some(
+            (item) => item.label === 'Staff Management' || item.path === '/staff-management'
+          );
+          if (!hasStaff) {
+            const reportsIndex = apiMenu.findIndex((item) => item.label === 'Reports');
+            if (reportsIndex >= 0) {
+              apiMenu.splice(reportsIndex, 0, staffManagementItem);
+            } else {
+              apiMenu.push(staffManagementItem);
+            }
+          }
+          apiMenu = ensureSettingsIntegrationItems(apiMenu);
+          setMenuItems(apiMenu);
+        }
+      })
+      .catch(() => { /* keep default */ });
+  }, []);
 
   // Check if user is Admin
   const isAdmin = user?.role === 'Admin' || user?.roles?.some(role => role.name === 'Admin') || false;
@@ -84,16 +176,16 @@ const Layout = ({ children, Header,padding=0 }) => {
     }));
   };
 
-  // Fetch company logo
+  // Fetch company logo (404 when no logo is set is expected)
   useEffect(() => {
     const fetchLogo = async () => {
       try {
         const response = await settingsAPI.getByKey('company_logo');
-        if (response.data.success && response.data.data && response.data.data.value) {
+        if (response.data?.success && response.data?.data?.value) {
           setCompanyLogo(response.data.data.value);
         }
-      } catch (err) {
-        console.error('Failed to fetch company logo:', err);
+      } catch {
+        // Use default (no logo) on any error
       }
     };
     fetchLogo();
@@ -105,130 +197,35 @@ const Layout = ({ children, Header,padding=0 }) => {
       const fetchLogo = async () => {
         try {
           const response = await settingsAPI.getByKey('company_logo');
-          if (response.data.success && response.data.data && response.data.data.value) {
+          if (response.data?.success && response.data?.data?.value) {
             setCompanyLogo(response.data.data.value);
           }
         } catch (err) {
-          console.error('Failed to fetch company logo:', err);
+          if (err?.response?.status !== 404) {
+            console.error('Failed to fetch company logo:', err);
+          }
         }
       };
       fetchLogo();
     }
   }, [location.pathname]);
 
-  // Auto-open submenus when their items are active
+  // Auto-open submenus when their items are active (derived from dynamic menuItems)
   useEffect(() => {
-    const reportsPaths = [
-      '/dashboard/employee-performance',
-      '/dashboard/source-roi',
-      '/dashboard/destination-performance'
-    ];
-    const settingsPaths = [
-      '/settings',
-      '/settings/terms-conditions',
-      '/settings/policies',
-      '/settings/account-details',
-      '/settings/logo',
-      '/email-templates'
-    ];
-    const mastersPaths = [
-      '/users',
-      '/targets',
-      '/permissions',
-      '/masters/suppliers',
-      '/masters/hotel',
-      '/masters/activity',
-      '/masters/transfer',
-      '/masters/day-itinerary',
-      '/masters/destinations',
-      '/masters/room-type',
-      '/masters/meal-plan',
-      '/masters/lead-source',
-      '/masters/expense-type',
-      '/masters/package-theme',
-      '/masters/currency'
-    ];
-
-    setOpenSubmenus(prev => ({
-      reports: reportsPaths.some(path => location.pathname === path) || prev.reports,
-      masters: mastersPaths.some(path => location.pathname === path) || prev.masters,
-      settings: settingsPaths.some(path => location.pathname === path) || prev.settings
-    }));
-  }, [location.pathname]);
-
-  const menuItems = [
-    { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { path: '/leads', label: 'Queries', icon: MessageSquare },
-    { path: '/itineraries', label: 'Itineraries', icon: FileText },
-<<<<<<< HEAD
-    { path: '/payments', label: 'Accounts', icon: CreditCard },
-    { path: '/whatsapp', label: 'WhatsApp', icon: MessageCircle },
-    { path: '/mail', label: 'Mail', icon: Mail },
-    {
-      label: 'Reports',
-=======
-    { path: '/payments', label: 'Payments', icon: CreditCard },
-    { path: '/sales-reps', label: 'Sales Reps', icon: Users },
-    { 
-      label: 'Accounts', 
-      icon: CreditCard,
-      submenu: [
-        { path: '/accounts/clients', label: 'Clients' },
-        { path: '/accounts/agents', label: 'Agents' },
-        { path: '/accounts/corporate', label: 'Corporate' }
-      ]
-    },
-    { path: '/whatsapp', label: 'WhatsApp', icon: MessageCircle },
-    { path: '/mail', label: 'Mail', icon: Mail },
-    { path: '/call-management', label: 'Call Management System', icon: Phone },
-    { path: '/followups', label: 'Followups', icon: ClipboardList },
-    { 
-      label: 'Reports', 
->>>>>>> 685a818 (Added itinerary pricing, frontend updates, and backend improvements)
-      icon: BarChart3,
-      submenu: [
-        { path: '/dashboard/employee-performance', label: 'Performance' },
-        { path: '/dashboard/source-roi', label: 'Source ROI' },
-        { path: '/dashboard/destination-performance', label: 'Destination' }
-      ]
-    },
-    { path: '/marketing', label: 'Marketing', icon: Megaphone },
-    { path: '/expenses', label: 'Expense Book', icon: Receipt },
-    {
-      label: 'Settings',
-      icon: Settings,
-      submenu: [
-        { path: '/settings', label: 'Settings' },
-        { path: '/email-templates', label: 'Email Templates' },
-        { path: '/settings/terms-conditions', label: 'Terms & Conditions' },
-        { path: '/settings/policies', label: 'Policies' },
-        { path: '/settings/account-details', label: 'Account Details' },
-        { path: '/settings/logo', label: 'Logo' }
-      ]
-    },
-    {
-      label: 'Masters',
-      icon: Grid,
-      submenu: [
-        { path: '/masters/suppliers', label: 'Suppliers' },
-        { path: '/masters/hotel', label: 'Hotel' },
-        { path: '/masters/activity', label: 'Activity' },
-        { path: '/masters/transfer', label: 'Transfer' },
-        { path: '/masters/day-itinerary', label: 'Day Itinerary' },
-        { path: '/masters/destinations', label: 'Destinations' },
-        { path: '/masters/room-type', label: 'Room Type' },
-        { path: '/masters/meal-plan', label: 'Meal Plan' },
-        { path: '/masters/lead-source', label: 'Lead Source' },
-        { path: '/masters/expense-type', label: 'Expense Type' },
-        { path: '/masters/package-theme', label: 'Package Theme' },
-        { path: '/masters/currency', label: 'Currency' },
-        { path: '/users', label: 'Users' },
-        { path: '/targets', label: 'Targets' },
-        { path: '/permissions', label: 'Permissions' }
-      ]
-    }
-  ];
-
+    setOpenSubmenus(prev => {
+      const next = { ...prev };
+      menuItems.forEach((item) => {
+        if (item.submenu && item.label) {
+          const key = item.label.toLowerCase();
+          const paths = item.submenu.map(sm => sm.path);
+          if (paths.some(path => location.pathname === path)) {
+            next[key] = true;
+          }
+        }
+      });
+      return next;
+    });
+  }, [location.pathname, menuItems]);
 
   if (!Header) {
     Header = () => {
@@ -402,7 +399,7 @@ const Layout = ({ children, Header,padding=0 }) => {
             <nav className="flex-1 p-2 space-y-1 overflow-y-auto overflow-x-hidden">
               {menuItems.filter(item => !item.adminOnly || isAdmin).map((item) => {
                 if (item.submenu) {
-                  const Icon = item.icon;
+                  const Icon = MENU_ICON_MAP[item.icon] || FileText;
                   const submenuKey = item.label.toLowerCase();
                   const isSubmenuOpen = openSubmenus[submenuKey];
                   const hasActiveSubmenu = isSubmenuActive(item.submenu.map(sm => sm.path));
@@ -445,7 +442,7 @@ const Layout = ({ children, Header,padding=0 }) => {
                     </div>
                   );
                 } else {
-                  const Icon = item.icon;
+                  const Icon = MENU_ICON_MAP[item.icon] || FileText;
                   const active = isActive(item.path);
                   return (
                     <div key={item.path} className="relative">
@@ -501,7 +498,7 @@ const Layout = ({ children, Header,padding=0 }) => {
               <nav className="flex-1 p-2 space-y-1 overflow-y-auto">
                 {menuItems.filter(item => !item.adminOnly || isAdmin).map((item) => {
                   if (item.submenu) {
-                    const Icon = item.icon;
+                    const Icon = MENU_ICON_MAP[item.icon] || FileText;
                     const submenuKey = item.label.toLowerCase();
                     const isSubmenuOpen = openSubmenus[submenuKey];
 
@@ -532,7 +529,7 @@ const Layout = ({ children, Header,padding=0 }) => {
                       </div>
                     );
                   } else {
-                    const Icon = item.icon;
+                    const Icon = MENU_ICON_MAP[item.icon] || FileText;
                     return (
                       <Link
                         key={item.path}
@@ -586,15 +583,10 @@ const Layout = ({ children, Header,padding=0 }) => {
         </div>
 
         {/* Content Area */}
-<<<<<<< HEAD
-        <div style={{ backgroundColor: settings?.dashboard_background_color || '#D8DEF5' }}>
-          {children}
-=======
         <div className="pt-16" style={{ backgroundColor: settings?.dashboard_background_color || '#D8DEF5' }}>
           <div className="p-4 pb-0 md:p-6 md:pb-0 lg:p-8 lg:pb-0">
             {children}
           </div>
->>>>>>> 685a818 (Added itinerary pricing, frontend updates, and backend improvements)
         </div>
       </div>
     </div>

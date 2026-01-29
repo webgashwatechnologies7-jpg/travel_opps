@@ -7,9 +7,7 @@ import { ArrowLeft, Phone, Mail, MapPin, Calendar, DollarSign, FileText, Message
 const ClientDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  
-  console.log('ClientDetails component mounted with ID:', id);
-  
+
   const [client, setClient] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
@@ -49,28 +47,18 @@ const ClientDetails = () => {
   useEffect(() => {
     const loadFollowUps = async () => {
       try {
-        // First try to load from API
-        console.log('Fetching follow-ups from API for client:', id);
         const followUpResponse = await followUpAPI.getClientFollowUps(id);
-        console.log('API follow-up response:', followUpResponse);
-        
+
         if (followUpResponse && followUpResponse.data && followUpResponse.data.success) {
           const apiFollowUps = followUpResponse.data.data;
           setFollowUps(apiFollowUps);
-          // Save API data to localStorage as backup
           localStorage.setItem(`followUps_${id}`, JSON.stringify(apiFollowUps));
-          console.log('Follow-ups loaded from API:', apiFollowUps);
         } else {
-          // If API fails, load from localStorage
-          console.log('API failed, loading from localStorage');
           const savedFollowUps = localStorage.getItem(`followUps_${id}`);
           if (savedFollowUps) {
             const parsedFollowUps = JSON.parse(savedFollowUps);
             setFollowUps(parsedFollowUps);
-            console.log('Follow-ups loaded from localStorage:', parsedFollowUps);
           } else {
-            // If no localStorage data, use mock data
-            console.log('Using mock follow-up data');
             const mockFollowUps = [
               {
                 id: 1,
@@ -93,17 +81,13 @@ const ClientDetails = () => {
             localStorage.setItem(`followUps_${id}`, JSON.stringify(mockFollowUps));
           }
         }
-      } catch (error) {
-        console.error('Error loading follow-ups:', error);
-        // Fallback to localStorage
+      } catch {
         const savedFollowUps = localStorage.getItem(`followUps_${id}`);
         if (savedFollowUps) {
           try {
             const parsedFollowUps = JSON.parse(savedFollowUps);
             setFollowUps(parsedFollowUps);
-            console.log('Follow-ups loaded from localStorage (fallback):', parsedFollowUps);
-          } catch (parseError) {
-            console.error('Error parsing saved follow-ups:', parseError);
+          } catch {
             setFollowUps([]);
           }
         } else {
@@ -115,20 +99,14 @@ const ClientDetails = () => {
     loadFollowUps();
   }, [id]);
 
-  // Save follow-ups to localStorage whenever they change
   useEffect(() => {
     localStorage.setItem(`followUps_${id}`, JSON.stringify(followUps));
-    console.log('Saved follow-ups to localStorage:', followUps);
   }, [followUps, id]);
 
   const fetchClientDetails = async () => {
     try {
-      console.log('Fetching client details for ID:', id);
-      
-      // Fetch client details
       const clientResponse = await accountsAPI.getClient(id);
-      console.log('Client response:', clientResponse);
-      
+
       if (clientResponse && clientResponse.data && clientResponse.data.success) {
         setClient(clientResponse.data.data);
         setEditForm({
@@ -143,7 +121,6 @@ const ClientDetails = () => {
           marriageAnniversary: clientResponse.data.data.marriageAnniversary || ''
         });
       } else {
-        console.log('Using mock client data');
         // Use mock data if API fails
         const mockClient = {
           id: id,
@@ -403,9 +380,7 @@ const ClientDetails = () => {
         // Update local state
         setFollowUps(prevFollowUps => {
           const updatedFollowUps = [newFollowUp, ...prevFollowUps];
-          // Save to localStorage
           localStorage.setItem(`followUps_${id}`, JSON.stringify(updatedFollowUps));
-          console.log('Follow-up saved to database and localStorage:', updatedFollowUps);
           return updatedFollowUps;
         });
         
@@ -425,10 +400,9 @@ const ClientDetails = () => {
       } else {
         throw new Error(response.data.message || 'Failed to save follow-up');
       }
-    } catch (error) {
-      console.error('Error saving follow-up:', error);
+    } catch {
       alert('Failed to save follow-up. Saving locally...');
-      
+
       // Fallback: Save to local state and localStorage
       const newFollowUp = {
         id: Date.now(),
@@ -442,9 +416,7 @@ const ClientDetails = () => {
       
       setFollowUps(prevFollowUps => {
         const updatedFollowUps = [newFollowUp, ...prevFollowUps];
-        // Save to localStorage
         localStorage.setItem(`followUps_${id}`, JSON.stringify(updatedFollowUps));
-        console.log('Follow-up saved locally to localStorage:', updatedFollowUps);
         return updatedFollowUps;
       });
       

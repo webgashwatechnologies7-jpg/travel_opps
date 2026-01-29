@@ -28,6 +28,11 @@ class CompanySettings extends Model
         'sidebar_color',
         'dashboard_background_color',
         'header_background_color',
+        'email_integration_enabled',
+    ];
+
+    protected $casts = [
+        'email_integration_enabled' => 'boolean',
     ];
 
     /**
@@ -66,7 +71,9 @@ class CompanySettings extends Model
                 'dashboard_background_color' => '#D8DEF5',
                 'header_background_color' => '#D8DEF5',
             ];
-
+            if ($hasCompanyColumn && Schema::hasColumn('company_settings', 'email_integration_enabled')) {
+                $payload['email_integration_enabled'] = false;
+            }
             if ($hasCompanyColumn) {
                 $payload['company_id'] = $companyId;
             }

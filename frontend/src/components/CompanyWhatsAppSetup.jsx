@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { Smartphone, Settings, CheckCircle, AlertCircle, RefreshCw, BarChart3, MessageSquare, Phone } from 'lucide-react';
 import { useErrorHandler } from '../hooks/useErrorHandler';
+import { companyWhatsappAPI } from '../services/api';
 
-const CompanyWhatsAppSetup = ({ company }) => {
+const CompanyWhatsAppSetup = () => {
   const { executeWithErrorHandling } = useErrorHandler();
   const [settings, setSettings] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -15,14 +16,11 @@ const CompanyWhatsAppSetup = ({ company }) => {
 
   const fetchSettings = async () => {
     const result = await executeWithErrorHandling(async () => {
-      const response = await fetch('/api/company/whatsapp/settings');
-      const data = await response.json();
-      
-      if (!data.success) {
-        throw new Error(data.message || 'Failed to fetch settings');
+      const response = await companyWhatsappAPI.getSettings();
+      if (!response.data?.success) {
+        throw new Error(response.data?.message || 'Failed to fetch settings');
       }
-      
-      return data.data;
+      return response.data.data;
     });
 
     if (result.success) {
@@ -32,45 +30,31 @@ const CompanyWhatsAppSetup = ({ company }) => {
 
   const handleAutoProvision = async () => {
     setProvisioning(true);
-    
+
     const result = await executeWithErrorHandling(async () => {
-      const response = await fetch('/api/company/whatsapp/auto-provision', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
-      });
-      
-      const data = await response.json();
-      
-      if (!data.success) {
-        throw new Error(data.message || 'Failed to auto-provision');
+      const response = await companyWhatsappAPI.autoProvision();
+      if (!response.data?.success) {
+        throw new Error(response.data?.message || 'Failed to auto-provision');
       }
-      
-      return data.data;
+      return response.data.data;
     }, 'WhatsApp auto-provisioned successfully');
 
     if (result.success) {
-      await fetchSettings(); // Refresh settings
+      await fetchSettings();
     }
-    
+
     setProvisioning(false);
   };
 
   const handleTestConnection = async () => {
     setTesting(true);
-    
+
     const result = await executeWithErrorHandling(async () => {
-      const response = await fetch('/api/company/whatsapp/test-connection', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
-      });
-      
-      const data = await response.json();
-      
-      if (!data.success) {
-        throw new Error(data.message || 'Connection test failed');
+      const response = await companyWhatsappAPI.testConnection();
+      if (!response.data?.success) {
+        throw new Error(response.data?.message || 'Connection test failed');
       }
-      
-      return data.data;
+      return response.data.data;
     }, 'WhatsApp connection test successful');
 
     setTesting(false);
@@ -78,26 +62,19 @@ const CompanyWhatsAppSetup = ({ company }) => {
 
   const handleSyncSettings = async () => {
     setLoading(true);
-    
+
     const result = await executeWithErrorHandling(async () => {
-      const response = await fetch('/api/company/whatsapp/sync', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
-      });
-      
-      const data = await response.json();
-      
-      if (!data.success) {
-        throw new Error(data.message || 'Sync failed');
+      const response = await companyWhatsappAPI.sync();
+      if (!response.data?.success) {
+        throw new Error(response.data?.message || 'Sync failed');
       }
-      
-      return data.data;
+      return response.data.data;
     }, 'Settings synced successfully');
 
     if (result.success) {
-      await fetchSettings(); // Refresh settings
+      await fetchSettings();
     }
-    
+
     setLoading(false);
   };
 

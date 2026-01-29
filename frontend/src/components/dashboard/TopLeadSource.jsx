@@ -1,15 +1,4 @@
 import React, { useState } from "react";
-<<<<<<< HEAD
-
-
-
-const TopLeadSource = ({ leadData }) => {
-  const [open, setOpen] = useState(false);
-  const [filter, setFilter] = useState("total");
-
-  const maxTotal = Math.max(...leadData.map(i => i.total));
-  const maxConfirmed = Math.max(...leadData.map(i => i.confirmed));
-=======
 import { useNavigate } from "react-router-dom";
 
 const TopLeadSource = ({ leadData }) => {
@@ -19,11 +8,10 @@ const TopLeadSource = ({ leadData }) => {
 
   const showConfirmedOnly = filter === "confirmed";
   const filteredData = showConfirmedOnly
-    ? leadData.filter((item) => (item.confirmed || 0) > 0)
-    : leadData;
+    ? (leadData || []).filter((item) => (item.confirmed || 0) > 0)
+    : (leadData || []);
   const maxTotal = Math.max(...filteredData.map(i => i.total), 0);
   const maxConfirmed = Math.max(...filteredData.map(i => i.confirmed), 0);
->>>>>>> 685a818 (Added itinerary pricing, frontend updates, and backend improvements)
 
   return (
     <div className="bg-white rounded-xl shadow-sm p-4 h-full flex flex-col">
@@ -32,8 +20,6 @@ const TopLeadSource = ({ leadData }) => {
         <h2 className="text-base font-bold text-gray-900">
           Top Lead Source
         </h2>
-<<<<<<< HEAD
-=======
         <button
           type="button"
           onClick={() => navigate("/masters/lead-source")}
@@ -41,7 +27,6 @@ const TopLeadSource = ({ leadData }) => {
         >
           View more
         </button>
->>>>>>> 685a818 (Added itinerary pricing, frontend updates, and backend improvements)
 
         {/* Dropdown */}
         <div className="relative">
@@ -80,16 +65,6 @@ const TopLeadSource = ({ leadData }) => {
 
       {/* Legend */}
       <div className="flex gap-4 items-center mb-4">
-<<<<<<< HEAD
-        <div className="flex items-center gap-2">
-          <span className="w-4 h-2 rounded-sm bg-[#7AA7FF]" />
-          <span className="text-gray-500 text-xs">Total Queries</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="w-4 h-2 rounded-sm bg-[#2EA7A0]" />
-          <span className="text-gray-500 text-xs">Confirmed</span>
-        </div>
-=======
         {showConfirmedOnly ? (
           <div className="flex items-center gap-2">
             <span className="w-4 h-2 rounded-sm bg-[#2EA7A0]" />
@@ -107,25 +82,16 @@ const TopLeadSource = ({ leadData }) => {
             </div>
           </>
         )}
->>>>>>> 685a818 (Added itinerary pricing, frontend updates, and backend improvements)
       </div>
 
       {/* Rows */}
       <div className="space-y-2 flex-1 overflow-y-auto custom-scroll pr-2 -mr-2">
-<<<<<<< HEAD
-        {leadData.length === 0 ? (
-=======
         {filteredData.length === 0 ? (
->>>>>>> 685a818 (Added itinerary pricing, frontend updates, and backend improvements)
           <div className="flex items-center justify-center h-40 text-xs text-gray-400">
             No data available
           </div>
         ) : (
-<<<<<<< HEAD
-          leadData.map((item, index) => {
-=======
           filteredData.map((item, index) => {
->>>>>>> 685a818 (Added itinerary pricing, frontend updates, and backend improvements)
             const totalWidth = maxTotal ? (item.total / maxTotal) * 100 : 0;
             const confirmedWidth = maxConfirmed ? (item.confirmed / maxConfirmed) * 100 : 0;
 
@@ -144,12 +110,6 @@ const TopLeadSource = ({ leadData }) => {
 
                     {/* Bars */}
                     <div className="space-y-1.5">
-<<<<<<< HEAD
-                      <div className="h-2 rounded-full bg-[#7AA7FF] bg-opacity-90 transition-all duration-500"
-                        style={{ width: `${Math.max(totalWidth, 5)}%` }}
-                      />
-                      <div className="h-2 rounded-full bg-[#2EA7A0] bg-opacity-90 transition-all duration-500"
-=======
                       {!showConfirmedOnly && (
                         <div
                           className="h-2 rounded-full bg-[#7AA7FF] bg-opacity-90 transition-all duration-500"
@@ -158,7 +118,6 @@ const TopLeadSource = ({ leadData }) => {
                       )}
                       <div
                         className="h-2 rounded-full bg-[#2EA7A0] bg-opacity-90 transition-all duration-500"
->>>>>>> 685a818 (Added itinerary pricing, frontend updates, and backend improvements)
                         style={{ width: `${Math.max(confirmedWidth, 5)}%` }}
                       />
                     </div>
@@ -166,13 +125,9 @@ const TopLeadSource = ({ leadData }) => {
 
                   {/* Right Numbers */}
                   <div className="flex flex-col items-end gap-1 min-w-[30px]">
-<<<<<<< HEAD
-                    <span className="text-gray-400 text-xs">{item.total}</span>
-=======
                     {!showConfirmedOnly && (
                       <span className="text-gray-400 text-xs">{item.total}</span>
                     )}
->>>>>>> 685a818 (Added itinerary pricing, frontend updates, and backend improvements)
                     <span className="text-gray-900 font-bold text-xs">
                       {item.confirmed}
                     </span>

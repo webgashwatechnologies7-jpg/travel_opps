@@ -54,11 +54,6 @@ export const useErrorHandler = () => {
     try {
       const result = await asyncFunction();
       
-      if (successMessage) {
-        // You can add toast notification here
-        console.log('Success:', successMessage);
-      }
-      
       return { success: true, data: result };
     } catch (err) {
       const errorMessage = handleError(err);

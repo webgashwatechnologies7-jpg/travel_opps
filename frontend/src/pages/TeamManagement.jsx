@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import Layout from '../components/Layout';
 import { 
@@ -27,6 +27,7 @@ import { companySettingsAPI } from '../services/api';
 const TeamManagement = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [activeTab, setActiveTab] = useState('users');
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -69,6 +70,15 @@ const TeamManagement = () => {
   useEffect(() => {
     fetchInitialData();
   }, []);
+
+  // Allow deep-links like ?tab=users|branches|roles from Staff Management menu
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const tab = params.get('tab');
+    if (tab && ['users', 'branches', 'roles'].includes(tab)) {
+      setActiveTab(tab);
+    }
+  }, [location.search]);
 
   const fetchInitialData = async () => {
     try {

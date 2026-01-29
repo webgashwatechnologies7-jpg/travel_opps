@@ -1,18 +1,11 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { leadsAPI, usersAPI, followupsAPI, dayItinerariesAPI, packagesAPI, settingsAPI, suppliersAPI, hotelsAPI, paymentsAPI, googleMailAPI } from '../services/api';
+import { leadsAPI, usersAPI, followupsAPI, dayItinerariesAPI, packagesAPI, settingsAPI, suppliersAPI, hotelsAPI, paymentsAPI, googleMailAPI, whatsappAPI } from '../services/api';
 import Layout from '../components/Layout';
-<<<<<<< HEAD
-import { ArrowLeft, Calendar, Mail, Plus, Upload, X, Search, FileText, Printer, Send, MessageCircle, CheckCircle, CheckCircle2, Clock, Briefcase, MapPin, CalendarDays, Users, UserCheck, Leaf, Smartphone, Phone } from 'lucide-react';
-import QuiriesDetailsHeader from '../components/Headers/Search/QuiriesDetailsHeader';
-import { FaPencilAlt, FaWhatsapp } from "react-icons/fa";
+import { ArrowLeft, Calendar, Mail, Plus, Upload, X, Search, FileText, Printer, Send, MessageCircle, CheckCircle, CheckCircle2, Clock, Briefcase, MapPin, CalendarDays, Users, UserCheck, Leaf, Smartphone, Phone, MoreVertical, Download, Pencil, Trash2 } from 'lucide-react';
 import DetailRow from '../components/Quiries/DetailRow';
-=======
-import { ArrowLeft, Calendar, Mail, Plus, Upload, X, Search, FileText, Printer, Send, MessageCircle, CheckCircle, CheckCircle2, Clock, MoreVertical, Download, Phone } from 'lucide-react';
 import html2pdf from 'html2pdf.js';
-
->>>>>>> 685a818 (Added itinerary pricing, frontend updates, and backend improvements)
 const LeadDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -30,6 +23,7 @@ const LeadDetails = () => {
   const [noteText, setNoteText] = useState('');
   const [showNoteInput, setShowNoteInput] = useState(false);
   const [addingNote, setAddingNote] = useState(false);
+  const [editingNoteId, setEditingNoteId] = useState(null);
   const [showItineraryModal, setShowItineraryModal] = useState(false);
   const [showInsertItineraryModal, setShowInsertItineraryModal] = useState(false);
   const [dayItineraries, setDayItineraries] = useState([]);
@@ -52,6 +46,7 @@ const LeadDetails = () => {
   });
   const [followups, setFollowups] = useState([]);
   const [showFollowupModal, setShowFollowupModal] = useState(false);
+  const [editingFollowupId, setEditingFollowupId] = useState(null);
   const [followupFormData, setFollowupFormData] = useState({
     type: 'Task',
     description: '',
@@ -98,6 +93,7 @@ const LeadDetails = () => {
   const [companySettings, setCompanySettings] = useState(null);
   const [gmailEmails, setGmailEmails] = useState([]);
   const [loadingGmail, setLoadingGmail] = useState(false);
+  const [whatsappMessages, setWhatsappMessages] = useState([]);
 
   useEffect(() => {
     fetchLeadDetails();
@@ -107,8 +103,6 @@ const LeadDetails = () => {
     fetchCompanySettings();
   }, [id]);
 
-<<<<<<< HEAD
-=======
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const tab = params.get('tab');
@@ -116,6 +110,15 @@ const LeadDetails = () => {
       setActiveTab(tab);
     }
   }, [location.search]);
+
+  // Outgoing numbers for calls tab (no-op if not used; implement with callsAPI.getMappings() if needed)
+  const fetchOutgoingNumbers = async () => {
+    try {
+      // Optional: load call mappings when Calls tab is used
+    } catch (err) {
+      // ignore
+    }
+  };
 
   useEffect(() => {
     if (user?.id) {
@@ -136,16 +139,19 @@ const LeadDetails = () => {
     return () => clearInterval(interval);
   }, [activeTab, id]);
 
->>>>>>> 685a818 (Added itinerary pricing, frontend updates, and backend improvements)
-  // Fetch company settings
+  // Fetch company settings (use /settings not /admin/settings to avoid 500 tenant error)
   const fetchCompanySettings = async () => {
     try {
-      const response = await settingsAPI.get();
-      if (response.data.success) {
-        setCompanySettings(response.data.data);
+      const response = await settingsAPI.getAll();
+      if (response.data?.success && response.data?.data) {
+        const raw = response.data.data;
+        const obj = Array.isArray(raw)
+          ? raw.reduce((acc, s) => ({ ...acc, [s.key]: s.value }), {})
+          : raw;
+        setCompanySettings(obj);
       }
     } catch (err) {
-      console.error('Failed to fetch company settings:', err);
+      // Non-blocking: page works without company settings
     }
   };
 
@@ -177,7 +183,6 @@ const LeadDetails = () => {
   useEffect(() => {
     const loadHotelsFromConfirmedOption = async () => {
       const confirmedOption = getConfirmedOption();
-      console.log('Confirmed Option:', confirmedOption);
 
       // Check for hotels in different possible structures
       let hotelsList = [];
@@ -196,8 +201,6 @@ const LeadDetails = () => {
           }
         }
       }
-
-      console.log('Hotels List:', hotelsList);
 
       if (hotelsList.length > 0) {
         try {
@@ -228,8 +231,7 @@ const LeadDetails = () => {
                   price: price,
                   day: day
                 };
-              } catch (err) {
-                console.error(`Failed to fetch hotel ${hotelId}:`, err);
+              } catch {
                 // If hotel fetch fails, use the data from confirmed option
                 return {
                   id: `hotel_${hotelId || hotelName}_${index}`,
@@ -264,7 +266,6 @@ const LeadDetails = () => {
           });
 
           const hotelsData = await Promise.all(hotelPromises);
-          console.log('Processed Hotels Data:', hotelsData);
           // Show all hotels, but prioritize those with email
           const validHotels = hotelsData.filter(h => h.company_name && h.company_name !== 'Hotel');
           // Sort: hotels with email first
@@ -274,9 +275,8 @@ const LeadDetails = () => {
             return 0;
           });
           setHotelsFromConfirmedOption(validHotels);
-          console.log('Hotels set in state:', validHotels);
         } catch (err) {
-          console.error('Failed to load hotels:', err);
+          setHotelsFromConfirmedOption([]);
           setHotelsFromConfirmedOption([]);
         }
       } else {
@@ -343,17 +343,24 @@ const LeadDetails = () => {
     }));
     saveProposals(updatedProposals);
 
-    // Load quotation data for confirmed option to get hotels
     const confirmedProposal = updatedProposals.find(p => p.id === optionId);
     if (confirmedProposal) {
       try {
-        await handleViewQuotation(confirmedProposal);
+        const quotationDataForSend = await handleViewQuotation(confirmedProposal);
+        if (quotationDataForSend && (lead?.email || lead?.phone)) {
+          await autoSendConfirmedToClient(quotationDataForSend, confirmedProposal);
+        } else if (!quotationDataForSend) {
+          alert('Option confirmed! Quotation load nahi hua. Share Email / Share WhatsApp se manually bhejein.');
+        } else {
+          alert('Option confirmed! Client ka email/phone nahi hai — Mails/WhatsApp tabs me manually add karein.');
+        }
       } catch (err) {
-        console.error('Failed to load quotation data:', err);
+        console.error('Failed to load quotation or auto-send:', err);
+        alert('Option confirmed! Email/WhatsApp auto-send fail ho gaya. Share Email / Share WhatsApp se manually bhejein.');
       }
+    } else {
+      alert('Option confirmed successfully! You can now share the final itinerary.');
     }
-
-    alert('Option confirmed successfully! You can now share the final itinerary.');
   };
 
   // Get confirmed option
@@ -361,30 +368,127 @@ const LeadDetails = () => {
     return proposals.find(p => p.confirmed === true);
   };
 
+  // Auto-send final itinerary + voucher/payment to client via Email and WhatsApp after confirm; show in Mails & WhatsApp tabs
+  const autoSendConfirmedToClient = async (quotationDataForSend, confirmedProposal) => {
+    if (!lead || !confirmedProposal || !quotationDataForSend?.itinerary) return;
+    const itinerary = quotationDataForSend.itinerary;
+    const confirmedOptionNum = confirmedProposal.optionNumber?.toString() || '1';
+    const hotels = quotationDataForSend.hotelOptions?.[confirmedOptionNum] || [];
+    const totalPrice = confirmedProposal.price ?? hotels.reduce((sum, h) => sum + (parseFloat(h.price) || 0), 0);
+
+    // Payment summary (fetch if not loaded)
+    let paySummary = { total_amount: 0, total_paid: 0, total_due: 0 };
+    try {
+      const payRes = await paymentsAPI.getByLead(id);
+      const payList = payRes?.data?.data?.payments || payRes?.data?.payments || [];
+      if (Array.isArray(payList) && payList.length) {
+        paySummary.total_amount = payList.reduce((s, p) => s + (parseFloat(p.amount) || 0), 0);
+        paySummary.total_paid = payList.reduce((s, p) => s + (parseFloat(p.paid_amount) || 0), 0);
+        paySummary.total_due = paySummary.total_amount - paySummary.total_paid;
+      }
+    } catch (_) {}
+
+    const paymentText = paySummary.total_amount > 0
+      ? `\n\nPayment Summary:\nTotal: ₹${paySummary.total_amount.toLocaleString('en-IN')}\nPaid: ₹${paySummary.total_paid.toLocaleString('en-IN')}\nDue: ₹${paySummary.total_due.toLocaleString('en-IN')}`
+      : '';
+
+    // WhatsApp message (confirmed option + payment)
+    let whatsappMsg = `*✓ CONFIRMED TRAVEL ITINERARY*\n\n`;
+    whatsappMsg += `*${itinerary.itinerary_name || 'Itinerary'}*\n`;
+    whatsappMsg += `Query ID: ${formatLeadId(lead.id)}\n`;
+    whatsappMsg += `Destination: ${itinerary.destinations || 'N/A'}\n`;
+    whatsappMsg += `Duration: ${itinerary.duration || 0} Days\n\n`;
+    whatsappMsg += `*Confirmed Option ${confirmedOptionNum}*\n`;
+    hotels.forEach(h => {
+      whatsappMsg += `• Day ${h.day}: ${h.hotelName || 'Hotel'} (${h.category || 'N/A'} Star)\n`;
+      whatsappMsg += `  Room: ${h.roomName || 'N/A'} | Meal: ${h.mealPlan || 'N/A'}\n`;
+    });
+    whatsappMsg += `\n*Total Package: ₹${totalPrice.toLocaleString('en-IN')}*`;
+    whatsappMsg += paymentText;
+    whatsappMsg += `\n\nThis is your confirmed itinerary. Best regards,\nTravelOps Team`;
+
+    // Email body (plain text for API)
+    let emailBody = `CONFIRMED TRAVEL ITINERARY\n\n`;
+    emailBody += `${itinerary.itinerary_name || 'Itinerary'}\n`;
+    emailBody += `Query ID: ${formatLeadId(lead.id)}\n`;
+    emailBody += `Destination: ${itinerary.destinations || 'N/A'}\n`;
+    emailBody += `Duration: ${itinerary.duration || 0} Days\n\n`;
+    emailBody += `Confirmed Option ${confirmedOptionNum}\n`;
+    hotels.forEach(h => {
+      emailBody += `• Day ${h.day}: ${h.hotelName || 'Hotel'} (${h.category || 'N/A'} Star)\n`;
+      emailBody += `  Room: ${h.roomName || 'N/A'} | Meal: ${h.mealPlan || 'N/A'}\n`;
+    });
+    emailBody += `\nTotal Package: ₹${totalPrice.toLocaleString('en-IN')}`;
+    emailBody += paymentText.replace(/\n\n/g, '\n');
+    emailBody += `\n\nThis is your confirmed itinerary. Best regards, TravelOps Team`;
+
+    const subject = `Confirmed Travel Itinerary - ${itinerary.itinerary_name || 'Itinerary'} - ${formatLeadId(lead.id)}`;
+    const toEmail = lead.email;
+
+    try {
+      if (toEmail) {
+        await leadsAPI.sendEmail(id, { to_email: toEmail, subject, body: emailBody });
+        fetchLeadEmails();
+      }
+      if (lead.phone) {
+        await whatsappAPI.send(id, whatsappMsg);
+        fetchWhatsAppMessages();
+      }
+      if (toEmail || lead.phone) {
+        alert('Final itinerary aur payment summary client ko Email aur WhatsApp pe bhej diye gaye. Mails aur WhatsApp tabs me dikh jayega.');
+      }
+    } catch (err) {
+      console.error('Auto-send failed:', err);
+      alert(err.response?.data?.message || 'Email/WhatsApp send karne me problem aayi. Mails/WhatsApp tabs check karein.');
+    }
+  };
+
   const fetchLeadDetails = async () => {
     try {
+      setLoading(true);
       const response = await leadsAPI.get(id);
-      const leadData = response.data.data.lead;
+      const leadData = response?.data?.data?.lead ?? response?.data?.lead ?? null;
+      if (!leadData) {
+        setLead(null);
+        setFollowups([]);
+        setNotes([]);
+        setLoading(false);
+        return;
+      }
       setLead(leadData);
 
-      // Extract notes from followups (those with remarks)
-      if (leadData.followups) {
-        const notesList = leadData.followups
-          .filter(followup => followup.remark && followup.remark.trim() !== '')
-          .map(followup => ({
-            content: followup.remark,
-            created_at: followup.created_at,
-            created_by: followup.user?.name || 'System'
-          }));
-        setNotes(notesList);
-        // Store all followups
-        setFollowups(leadData.followups || []);
+      // Split followups vs notes:
+      // - Notes: remark present AND no reminder_date/reminder_time
+      // - Followups: has reminder_date or reminder_time
+      const allFollowups = leadData.followups && Array.isArray(leadData.followups) ? leadData.followups : [];
+      if (allFollowups.length > 0) {
+        const notesOnly = allFollowups.filter((f) => {
+          const hasRemark = f?.remark && String(f.remark).trim() !== '';
+          const hasReminder = Boolean(f?.reminder_date || f?.reminder_time);
+          return hasRemark && !hasReminder;
+        });
+
+        const followupsOnly = allFollowups.filter((f) => Boolean(f?.reminder_date || f?.reminder_time));
+
+        setNotes(
+          notesOnly.map((f) => ({
+            id: f.id,
+            content: f.remark,
+            created_at: f.created_at,
+            created_by: f?.user?.name || 'System',
+          }))
+        );
+        setFollowups(followupsOnly);
       } else {
         setFollowups([]);
+        setNotes([]);
       }
     } catch (err) {
       console.error('Failed to fetch lead details:', err);
-      alert('Failed to load lead details');
+      setLead(null);
+      setFollowups([]);
+      setNotes([]);
+      alert('Failed to load lead details. Please check the console or try again.');
     } finally {
       setLoading(false);
     }
@@ -595,6 +699,28 @@ const LeadDetails = () => {
       }
     }
   }, [activeTab, id, user?.google_token]);
+
+  // Fetch WhatsApp messages when WhatsApp tab is active
+  useEffect(() => {
+    if (activeTab === 'whatsapp' && id) {
+      fetchWhatsAppMessages();
+    }
+  }, [activeTab, id]);
+
+  // Fetch WhatsApp messages for this lead (so sent messages show in WhatsApp tab)
+  const fetchWhatsAppMessages = async () => {
+    if (!id) return;
+    try {
+      const response = await whatsappAPI.messages(id);
+      if (response?.data?.success && Array.isArray(response.data.data)) {
+        setWhatsappMessages(response.data.data);
+      } else if (response?.data?.data?.messages) {
+        setWhatsappMessages(response.data.data.messages);
+      }
+    } catch (err) {
+      console.error('Failed to fetch WhatsApp messages:', err);
+    }
+  };
 
   // Generate email body with enquiry details
   const generateEmailBody = () => {
@@ -825,26 +951,43 @@ const LeadDetails = () => {
 
     setAddingNote(true);
     try {
-      // Create a followup with remark as note
-      const today = new Date();
-      const reminderDate = today.toISOString().split('T')[0];
-
-      await followupsAPI.create({
-        lead_id: parseInt(id),
+      const payload = {
         remark: noteText.trim(),
-        reminder_date: reminderDate,
-        reminder_time: null
-      });
+        reminder_date: null,
+        reminder_time: null,
+      };
+
+      if (editingNoteId) {
+        await followupsAPI.update(editingNoteId, payload);
+      } else {
+        // Create note-only (no reminder) so it appears in Notes section, not Followups
+        await followupsAPI.create({
+          lead_id: parseInt(id),
+          ...payload,
+        });
+      }
 
       // Refresh lead details to get updated notes
       await fetchLeadDetails();
       setNoteText('');
       setShowNoteInput(false);
+      setEditingNoteId(null);
     } catch (err) {
       console.error('Failed to add note:', err);
       alert(err.response?.data?.message || 'Failed to add note');
     } finally {
       setAddingNote(false);
+    }
+  };
+
+  const handleDeleteFollowup = async (followupId) => {
+    if (!window.confirm('Delete this item?')) return;
+    try {
+      await followupsAPI.delete(followupId);
+      await fetchLeadDetails();
+    } catch (err) {
+      console.error('Failed to delete:', err);
+      alert(err.response?.data?.message || 'Failed to delete');
     }
   };
 
@@ -951,7 +1094,11 @@ const LeadDetails = () => {
         payload.reminder_time = timeIn24Hour;
       }
 
-      await followupsAPI.create(payload);
+      if (editingFollowupId) {
+        await followupsAPI.update(editingFollowupId, payload);
+      } else {
+        await followupsAPI.create(payload);
+      }
 
       // Refresh lead details to get updated followups
       await fetchLeadDetails();
@@ -963,6 +1110,7 @@ const LeadDetails = () => {
         set_reminder: 'Yes'
       });
       setShowFollowupModal(false);
+      setEditingFollowupId(null);
       alert('Follow-up added successfully!');
     } catch (err) {
       console.error('Failed to add followup:', err);
@@ -1248,15 +1396,15 @@ const LeadDetails = () => {
       const itineraryResponse = await packagesAPI.get(proposal.itinerary_id);
       const itinerary = itineraryResponse.data.data.package || {};
 
-      // Set quotation data
-      setQuotationData({
+      const builtQuotation = {
         itinerary: {
           ...itinerary,
           duration: proposal.duration || itinerary.duration,
           destinations: proposal.destination || itinerary.destinations
         },
         hotelOptions: hotelOptions
-      });
+      };
+      setQuotationData(builtQuotation);
 
       // Set first option as selected if available
       const optionNumbers = Object.keys(hotelOptions).sort((a, b) => parseInt(a) - parseInt(b));
@@ -1267,9 +1415,11 @@ const LeadDetails = () => {
       }
 
       setShowQuotationModal(true);
+      return builtQuotation;
     } catch (err) {
       console.error('Failed to load quotation:', err);
       alert('Failed to load quotation data');
+      return null;
     } finally {
       setLoadingQuotation(false);
     }
@@ -2079,35 +2229,8 @@ const LeadDetails = () => {
     const blob = new Blob([emailContent], { type: 'text/html' });
     const url = URL.createObjectURL(blob);
 
-<<<<<<< HEAD
-    // Open email client with HTML content
-    const mailtoLink = `mailto:${lead.email || ''}?subject=${subject}&body=${encodeURIComponent('Please find the detailed travel quotation attached.')}`;
-
-    // For better email experience, we'll copy HTML to clipboard and open email
-    navigator.clipboard.writeText(emailContent).then(() => {
-      window.open(mailtoLink);
-      alert('Email content copied to clipboard! Paste it in your email client. You can also print this quotation as PDF and attach it.');
-    }).catch(() => {
-      // Fallback: open email with text body
-      const textBody = `Dear ${lead.client_name || 'Client'},
-
-Please find below the travel quotation for your query:
-
-${quotationData.itinerary.itinerary_name || 'Itinerary'}
-Destination: ${quotationData.itinerary.destinations || 'N/A'}
-Duration: ${quotationData.itinerary.duration || 0} Days
-
-For detailed quotation with images, please use the Print option to generate PDF.
-
-Best regards,
-TravelOps Team`;
-
-      window.location.href = `mailto:${lead.email || ''}?subject=${subject}&body=${encodeURIComponent(textBody)}`;
-    });
-=======
     try {
       if (user?.google_token) {
-        const emailContent = await generateEmailContent();
         await googleMailAPI.sendMail({
           to: recipientEmail,
           subject,
@@ -2160,7 +2283,6 @@ TravelOps Team`;
       console.error('Error sending email:', error);
       alert(error.response?.data?.message || 'Failed to send email');
     }
->>>>>>> 685a818 (Added itinerary pricing, frontend updates, and backend improvements)
   };
 
   const handlePrint = (optionNum) => {
@@ -2197,9 +2319,6 @@ TravelOps Team`;
     }
   };
 
-<<<<<<< HEAD
-  const handleSendWhatsApp = (optionNum) => {
-=======
   const handleDownloadSingleOptionPdf = async (optionNum) => {
     if (!quotationData || !optionNum) {
       alert('Please select an option first.');
@@ -2207,12 +2326,8 @@ TravelOps Team`;
     }
 
     try {
-      // Use the same HTML email content but restrict to the selected option only
       const fullHtml = await generateEmailContent();
       let emailContent = extractBodyContent(fullHtml);
-
-      // If needed, we could further filter for a single option inside emailContent using optionNum
-      // For now, we keep full content so the PDF looks same as email.
 
       const tempDiv = document.createElement('div');
       tempDiv.innerHTML = emailContent;
@@ -2222,7 +2337,6 @@ TravelOps Team`;
       tempDiv.style.backgroundColor = '#ffffff';
       document.body.appendChild(tempDiv);
 
-      // Configure PDF options
       const opt = {
         margin: [10, 10, 10, 10],
         filename: `Travel_Quotation_Option_${optionNum}_${quotationData?.itinerary?.itinerary_name || 'Itinerary'}_${formatLeadId(lead?.id)}_${new Date().toISOString().split('T')[0]}.pdf`,
@@ -2242,12 +2356,8 @@ TravelOps Team`;
         pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
       };
 
-      // Generate and download PDF
       await html2pdf().set(opt).from(tempDiv).save();
-      
-      // Clean up
       document.body.removeChild(tempDiv);
-      
       alert(`PDF downloaded successfully for Option ${optionNum}!`);
     } catch (error) {
       console.error('Error generating PDF:', error);
@@ -2255,31 +2365,41 @@ TravelOps Team`;
     }
   };
 
-  const handleSendWhatsApp = async () => {
->>>>>>> 685a818 (Added itinerary pricing, frontend updates, and backend improvements)
+  const handleSendWhatsApp = async (optionNum) => {
     if (!quotationData || !lead) {
       alert('Please load quotation first');
       return;
     }
 
-<<<<<<< HEAD
-    const phone = lead.phone?.replace(/[^0-9]/g, '') || '';
-    if (!phone) {
-      alert('Phone number not available');
-=======
+    // Build WhatsApp message from quotation (all options)
+    let message = `*Travel Quotation - ${quotationData.itinerary.itinerary_name || 'Itinerary'}*\n\n`;
+    message += `Query ID: ${formatLeadId(lead.id)}\n`;
+    message += `Destination: ${quotationData.itinerary.destinations || 'N/A'}\n`;
+    message += `Duration: ${quotationData.itinerary.duration || 0} Days\n\n`;
+    const allOptions = Object.keys(quotationData.hotelOptions || {}).sort((a, b) => parseInt(a) - parseInt(b));
+    allOptions.forEach(optNum => {
+      const hotels = quotationData.hotelOptions[optNum] || [];
+      const totalPrice = hotels.reduce((sum, h) => sum + (parseFloat(h.price) || 0), 0);
+      message += `*Option ${optNum}*\n`;
+      hotels.forEach(hotel => {
+        message += `• Day ${hotel.day}: ${hotel.hotelName || 'Hotel'} (${hotel.category || 'N/A'} Star)\n`;
+        message += `  Room: ${hotel.roomName || 'N/A'} | Meal: ${hotel.mealPlan || 'N/A'}\n`;
+      });
+      message += `Total Price: ₹${totalPrice.toLocaleString('en-IN')}\n\n`;
+    });
+    message += `Best regards,\nTravelOps Team`;
+
     try {
       const response = await whatsappAPI.send(id, message);
       if (response.data.success) {
         fetchWhatsAppMessages();
         
-        // Update lead status to PROPOSAL if not already
         if (lead.status !== 'proposal') {
           try {
             await leadsAPI.updateStatus(id, { status: 'proposal' });
-            await fetchLeadDetails(); // Refresh lead data
+            await fetchLeadDetails();
           } catch (statusError) {
             console.error('Failed to update lead status:', statusError);
-            // Don't show error to user as WhatsApp was sent successfully
           }
         }
         
@@ -2296,7 +2416,6 @@ TravelOps Team`;
   const handleSendAllFromGroup = async (group, channel) => {
     if (!group?.options?.length) {
       alert('No options found for this itinerary.');
->>>>>>> 685a818 (Added itinerary pricing, frontend updates, and backend improvements)
       return;
     }
 
@@ -2312,14 +2431,8 @@ TravelOps Team`;
       const hotels = quotationData.hotelOptions[optNum] || [];
       const totalPrice = hotels.reduce((sum, h) => sum + (parseFloat(h.price) || 0), 0);
 
-<<<<<<< HEAD
       message += `*Option ${optNum}*\n`;
       message += `Hotels:\n`;
-=======
-    setShowQuotationModal(false);
-    // Note: Status update is handled inside handleSendMail() and handleSendWhatsApp()
-  };
->>>>>>> 685a818 (Added itinerary pricing, frontend updates, and backend improvements)
 
       hotels.forEach(hotel => {
         message += `• Day ${hotel.day}: ${hotel.hotelName || 'Hotel'} (${hotel.category || 'N/A'} Star)\n`;
@@ -2329,84 +2442,16 @@ TravelOps Team`;
       message += `Total Price: ₹${totalPrice.toLocaleString('en-IN')}\n\n`;
     });
 
-<<<<<<< HEAD
     message += `For detailed quotation with images, please check your email or contact us.\n\n`;
     message += `Best regards,\nTravelOps Team`;
 
-    const whatsappUrl = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
-    window.open(whatsappUrl, '_blank');
-=======
-    try {
-      await handleViewQuotation(proposal, { openModal: false });
-      const fullHtml = await generateEmailContent();
-      const emailContent = extractBodyContent(fullHtml);
-
-      // Create a temporary container for PDF generation
-      const tempDiv = document.createElement('div');
-      tempDiv.innerHTML = emailContent;
-      tempDiv.style.position = 'absolute';
-      tempDiv.style.left = '-9999px';
-      tempDiv.style.width = '210mm'; // A4 width
-      tempDiv.style.backgroundColor = '#ffffff';
-      document.body.appendChild(tempDiv);
-
-      // Configure PDF options
-      const opt = {
-        margin: [10, 10, 10, 10],
-        filename: `Travel_Quotation_${quotationData?.itinerary?.itinerary_name || 'Itinerary'}_${formatLeadId(lead?.id)}_${new Date().toISOString().split('T')[0]}.pdf`,
-        image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { 
-          scale: 2,
-          useCORS: true,
-          logging: false,
-          letterRendering: true
-        },
-        jsPDF: { 
-          unit: 'mm', 
-          format: 'a4', 
-          orientation: 'portrait',
-          compress: true
-        },
-        pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
-      };
-
-      // Generate and download PDF
-      await html2pdf().set(opt).from(tempDiv).save();
-      
-      // Clean up
-      document.body.removeChild(tempDiv);
-      
-      alert('PDF downloaded successfully!');
-    } catch (error) {
-      console.error('Error generating PDF:', error);
-      alert('Failed to generate PDF. Please try again or use the Print option.');
-      
-      // Fallback to print window
-      const emailContent = await generateEmailContent();
-      const printWindow = window.open('', '_blank');
-      if (printWindow) {
-        printWindow.document.write(`
-          <html>
-            <head>
-              <title>Travel Quotation - ${quotationData?.itinerary?.itinerary_name || 'Itinerary'}</title>
-              <style>
-                body { font-family: Arial, sans-serif; padding: 20px; }
-                img { max-width: 100%; height: auto; }
-              </style>
-            </head>
-            <body>
-              ${emailContent}
-            </body>
-          </html>
-        `);
-        printWindow.document.close();
-        printWindow.focus();
-        setTimeout(() => {
-          printWindow.print();
-        }, 500);
-      }
+    const phone = lead.phone?.replace(/[^0-9]/g, '') || '';
+    if (phone) {
+      const whatsappUrl = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+      window.open(whatsappUrl, '_blank');
+    } else {
+      alert('Phone number not available for this lead.');
     }
->>>>>>> 685a818 (Added itinerary pricing, frontend updates, and backend improvements)
   };
 
   // Generate email content for confirmed option only
@@ -2651,13 +2696,20 @@ TravelOps Team`;
     );
   }
 
-  if (!lead) {
+  if (!lead || (lead && typeof lead.id === 'undefined')) {
     return (
       <Layout>
         <div className="p-6">
           <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
             Lead not found
           </div>
+          <button
+            type="button"
+            onClick={() => navigate('/leads')}
+            className="mt-4 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
+          >
+            Back to Queries
+          </button>
         </div>
       </Layout>
     );
@@ -2668,7 +2720,7 @@ TravelOps Team`;
 
 
   return (
-    <Layout Header={QuiriesDetailsHeader} padding={20}>
+    <Layout Header={() => null} padding={20}>
       <div className="p-6 " style={{ backgroundColor: '#D8DEF5', minHeight: '100vh' }}>
         {/* Header */}
         <div className="mb-2 rounded-lg   bg-white p-4 ">
@@ -2689,29 +2741,6 @@ TravelOps Team`;
               </div>
               <div className="text-sm text-gray-600 mb-4">
                 <b>Created</b>: {formatDate(lead.created_at)} | <b>Last Updated</b>: {formatDateTime(lead.updated_at)}
-              </div>
-            </div>
-            <div className="flex  items-center gap-2">
-              <button className="bg-primary text-white px-4 py-2 rounded-lg hover:bg-secondary flex items-center gap-2 text-sm">
-                <Plus className="h-4 w-4" />
-                Shortcut
-              </button>
-              <div className="border flex items-center border-gray-600 rounded-md">
-                <button className="p-2 hover:bg-gray-100 rounded">
-                  <Calendar className="h-5 w-5 text-gray-600" />
-                </button>
-                |
-                <button className="p-2 hover:bg-gray-100 rounded">
-                  <Mail className="h-5 w-5 text-gray-600" />
-                </button>
-                |
-                <button className="p-2 hover:bg-gray-100 rounded">
-                  <FaWhatsapp className="h-5 w-5 text-gray-600" />
-                </button>
-                |
-                <button className="p-2 hover:bg-gray-100 rounded">
-                  <FaPencilAlt className="h-4 w-4 text-gray-600" />
-                </button>
               </div>
             </div>
           </div>
@@ -2889,7 +2918,7 @@ TravelOps Team`;
                           {lead.company_name || 'Triplive b2b'}
                         </div>
 
-                        {/* NOTES + ADD BUTTON */}
+                        {/* NOTES LABEL + ADD BUTTON */}
                         <div className="flex items-center gap-4">
                           <span className="text-sm text-black">Notes :</span>
 
@@ -2903,6 +2932,50 @@ TravelOps Team`;
                             </button>
                           )}
                         </div>
+
+                        {/* NOTES LIST - above Add Note */}
+                        {notes.length > 0 && (
+                          <div className="space-y-3 mt-3">
+                            {notes
+                              .slice()
+                              .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+                              .map((note) => (
+                                <div
+                                  key={note.id}
+                                  className="bg-gray-50 border border-gray-200 rounded-lg p-3 text-sm"
+                                >
+                                  <div className="flex items-start justify-between gap-3">
+                                    <p className="text-gray-800 whitespace-pre-wrap flex-1">{note.content}</p>
+                                    <div className="flex items-center gap-2">
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setEditingNoteId(note.id);
+                                          setNoteText(note.content || '');
+                                          setShowNoteInput(true);
+                                        }}
+                                        className="text-gray-500 hover:text-gray-800"
+                                        title="Edit"
+                                      >
+                                        <Pencil className="h-4 w-4" />
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleDeleteFollowup(note.id)}
+                                        className="text-red-500 hover:text-red-700"
+                                        title="Delete"
+                                      >
+                                        <Trash2 className="h-4 w-4" />
+                                      </button>
+                                    </div>
+                                  </div>
+                                  <p className="text-gray-500 text-xs mt-2">
+                                    {note.created_by} • {note.created_at ? new Date(note.created_at).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''}
+                                  </p>
+                                </div>
+                              ))}
+                          </div>
+                        )}
 
                         {/* NOTE INPUT */}
                         {showNoteInput && (
@@ -2920,6 +2993,7 @@ TravelOps Team`;
                                 onClick={() => {
                                   setShowNoteInput(false);
                                   setNoteText('');
+                                  setEditingNoteId(null);
                                 }}
                                 className="text-gray-600 hover:text-gray-800 text-sm"
                               >
@@ -2931,7 +3005,7 @@ TravelOps Team`;
                                 disabled={addingNote}
                                 className="bg-blue-500 hover:bg-blue-600 text-white px-5 py-1.5 rounded-full text-sm font-medium disabled:opacity-50"
                               >
-                                {addingNote ? 'Adding...' : 'Add Note'}
+                                {addingNote ? 'Saving...' : (editingNoteId ? 'Update Note' : 'Add Note')}
                               </button>
                             </div>
                           </div>
@@ -2991,44 +3065,44 @@ TravelOps Team`;
               {/* Tab Content */}
               <div className="p-6">
                 {activeTab === 'proposals' ? (
-                  <div className=" flex space-x-2 ">
-                    {/* Confirmed Option Banner */}
+                  <div className="flex flex-col gap-6 w-full max-w-4xl">
+                    {/* Confirmed Option Banner – full width, no overlap */}
                     {getConfirmedOption() && (() => {
                       const confirmedOption = getConfirmedOption();
                       return (
-                        <div className="mb-6 bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-400 rounded-xl p-5 shadow-lg">
-                          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                            <div className="flex items-center gap-4">
-                              <div className="bg-green-500 rounded-full p-3 shadow-md">
-                                <CheckCircle className="h-7 w-7 text-white" />
+                        <div className="w-full bg-green-50 border-l-4 border-green-500 rounded-r-xl p-4 sm:p-5 shadow-sm">
+                          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                            <div className="flex items-center gap-3 sm:gap-4">
+                              <div className="flex-shrink-0 bg-green-500 rounded-full p-2.5 sm:p-3">
+                                <CheckCircle className="h-6 w-6 sm:h-7 sm:w-7 text-white" />
                               </div>
-                              <div>
-                                <div className="flex items-center gap-2 mb-1">
-                                  <h3 className="font-bold text-green-800 text-xl">
+                              <div className="min-w-0">
+                                <div className="flex flex-wrap items-center gap-2 mb-0.5">
+                                  <h3 className="font-bold text-green-800 text-lg sm:text-xl">
                                     Option {confirmedOption.optionNumber} Confirmed
                                   </h3>
-                                  <span className="px-3 py-1 bg-green-500 text-white text-xs font-bold rounded-full shadow-sm">
-                                    ✓ CONFIRMED
+                                  <span className="px-2.5 py-0.5 bg-green-500 text-white text-xs font-bold rounded-full">
+                                    CONFIRMED
                                   </span>
                                 </div>
-                                <p className="text-sm text-green-700 font-medium">
+                                <p className="text-sm text-green-700">
                                   Final itinerary is ready to share with the client
                                 </p>
                               </div>
                             </div>
-                            <div className="flex gap-3">
+                            <div className="flex flex-wrap gap-2 sm:gap-3 flex-shrink-0">
                               <button
                                 onClick={handleSendConfirmedOptionEmail}
-                                className="bg-blue-600 text-white px-5 py-2.5 rounded-lg hover:bg-blue-700 flex items-center gap-2 font-semibold shadow-md hover:shadow-lg transition-all duration-200 transform hover:scale-105"
+                                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2 text-sm font-semibold"
                               >
-                                <Mail className="h-5 w-5" />
+                                <Mail className="h-4 w-4" />
                                 Share Email
                               </button>
                               <button
                                 onClick={handleSendConfirmedOptionWhatsApp}
-                                className="bg-green-600 text-white px-5 py-2.5 rounded-lg hover:bg-green-700 flex items-center gap-2 font-semibold shadow-md hover:shadow-lg transition-all duration-200 transform hover:scale-105"
+                                className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center gap-2 text-sm font-semibold"
                               >
-                                <MessageCircle className="h-5 w-5" />
+                                <MessageCircle className="h-4 w-4" />
                                 Share WhatsApp
                               </button>
                             </div>
@@ -3039,146 +3113,139 @@ TravelOps Team`;
 
                    
 
-                    {/* Proposals List */}
+                    {/* Proposals List – single card with all options inside */}
                     {proposals.length === 0 ? (
-                      <div className="text-center flex-1 py-12 text-gray-500 bg-gray-50 rounded-lg border border-gray-200">
+                      <div className="text-center w-full py-12 text-gray-500 bg-gray-50 rounded-lg border border-gray-200">
                         <p className="mb-2">No proposals added yet</p>
                         <p className="text-sm">Click "Insert itinerary" to add an itinerary as a proposal</p>
                       </div>
                     ) : (() => {
-                      // Group proposals by itinerary_id
-                      const groupedProposals = {};
-                      proposals.forEach(proposal => {
-                        const key = proposal.itinerary_id || `no-id-${proposal.itinerary_name}`;
-                        if (!groupedProposals[key]) {
-                          groupedProposals[key] = {
-                            itinerary_id: proposal.itinerary_id,
-                            itinerary_name: proposal.itinerary_name,
-                            destination: proposal.destination,
-                            duration: proposal.duration,
-                            image: proposal.image,
-                            inserted_at: proposal.inserted_at || proposal.created_at,
-                            options: []
-                          };
-                        }
-                        groupedProposals[key].options.push(proposal);
-                      });
+                      const first = proposals[0];
+                      const cardTitle = (lead?.destination || first?.itinerary_name || 'Proposals').toString().trim() || 'Proposals';
+                      const cardImage = first?.image || null;
+                      const cardDestination = first?.destination || lead?.destination || '';
 
                       return (
-                        <div className="flex-1  gap-4">
-                          {Object.values(groupedProposals).map((group) => (
+                        <div className="w-full">
+                          <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+                            {/* Card header – one image/title block (click to edit itinerary) */}
                             <div
-                              key={group.itinerary_id || group.itinerary_name}
-                              className="bg-white border-2 border-gray-200 rounded-xl overflow-hidden shadow-md hover:shadow-xl transition-all duration-300"
+                              className="relative h-60 w-full overflow-hidden rounded-t-xl cursor-pointer"
+                              onClick={() => {
+                                if (first?.itinerary_id) {
+                                  navigate(`/itineraries/${first.itinerary_id}`);
+                                } else if (proposals[0]?.itinerary_id) {
+                                  navigate(`/itineraries/${proposals[0].itinerary_id}`);
+                                } else {
+                                  alert('Itinerary ID not found for this proposal.');
+                                }
+                              }}
                             >
-                              {/* Image */}
-                           {/* IMAGE HEADER */}
-<div className="relative h-60 w-full overflow-hidden rounded-t-xl">
-  {group.image ? (
-    <img
-      src={group.image}
-      alt={group.itinerary_name}
-      className="w-full h-full object-cover"
-    />
-  ) : (
-    <div className="w-full h-full bg-gray-200 flex items-center justify-center">
-      <span className="text-gray-500 font-semibold">NO IMAGE</span>
-    </div>
-  )}
-
-  {/* DELETE BUTTON */}
-  <button
-    onClick={(e) => {
-      e.stopPropagation();
-      if (window.confirm('Delete this itinerary?')) {
-        const updatedProposals = proposals.filter(
-          p => !group.options.some(opt => opt.id === p.id)
-        );
-        saveProposals(updatedProposals);
-      }
-    }}
-    className="absolute top-4 right-4 bg-red-500 hover:bg-red-600 text-white text-sm font-semibold px-4 py-1.5 rounded-full shadow"
-  >
-    Delete
-  </button>
-
-  {/* DARK OVERLAY */}
-  <div className="absolute bottom-0 left-0 right-0 bg-black/55 p-4">
-    <h3 className="text-xl font-semibold text-white">
-      {group.itinerary_name}
-    </h3>
-    <p className="text-sm text-gray-200">
-      {group.destination} · ID: {group.itinerary_id}
-    </p>
-  </div>
-</div>
-
-{/* DETAILS */}
-<div className="p-5">
-  <div className="text-lg text-blue-500 font-medium mb-2">
-    Pax: <span className="font-semibold">1</span> Adult(s) – 0 Child(s)
-  </div>
-
-  <div className="text-sm text-gray-700 mb-1">
-    <strong>Date:</strong> 1 Jul 2025 &nbsp;
-    <strong>Till:</strong> 5 Jul 2025
-  </div>
-
-  <div className="text-sm font-semibold text-gray-800 mb-4">
-    Created: {new Date(group.inserted_at).toLocaleDateString('en-GB')}
-  </div>
-
-  <hr className="mb-4" />
-
-  {/* PRICE OPTIONS (STATIC PREVIEW LIKE IMAGE) */}
-  <div className="space-y-1 mb-4">
-    {group.options.map((opt, i) => (
-      <div key={i} className="text-sm font-semibold text-gray-800">
-        Option {opt.optionNumber}: ₹{opt.price?.toLocaleString('en-IN')}
-      </div>
-    ))}
-  </div>
-
-  {/* ACTION BUTTONS */}
-  <div className="flex gap-3">
-    <button
-      className="flex-1 bg-orange-400 hover:bg-orange-500 text-white py-2.5 rounded-full font-semibold"
-    >
-      Make Confirm
-    </button>
-
-    <button
-      onClick={() => handleViewQuotation(group.options[0])}
-      className="flex-1 bg-blue-500 hover:bg-blue-600 text-white py-2.5 rounded-full font-semibold"
-    >
-      View Quotation
-    </button>
-  </div>
-</div>
-
+                              {cardImage ? (
+                                <img src={cardImage} alt={cardTitle} className="w-full h-full object-cover" />
+                              ) : (
+                                <div className="w-full h-full bg-gray-200 flex items-center justify-center">
+                                  <span className="text-gray-500 font-semibold">Proposals</span>
+                                </div>
+                              )}
+                              <div className="absolute bottom-0 left-0 right-0 bg-black/55 p-4">
+                                <h3 className="text-xl font-semibold text-white">{cardTitle}</h3>
+                                {cardDestination && (
+                                  <p className="text-sm text-gray-200">{cardDestination}</p>
+                                )}
+                              </div>
                             </div>
-                          ))}
+
+                            {/* Single card body – all options inside */}
+                            <div className="p-5">
+                              <div className="text-lg text-blue-500 font-medium mb-2">
+                                Pax: <span className="font-semibold">{lead?.adult ?? 1}</span> Adult(s) – <span className="font-semibold">{lead?.child ?? 0}</span> Child(s)
+                              </div>
+                              <div className="text-sm text-gray-700 mb-1">
+                                <strong>Date:</strong> {lead?.travel_start_date ? formatDateForDisplay(lead.travel_start_date) : 'N/A'} &nbsp;
+                                <strong>Till:</strong> {lead?.travel_end_date ? formatDateForDisplay(lead.travel_end_date) : 'N/A'}
+                              </div>
+                              <hr className="my-4" />
+
+                              {/* All options in one list */}
+                              <div className="space-y-3 mb-4">
+                                {proposals.map((opt) => (
+                                  <div
+                                    key={opt.id}
+                                    className={`flex flex-wrap items-center justify-between gap-2 p-3 rounded-lg border ${opt.confirmed ? 'border-green-500 bg-green-50' : 'border-gray-200 bg-gray-50'}`}
+                                  >
+                                    <div className="font-semibold text-gray-800">
+                                      {opt.itinerary_name || 'Itinerary'} {opt.optionNumber != null ? `· Option ${opt.optionNumber}` : ''}: ₹{(opt.price ?? 0).toLocaleString('en-IN')}
+                                      {opt.confirmed && <span className="ml-2 text-green-600 text-sm">(Confirmed)</span>}
+                                    </div>
+                                    <div className="flex flex-wrap gap-2 items-center">
+                                      {opt.confirmed ? (
+                                        <span className="px-3 py-1.5 bg-green-100 text-green-700 text-sm font-semibold rounded-full border border-green-300">
+                                          Confirmed
+                                        </span>
+                                      ) : (
+                                        <button
+                                          onClick={(e) => { e.stopPropagation(); handleConfirmOption(opt.id); }}
+                                          className="bg-orange-400 hover:bg-orange-500 text-white text-sm font-semibold px-3 py-1.5 rounded-full"
+                                        >
+                                          Make Confirm
+                                        </button>
+                                      )}
+                                      <button
+                                        onClick={(e) => { e.stopPropagation(); handleViewQuotation(opt); }}
+                                        className="bg-blue-500 hover:bg-blue-600 text-white text-sm font-semibold px-3 py-1.5 rounded-full"
+                                      >
+                                        View Quotation
+                                      </button>
+                                      {opt.itinerary_id && (
+                                        <button
+                                          onClick={(e) => { e.stopPropagation(); navigate(`/itineraries/${opt.itinerary_id}`); }}
+                                          className="text-gray-600 hover:text-gray-800 text-sm font-medium underline-offset-2 hover:underline"
+                                        >
+                                          Edit
+                                        </button>
+                                      )}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+
+                              {/* Delete all proposals for this lead */}
+                              <div className="flex justify-end">
+                                <button
+                                  onClick={() => {
+                                    if (window.confirm('Remove all proposals from this lead?')) {
+                                      saveProposals([]);
+                                    }
+                                  }}
+                                  className="text-red-600 hover:text-red-700 text-sm font-medium"
+                                >
+                                  Remove all proposals
+                                </button>
+                              </div>
+                            </div>
+                          </div>
                         </div>
                       );
                     })()}
-                  
-                       <div className="flex flex-col items-center justify-start flex-1 gap-3 border rounded-md mb-6">
-                          <button
-                            onClick={handleCreateItinerary}
-                            className="bg-[#3F8CFF] text-white px-16 md:mt-6 py-3 rounded-full hover:bg-secondary flex items-center gap-2 font-medium"
-                          >
-                            <Plus className="h-5 w-5" />
-                            Create itinerary
-                          </button>
-                          <button
-                            onClick={handleInsertItinerary}
-                            className="bg-[#E78175] text-white px-16 py-3 rounded-full hover:bg-[#F78175] flex items-center gap-2 font-medium"
-                          >
-                            <Upload className="h-5 w-5" />
-                            Insert itinerary
-                          </button>
-                        </div>
-                       
+
+                    {/* Create / Insert buttons – full width row, no overlap */}
+                    <div className="flex flex-wrap items-center gap-3 pt-2">
+                      <button
+                        onClick={handleCreateItinerary}
+                        className="bg-[#3F8CFF] text-white px-6 py-2.5 rounded-lg hover:bg-[#2d7ae8] flex items-center gap-2 font-medium text-sm"
+                      >
+                        <Plus className="h-4 w-4" />
+                        Create itinerary
+                      </button>
+                      <button
+                        onClick={handleInsertItinerary}
+                        className="bg-[#E78175] text-white px-6 py-2.5 rounded-lg hover:bg-[#d9706a] flex items-center gap-2 font-medium text-sm"
+                      >
+                        <Upload className="h-4 w-4" />
+                        Insert itinerary
+                      </button>
+                    </div>
                   </div>
                 ):
                 activeTab === 'mails' ? (
@@ -3314,8 +3381,25 @@ TravelOps Team`;
                   </div>
                 )
                 : activeTab === 'whatsapp' ? (
-                  <div className="text-center py-12 text-gray-500">
-                    No WhatsApp messages yet
+                  <div className="space-y-4">
+                    <p className="text-sm text-gray-600 mb-4">Sent / received WhatsApp messages is lead ke saath yahin dikhenge.</p>
+                    {whatsappMessages.length === 0 ? (
+                      <div className="text-center py-12 text-gray-500">
+                        No WhatsApp messages yet
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {whatsappMessages.map((msg, idx) => (
+                          <div key={msg.id || idx} className="bg-white border border-gray-200 rounded-lg p-4 text-sm">
+                            <div className="text-gray-500 text-xs mb-1">
+                              {msg.created_at ? new Date(msg.created_at).toLocaleString() : ''}
+                              {msg.direction ? ` · ${msg.direction}` : ''}
+                            </div>
+                            <div className="text-gray-800 whitespace-pre-wrap">{msg.message || msg.body || msg.text || '—'}</div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )
                 : activeTab === 'followups' ? (
@@ -3325,6 +3409,7 @@ TravelOps Team`;
                       <h3 className="text-lg font-semibold text-gray-800">Followup's / Task</h3>
                       <button
                         onClick={() => {
+                          setEditingFollowupId(null);
                           const today = new Date();
                           const dd = String(today.getDate()).padStart(2, '0');
                           const mm = String(today.getMonth() + 1).padStart(2, '0');
@@ -3439,6 +3524,40 @@ TravelOps Team`;
                                       <span className="px-2 py-1 bg-yellow-100 text-yellow-700 text-xs font-semibold rounded">
                                         Today
                                       </span>
+                                    )}
+                                    {!followup.is_completed && (
+                                      <>
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            // Backend may return ISO date with time; normalize to YYYY-MM-DD first
+                                            const rawDate = followup.reminder_date ? String(followup.reminder_date).slice(0, 10) : '';
+                                            const parts = rawDate.split('-'); // YYYY-MM-DD
+                                            const ddmmyyyy = parts.length === 3 ? `${parts[2]}-${parts[1]}-${parts[0]}` : '';
+                                            setEditingFollowupId(followup.id);
+                                            setFollowupFormData({
+                                              type: 'Task',
+                                              description: followup.remark || '',
+                                              reminder_date: ddmmyyyy,
+                                              reminder_time: followup.reminder_time ? convertTo12Hour(followup.reminder_time) : '1:00 PM',
+                                              set_reminder: 'Yes',
+                                            });
+                                            setShowFollowupModal(true);
+                                          }}
+                                          className="px-2 py-1 bg-gray-100 text-gray-700 text-xs font-semibold rounded hover:bg-gray-200"
+                                          title="Edit"
+                                        >
+                                          <Pencil className="h-3.5 w-3.5" />
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => handleDeleteFollowup(followup.id)}
+                                          className="px-2 py-1 bg-red-100 text-red-700 text-xs font-semibold rounded hover:bg-red-200"
+                                          title="Delete"
+                                        >
+                                          <Trash2 className="h-3.5 w-3.5" />
+                                        </button>
+                                      </>
                                     )}
                                     {followup.is_completed ? (
                                       <span className="px-2 py-1 bg-green-100 text-green-700 text-xs font-semibold rounded flex items-center gap-1">
@@ -4218,7 +4337,7 @@ TravelOps Team`;
           <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl mx-4 my-auto">
             {/* Modal Header */}
             <div className="flex justify-between items-center p-6 border-b border-gray-200">
-              <h2 className="text-xl font-bold text-gray-800">Add Followup / Task</h2>
+              <h2 className="text-xl font-bold text-gray-800">{editingFollowupId ? 'Edit Followup / Task' : 'Add Followup / Task'}</h2>
               <button
                 onClick={() => {
                   setShowFollowupModal(false);
@@ -4229,6 +4348,7 @@ TravelOps Team`;
                     reminder_time: '',
                     set_reminder: 'Yes'
                   });
+                  setEditingFollowupId(null);
                 }}
                 className="text-gray-400 hover:text-gray-600 transition-colors"
               >
@@ -4392,7 +4512,7 @@ TravelOps Team`;
                   disabled={addingFollowup}
                 >
                   <Plus className="h-4 w-4" />
-                  {addingFollowup ? 'Saving...' : 'Save'}
+                  {addingFollowup ? 'Saving...' : (editingFollowupId ? 'Update' : 'Save')}
                 </button>
               </div>
             </form>

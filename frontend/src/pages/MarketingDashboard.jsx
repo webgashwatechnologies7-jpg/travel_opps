@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import Layout from '../components/Layout';
+import { useContent } from '../contexts/ContentContext';
 import { 
   Mail,
   MessageSquare,
@@ -31,6 +32,7 @@ import {
 } from 'lucide-react';
 
 const MarketingDashboard = () => {
+  const { t } = useContent();
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -128,15 +130,15 @@ const MarketingDashboard = () => {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex justify-between items-center py-4">
               <div>
-                <h1 className="text-3xl font-bold text-gray-900">Marketing Dashboard</h1>
-                <p className="text-gray-600 mt-1">Manage your campaigns and track performance</p>
+                <h1 className="text-3xl font-bold text-gray-900">{t('marketing.dashboard.title')}</h1>
+                <p className="text-gray-600 mt-1">{t('marketing.dashboard.subtitle')}</p>
               </div>
               <div className="flex items-center space-x-4">
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
                   <input
                     type="text"
-                    placeholder="Search campaigns..."
+                    placeholder={t('marketing.dashboard.search_placeholder')}
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
@@ -154,7 +156,7 @@ const MarketingDashboard = () => {
                 </select>
                 <button className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
                   <Plus className="w-4 h-4" />
-                  <span>New Campaign</span>
+                  <span>{t('marketing.dashboard.new_campaign')}</span>
                 </button>
               </div>
             </div>
@@ -167,7 +169,7 @@ const MarketingDashboard = () => {
             <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl p-6 text-white">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-blue-100 text-sm font-medium">Jan. Campaigns</p>
+                  <p className="text-blue-100 text-sm font-medium">{t('marketing.dashboard.card_campaigns')}</p>
                   <p className="text-3xl font-bold mt-2">{stats?.total_campaigns || 0}</p>
                   <div className="flex items-center mt-2 text-sm">
                     <ArrowUp className="w-4 h-4 mr-1" />
@@ -183,7 +185,7 @@ const MarketingDashboard = () => {
             <div className="bg-gradient-to-r from-green-500 to-green-600 rounded-xl p-6 text-white">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-green-100 text-sm font-medium">Jan. Leads</p>
+                  <p className="text-green-100 text-sm font-medium">{t('marketing.dashboard.card_leads')}</p>
                   <p className="text-3xl font-bold mt-2">{stats?.customer_stats?.new_this_month || 0}</p>
                   <div className="flex items-center mt-2 text-sm">
                     <ArrowUp className="w-4 h-4 mr-1" />
@@ -199,7 +201,7 @@ const MarketingDashboard = () => {
             <div className="bg-gradient-to-r from-purple-500 to-purple-600 rounded-xl p-6 text-white">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-purple-100 text-sm font-medium">Emails Sent</p>
+                  <p className="text-purple-100 text-sm font-medium">{t('marketing.dashboard.card_emails')}</p>
                   <p className="text-3xl font-bold mt-2">{stats?.total_sent || 0}</p>
                   <div className="flex items-center mt-2 text-sm">
                     <ArrowUp className="w-4 h-4 mr-1" />
@@ -215,7 +217,7 @@ const MarketingDashboard = () => {
             <div className="bg-gradient-to-r from-orange-500 to-orange-600 rounded-xl p-6 text-white">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-orange-100 text-sm font-medium">Response Rate</p>
+                  <p className="text-orange-100 text-sm font-medium">{t('marketing.dashboard.card_response')}</p>
                   <p className="text-3xl font-bold mt-2">{stats?.conversion_rate || 0}%</p>
                   <div className="flex items-center mt-2 text-sm">
                     <ArrowDown className="w-4 h-4 mr-1" />
@@ -231,7 +233,7 @@ const MarketingDashboard = () => {
 
           {/* Start Marketing Section */}
           <div className="mb-8">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">Start Marketing</h2>
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">{t('marketing.dashboard.start_marketing')}</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200 hover:shadow-md transition-shadow cursor-pointer">
                 <div className="flex items-center space-x-4">
@@ -239,7 +241,7 @@ const MarketingDashboard = () => {
                     <Users className="w-6 h-6 text-blue-600" />
                   </div>
                   <div>
-                    <h3 className="font-semibold text-gray-900">Customers</h3>
+                    <h3 className="font-semibold text-gray-900">{t('marketing.dashboard.customers')}</h3>
                     <p className="text-sm text-gray-600">{stats?.customer_stats?.total_customers || 0} Total</p>
                   </div>
                 </div>
@@ -251,7 +253,7 @@ const MarketingDashboard = () => {
                     <Plane className="w-6 h-6 text-green-600" />
                   </div>
                   <div>
-                    <h3 className="font-semibold text-gray-900">Plan a Trip</h3>
+                    <h3 className="font-semibold text-gray-900">{t('marketing.dashboard.plan_trip')}</h3>
                     <p className="text-sm text-gray-600">For Customer</p>
                   </div>
                 </div>
@@ -263,7 +265,7 @@ const MarketingDashboard = () => {
                     <Gift className="w-6 h-6 text-yellow-600" />
                   </div>
                   <div>
-                    <h3 className="font-semibold text-gray-900">Birthdays</h3>
+                    <h3 className="font-semibold text-gray-900">{t('marketing.dashboard.birthdays')}</h3>
                     <p className="text-sm text-gray-600">{stats?.customer_stats?.birthdays_this_month || 0} This Month</p>
                   </div>
                 </div>
@@ -275,7 +277,7 @@ const MarketingDashboard = () => {
                     <Heart className="w-6 h-6 text-red-600" />
                   </div>
                   <div>
-                    <h3 className="font-semibold text-gray-900">Anniversaries</h3>
+                    <h3 className="font-semibold text-gray-900">{t('marketing.dashboard.anniversaries')}</h3>
                     <p className="text-sm text-gray-600">{stats?.customer_stats?.anniversaries_this_month || 0} This Month</p>
                   </div>
                 </div>
@@ -287,23 +289,23 @@ const MarketingDashboard = () => {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
             <div className="lg:col-span-2 bg-white rounded-xl p-6 shadow-sm border border-gray-200">
               <div className="flex justify-between items-center mb-4">
-                <h2 className="text-lg font-semibold text-gray-900">Campaign Performance</h2>
-                <button className="text-blue-600 hover:text-blue-800 text-sm font-medium">View All</button>
+                <h2 className="text-lg font-semibold text-gray-900">{t('marketing.dashboard.campaign_performance')}</h2>
+                <button className="text-blue-600 hover:text-blue-800 text-sm font-medium">{t('marketing.dashboard.view_all')}</button>
               </div>
               <div className="h-64 flex items-center justify-center bg-gray-50 rounded-lg">
                 <div className="text-center">
                   <BarChart3 className="w-12 h-12 text-gray-400 mx-auto mb-2" />
-                  <p className="text-gray-500">Performance chart will appear here</p>
+                  <p className="text-gray-500">{t('marketing.dashboard.chart_placeholder')}</p>
                 </div>
               </div>
             </div>
 
             <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">Channel Performance</h2>
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">{t('marketing.dashboard.channel_performance')}</h2>
               <div className="space-y-4">
                 <div>
                   <div className="flex justify-between items-center mb-2">
-                    <span className="text-sm font-medium text-gray-700">Email</span>
+                    <span className="text-sm font-medium text-gray-700">{t('marketing.dashboard.channel_email')}</span>
                     <span className="text-sm text-gray-600">{stats?.performance?.email_performance || 0}%</span>
                   </div>
                   <div className="w-full bg-gray-200 rounded-full h-2">
@@ -312,7 +314,7 @@ const MarketingDashboard = () => {
                 </div>
                 <div>
                   <div className="flex justify-between items-center mb-2">
-                    <span className="text-sm font-medium text-gray-700">SMS</span>
+                    <span className="text-sm font-medium text-gray-700">{t('marketing.dashboard.channel_sms')}</span>
                     <span className="text-sm text-gray-600">{stats?.performance?.sms_performance || 0}%</span>
                   </div>
                   <div className="w-full bg-gray-200 rounded-full h-2">
@@ -321,7 +323,7 @@ const MarketingDashboard = () => {
                 </div>
                 <div>
                   <div className="flex justify-between items-center mb-2">
-                    <span className="text-sm font-medium text-gray-700">WhatsApp</span>
+                    <span className="text-sm font-medium text-gray-700">{t('marketing.dashboard.channel_whatsapp')}</span>
                     <span className="text-sm text-gray-600">{stats?.performance?.whatsapp_performance || 0}%</span>
                   </div>
                   <div className="w-full bg-gray-200 rounded-full h-2">
@@ -336,7 +338,7 @@ const MarketingDashboard = () => {
           <div className="bg-white rounded-xl shadow-sm border border-gray-200">
             <div className="p-6 border-b border-gray-200">
               <div className="flex justify-between items-center">
-                <h2 className="text-lg font-semibold text-gray-900">Recent Campaigns</h2>
+                <h2 className="text-lg font-semibold text-gray-900">{t('marketing.dashboard.recent_campaigns')}</h2>
                 <div className="flex items-center space-x-2">
                   <button className="p-2 text-gray-400 hover:text-gray-600">
                     <Filter className="w-5 h-5" />

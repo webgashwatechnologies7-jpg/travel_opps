@@ -74,11 +74,12 @@ class WhatsappController extends Controller
                 ], 400);
             }
 
-            // Send WhatsApp message
+            // Send WhatsApp message (store current user so admin can see who sent what)
             $result = $this->whatsappService->sendMessage(
                 $lead->phone,
                 $request->input('message'),
-                $lead->id
+                $lead->id,
+                auth()->id()
             );
 
             if ($result) {

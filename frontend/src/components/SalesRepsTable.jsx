@@ -51,23 +51,9 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { dashboardAPI } from '../services/api';
 
-<<<<<<< HEAD
-const salesRepsData = [
-  { id: 1, name: "Harshit Kumar", total: 895, confirmed: 895 },
-  { id: 2, name: "Harshit Kumar", total: 895, confirmed: 895 },
-  { id: 3, name: "Harshit Kumar", total: 895, confirmed: 895 },
-  { id: 4, name: "Harshit Kumar", total: 895, confirmed: 895 },
-  { id: 5, name: "Harshit Kumar", total: 895, confirmed: 895 },
-];
-
-const SalesRepsTable = ({ title }) => {
-
-  const [salesRepsData, setSalesReps] = useState([]);
-=======
 const SalesRepsTable = ({ title = "Sales" }) => {
   const navigate = useNavigate();
   const [salesReps, setSalesReps] = useState([]);
->>>>>>> 685a818 (Added itinerary pricing, frontend updates, and backend improvements)
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -113,18 +99,12 @@ const SalesRepsTable = ({ title = "Sales" }) => {
     );
   }
   return (
-<<<<<<< HEAD
-    <div className="bg-[#F4F6FF] mt-2 rounded-xl p-4 w-full h-[400px] flex flex-col">
-=======
     <div className="bg-[#F4F6FF] rounded-xl p-4 w-full h-full flex flex-col">
->>>>>>> 685a818 (Added itinerary pricing, frontend updates, and backend improvements)
       {/* Component Title */}
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-[16px] font-semibold text-gray-900">
           {title} <span className="text-red-500">Reps.</span>
         </h2>
-<<<<<<< HEAD
-=======
         <button
           type="button"
           onClick={() => navigate('/sales-reps')}
@@ -133,7 +113,6 @@ const SalesRepsTable = ({ title = "Sales" }) => {
           View more
           <span className="transition-transform duration-200">▼</span>
         </button>
->>>>>>> 685a818 (Added itinerary pricing, frontend updates, and backend improvements)
       </div>
 
       {/* Table Header */}
@@ -145,50 +124,12 @@ const SalesRepsTable = ({ title = "Sales" }) => {
       </div>
 
       {/* Table Body */}
-<<<<<<< HEAD
-      <div className="flex-1 overflow-y-auto custom-scroll bg-[#F7F8FF] rounded-lg border border-[#E5E7EB]">
-        {salesRepsData.length === 0 ? (
-=======
       <div className="flex-1 min-h-0 overflow-y-auto custom-scroll bg-[#F7F8FF] rounded-lg border border-[#E5E7EB]">
         {salesReps.length === 0 ? (
->>>>>>> 685a818 (Added itinerary pricing, frontend updates, and backend improvements)
           <div className="flex items-center justify-center h-full text-gray-400 text-sm">
             No data available
           </div>
         ) : (
-<<<<<<< HEAD
-          salesRepsData.map((item, index) => (
-            <div
-              key={item.id || index}
-              className={`
-                grid grid-cols-[30px_1fr_60px_70px] gap-2
-                items-center px-3 py-3 text-sm border-b last:border-0 border-gray-100
-                ${index % 2 === 0 ? "bg-[#E9ECFF]" : "bg-white"}
-                hover:opacity-90 transition-opacity
-              `}
-            >
-              {/* Index */}
-              <div className="font-medium text-gray-600">
-                {index + 1}.
-              </div>
-
-              {/* Name */}
-              <div className="font-semibold text-gray-900 truncate" title={item.name}>
-                {item.name}
-              </div>
-
-              {/* Total */}
-              <div className="text-center font-medium text-gray-700 bg-white/50 rounded py-1">
-                {item.total}
-              </div>
-
-              {/* Confirmed */}
-              <div className="text-center font-bold text-green-600 bg-white/80 rounded py-1 shadow-sm border border-green-100">
-                {item.confirmed}
-              </div>
-            </div>
-          ))
-=======
           salesReps.map((rep, index) => {
             const assigned = rep.assigned || 0;
             const confirmed = rep.confirmed || 0;
@@ -215,29 +156,19 @@ const SalesRepsTable = ({ title = "Sales" }) => {
                   }
                 }}
               >
-                {/* Index */}
-                <div className="font-medium text-gray-600">
-                  {index + 1}.
-                </div>
-
-                {/* Name */}
+                <div className="font-medium text-gray-600">{index + 1}.</div>
                 <div className="font-semibold text-gray-900 truncate" title={rep.name}>
                   {rep.name}
                 </div>
-
-                {/* Total */}
                 <div className="text-center font-medium text-gray-700 bg-white/50 rounded py-1">
                   {total}
                 </div>
-
-                {/* Confirmed */}
                 <div className="text-center font-bold text-green-600 bg-white/80 rounded py-1 shadow-sm border border-green-100">
                   {confirmed}
                 </div>
               </div>
             );
           })
->>>>>>> 685a818 (Added itinerary pricing, frontend updates, and backend improvements)
         )}
       </div>
     </div>

@@ -71,9 +71,7 @@ export const AuthProvider = ({ children }) => {
   const login = async (email, password) => {
     try {
       const response = await authAPI.login(email, password);
-      
-      console.log('Login response:', response.data); // Debug log
-      
+
       // Check if response structure is correct
       if (!response.data || !response.data.success) {
         throw new Error(response.data?.message || 'Invalid response from server');

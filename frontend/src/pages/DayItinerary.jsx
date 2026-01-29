@@ -38,8 +38,6 @@ const DayItinerary = () => {
       // Process image URLs - handle both relative and absolute URLs
       const processedData = data.map(itinerary => {
         if (itinerary.image) {
-          console.log('Original image URL:', itinerary.image);
-          
           // If image is a relative URL, convert to absolute
           if (itinerary.image.startsWith('/storage') || (itinerary.image.startsWith('/') && !itinerary.image.startsWith('http'))) {
             let baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
@@ -50,10 +48,6 @@ const DayItinerary = () => {
           if (itinerary.image.includes('localhost') && !itinerary.image.includes(':8000')) {
             itinerary.image = itinerary.image.replace('localhost', 'localhost:8000');
           }
-          
-          console.log('Processed image URL:', itinerary.image);
-        } else {
-          console.log('No image for itinerary:', itinerary.id, itinerary.title);
         }
         return itinerary;
       });

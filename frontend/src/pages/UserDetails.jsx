@@ -1,13 +1,15 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { companySettingsAPI } from '../services/api';
+import { useAuth } from '../contexts/AuthContext';
+import { companySettingsAPI, whatsappAPI } from '../services/api';
 import Layout from '../components/Layout';
-import { ArrowLeft, User, Mail, Phone, Building, Shield, Calendar, Edit, Save, X, MapPin, Users, PhoneCall, CheckCircle, ClipboardList } from 'lucide-react';
+import { ArrowLeft, User, Mail, Phone, Building, Shield, Calendar, Edit, Save, X, MapPin, Users, PhoneCall, CheckCircle, ClipboardList, Download, MessageCircle } from 'lucide-react';
 
 const UserDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  
+  const { user: currentUser } = useAuth();
+
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [editingUser, setEditingUser] = useState(false);
@@ -15,6 +17,11 @@ const UserDetails = () => {
   const [performanceLoading, setPerformanceLoading] = useState(true);
   const [performanceError, setPerformanceError] = useState('');
   const [selectedRange, setSelectedRange] = useState('month');
+  const [whatsappInbox, setWhatsappInbox] = useState([]);
+  const [whatsappLoading, setWhatsappLoading] = useState(false);
+  const [selectedChatLeadId, setSelectedChatLeadId] = useState(null);
+  const [chatMessages, setChatMessages] = useState([]);
+  const [chatLoading, setChatLoading] = useState(false);
   const [editForm, setEditForm] = useState({
     name: '',
     email: '',
@@ -33,14 +40,46 @@ const UserDetails = () => {
     fetchUserPerformance();
   }, [id]);
 
+  useEffect(() => {
+    if (!id) return;
+    const fetchWhatsappInbox = async () => {
+      setWhatsappLoading(true);
+      try {
+        const res = await whatsappAPI.inboxByUser(id);
+        if (res?.data?.success && res.data.data?.inbox) {
+          setWhatsappInbox(res.data.data.inbox);
+        }
+      } catch (err) {
+        console.error('Failed to fetch WhatsApp inbox for user:', err);
+      } finally {
+        setWhatsappLoading(false);
+      }
+    };
+    fetchWhatsappInbox();
+  }, [id]);
+
+  const openChat = async (leadId) => {
+    setSelectedChatLeadId(leadId);
+    setChatLoading(true);
+    try {
+      const res = await whatsappAPI.messages(leadId, { user_id: id });
+      if (res?.data?.success && res.data.data?.messages) {
+        setChatMessages(res.data.data.messages);
+      } else {
+        setChatMessages([]);
+      }
+    } catch (err) {
+      console.error('Failed to fetch chat messages:', err);
+      setChatMessages([]);
+    } finally {
+      setChatLoading(false);
+    }
+  };
+
   const fetchUserDetails = async () => {
     try {
-      console.log('Fetching user details for ID:', id);
-      
-      // Fetch user details
       const userResponse = await companySettingsAPI.getUserDetails(id);
-      console.log('User response:', userResponse);
-      
+
       if (userResponse && userResponse.data && userResponse.data.success) {
         setUser(userResponse.data.data);
         setEditForm({
@@ -56,7 +95,6 @@ const UserDetails = () => {
           is_active: userResponse.data.data.is_active
         });
       } else {
-        console.log('Using mock user data');
         // Use mock data if API fails
         const mockUser = {
           id: id,
@@ -165,6 +203,122 @@ const UserDetails = () => {
     }
   };
 
+  const handleDownloadPerformancePdf = () => {
+    if (!performance || !performance.ranges) {
+      alert('Performance data available nahi hai.');
+      return;
+    }
+    const rangeData = performance.ranges[selectedRange] || {};
+    const rangeLabel = selectedRange.charAt(0).toUpperCase() + selectedRange.slice(1);
+
+    const win = window.open('', '_blank');
+    if (!win) {
+      alert('Please allow pop-ups to download the report.');
+      return;
+    }
+
+    win.document.write(`
+      <html>
+        <head>
+          <title>Employee Performance - ${user.name}</title>
+          <style>
+            body { font-family: Arial, sans-serif; padding: 24px; color: #111827; }
+            h1 { font-size: 22px; margin-bottom: 4px; }
+            h2 { font-size: 16px; margin: 16px 0 8px; }
+            .meta { color: #6b7280; font-size: 12px; margin-bottom: 16px; }
+            .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+            .card { border: 1px solid #e5e7eb; border-radius: 8px; padding: 10px 12px; }
+            .label { font-size: 12px; color: #6b7280; margin-bottom: 4px; }
+            .value { font-size: 18px; font-weight: 600; color: #111827; }
+            table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 8px; }
+            th, td { border: 1px solid #e5e7eb; padding: 6px 8px; text-align: left; }
+            th { background: #f9fafb; font-weight: 600; }
+          </style>
+        </head>
+        <body>
+          <h1>Employee Performance - ${user.name}</h1>
+          <div class="meta">
+            Range: ${rangeLabel} | Generated: ${new Date().toLocaleString()}<br/>
+            Email: ${user.email || 'N/A'} | Branch: ${user.branch?.name || 'N/A'}
+          </div>
+
+          <h2>Summary</h2>
+          <div class="grid">
+            <div class="card">
+              <div class="label">Assigned Leads</div>
+              <div class="value">${rangeData.assigned_to_user ?? 0}</div>
+            </div>
+            <div class="card">
+              <div class="label">Contacted Leads</div>
+              <div class="value">${rangeData.contacted_leads ?? 0}</div>
+            </div>
+            <div class="card">
+              <div class="label">Calls Made</div>
+              <div class="value">${rangeData.calls_count ?? 0}</div>
+            </div>
+            <div class="card">
+              <div class="label">Confirmed Bookings</div>
+              <div class="value">${rangeData.confirmed_by_user ?? 0}</div>
+            </div>
+            <div class="card">
+              <div class="label">Followups</div>
+              <div class="value">${rangeData.followups_count ?? 0}</div>
+            </div>
+            <div class="card">
+              <div class="label">Leads Assigned Out (by this user)</div>
+              <div class="value">${rangeData.assigned_by_user ?? 0}</div>
+            </div>
+          </div>
+
+          <h2>Assigned By (who gave leads)</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>Employee</th>
+                <th>Leads Assigned</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${(rangeData.assigned_by_breakdown || []).map(item => `
+                <tr>
+                  <td>${item.name || 'Unknown'}</td>
+                  <td>${item.count || 0}</td>
+                </tr>
+              `).join('') || '<tr><td colspan="2">No data</td></tr>'}
+            </tbody>
+          </table>
+
+          <h2>Recent Calls</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Client</th>
+                <th>Phone</th>
+                <th>Description</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${(rangeData.recent_calls || []).map(call => `
+                <tr>
+                  <td>${new Date(call.created_at).toLocaleString()}</td>
+                  <td>${call.lead_name || ''}</td>
+                  <td>${call.lead_phone || ''}</td>
+                  <td>${call.description || ''}</td>
+                  <td>${call.call_status || ''}</td>
+                </tr>
+              `).join('') || '<tr><td colspan="5">No calls</td></tr>'}
+            </tbody>
+          </table>
+        </body>
+      </html>
+    `);
+    win.document.close();
+    win.focus();
+    win.print();
+  };
+
   const handleEditUser = () => {
     setEditingUser(true);
   };
@@ -257,6 +411,14 @@ const UserDetails = () => {
                 </button>
                 <h1 className="text-2xl font-bold text-gray-900">User Details</h1>
               </div>
+              <button
+                type="button"
+                onClick={handleDownloadPerformancePdf}
+                className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50"
+              >
+                <Download className="h-4 w-4" />
+                Download Performance
+              </button>
               <div className="flex items-center space-x-2">
                 <span className={`px-3 py-1 rounded-full text-sm font-medium ${
                   user.is_active 
@@ -745,6 +907,79 @@ const UserDetails = () => {
                   </div>
                 </div>
               </>
+            )}
+          </div>
+        </div>
+
+        {/* WhatsApp Chats - is employee ne kis kis se WhatsApp pe baat ki (admin dekh sakta hai) */}
+        <div className="bg-white shadow-sm rounded-lg mb-6">
+          <div className="px-6 py-4 border-b border-gray-200">
+            <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+              <MessageCircle className="h-5 w-5 text-green-600" />
+              WhatsApp Chats
+            </h2>
+            <p className="text-sm text-gray-500 mt-1">
+              Is employee ne CRM se kis kis lead/customer se WhatsApp pe message bheje – yahan saari conversations dikhengi.
+            </p>
+          </div>
+          <div className="px-6 py-4">
+            {whatsappLoading ? (
+              <div className="flex items-center justify-center h-24">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600"></div>
+              </div>
+            ) : whatsappInbox.length === 0 ? (
+              <p className="text-sm text-gray-500">Is user ne abhi tak koi WhatsApp message nahi bheja.</p>
+            ) : (
+              <div className="flex flex-col md:flex-row gap-6">
+                <div className="md:w-1/2 space-y-2 max-h-80 overflow-y-auto">
+                  {whatsappInbox.map((conv) => (
+                    <button
+                      key={conv.lead_id}
+                      type="button"
+                      onClick={() => openChat(conv.lead_id)}
+                      className={`w-full text-left px-4 py-3 rounded-lg border transition-colors ${
+                        selectedChatLeadId === conv.lead_id
+                          ? 'bg-green-50 border-green-300 ring-1 ring-green-200'
+                          : 'bg-gray-50 border-gray-200 hover:bg-gray-100'
+                      }`}
+                    >
+                      <div className="font-medium text-gray-900">{conv.client_name || conv.phone || 'Unknown'}</div>
+                      <div className="text-xs text-gray-500 truncate">{conv.phone}</div>
+                      {conv.last_message && (
+                        <div className="text-sm text-gray-600 truncate mt-1">{conv.last_message}</div>
+                      )}
+                      <div className="text-xs text-gray-400 mt-1">
+                        {conv.last_sent_at ? new Date(conv.last_sent_at).toLocaleString() : ''} · {conv.total_messages} msg
+                      </div>
+                    </button>
+                  ))}
+                </div>
+                <div className="md:w-1/2 border border-gray-200 rounded-lg p-4 min-h-[200px] bg-gray-50">
+                  {!selectedChatLeadId ? (
+                    <p className="text-sm text-gray-500">Conversation dikhane ke liye upar se koi chat select karein.</p>
+                  ) : chatLoading ? (
+                    <div className="flex items-center justify-center h-32">
+                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-green-600"></div>
+                    </div>
+                  ) : (
+                    <div className="space-y-3 overflow-y-auto max-h-80">
+                      {chatMessages.map((msg) => (
+                        <div
+                          key={msg.id}
+                          className="bg-white border border-gray-200 rounded-lg p-3 text-sm"
+                        >
+                          <div className="text-xs text-gray-500 mb-1">
+                            {msg.sent_at ? new Date(msg.sent_at).toLocaleString() : ''}
+                            {msg.user?.name && <span className="ml-2">· {msg.user.name}</span>}
+                          </div>
+                          <div className="text-gray-800 whitespace-pre-wrap">{msg.message || '—'}</div>
+                        </div>
+                      ))}
+                      {chatMessages.length === 0 && <p className="text-sm text-gray-500">No messages in this thread.</p>}
+                    </div>
+                  )}
+                </div>
+              </div>
             )}
           </div>
         </div>

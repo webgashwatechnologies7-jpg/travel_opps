@@ -1,7 +1,7 @@
+@import url('https://fonts.googleapis.com/css2?family=Nunito+Sans:ital,opsz,wght@0,6..12,200..1000;1,6..12,200..1000&display=swap');
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-@import url('https://fonts.googleapis.com/css2?family=Nunito+Sans:ital,opsz,wght@0,6..12,200..1000;1,6..12,200..1000&display=swap');
 body {
   margin: 0;
   font-family: "Nunito Sans", -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto',
@@ -66,10 +66,6 @@ body {
     color: hsl(var(--foreground));
   }
 }
-<<<<<<< HEAD
-=======
-
->>>>>>> 685a818 (Added itinerary pricing, frontend updates, and backend improvements)
 .custom-scroll {
   overflow-y: auto;
   scroll-behavior: smooth;
@@ -89,8 +85,4 @@ body {
   background: #9DC7F1;
   border-radius: 20px;
   border: 2px solid #ffffff;
-<<<<<<< HEAD
 }
-=======
-}
->>>>>>> 685a818 (Added itinerary pricing, frontend updates, and backend improvements)

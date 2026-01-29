@@ -1,23 +1,10 @@
 import { useState, useEffect } from 'react';
-<<<<<<< HEAD
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { leadsAPI, leadSourcesAPI, usersAPI } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import Layout from '../components/Layout';
-import { X, ChevronDown, Filter, Eye, Mail, MessageSquare, Edit, MoreVertical } from 'lucide-react';
-import QueriesHeader from '../components/Headers/QueriesHeader';
-import HeaderComponent from '../components/Headers/HeaderComponent';
+import { X, ChevronDown, Filter, Eye, Mail, MessageSquare, Edit, MoreVertical, History, Plus } from 'lucide-react';
 import LeadCard from '../components/Quiries/LeadCard';
-import { History } from 'lucide-react';
-=======
-import { useNavigate, useLocation } from 'react-router-dom';
-import { leadsAPI, leadSourcesAPI, usersAPI, servicesAPI } from '../services/api';
-import { useAuth } from '../contexts/AuthContext';
-import Layout from '../components/Layout';
-import { X, ChevronDown, Filter, Eye, Mail, MessageSquare, Edit, MoreVertical, History } from 'lucide-react';
-import QueriesHeader from '../components/Headers/QueriesHeader';
-import LeadCard from '../components/Quiries/LeadCard';
->>>>>>> 685a818 (Added itinerary pricing, frontend updates, and backend improvements)
 
 const Leads = () => {
   const navigate = useNavigate();
@@ -61,12 +48,7 @@ const Leads = () => {
   useEffect(() => {
     fetchLeadSources();
     fetchUsers();
-<<<<<<< HEAD
-=======
-    fetchServices();
-    // Initial fetch of leads
     fetchLeads();
->>>>>>> 685a818 (Added itinerary pricing, frontend updates, and backend improvements)
   }, []);
 
   const location = useLocation();
@@ -174,9 +156,7 @@ const Leads = () => {
     try {
       setLoading(true);
       const response = await leadsAPI.list(filters);
-      console.log('Full API Response:', response);
-      console.log('Response Data:', response.data);
-      
+
       // Handle different response structures
       let leadsData = [];
       if (response.data?.data?.leads) {
@@ -192,13 +172,9 @@ const Leads = () => {
         // Direct array: [...]
         leadsData = response.data;
       }
-      
-      console.log('Extracted leads:', leadsData);
-      console.log('Leads count:', leadsData.length);
+
       setLeads(leadsData);
-    } catch (err) {
-      console.error('Failed to fetch leads:', err);
-      console.error('Error details:', err.response?.data || err.message);
+    } catch {
       setLeads([]);
     } finally {
       setLoading(false);
@@ -459,14 +435,6 @@ const Leads = () => {
   };
 
   const filteredLeads = getFilteredLeads();
-  
-  // Debug logging
-  useEffect(() => {
-    console.log('Current leads state:', leads);
-    console.log('Active filter:', activeFilter);
-    console.log('Filtered leads:', filteredLeads);
-    console.log('Filtered leads count:', filteredLeads.length);
-  }, [leads, activeFilter, filteredLeads]);
 
   // Format date helper
   const formatDate = (dateString) => {
@@ -573,16 +541,18 @@ const Leads = () => {
   }
   const FinalHeader = () => {
     return (
-      <>
-        <HeaderComponent />
-        <QueriesHeader />
-      </>
+      <div className="flex items-center justify-between px-4 py-3 bg-white border-b border-gray-200 shadow-sm">
+        <h1 className="text-xl font-semibold text-gray-900">Queries</h1>
+        <button
+          type="button"
+          onClick={() => setShowModal(true)}
+          className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium"
+        >
+          <Plus size={18} />
+          Add Query
+        </button>
+      </div>
     )
-  }
-
-
-  const handleRefresh = () => {
-    setActiveFilter("total");
   }
 
 
@@ -601,18 +571,11 @@ const Leads = () => {
 
 
         {/* Summary Cards */}
-<<<<<<< HEAD
-        {/* SUMMARY CARDS – IMAGE MATCH */}
-=======
->>>>>>> 685a818 (Added itinerary pricing, frontend updates, and backend improvements)
         <div className="w-full ">
           <div className="flex md:p-1 gap-3 overflow-x-auto custom-scroll pb-3 mb-6">
             {[
               { key: "total", label: "Total Queries", value: stats.total, bg: "bg-blue-800" },
-<<<<<<< HEAD
-=======
               { key: "today", label: "Today", value: stats.today, bg: "bg-blue-600" },
->>>>>>> 685a818 (Added itinerary pricing, frontend updates, and backend improvements)
               { key: "new", label: "New", value: stats.new, bg: "bg-orange-400" },
               { key: "proposalSent", label: "Proposal sent", value: stats.proposalSent, bg: "bg-teal-500" },
               { key: "noConnect", label: "No Connect", value: stats.noConnect, bg: "bg-red-500" },
@@ -628,19 +591,6 @@ const Leads = () => {
                 key={item.key}
                 onClick={() => setActiveFilter(item.key)}
                 className={`
-<<<<<<< HEAD
-          ${item.bg} text-white
-          min-w-[60px] h-[60px]
-          md:w-[80px] md:h-[80px]
-          lg:min-w-[100px] lg:h-[100px]
-          flex flex-col items-center justify-center
-          rounded-xl cursor-pointer
-          text-center px-2
-          transition-all duration-200
-          hover:scale-105
-          ${activeFilter === item.key ? "ring-4 ring-blue-300 scale-105" : ""}
-        `}
-=======
                   ${item.bg} text-white
                   min-w-[60px] h-[60px]
                   md:w-[80px] md:h-[80px]
@@ -652,7 +602,6 @@ const Leads = () => {
                   hover:scale-105
                   ${activeFilter === item.key ? "ring-4 ring-blue-300 scale-105" : ""}
                 `}
->>>>>>> 685a818 (Added itinerary pricing, frontend updates, and backend improvements)
               >
                 <div className=" text-sm md:text-xl lg:text-3xl font-bold leading-none">
                   {item.value}
@@ -665,51 +614,24 @@ const Leads = () => {
           </div>
         </div>
 
-<<<<<<< HEAD
-
-
-        {/* Queries Table */}
-=======
         {/* Queries Section */}
->>>>>>> 685a818 (Added itinerary pricing, frontend updates, and backend improvements)
         <div className='flex justify-between items-center mb-6'>
           <div className='flex items-center gap-2'>
             <h2 className="text-lg font-bold">Queries</h2>
             <span className="text-lg font-bold">• All</span>
-<<<<<<< HEAD
-
-          </div>
-          <button className="flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-md" onClick={handleRefresh}><History size={20} />Refresh</button>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6">
-          {filteredLeads.map((lead) => (
-            <LeadCard
-              id={lead.id}
-              key={lead.id}
-              name={lead.client_name}
-              phone={lead.phone || "N/A"}
-              avatar="/avatar.png"
-              tag={
-                lead.status === "confirmed"
-                  ? "Confirmed"
-                  : lead.status === "new"
-                    ? "New"
-                    : ""
-              }
-              location={lead.destination || "N/A"}
-              date={formatDate(lead.created_at)}
-              followUpText="Follow Ups"
-              amount={lead.amount || 0}
-              onAssign={() => handleAssign(lead.id)}
-            />
-          ))}
-=======
+            <button
+              type="button"
+              onClick={() => setShowModal(true)}
+              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium"
+            >
+              <Plus size={20} />
+              Add Query
+            </button>
           </div>
           <button className="flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-md" onClick={handleRefresh}>
             <History size={20} />
             Refresh
           </button>
->>>>>>> 685a818 (Added itinerary pricing, frontend updates, and backend improvements)
         </div>
 
         {filteredLeads.length === 0 ? (
