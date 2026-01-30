@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
+import { getDisplayImageUrl } from '../utils/imageUrl';
 import { packagesAPI, dayItinerariesAPI, hotelsAPI, activitiesAPI, settingsAPI, destinationsAPI, itineraryPricingAPI } from '../services/api';
 import { ArrowLeft, Camera, Edit, Plus, ChevronRight, FileText, Search, X, Bed, Image as ImageIcon, Car, FileText as PassportIcon, UtensilsCrossed, Plane, User, Ship, Star, Calendar, Hash, Building2 } from 'lucide-react';
 import PricingTab from '../components/PricingTab';
@@ -1296,19 +1297,18 @@ itinerary.image = itinerary.image.replace('localhost', 'localhost:8000');
             <div 
               className="relative w-full h-64 rounded-lg mb-6 overflow-hidden shadow-lg"
               style={{
-                backgroundImage: itinerary.image ? `url(${itinerary.image})` : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                backgroundImage: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
                 backgroundSize: 'cover',
                 backgroundPosition: 'center',
-                backgroundColor: itinerary.image ? 'transparent' : '#667eea'
+                backgroundColor: '#667eea'
               }}
             >
               {itinerary.image && (
                 <img 
-                  src={itinerary.image} 
+                  src={getDisplayImageUrl(itinerary.image) || itinerary.image} 
                   alt={itinerary.itinerary_name}
                   className="absolute inset-0 w-full h-full object-cover"
                   onError={(e) => {
-                    console.error('Cover image failed to load:', itinerary.image);
                     e.target.style.display = 'none';
                   }}
                 />
@@ -1559,10 +1559,10 @@ itinerary.image = itinerary.image.replace('localhost', 'localhost:8000');
                               <div className="flex gap-4 items-start">
                                 {/* Image */}
                                 <div className="w-20 h-20 bg-gray-100 rounded-lg flex items-center justify-center border border-gray-300 flex-shrink-0 relative overflow-hidden">
-                                  {event.image ? (
+                                  {(event.image || (event.eventType === 'accommodation' && event.hotelOptions?.[0]?.image)) ? (
                                     <>
                                       <img 
-                                        src={event.image} 
+                                        src={getDisplayImageUrl(event.image || event.hotelOptions?.[0]?.image) || event.image || event.hotelOptions?.[0]?.image} 
                                         alt={event.subject}
                                         className="w-full h-full object-cover"
                                         onError={(e) => {
@@ -1837,7 +1837,7 @@ itinerary.image = itinerary.image.replace('localhost', 'localhost:8000');
                                 <div className="w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center overflow-hidden border border-gray-200 flex-shrink-0">
                                   {di.image ? (
                                     <img 
-                                      src={di.image} 
+                                      src={getDisplayImageUrl(di.image) || di.image} 
                                       alt={di.title || 'Day Itinerary'} 
                                       className="w-full h-full object-cover"
                                       onError={(e) => {
@@ -1919,7 +1919,7 @@ itinerary.image = itinerary.image.replace('localhost', 'localhost:8000');
                                   <div className="w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center overflow-hidden border border-gray-200 flex-shrink-0">
                                     {activity.activity_photo ? (
                                       <img 
-                                        src={activity.activity_photo} 
+                                        src={getDisplayImageUrl(activity.activity_photo) || activity.activity_photo} 
                                         alt={activity.activity_name || 'Activity'} 
                                         className="w-full h-full object-cover"
                                         onError={(e) => {
@@ -2005,7 +2005,7 @@ itinerary.image = itinerary.image.replace('localhost', 'localhost:8000');
                                           <div className="w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center overflow-hidden border border-gray-200 flex-shrink-0">
                                             {hotel.image ? (
                                               <img 
-                                                src={hotel.image} 
+                                                src={getDisplayImageUrl(hotel.image) || hotel.image} 
                                                 alt={hotel.hotelName || hotel.name || 'Hotel'} 
                                                 className="w-full h-full object-cover"
                                                 onError={(e) => {
@@ -2082,7 +2082,7 @@ itinerary.image = itinerary.image.replace('localhost', 'localhost:8000');
                                             <div className="w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center overflow-hidden border border-gray-200 flex-shrink-0">
                                               {hotel.image ? (
                                                 <img 
-                                                  src={hotel.image} 
+                                                  src={getDisplayImageUrl(hotel.image) || hotel.image} 
                                                   alt={hotel.hotelName || hotel.name || 'Hotel'} 
                                                   className="w-full h-full object-cover"
                                                   onError={(e) => {

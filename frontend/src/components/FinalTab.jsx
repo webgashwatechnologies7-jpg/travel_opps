@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { getDisplayImageUrl } from '../utils/imageUrl';
 import { Building2, Star, Calendar, Hash, X, Eye, MapPin, Users, Clock, Image as ImageIcon, Car, UtensilsCrossed, Plane, User, Ship, FileText, FileText as PassportIcon, File, Download, Mail, MessageCircle, Printer } from 'lucide-react';
 
 const FinalTab = ({
@@ -241,18 +242,16 @@ const FinalTab = ({
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50">
       {/* Hero Section with Package Cover */}
-      <div className="relative w-full h-96 mb-8 overflow-hidden">
-        {itinerary?.image ? (
+      <div className="relative w-full h-96 mb-8 overflow-hidden bg-gradient-to-r from-blue-600 to-purple-600">
+        {itinerary?.image && (
           <img 
-            src={itinerary.image} 
+            src={getDisplayImageUrl(itinerary.image) || itinerary.image} 
             alt={itinerary.itinerary_name}
-            className="w-full h-full object-cover"
+            className="absolute inset-0 w-full h-full object-cover"
             onError={(e) => {
               e.target.style.display = 'none';
             }}
           />
-        ) : (
-          <div className="w-full h-full bg-gradient-to-r from-blue-600 to-purple-600"></div>
         )}
         <div className="absolute inset-0 bg-black bg-opacity-40"></div>
         <div className="absolute inset-0 flex flex-col justify-end p-8 text-white">
@@ -406,10 +405,10 @@ const FinalTab = ({
                         <div key={eventIdx} className="bg-gray-50 rounded-lg p-5 hover:shadow-md transition-shadow">
                           <div className="flex items-start gap-4">
                             {/* Event Image */}
-                            {event.image && (
+                            {(event.image || (event.eventType === 'accommodation' && event.hotelOptions?.[0]?.image)) && (
                               <div className="flex-shrink-0">
                                 <img 
-                                  src={event.image} 
+                                  src={getDisplayImageUrl(event.image || event.hotelOptions?.[0]?.image) || event.image || event.hotelOptions?.[0]?.image} 
                                   alt={event.subject || 'Event'}
                                   className="w-32 h-32 object-cover rounded-lg border-2 border-gray-200"
                                   onError={(e) => {
@@ -444,7 +443,7 @@ const FinalTab = ({
                                       <div className="flex items-start gap-4">
                                         {hotel.image && (
                                           <img 
-                                            src={hotel.image} 
+                                            src={getDisplayImageUrl(hotel.image) || hotel.image} 
                                             alt={hotel.hotelName}
                                             className="w-24 h-24 object-cover rounded-lg"
                                             onError={(e) => {
@@ -674,10 +673,10 @@ const FinalTab = ({
                                   <div key={eventIdx} className="bg-white rounded-lg p-4 border border-gray-200">
                                     <div className="flex items-start gap-4">
                                       {/* Event Image */}
-                                      {event.image && (
+                                      {(event.image || (event.eventType === 'accommodation' && event.hotelOptions?.[0]?.image)) && (
                                         <div className="flex-shrink-0">
                                           <img 
-                                            src={event.image} 
+                                            src={getDisplayImageUrl(event.image || event.hotelOptions?.[0]?.image) || event.image || event.hotelOptions?.[0]?.image} 
                                             alt={event.subject || 'Event'}
                                             className="w-24 h-24 object-cover rounded-lg border-2 border-gray-200"
                                             onError={(e) => {
@@ -723,7 +722,7 @@ const FinalTab = ({
                                                     <div className="flex items-start gap-3">
                                                       {hotel.image && (
                                                         <img 
-                                                          src={hotel.image} 
+                                                          src={getDisplayImageUrl(hotel.image) || hotel.image} 
                                                           alt={hotel.hotelName}
                                                           className="w-16 h-16 object-cover rounded border border-gray-200"
                                                           onError={(e) => {
@@ -796,7 +795,7 @@ const FinalTab = ({
                           {option.image && (
                             <div className="flex-shrink-0">
                               <img 
-                                src={option.image} 
+                                src={getDisplayImageUrl(option.image) || option.image} 
                                 alt={option.hotelName}
                                 className="w-full md:w-48 h-48 object-cover rounded-lg border-2 border-gray-200"
                                 onError={(e) => {
@@ -1006,9 +1005,9 @@ const FinalTab = ({
                               return (
                                 <div key={eventIdx} className="bg-gray-50 rounded-lg p-4 border border-gray-200">
                                   <div className="flex items-start gap-4">
-                                    {event.image && (
+                                    {(event.image || (event.eventType === 'accommodation' && event.hotelOptions?.[0]?.image)) && (
                                       <img 
-                                        src={event.image} 
+                                        src={getDisplayImageUrl(event.image || event.hotelOptions?.[0]?.image) || event.image || event.hotelOptions?.[0]?.image} 
                                         alt={event.subject || 'Event'}
                                         className="w-24 h-24 object-cover rounded-lg border-2 border-gray-200"
                                         onError={(e) => {
@@ -1053,7 +1052,7 @@ const FinalTab = ({
                                                   <div className="flex items-start gap-4">
                                                     {hotel.image && (
                                                       <img 
-                                                        src={hotel.image} 
+                                                        src={getDisplayImageUrl(hotel.image) || hotel.image} 
                                                         alt={hotel.hotelName}
                                                         className="w-20 h-20 object-cover rounded border border-gray-200"
                                                         onError={(e) => {
