@@ -628,10 +628,20 @@ class HotelController extends Controller
 
             $searchLocation = $location ?: $query;
 
-            // Try multiple free APIs
+            // Try multiple free APIs (location pe search = external API se hotels)
             $hotels = [];
 
-            // Method 1: Try RapidAPI Hotels4 (if API key available)
+            // Method 1: Try Amadeus (free tier - developers.amadeus.com, no credit card)
+            $amadeusClientId = env('AMADEUS_CLIENT_ID');
+            $amadeusClientSecret = env('AMADEUS_CLIENT_SECRET');
+            if ($amadeusClientId && $amadeusClientSecret) {
+                $amadeusHotels = $this->searchHotelsViaAmadeus($searchLocation, $amadeusClientId, $amadeusClientSecret);
+                if (!empty($amadeusHotels)) {
+                    $hotels = $amadeusHotels;
+                }
+            }
+
+            // Method 2: Try RapidAPI Hotels4 (if API key available)
             $rapidApiKey = env('RAPIDAPI_KEY');
             if ($rapidApiKey) {
                 try {
@@ -669,7 +679,7 @@ class HotelController extends Controller
                 }
             }
 
-            // Method 2: If no results, use local hotels database
+            // Method 3: If no results, use local hotels database
             if (empty($hotels)) {
                 $localHotels = Hotel::where('destination', 'like', '%' . $searchLocation . '%')
                     ->orWhere('name', 'like', '%' . $searchLocation . '%')
@@ -692,7 +702,7 @@ class HotelController extends Controller
                 }
             }
 
-            // Method 3: Generate mock hotels as fallback
+            // Method 4: Generate mock hotels as fallback
             if (empty($hotels)) {
                 $hotelTypes = [
                     'Grand Hotel', 'Palace', 'Resort', 'Inn', 'Luxury Hotel',
@@ -902,6 +912,92 @@ class HotelController extends Controller
                 'message' => 'An error occurred while fetching rooms',
                 'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
             ], 500);
+        }
+    }
+
+    /**
+     * Search hotels by location using Amadeus API (free tier - developers.amadeus.com)
+     * Add AMADEUS_CLIENT_ID and AMADEUS_CLIENT_SECRET in .env
+     *
+     * @param string $searchLocation e.g. Shimla, Kufri, Delhi
+     * @param string $clientId
+     * @param string $clientSecret
+     * @return array
+     */
+    private function searchHotelsViaAmadeus(string $searchLocation, string $clientId, string $clientSecret): array
+    {
+        $client = new \GuzzleHttp\Client(['timeout' => 12]);
+        $baseUrl = 'https://test.api.amadeus.com/v1';
+
+        try {
+            // Step 1: Get OAuth token
+            $tokenRes = $client->post("{$baseUrl}/security/oauth2/token", [
+                'headers' => ['Content-Type' => 'application/x-www-form-urlencoded'],
+                'form_params' => [
+                    'grant_type' => 'client_credentials',
+                    'client_id' => $clientId,
+                    'client_secret' => $clientSecret,
+                ],
+            ]);
+            $tokenData = json_decode($tokenRes->getBody(), true);
+            $accessToken = $tokenData['access_token'] ?? null;
+            if (!$accessToken) {
+                return [];
+            }
+
+            // Step 2: Get city code from keyword (e.g. Shimla -> SLV or first match)
+            $locRes = $client->get("{$baseUrl}/reference-data/locations", [
+                'headers' => ['Authorization' => 'Bearer ' . $accessToken],
+                'query' => [
+                    'keyword' => $searchLocation,
+                    'subType' => 'CITY',
+                    'page[limit]' => 5,
+                ],
+            ]);
+            $locData = json_decode($locRes->getBody(), true);
+            $locations = $locData['data'] ?? [];
+            $cityCode = null;
+            foreach ($locations as $loc) {
+                $code = $loc['iataCode'] ?? $loc['cityCode'] ?? null;
+                if ($code && strlen($code) === 3) {
+                    $cityCode = $code;
+                    break;
+                }
+            }
+            if (!$cityCode) {
+                return [];
+            }
+
+            // Step 3: Get hotels by city code
+            $hotelsRes = $client->get("{$baseUrl}/reference-data/locations/hotels/by-city", [
+                'headers' => ['Authorization' => 'Bearer ' . $accessToken],
+                'query' => ['cityCode' => $cityCode],
+            ]);
+            $hotelsData = json_decode($hotelsRes->getBody(), true);
+            $list = $hotelsData['data'] ?? [];
+            if (empty($list)) {
+                return [];
+            }
+
+            return collect($list)->take(25)->map(function ($h) use ($searchLocation) {
+                $name = $h['name'] ?? $h['hotelId'] ?? 'Hotel';
+                $address = $searchLocation;
+                if (!empty($h['address'])) {
+                    $addr = $h['address'];
+                    $parts = array_filter([$addr['lines'][0] ?? null, $addr['cityName'] ?? null, $addr['countryCode'] ?? null]);
+                    $address = implode(', ', $parts);
+                }
+                return [
+                    'id' => 'amadeus-' . ($h['hotelId'] ?? uniqid()),
+                    'name' => $name,
+                    'hotelName' => $name,
+                    'rating' => (int) ($h['rating'] ?? 0) ?: 3,
+                    'address' => $address,
+                ];
+            })->values()->toArray();
+        } catch (\Exception $e) {
+            \Log::info('Amadeus hotel search failed: ' . $e->getMessage());
+            return [];
         }
     }
 

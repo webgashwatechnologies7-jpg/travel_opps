@@ -75,11 +75,16 @@ class PackageController extends Controller
     public function store(Request $request): JsonResponse
     {
         try {
-            // Handle file upload
+            // Handle file upload or use existing image from library (image_path)
             $imagePath = null;
             if ($request->hasFile('image')) {
                 $file = $request->file('image');
                 $imagePath = $file->store('packages', 'public');
+            } elseif ($request->filled('image_path')) {
+                $path = $request->input('image_path');
+                if (preg_match('/^packages\/[a-zA-Z0-9_\-\.\/]+$/', $path) && Storage::disk('public')->exists($path)) {
+                    $imagePath = $path;
+                }
             }
 
             // Validate the request
@@ -87,6 +92,7 @@ class PackageController extends Controller
                 'itinerary_name' => 'required|string|max:255',
                 'start_date' => 'nullable|date',
                 'end_date' => 'nullable|date|after_or_equal:start_date',
+                'duration' => 'nullable|integer|min:1',
                 'adult' => 'nullable|integer|min:0',
                 'child' => 'nullable|integer|min:0',
                 'destinations' => 'nullable|string',
@@ -98,6 +104,7 @@ class PackageController extends Controller
                 'website_cost' => 'nullable|numeric|min:0',
                 'show_on_website' => 'nullable|boolean',
                 'image' => 'nullable|mimes:jpeg,jpg,png,gif,bmp,webp,avif,svg|max:2048',
+                'image_path' => 'nullable|string|max:500',
             ], [
                 'itinerary_name.required' => 'The itinerary name field is required.',
                 'end_date.after_or_equal' => 'The end date must be after or equal to start date.',
@@ -119,6 +126,7 @@ class PackageController extends Controller
             }
 
             $data = $validator->validated();
+            unset($data['image_path']);
             $data['created_by'] = $request->user()->id;
             $data['image'] = $imagePath;
             $data['adult'] = $data['adult'] ?? 1;
@@ -126,11 +134,12 @@ class PackageController extends Controller
             $data['price'] = $data['price'] ?? 0;
             $data['website_cost'] = $data['website_cost'] ?? 0;
             $data['show_on_website'] = $data['show_on_website'] ?? false;
+            $data['duration'] = $data['duration'] ?? null;
 
             $package = Package::create($data);
             
-            // Calculate duration
-            if ($package->start_date && $package->end_date) {
+            // Calculate duration from dates if not provided
+            if ($package->start_date && $package->end_date && empty($data['duration'])) {
                 $package->calculateDuration();
                 $package->save();
             }
@@ -253,15 +262,19 @@ class PackageController extends Controller
                 ], 404);
             }
 
-            // Handle file upload
+            // Handle file upload or use existing image from library (image_path)
             $imagePath = $package->image;
             if ($request->hasFile('image')) {
-                // Delete old image if exists
                 if ($package->image && Storage::disk('public')->exists($package->image)) {
                     Storage::disk('public')->delete($package->image);
                 }
                 $file = $request->file('image');
                 $imagePath = $file->store('packages', 'public');
+            } elseif ($request->filled('image_path')) {
+                $path = $request->input('image_path');
+                if (preg_match('/^packages\/[a-zA-Z0-9_\-\.\/]+$/', $path) && Storage::disk('public')->exists($path)) {
+                    $imagePath = $path;
+                }
             }
 
             // Validate the request
@@ -269,6 +282,7 @@ class PackageController extends Controller
                 'itinerary_name' => 'sometimes|required|string|max:255',
                 'start_date' => 'nullable|date',
                 'end_date' => 'nullable|date|after_or_equal:start_date',
+                'duration' => 'nullable|integer|min:1',
                 'adult' => 'nullable|integer|min:0',
                 'child' => 'nullable|integer|min:0',
                 'destinations' => 'nullable|string',
@@ -280,6 +294,7 @@ class PackageController extends Controller
                 'website_cost' => 'nullable|numeric|min:0',
                 'show_on_website' => 'nullable|boolean',
                 'image' => 'nullable|mimes:jpeg,jpg,png,gif,bmp,webp,avif,svg|max:2048',
+                'image_path' => 'nullable|string|max:500',
             ], [
                 'itinerary_name.required' => 'The itinerary name field is required.',
                 'end_date.after_or_equal' => 'The end date must be after or equal to start date.',
@@ -301,6 +316,7 @@ class PackageController extends Controller
             }
 
             $data = $validator->validated();
+            unset($data['image_path']);
             $data['image'] = $imagePath;
             
             // Handle boolean conversion for show_on_website
@@ -318,8 +334,8 @@ class PackageController extends Controller
 
             $package->update($data);
             
-            // Recalculate duration
-            if ($package->start_date && $package->end_date) {
+            // Recalculate duration from dates only if duration not provided
+            if ($package->start_date && $package->end_date && !isset($data['duration'])) {
                 $package->calculateDuration();
                 $package->save();
             }

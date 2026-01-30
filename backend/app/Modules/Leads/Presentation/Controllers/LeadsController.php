@@ -104,6 +104,12 @@ class LeadsController extends Controller
                         'status' => $lead->status,
                         'priority' => $lead->priority,
                         'assigned_to' => $lead->assigned_to,
+                        'travel_start_date' => $lead->travel_start_date ? $lead->travel_start_date->format('Y-m-d') : null,
+                        'travel_end_date' => $lead->travel_end_date ? $lead->travel_end_date->format('Y-m-d') : null,
+                        'adult' => $lead->adult ?? 1,
+                        'child' => $lead->child ?? 0,
+                        'infant' => $lead->infant ?? 0,
+                        'remark' => $lead->remark ?? null,
                         'assigned_user' => $lead->assignedUser ? [
                             'id' => $lead->assignedUser->id,
                             'name' => $lead->assignedUser->name,
@@ -175,6 +181,12 @@ class LeadsController extends Controller
                 'status' => 'nullable|in:new,proposal,followup,confirmed,cancelled',
                 'assigned_to' => 'nullable|exists:users,id',
                 'priority' => 'nullable|in:hot,warm,cold',
+                'travel_start_date' => 'nullable|date',
+                'travel_end_date' => 'nullable|date|after_or_equal:travel_start_date',
+                'adult' => 'nullable|integer|min:0|max:99',
+                'child' => 'nullable|integer|min:0|max:99',
+                'infant' => 'nullable|integer|min:0|max:99',
+                'remark' => 'nullable|string',
             ], [
                 'client_name.required' => 'Client name is required.',
                 'source.required' => 'Source is required.',
@@ -192,6 +204,12 @@ class LeadsController extends Controller
             }
 
             $data = $validator->validated();
+            if (isset($data['travel_start_date']) && $data['travel_start_date'] === '') {
+                $data['travel_start_date'] = null;
+            }
+            if (isset($data['travel_end_date']) && $data['travel_end_date'] === '') {
+                $data['travel_end_date'] = null;
+            }
             $data['created_by'] = $request->user()->id;
             $data['status'] = $data['status'] ?? 'new';
             $data['priority'] = $data['priority'] ?? 'warm';
@@ -213,6 +231,12 @@ class LeadsController extends Controller
                         'priority' => $lead->priority,
                         'assigned_to' => $lead->assigned_to,
                         'created_by' => $lead->created_by,
+                        'travel_start_date' => $lead->travel_start_date ? $lead->travel_start_date->format('Y-m-d') : null,
+                        'travel_end_date' => $lead->travel_end_date ? $lead->travel_end_date->format('Y-m-d') : null,
+                        'adult' => $lead->adult,
+                        'child' => $lead->child,
+                        'infant' => $lead->infant,
+                        'remark' => $lead->remark,
                         'created_at' => $lead->created_at,
                         'updated_at' => $lead->updated_at,
                     ],
@@ -247,6 +271,12 @@ class LeadsController extends Controller
                 'status' => 'nullable|in:new,proposal,followup,confirmed,cancelled',
                 'assigned_to' => 'nullable|exists:users,id',
                 'priority' => 'nullable|in:hot,warm,cold',
+                'travel_start_date' => 'nullable|date',
+                'travel_end_date' => 'nullable|date|after_or_equal:travel_start_date',
+                'adult' => 'nullable|integer|min:0|max:99',
+                'child' => 'nullable|integer|min:0|max:99',
+                'infant' => 'nullable|integer|min:0|max:99',
+                'remark' => 'nullable|string',
             ], [
                 'status.in' => 'Status must be one of: new, proposal, followup, confirmed, cancelled.',
                 'priority.in' => 'Priority must be one of: hot, warm, cold.',
@@ -284,6 +314,12 @@ class LeadsController extends Controller
                         'status' => $lead->status,
                         'priority' => $lead->priority,
                         'assigned_to' => $lead->assigned_to,
+                        'travel_start_date' => $lead->travel_start_date ? $lead->travel_start_date->format('Y-m-d') : null,
+                        'travel_end_date' => $lead->travel_end_date ? $lead->travel_end_date->format('Y-m-d') : null,
+                        'adult' => $lead->adult ?? 1,
+                        'child' => $lead->child ?? 0,
+                        'infant' => $lead->infant ?? 0,
+                        'remark' => $lead->remark ?? null,
                         'created_by' => $lead->created_by,
                         'updated_at' => $lead->updated_at,
                     ],

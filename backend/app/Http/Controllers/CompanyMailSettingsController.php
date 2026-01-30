@@ -14,23 +14,30 @@ class CompanyMailSettingsController extends Controller
 {
     public function show(): JsonResponse
     {
-        $settings = CompanyMailSettingsService::getSettings();
+        try {
+            $settings = CompanyMailSettingsService::getSettings();
 
-        return response()->json([
-            'success' => true,
-            'data' => [
-                'enabled' => filter_var($settings['enabled'] ?? false, FILTER_VALIDATE_BOOLEAN),
-                'mailer' => $settings['mailer'] ?? 'smtp',
-                'host' => $settings['host'] ?? '',
-                'port' => $settings['port'] ?? '',
-                'encryption' => $settings['encryption'] ?? '',
-                'username' => $settings['username'] ?? '',
-                'password' => '',
-                'has_password' => !empty($settings['password']),
-                'from_address' => $settings['from_address'] ?? config('mail.from.address'),
-                'from_name' => $settings['from_name'] ?? config('mail.from.name'),
-            ],
-        ]);
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'enabled' => filter_var($settings['enabled'] ?? false, FILTER_VALIDATE_BOOLEAN),
+                    'mailer' => $settings['mailer'] ?? 'smtp',
+                    'host' => $settings['host'] ?? '',
+                    'port' => $settings['port'] ?? '',
+                    'encryption' => $settings['encryption'] ?? '',
+                    'username' => $settings['username'] ?? '',
+                    'password' => '',
+                    'has_password' => !empty($settings['password']),
+                    'from_address' => $settings['from_address'] ?? config('mail.from.address'),
+                    'from_name' => $settings['from_name'] ?? config('mail.from.name'),
+                ],
+            ]);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to load mail settings: ' . $e->getMessage(),
+            ], 500);
+        }
     }
 
     public function update(Request $request): JsonResponse

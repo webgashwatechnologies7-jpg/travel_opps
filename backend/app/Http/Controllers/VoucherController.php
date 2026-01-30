@@ -13,9 +13,8 @@ class VoucherController extends Controller
 {
     public function preview(Request $request, int $leadId)
     {
-        $lead = Lead::query()->find($leadId);
-
-        if (!$lead || $lead->company_id !== $request->user()->company_id) {
+        $lead = $this->findLeadForUser($request, $leadId);
+        if (!$lead) {
             return response()->json([
                 'success' => false,
                 'message' => 'Lead not found',
@@ -31,9 +30,8 @@ class VoucherController extends Controller
 
     public function download(Request $request, int $leadId)
     {
-        $lead = Lead::query()->find($leadId);
-
-        if (!$lead || $lead->company_id !== $request->user()->company_id) {
+        $lead = $this->findLeadForUser($request, $leadId);
+        if (!$lead) {
             return response()->json([
                 'success' => false,
                 'message' => 'Lead not found',
@@ -53,9 +51,8 @@ class VoucherController extends Controller
 
     public function send(Request $request, int $leadId): JsonResponse
     {
-        $lead = Lead::query()->find($leadId);
-
-        if (!$lead || $lead->company_id !== $request->user()->company_id) {
+        $lead = $this->findLeadForUser($request, $leadId);
+        if (!$lead) {
             return response()->json([
                 'success' => false,
                 'message' => 'Lead not found',
@@ -92,6 +89,29 @@ class VoucherController extends Controller
                 'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
             ], 500);
         }
+    }
+
+    /**
+     * Find lead by ID for the authenticated user (bypass global scope, match company_id).
+     */
+    private function findLeadForUser(Request $request, int $leadId): ?Lead
+    {
+        $user = $request->user();
+        if (!$user) {
+            return null;
+        }
+        // Bypass HasCompany scope so we find the lead even when tenant is not set
+        $lead = Lead::withoutGlobalScopes()->find($leadId);
+        if (!$lead) {
+            return null;
+        }
+        $companyId = $user->company_id ?? null;
+        $leadCompanyId = $lead->company_id ?? null;
+        // Allow: same company, or lead has no company (null)
+        if ($leadCompanyId !== null && $companyId !== null && $leadCompanyId !== $companyId) {
+            return null;
+        }
+        return $lead;
     }
 
     private function buildVoucherHtml(Lead $lead): string

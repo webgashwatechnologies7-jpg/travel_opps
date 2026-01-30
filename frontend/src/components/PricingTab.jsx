@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Edit, Plus, Building2, Star } from 'lucide-react';
+import { Edit, Building2, Star } from 'lucide-react';
 import { itineraryPricingAPI } from '../services/api';
 
 const PricingTab = ({
@@ -23,8 +23,7 @@ const PricingTab = ({
   setTcs,
   discount,
   setDiscount,
-  initialOptionGstSettings = {},
-  onAddToProposals
+  initialOptionGstSettings = {}
 }) => {
   // Individual GST settings for each option (overrides global gst)
   const [optionGstSettings, setOptionGstSettings] = useState(initialOptionGstSettings || {});
@@ -547,19 +546,6 @@ const PricingTab = ({
               Set prices for each hotel in the sections below.
             </p>
           </div>
-        </div>
-      )}
-
-      {/* Add to Proposals Button */}
-      {Object.keys(optionsByNumber).length > 0 && (
-        <div className="mt-6 flex justify-end">
-          <button
-            onClick={onAddToProposals}
-            className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium flex items-center gap-2 shadow-lg"
-          >
-            <Plus className="h-5 w-5" />
-            Add Options to Proposals
-          </button>
         </div>
       )}
 

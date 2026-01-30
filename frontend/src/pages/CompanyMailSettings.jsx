@@ -43,7 +43,14 @@ const CompanyMailSettings = () => {
           setHasPassword(!!data.has_password);
         }
       } catch (err) {
-        setMessage({ type: 'error', text: 'Failed to load mail settings' });
+        const status = err.response?.status;
+        const msg = err.response?.data?.message || err.response?.data?.error || err.message;
+        let text = 'Failed to load mail settings.';
+        if (status === 401) text = 'Session expired or unauthorized. Please log in again.';
+        else if (status === 404) text = 'Mail settings API not found. Check server URL.';
+        else if (status === 500) text = msg ? `Server error: ${msg}` : 'Server error. Check backend logs.';
+        else if (msg) text = msg;
+        setMessage({ type: 'error', text });
       }
     };
 

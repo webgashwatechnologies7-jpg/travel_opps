@@ -1,9 +1,16 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+<<<<<<< HEAD
 import { leadsAPI, usersAPI, followupsAPI, dayItinerariesAPI, packagesAPI, settingsAPI, suppliersAPI, hotelsAPI, paymentsAPI, googleMailAPI, whatsappAPI } from '../services/api';
 import Layout from '../components/Layout';
 import { ArrowLeft, Calendar, Mail, Plus, Upload, X, Search, FileText, Printer, Send, MessageCircle, CheckCircle, CheckCircle2, Clock, Briefcase, MapPin, CalendarDays, Users, UserCheck, Leaf, Smartphone, Phone, MoreVertical, Download, Pencil, Trash2 } from 'lucide-react';
+=======
+import { leadsAPI, usersAPI, followupsAPI, dayItinerariesAPI, packagesAPI, settingsAPI, suppliersAPI, hotelsAPI, paymentsAPI, googleMailAPI, whatsappAPI, queryDetailAPI, vouchersAPI } from '../services/api';
+import { searchPexelsPhotos } from '../services/pexels';
+import Layout from '../components/Layout';
+import { ArrowLeft, Calendar, Mail, Plus, Upload, X, Search, FileText, Printer, Send, MessageCircle, CheckCircle, CheckCircle2, Clock, Briefcase, MapPin, CalendarDays, Users, UserCheck, Leaf, Smartphone, Phone, MoreVertical, Download, Pencil, Trash2, Camera } from 'lucide-react';
+>>>>>>> 718c369 (today work updated in live side)
 import DetailRow from '../components/Quiries/DetailRow';
 import html2pdf from 'html2pdf.js';
 const LeadDetails = () => {
@@ -37,13 +44,20 @@ const LeadDetails = () => {
   const [loadingQuotation, setLoadingQuotation] = useState(false);
   const [itineraryFormData, setItineraryFormData] = useState({
     itinerary_name: '',
-    start_date: '',
-    end_date: '',
-    adult: '1',
-    child: '0',
+    duration: '1',
     destinations: '',
-    notes: ''
+    notes: '',
+    image: null,
+    show_on_website: true
   });
+  const [savingItinerary, setSavingItinerary] = useState(false);
+  const [itineraryImagePreview, setItineraryImagePreview] = useState(null);
+  const [showItineraryLibraryModal, setShowItineraryLibraryModal] = useState(false);
+  const [itineraryLibrarySearchTerm, setItineraryLibrarySearchTerm] = useState('');
+  const [itineraryLibraryTab, setItineraryLibraryTab] = useState('free');
+  const [itineraryFreeStockPhotos, setItineraryFreeStockPhotos] = useState([]);
+  const [itineraryFreeStockLoading, setItineraryFreeStockLoading] = useState(false);
+  const [itineraryLibraryPackages, setItineraryLibraryPackages] = useState([]);
   const [followups, setFollowups] = useState([]);
   const [showFollowupModal, setShowFollowupModal] = useState(false);
   const [editingFollowupId, setEditingFollowupId] = useState(null);
@@ -57,10 +71,13 @@ const LeadDetails = () => {
   const [addingFollowup, setAddingFollowup] = useState(false);
   const [suppliers, setSuppliers] = useState([]);
   const [hotelsFromConfirmedOption, setHotelsFromConfirmedOption] = useState([]);
+  const [vehiclesFromProposals, setVehiclesFromProposals] = useState([]);
   const [selectedSuppliers, setSelectedSuppliers] = useState([]);
   const [selectedHotels, setSelectedHotels] = useState([]);
+  const [selectedVehicles, setSelectedVehicles] = useState([]);
   const [selectAllSuppliers, setSelectAllSuppliers] = useState(false);
   const [selectAllHotels, setSelectAllHotels] = useState(false);
+  const [selectAllVehicles, setSelectAllVehicles] = useState(false);
   const [supplierEmailForm, setSupplierEmailForm] = useState({
     subject: '',
     cc_email: '',
@@ -77,6 +94,12 @@ const LeadDetails = () => {
     due_date: ''
   });
   const [addingPayment, setAddingPayment] = useState(false);
+  const [activityTimeline, setActivityTimeline] = useState([]);
+  const [queryDetailInvoices, setQueryDetailInvoices] = useState([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  const [voucherActionLoading, setVoucherActionLoading] = useState(null); // 'preview' | 'download' | 'send'
+  const [showVoucherPopup, setShowVoucherPopup] = useState(false);
+  const [voucherPopupHtml, setVoucherPopupHtml] = useState('');
 
   // Email states
   const [leadEmails, setLeadEmails] = useState([]);
@@ -139,6 +162,15 @@ const LeadDetails = () => {
     return () => clearInterval(interval);
   }, [activeTab, id]);
 
+<<<<<<< HEAD
+=======
+  useEffect(() => {
+    if ((activeTab === 'history' || activeTab === 'invoice') && id) {
+      fetchQueryDetail();
+    }
+  }, [activeTab, id]);
+
+>>>>>>> 718c369 (today work updated in live side)
   // Fetch company settings (use /settings not /admin/settings to avoid 500 tenant error)
   const fetchCompanySettings = async () => {
     try {
@@ -179,8 +211,12 @@ const LeadDetails = () => {
     }
   }, [lead, proposals, id]);
 
-  // Load hotels from confirmed option
+  // Build unique hotel keys for dedupe (hotel_id + day)
+  const getHotelDedupeKey = (h) => `${h.hotel_id || h.hotelName || ''}_${h.day}`;
+
+  // Load hotels from ALL proposals (all options in all itineraries for this lead)
   useEffect(() => {
+<<<<<<< HEAD
     const loadHotelsFromConfirmedOption = async () => {
       const confirmedOption = getConfirmedOption();
 
@@ -203,17 +239,40 @@ const LeadDetails = () => {
       }
 
       if (hotelsList.length > 0) {
+=======
+    const loadHotelsFromAllProposals = async () => {
+      const rawHotelsList = [];
+      proposals.forEach((proposal) => {
+        const itineraryId = proposal.itinerary_id;
+        const optionNum = proposal.optionNumber ?? 1;
+        if (!itineraryId) return;
+>>>>>>> 718c369 (today work updated in live side)
         try {
-          // Fetch hotel details for each hotel
-          const hotelPromises = hotelsList.map(async (hotel, index) => {
-            // Try different possible field names
-            const hotelId = hotel.hotel_id || hotel.hotelId || hotel.id;
-            const hotelName = hotel.hotel_name || hotel.hotelName || hotel.name || 'Hotel';
-            const roomType = hotel.room_type || hotel.roomType || hotel.roomName || '';
-            const mealPlan = hotel.meal_plan || hotel.mealPlan || '';
-            const day = hotel.day || '';
-            const price = hotel.price || '';
+          const stored = localStorage.getItem(`itinerary_${itineraryId}_events`);
+          if (!stored) return;
+          const dayEvents = JSON.parse(stored);
+          Object.keys(dayEvents).sort((a, b) => parseInt(a) - parseInt(b)).forEach((day) => {
+            const events = dayEvents[day] || [];
+            events.forEach((event) => {
+              if (event.eventType !== 'accommodation' || !event.hotelOptions) return;
+              event.hotelOptions.forEach((opt) => {
+                if (opt.optionNumber === optionNum) {
+                  rawHotelsList.push({
+                    hotel_id: opt.hotel_id ?? opt.hotelId ?? opt.id,
+                    hotelName: opt.hotelName || event.subject || 'Hotel',
+                    roomName: opt.roomName || opt.room_type || '',
+                    mealPlan: opt.mealPlan || opt.meal_plan || '',
+                    day: parseInt(day, 10),
+                    price: opt.price || ''
+                  });
+                }
+              });
+            });
+          });
+        } catch (_) {}
+      });
 
+<<<<<<< HEAD
             if (hotelId) {
               try {
                 const response = await hotelsAPI.get(hotelId);
@@ -249,20 +308,61 @@ const LeadDetails = () => {
               }
             } else {
               // If no hotel_id, use the data from confirmed option
+=======
+      const seen = new Set();
+      const uniqueRaw = rawHotelsList.filter((h) => {
+        const key = getHotelDedupeKey(h);
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+
+      if (uniqueRaw.length === 0) {
+        setHotelsFromConfirmedOption([]);
+        return;
+      }
+      try {
+        const hotelPromises = uniqueRaw.map(async (hotel, index) => {
+          const hotelId = hotel.hotel_id;
+          const hotelName = hotel.hotelName || 'Hotel';
+          const roomType = hotel.roomName || '';
+          const mealPlan = hotel.mealPlan || '';
+          const day = hotel.day;
+          const price = hotel.price || '';
+          if (hotelId) {
+            try {
+              const response = await hotelsAPI.get(hotelId);
+              const hotelData = response.data.data;
+>>>>>>> 718c369 (today work updated in live side)
               return {
-                id: `hotel_${hotelName}_${index}_${Date.now()}`,
-                hotel_id: null,
+                id: `hotel_${hotelId}_${day}_${index}`,
+                hotel_id: hotelId,
+                company_name: hotelData.name || hotelName,
+                name: hotelData.contact_person || '',
+                email: hotelData.email || '',
+                type: 'hotel',
+                hotel_name: hotelData.name || hotelName,
+                room_type: roomType,
+                meal_plan: mealPlan,
+                price,
+                day
+              };
+            } catch {
+              return {
+                id: `hotel_${hotelId}_${day}_${index}`,
+                hotel_id: hotelId,
                 company_name: hotelName,
                 name: '',
-                email: hotel.email || '',
+                email: '',
                 type: 'hotel',
                 hotel_name: hotelName,
                 room_type: roomType,
                 meal_plan: mealPlan,
-                price: price,
-                day: day
+                price,
+                day
               };
             }
+<<<<<<< HEAD
           });
 
           const hotelsData = await Promise.all(hotelPromises);
@@ -280,48 +380,108 @@ const LeadDetails = () => {
           setHotelsFromConfirmedOption([]);
         }
       } else {
+=======
+          }
+          return {
+            id: `hotel_${hotelName}_${day}_${index}_${Date.now()}`,
+            hotel_id: null,
+            company_name: hotelName,
+            name: '',
+            email: '',
+            type: 'hotel',
+            hotel_name: hotelName,
+            room_type: roomType,
+            meal_plan: mealPlan,
+            price,
+            day
+          };
+        });
+        const hotelsData = await Promise.all(hotelPromises);
+        const validHotels = hotelsData.filter((h) => h.company_name && h.company_name !== 'Hotel');
+        validHotels.sort((a, b) => {
+          if (a.email && !b.email) return -1;
+          if (!a.email && b.email) return 1;
+          return 0;
+        });
+        setHotelsFromConfirmedOption(validHotels);
+      } catch (err) {
+>>>>>>> 718c369 (today work updated in live side)
         setHotelsFromConfirmedOption([]);
       }
     };
+    loadHotelsFromAllProposals();
+  }, [proposals]);
 
-    loadHotelsFromConfirmedOption();
-  }, [proposals, quotationData]);
+  // Load vehicles (transport) from ALL proposals
+  useEffect(() => {
+    const transportList = [];
+    const seen = new Set();
+    proposals.forEach((proposal) => {
+      const details = getPackageDetails(proposal);
+      if (!details || !details.transport || !details.transport.length) return;
+      details.transport.forEach((t, i) => {
+        const key = `${t.name}_${t.day}_${t.details || ''}`;
+        if (seen.has(key)) return;
+        seen.add(key);
+        transportList.push({
+          id: `vehicle_${String(t.name).replace(/\s+/g, '_')}_${t.day}_${i}`,
+          name: t.name || 'Vehicle',
+          details: t.details || '',
+          day: t.day,
+          email: '' // Transfer model has no email; show — in UI
+        });
+      });
+    });
+    setVehiclesFromProposals(transportList);
+  }, [proposals]);
 
-  // Load proposals from localStorage
+  // Load proposals from localStorage – refresh from itinerary's latest options so 3 options show after update
   const loadProposals = () => {
     try {
-      // Load lead-specific proposals
       const storedProposals = localStorage.getItem(`lead_${id}_proposals`);
-      let proposals = [];
-
-      if (storedProposals) {
-        proposals = JSON.parse(storedProposals);
+      let list = storedProposals ? JSON.parse(storedProposals) : [];
+      if (list.length === 0) {
+        setProposals([]);
+        return;
       }
-
-      // Also load proposals from all itineraries (for options added from itinerary detail page)
-      // This ensures all options from Final tab are available
-      const allItineraryKeys = Object.keys(localStorage).filter(key => key.startsWith('itinerary_') && key.endsWith('_proposals'));
-      allItineraryKeys.forEach(key => {
-        try {
-          const itineraryProposals = JSON.parse(localStorage.getItem(key) || '[]');
-          // Add proposals that don't already exist (check by itinerary_id + optionNumber)
-          itineraryProposals.forEach(ip => {
-            const exists = proposals.some(p =>
-              p.itinerary_id === ip.itinerary_id &&
-              p.optionNumber === ip.optionNumber
-            );
-            if (!exists) {
-              proposals.push(ip);
-            }
-          });
-        } catch (e) {
-          console.error('Error loading itinerary proposals:', e);
+      const byItineraryId = {};
+      list.forEach((p) => {
+        const tid = p.itinerary_id;
+        if (tid) {
+          if (!byItineraryId[tid]) byItineraryId[tid] = [];
+          byItineraryId[tid].push(p);
         }
       });
-
-      setProposals(proposals);
+      const result = [];
+      const processedItineraryIds = new Set();
+      list.forEach((p) => {
+        const tid = p.itinerary_id;
+        if (!tid) {
+          result.push(p);
+          return;
+        }
+        if (processedItineraryIds.has(tid)) return;
+        processedItineraryIds.add(tid);
+        const fromStorage = localStorage.getItem(`itinerary_${tid}_proposals`);
+        const latestOptions = fromStorage ? JSON.parse(fromStorage) : [];
+        if (Array.isArray(latestOptions) && latestOptions.length > 0) {
+          const existing = byItineraryId[tid] || [];
+          const confirmedOptionNum = existing.find((x) => x.confirmed)?.optionNumber;
+          latestOptions.forEach((opt, i) => {
+            result.push({
+              ...opt,
+              id: opt.id || Date.now() + i + tid,
+              confirmed: confirmedOptionNum != null && opt.optionNumber === confirmedOptionNum
+            });
+          });
+        } else {
+          (byItineraryId[tid] || []).forEach((x) => result.push(x));
+        }
+      });
+      setProposals(result);
     } catch (err) {
       console.error('Failed to load proposals:', err);
+      setProposals([]);
     }
   };
 
@@ -335,7 +495,7 @@ const LeadDetails = () => {
     }
   };
 
-  // Confirm an option
+  // Confirm an option – creates voucher + invoice and logs to history
   const handleConfirmOption = async (optionId) => {
     const updatedProposals = proposals.map(proposal => ({
       ...proposal,
@@ -345,6 +505,23 @@ const LeadDetails = () => {
 
     const confirmedProposal = updatedProposals.find(p => p.id === optionId);
     if (confirmedProposal) {
+<<<<<<< HEAD
+=======
+      const optionNumber = confirmedProposal.optionNumber ?? 1;
+      const totalAmount = confirmedProposal.price ?? 0;
+      const itineraryName = confirmedProposal.itinerary_name || quotationData?.itinerary?.itinerary_name || '';
+
+      try {
+        await leadsAPI.confirmOption(id, {
+          option_number: optionNumber,
+          total_amount: totalAmount,
+          itinerary_name: itineraryName,
+        });
+      } catch (err) {
+        console.error('Confirm option API failed:', err);
+      }
+
+>>>>>>> 718c369 (today work updated in live side)
       try {
         const quotationDataForSend = await handleViewQuotation(confirmedProposal);
         if (quotationDataForSend && (lead?.email || lead?.phone)) {
@@ -358,9 +535,90 @@ const LeadDetails = () => {
         console.error('Failed to load quotation or auto-send:', err);
         alert('Option confirmed! Email/WhatsApp auto-send fail ho gaya. Share Email / Share WhatsApp se manually bhejein.');
       }
+<<<<<<< HEAD
     } else {
       alert('Option confirmed successfully! You can now share the final itinerary.');
     }
+=======
+
+      fetchPayments();
+      if (activeTab === 'history' || activeTab === 'invoice') fetchQueryDetail();
+    } else {
+      alert('Option confirmed successfully! You can now share the final itinerary.');
+    }
+  };
+
+  const fetchQueryDetail = async () => {
+    if (!id) return;
+    setLoadingHistory(true);
+    try {
+      const res = await queryDetailAPI.getDetail(id);
+      const data = res?.data?.data;
+      setActivityTimeline(data?.activity_timeline || []);
+      setQueryDetailInvoices(data?.invoices || []);
+    } catch (err) {
+      console.error('Failed to load query detail:', err);
+      setActivityTimeline([]);
+      setQueryDetailInvoices([]);
+    } finally {
+      setLoadingHistory(false);
+    }
+  };
+
+  const fetchActivityTimeline = fetchQueryDetail;
+
+  const handleVoucherPreview = async () => {
+    if (!id) return;
+    setVoucherActionLoading('preview');
+    try {
+      const res = await vouchersAPI.preview(id);
+      const blob = res.data;
+      const html = await blob.text();
+      setVoucherPopupHtml(html);
+      setShowVoucherPopup(true);
+    } catch (err) {
+      console.error('Voucher preview failed:', err);
+      alert('Voucher preview load nahi hua. Please try again.');
+    } finally {
+      setVoucherActionLoading(null);
+    }
+  };
+
+  const handleVoucherDownload = async () => {
+    if (!id) return;
+    setVoucherActionLoading('download');
+    try {
+      const res = await vouchersAPI.download(id);
+      const blob = res.data;
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `voucher-lead-${id}-${new Date().toISOString().slice(0, 10)}.html`;
+      link.click();
+      URL.revokeObjectURL(link.href);
+    } catch (err) {
+      console.error('Voucher download failed:', err);
+      alert('Voucher download fail. Please try again.');
+    } finally {
+      setVoucherActionLoading(null);
+    }
+  };
+
+  const handleVoucherSend = async () => {
+    if (!id) return;
+    const toEmail = lead?.email || '';
+    const email = window.prompt('Send voucher to email:', toEmail || '');
+    if (email === null) return;
+    setVoucherActionLoading('send');
+    try {
+      await vouchersAPI.send(id, { to_email: email || toEmail, subject: 'Travel Voucher' });
+      alert('Voucher email bhej diya gaya.');
+    } catch (err) {
+      console.error('Voucher send failed:', err);
+      alert('Voucher send fail. Client email check karein.');
+    } finally {
+      setVoucherActionLoading(null);
+    }
+>>>>>>> 718c369 (today work updated in live side)
   };
 
   // Get confirmed option
@@ -794,6 +1052,22 @@ const LeadDetails = () => {
     }
   };
 
+  const handleSelectVehicle = (vehicleId) => {
+    setSelectedVehicles((prev) =>
+      prev.includes(vehicleId) ? prev.filter((id) => id !== vehicleId) : [...prev, vehicleId]
+    );
+  };
+
+  const handleSelectAllVehicles = (checked) => {
+    setSelectAllVehicles(checked);
+    const withEmail = vehiclesFromProposals.filter((v) => v.email && v.email.trim() !== '');
+    if (checked) {
+      setSelectedVehicles(withEmail.map((v) => v.id));
+    } else {
+      setSelectedVehicles([]);
+    }
+  };
+
   const handleSelectSupplier = (supplierId) => {
     setSelectedSuppliers(prev => {
       if (prev.includes(supplierId)) {
@@ -815,8 +1089,16 @@ const LeadDetails = () => {
   };
 
   const handleSendSupplierEmail = async () => {
-    if (selectedSuppliers.length === 0 && selectedHotels.length === 0) {
-      alert('Please select at least one supplier or hotel');
+    const selectedHotelEmailsList = hotelsFromConfirmedOption
+      .filter(h => selectedHotels.includes(h.id) && h.email && h.email.trim() !== '')
+      .map(h => ({ email: h.email.trim(), name: h.company_name, hotel_name: h.hotel_name, room_type: h.room_type, meal_plan: h.meal_plan }));
+    const selectedVehicleEmailsList = vehiclesFromProposals
+      .filter(v => selectedVehicles.includes(v.id) && v.email && v.email.trim() !== '')
+      .map(v => ({ email: v.email.trim(), hotel_name: v.name }));
+    const hasRecipients = selectedSuppliers.length > 0 || selectedHotelEmailsList.length > 0 || selectedVehicleEmailsList.length > 0;
+
+    if (!hasRecipients) {
+      alert('Please select at least one supplier, hotel or vehicle (with email)');
       return;
     }
 
@@ -843,15 +1125,10 @@ const LeadDetails = () => {
       };
 
       // Prepare hotel emails - only include hotels with valid email
-      const selectedHotelEmails = hotelsFromConfirmedOption
-        .filter(h => selectedHotels.includes(h.id) && h.email && h.email.trim() !== '')
-        .map(h => ({
-          email: h.email.trim(),
-          name: h.company_name,
-          hotel_name: h.hotel_name,
-          room_type: h.room_type,
-          meal_plan: h.meal_plan
-        }));
+      const selectedHotelEmails = selectedHotelEmailsList;
+
+      // Include selected vehicles (with email) in hotel_emails so backend can send
+      const allRecipientEmails = [...selectedHotelEmails, ...selectedVehicleEmailsList.map(v => ({ ...v, name: v.hotel_name, room_type: '', meal_plan: '' }))];
 
       // Check if any selected hotels don't have email
       const hotelsWithoutEmail = hotelsFromConfirmedOption
@@ -868,15 +1145,15 @@ const LeadDetails = () => {
         }
       }
 
-      if (selectedSuppliers.length === 0 && selectedHotelEmails.length === 0) {
-        alert('Please select at least one supplier or hotel with valid email address');
+      if (selectedSuppliers.length === 0 && allRecipientEmails.length === 0) {
+        alert('Please select at least one supplier, hotel or vehicle with valid email address');
         setSendingEmail(false);
         return;
       }
 
       const response = await suppliersAPI.sendEmail({
         supplier_ids: selectedSuppliers,
-        hotel_emails: selectedHotelEmails,
+        hotel_emails: allRecipientEmails,
         subject: supplierEmailForm.subject,
         cc_email: supplierEmailForm.cc_email,
         body: supplierEmailForm.body,
@@ -912,8 +1189,10 @@ const LeadDetails = () => {
           });
           setSelectedSuppliers([]);
           setSelectedHotels([]);
+          setSelectedVehicles([]);
           setSelectAllSuppliers(false);
           setSelectAllHotels(false);
+          setSelectAllVehicles(false);
         }
       } else {
         const errorMsg = response.data.message || 'Failed to send email';
@@ -1125,18 +1404,102 @@ const LeadDetails = () => {
   };
 
   const handleCreateItinerary = () => {
-    // Pre-fill form with lead data
+    // Pre-fill form with lead data (duration from lead trip days if set)
+    const tripDays = (lead?.travel_start_date && lead?.travel_end_date)
+      ? Math.round((new Date(lead.travel_end_date) - new Date(lead.travel_start_date)) / (1000 * 60 * 60 * 24)) + 1
+      : 1;
     setItineraryFormData({
       itinerary_name: '',
-      start_date: lead?.travel_start_date ? formatDateForInput(lead.travel_start_date) : '',
-      end_date: lead?.travel_end_date ? formatDateForInput(lead.travel_end_date) : '',
-      adult: lead?.adult?.toString() || '1',
-      child: lead?.child?.toString() || '0',
+      duration: String(tripDays),
       destinations: lead?.destination || '',
-      notes: lead?.remark || ''
+      notes: lead?.remark || '',
+      image: null,
+      show_on_website: true
     });
+    setItineraryImagePreview(null);
     setShowItineraryModal(true);
   };
+
+  const getImagePathFromUrl = (url) => {
+    if (!url || typeof url !== 'string') return null;
+    const match = url.match(/\/storage\/(.+)$/);
+    return match ? match[1] : null;
+  };
+
+  const handleItineraryFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setItineraryFormData(prev => ({ ...prev, image: file }));
+      const reader = new FileReader();
+      reader.onloadend = () => setItineraryImagePreview(reader.result);
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const fetchItineraryFreeStockImages = async () => {
+    const q = (itineraryLibrarySearchTerm || '').trim();
+    if (q.length < 2) return;
+    setItineraryFreeStockLoading(true);
+    try {
+      const { photos } = await searchPexelsPhotos(q, 15);
+      setItineraryFreeStockPhotos(photos || []);
+    } catch (e) {
+      setItineraryFreeStockPhotos([]);
+    } finally {
+      setItineraryFreeStockLoading(false);
+    }
+  };
+
+  const handleSelectItineraryFreeStockImage = async (imageUrl) => {
+    try {
+      const res = await fetch(imageUrl);
+      const blob = await res.blob();
+      const file = new File([blob], 'image.jpg', { type: blob.type || 'image/jpeg' });
+      setItineraryFormData(prev => ({ ...prev, image: file }));
+      setItineraryImagePreview(URL.createObjectURL(file));
+      setShowItineraryLibraryModal(false);
+    } catch (e) {
+      alert('Failed to load image. Try another or upload from device.');
+    }
+  };
+
+  const handleSelectItineraryLibraryImage = (itinerary) => {
+    if (!itinerary?.image) return;
+    const path = getImagePathFromUrl(itinerary.image);
+    if (path) {
+      setItineraryFormData(prev => ({ ...prev, image: { libraryPath: path, url: itinerary.image } }));
+      setItineraryImagePreview(itinerary.image);
+    }
+    setShowItineraryLibraryModal(false);
+  };
+
+  useEffect(() => {
+    if (!showItineraryLibraryModal || itineraryLibraryTab !== 'your' || itineraryLibraryPackages.length > 0) return;
+    packagesAPI.list().then((res) => {
+      const data = res.data.data || [];
+      const baseUrl = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api').replace('/api', '');
+      const processed = data.map((p) => {
+        if (p.image) {
+          let url = p.image;
+          if (url.startsWith('/storage') || (url.startsWith('/') && !url.startsWith('http'))) url = `${baseUrl}${url}`;
+          if (url.includes('localhost') && !url.includes(':8000')) url = url.replace('localhost', 'localhost:8000');
+          return { ...p, image: url };
+        }
+        return p;
+      });
+      setItineraryLibraryPackages(processed);
+    }).catch(() => setItineraryLibraryPackages([]));
+  }, [showItineraryLibraryModal, itineraryLibraryTab]);
+
+  const itineraryLibrarySearch = (itineraryLibrarySearchTerm || '').trim().toLowerCase();
+  const itineraryLibraryImages = itineraryLibrarySearch.length >= 2
+    ? itineraryLibraryPackages.filter(
+        (p) => p.image && (
+          (p.title || p.itinerary_name || '').toLowerCase().includes(itineraryLibrarySearch) ||
+          (p.destination || p.destinations || '').toLowerCase().includes(itineraryLibrarySearch)
+        )
+      )
+    : [];
 
   const handleInsertItinerary = async () => {
     setShowInsertItineraryModal(true);
@@ -1172,37 +1535,106 @@ const LeadDetails = () => {
   };
 
   const handleSelectItinerary = (itinerary) => {
-    // Add itinerary to proposals list
-    const newProposal = {
-      id: Date.now(), // Temporary ID
+    const itineraryName = itinerary.title || itinerary.itinerary_name || 'Untitled Itinerary';
+    const baseInfo = {
       itinerary_id: itinerary.id,
-      itinerary_name: itinerary.title || itinerary.itinerary_name || 'Untitled Itinerary',
+      itinerary_name: itineraryName,
       destination: itinerary.destination || itinerary.destinations || '',
       duration: itinerary.duration || 0,
-      price: itinerary.price || 0,
-      website_cost: itinerary.website_cost || 0,
       image: itinerary.image || null,
       notes: itinerary.notes || '',
       created_at: new Date().toISOString(),
       inserted_at: new Date().toISOString()
     };
 
-    const updatedProposals = [...proposals, newProposal];
+    // Check if this itinerary has options (Option 1, 2, 3) saved from Itinerary Detail / Final tab
+    const storedOptionsKey = `itinerary_${itinerary.id}_proposals`;
+    const finalPricesKey = `itinerary_${itinerary.id}_finalClientPrices`;
+    let optionsToAdd = [];
+    try {
+      const stored = localStorage.getItem(storedOptionsKey);
+      // Use latest prices from Itinerary Detail (finalClientPrices) so Query shows same as Itinerary page
+      let finalClientPricesMap = {};
+      try {
+        const fp = localStorage.getItem(finalPricesKey);
+        if (fp) finalClientPricesMap = JSON.parse(fp);
+      } catch (_) {}
+
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          optionsToAdd = parsed.map((opt, idx) => {
+            const optNum = opt.optionNumber != null ? opt.optionNumber : idx + 1;
+            const latestPrice = finalClientPricesMap[String(optNum)] ?? finalClientPricesMap[optNum];
+            const price = latestPrice !== undefined && latestPrice !== null && latestPrice !== ''
+              ? Number(latestPrice)
+              : (opt.price ?? opt.pricing?.finalClientPrice ?? 0);
+            return {
+              ...opt,
+              id: Date.now() + idx,
+              itinerary_id: itinerary.id,
+              itinerary_name: opt.itinerary_name || itineraryName,
+              destination: opt.destination || baseInfo.destination,
+              duration: opt.duration ?? baseInfo.duration,
+              image: opt.image || baseInfo.image,
+              price,
+              pricing: { ...(opt.pricing || {}), finalClientPrice: price },
+              created_at: baseInfo.created_at,
+              inserted_at: baseInfo.inserted_at
+            };
+          });
+        }
+      }
+    } catch (e) {
+      console.error('Error loading itinerary options:', e);
+    }
+
+    let updatedProposals;
+    if (optionsToAdd.length > 0) {
+      updatedProposals = [...proposals, ...optionsToAdd];
+      saveProposals(updatedProposals);
+      setShowInsertItineraryModal(false);
+      setItinerarySearchTerm('');
+      alert(`${optionsToAdd.length} option(s) of "${itineraryName}" have been added to proposals.`);
+      return;
+    }
+
+    // No options in Final tab – add single proposal (whole itinerary)
+    const newProposal = {
+      id: Date.now(),
+      ...baseInfo,
+      price: itinerary.price || 0,
+      website_cost: itinerary.website_cost || 0
+    };
+    updatedProposals = [...proposals, newProposal];
     saveProposals(updatedProposals);
 
     setShowInsertItineraryModal(false);
     setItinerarySearchTerm('');
-
-    // Show success message
-    alert(`Itinerary "${newProposal.itinerary_name}" has been added to proposals.`);
+    alert(`Itinerary "${itineraryName}" has been added to proposals.`);
   };
+
+  // Trip days from From Date & To Date (inclusive) – e.g. 30 Jan to 1 Feb = 3 days / 2 nights
+  const leadTripDays = (() => {
+    if (!lead?.travel_start_date || !lead?.travel_end_date) return null;
+    const start = new Date(lead.travel_start_date);
+    const end = new Date(lead.travel_end_date);
+    const diff = Math.round((end - start) / (1000 * 60 * 60 * 24));
+    return diff + 1; // inclusive
+  })();
 
   const filteredItineraries = dayItineraries.filter(itinerary => {
     // Only show active itineraries (show_on_website = true)
     if (!itinerary.show_on_website) {
       return false;
     }
-
+    // If query has From/To dates, show only itineraries matching that duration (e.g. 3 days → 3 days itineraries)
+    if (leadTripDays != null) {
+      const itineraryDays = itinerary.duration != null ? Number(itinerary.duration) : null;
+      if (itineraryDays != null && itineraryDays !== leadTripDays) {
+        return false;
+      }
+    }
     const searchLower = itinerarySearchTerm.toLowerCase();
     return (
       (itinerary.title || itinerary.itinerary_name || '').toLowerCase().includes(searchLower) ||
@@ -1229,10 +1661,54 @@ const LeadDetails = () => {
 
   const handleItinerarySave = async (e) => {
     e.preventDefault();
-    // TODO: Implement itinerary save API call
-    alert('Itinerary save functionality will be implemented once API is ready');
-    // For now, just close the modal
-    setShowItineraryModal(false);
+    if (!itineraryFormData.itinerary_name?.trim()) {
+      alert('Please enter Itinerary Name.');
+      return;
+    }
+    setSavingItinerary(true);
+    try {
+      const formData = new FormData();
+      formData.append('itinerary_name', itineraryFormData.itinerary_name.trim());
+      formData.append('duration', itineraryFormData.duration || '1');
+      if (itineraryFormData.destinations) formData.append('destinations', itineraryFormData.destinations);
+      if (itineraryFormData.notes) formData.append('notes', itineraryFormData.notes);
+      formData.append('show_on_website', itineraryFormData.show_on_website ? '1' : '0');
+      if (itineraryFormData.image) {
+        if (itineraryFormData.image instanceof File) {
+          formData.append('image', itineraryFormData.image);
+        } else if (itineraryFormData.image?.libraryPath) {
+          formData.append('image_path', itineraryFormData.image.libraryPath);
+        }
+      }
+
+      const response = await packagesAPI.create(formData);
+      let created = response?.data?.data;
+      setShowItineraryModal(false);
+      setItineraryFormData({ itinerary_name: '', duration: '1', destinations: '', notes: '', image: null, show_on_website: true });
+      setItineraryImagePreview(null);
+      if (created) {
+        if (created.image) {
+          let imgUrl = created.image;
+          if (imgUrl.startsWith('/storage') || (imgUrl.startsWith('/') && !imgUrl.startsWith('http'))) {
+            const baseUrl = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api').replace('/api', '');
+            imgUrl = `${baseUrl}${imgUrl}`;
+          }
+          if (imgUrl.includes('localhost') && !imgUrl.includes(':8000')) imgUrl = imgUrl.replace('localhost', 'localhost:8000');
+          created = { ...created, image: imgUrl };
+        }
+        handleSelectItinerary(created);
+      } else {
+        alert('Itinerary created successfully. You can add it to this query via "Insert itinerary".');
+      }
+    } catch (err) {
+      console.error('Failed to create itinerary:', err);
+      const msg = err.response?.data?.message || err.response?.data?.errors
+        ? Object.values(err.response.data.errors || {}).flat().join(', ')
+        : 'Failed to create itinerary. Please try again.';
+      alert(msg);
+    } finally {
+      setSavingItinerary(false);
+    }
   };
 
   const formatDate = (dateString) => {
@@ -2913,12 +3389,16 @@ const LeadDetails = () => {
                     <div className="flex justify-between items-start">
                       {/* LEFT SIDE */}
                       <div className="space-y-6">
+<<<<<<< HEAD
                         {/* COMPANY NAME */}
                         <div className="text-sm font-medium text-black">
                           {lead.company_name || 'Triplive b2b'}
                         </div>
 
                         {/* NOTES LABEL + ADD BUTTON */}
+=======
+                        {/* NOTES LABEL + ADD BUTTON - at top */}
+>>>>>>> 718c369 (today work updated in live side)
                         <div className="flex items-center gap-4">
                           <span className="text-sm text-black">Notes :</span>
 
@@ -2933,7 +3413,11 @@ const LeadDetails = () => {
                           )}
                         </div>
 
+<<<<<<< HEAD
                         {/* NOTES LIST - above Add Note */}
+=======
+                        {/* NOTES LIST */}
+>>>>>>> 718c369 (today work updated in live side)
                         {notes.length > 0 && (
                           <div className="space-y-3 mt-3">
                             {notes
@@ -3014,11 +3498,6 @@ const LeadDetails = () => {
 
                       {/* RIGHT SIDE */}
                       <div className="text-right space-y-8">
-                        {/* GST */}
-                        <div className="text-sm text-gray-400 font-medium">
-                          GST: {lead.gst_number || '16409164-1741099H0'}
-                        </div>
-
                         {/* NOTES STATUS */}
                         <div className="text-sm text-gray-400 font-light">
                           {notes.length === 0 ? 'No Notes Yet..' : `${notes.length} Notes`}
@@ -3167,6 +3646,7 @@ const LeadDetails = () => {
                               </div>
                               <hr className="my-4" />
 
+<<<<<<< HEAD
                               {/* All options in one list */}
                               <div className="space-y-3 mb-4">
                                 {proposals.map((opt) => (
@@ -3208,6 +3688,67 @@ const LeadDetails = () => {
                                     </div>
                                   </div>
                                 ))}
+=======
+                              {/* Package options – professional card layout */}
+                              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
+                                {proposals.map((opt) => {
+                                  const displayPrice = opt.price ?? opt.pricing?.finalClientPrice ?? 0;
+                                  return (
+                                    <div
+                                      key={opt.id}
+                                      className={`rounded-xl border-2 overflow-hidden shadow-sm transition-all ${opt.confirmed ? 'border-green-500 bg-green-50/50 shadow-green-100' : 'border-gray-200 bg-white hover:shadow-md'}`}
+                                    >
+                                      {/* Card header */}
+                                      <div className="bg-blue-600 px-4 py-2.5 flex items-center justify-between">
+                                        <span className="text-white font-semibold">
+                                          {opt.optionNumber != null ? `Option ${opt.optionNumber}` : (opt.itinerary_name || 'Itinerary')}
+                                        </span>
+                                        {opt.confirmed && (
+                                          <span className="px-2 py-0.5 bg-green-500 text-white text-xs font-semibold rounded-full">Confirmed</span>
+                                        )}
+                                      </div>
+                                      {/* Card body */}
+                                      <div className="p-4">
+                                        <div className="mb-4">
+                                          <p className="text-xs text-gray-500 uppercase tracking-wide font-medium mb-0.5">Total Price</p>
+                                          <p className="text-2xl font-bold text-gray-900">₹{Number(displayPrice).toLocaleString('en-IN')}</p>
+                                        </div>
+                                        <div className="flex flex-col gap-2">
+                                          {opt.confirmed ? (
+                                            <span className="w-full text-center px-3 py-2 bg-green-100 text-green-700 text-sm font-semibold rounded-lg border border-green-300">
+                                              Confirmed
+                                            </span>
+                                          ) : (
+                                            <button
+                                              type="button"
+                                              onClick={(e) => { e.stopPropagation(); handleConfirmOption(opt.id); }}
+                                              className="w-full bg-orange-500 hover:bg-orange-600 text-white text-sm font-semibold px-3 py-2 rounded-lg transition-colors"
+                                            >
+                                              Make Confirm
+                                            </button>
+                                          )}
+                                          <button
+                                            type="button"
+                                            onClick={(e) => { e.stopPropagation(); handleViewQuotation(opt); }}
+                                            className="w-full bg-blue-500 hover:bg-blue-600 text-white text-sm font-semibold px-3 py-2 rounded-lg transition-colors"
+                                          >
+                                            View Quotation
+                                          </button>
+                                          {opt.itinerary_id && (
+                                            <button
+                                              type="button"
+                                              onClick={(e) => { e.stopPropagation(); navigate(`/itineraries/${opt.itinerary_id}`); }}
+                                              className="w-full text-gray-600 hover:text-gray-800 hover:bg-gray-100 text-sm font-medium px-3 py-2 rounded-lg border border-gray-300 transition-colors"
+                                            >
+                                              Edit
+                                            </button>
+                                          )}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+>>>>>>> 718c369 (today work updated in live side)
                               </div>
 
                               {/* Delete all proposals for this lead */}
@@ -3697,11 +4238,15 @@ const LeadDetails = () => {
                       {/* Send Button */}
                       <button
                         onClick={handleSendSupplierEmail}
-                        disabled={sendingEmail || (selectedSuppliers.length === 0 && selectedHotels.length === 0)}
+                        disabled={sendingEmail || (
+                          selectedSuppliers.length === 0 &&
+                          selectedHotels.length === 0 &&
+                          (selectedVehicles.length === 0 || !vehiclesFromProposals.some(v => selectedVehicles.includes(v.id) && v.email && v.email.trim()))
+                        )}
                         className="w-full bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 font-semibold"
                       >
                         <Send className="h-5 w-5" />
-                        {sendingEmail ? 'Sending...' : `Send Mail To Selected (${selectedSuppliers.length} Suppliers${selectedHotels.length > 0 ? `, ${selectedHotels.length} Hotels` : ''})`}
+                        {sendingEmail ? 'Sending...' : `Send Mail To Selected (${selectedSuppliers.length} Suppliers${selectedHotels.length > 0 ? `, ${selectedHotels.length} Hotels` : ''}${selectedVehicles.length > 0 ? `, ${selectedVehicles.length} Vehicles` : ''})`}
                       </button>
                     </div>
 
@@ -3747,7 +4292,7 @@ const LeadDetails = () => {
                         )}
                       </div>
 
-                      {/* Hotels from Confirmed Option Section */}
+                      {/* Hotels (from itinerary) - all proposals */}
                       {hotelsFromConfirmedOption.length > 0 && (
                         <>
                           <div className="mb-4">
@@ -3758,11 +4303,11 @@ const LeadDetails = () => {
                                 onChange={(e) => handleSelectAllHotels(e.target.checked)}
                                 className="w-4 h-4 text-green-600 border-gray-300 rounded focus:ring-green-500"
                               />
-                              <span className="font-semibold text-gray-800">Select Hotels (From Confirmed Option)</span>
+                              <span className="font-semibold text-gray-800">Hotels (from itinerary)</span>
                             </label>
                           </div>
 
-                          <div className="max-h-[300px] overflow-y-auto space-y-3">
+                          <div className="max-h-[280px] overflow-y-auto space-y-3 mb-6 pb-4 border-b border-gray-200">
                             {hotelsFromConfirmedOption.map((hotel) => (
                               <div key={hotel.id} className="flex items-start gap-2 bg-green-50 p-2 rounded border border-green-200">
                                 <input
@@ -3794,6 +4339,55 @@ const LeadDetails = () => {
                           </div>
                         </>
                       )}
+
+                      {/* Vehicles (from itinerary) - all proposals */}
+                      {vehiclesFromProposals.length > 0 && (
+                        <>
+                          <div className="mb-4">
+                            <label className="flex items-center gap-2 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={selectAllVehicles}
+                                onChange={(e) => handleSelectAllVehicles(e.target.checked)}
+                                className="w-4 h-4 text-amber-600 border-gray-300 rounded focus:ring-amber-500"
+                              />
+                              <span className="font-semibold text-gray-800">Vehicles (from itinerary)</span>
+                            </label>
+                          </div>
+
+                          <div className="max-h-[280px] overflow-y-auto space-y-3">
+                            {vehiclesFromProposals.map((vehicle) => (
+                              <div key={vehicle.id} className="flex items-start gap-2 bg-amber-50 p-2 rounded border border-amber-200">
+                                <input
+                                  type="checkbox"
+                                  checked={selectedVehicles.includes(vehicle.id)}
+                                  onChange={() => handleSelectVehicle(vehicle.id)}
+                                  disabled={!vehicle.email || !vehicle.email.trim()}
+                                  className="mt-1 w-4 h-4 text-amber-600 border-gray-300 rounded focus:ring-amber-500 disabled:opacity-50"
+                                />
+                                <div className="flex-1">
+                                  <div className="font-medium text-gray-800 text-sm">
+                                    {vehicle.name}
+                                  </div>
+                                  {vehicle.details && (
+                                    <div className="text-xs text-gray-600">
+                                      {vehicle.details}
+                                    </div>
+                                  )}
+                                  {vehicle.day && (
+                                    <div className="text-xs text-gray-500">
+                                      Day {vehicle.day}
+                                    </div>
+                                  )}
+                                  <div className={`text-xs mt-1 ${vehicle.email ? 'text-gray-500' : 'text-amber-600 font-medium'}`}>
+                                    {vehicle.email || '— No email (add in Transfer master to send)'}
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </>
+                      )}
                     </div>
                   </div>
                 ):
@@ -3812,16 +4406,39 @@ const LeadDetails = () => {
                   <div className="space-y-6">
                     <div className="bg-white border border-gray-200 rounded-lg p-6">
                       <h3 className="text-lg font-semibold text-gray-800 mb-4">Vouchers</h3>
-                      <div className="flex justify-end mb-4">
-                        <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
-                          <Plus className="h-4 w-4" />
-                          Create Voucher
-                        </button>
-                      </div>
-                      <div className="text-center py-8 text-gray-500">
-                        <p>No vouchers created yet</p>
-                        <p className="text-sm mt-2">Create hotel, transport, and activity vouchers here</p>
-                      </div>
+                      {getConfirmedOption() ? (
+                        <>
+                          <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+                            <p className="text-sm font-medium text-green-800">Voucher ready — Option {getConfirmedOption()?.optionNumber ?? ''} confirmed. Preview, download, ya client ko email bhejo.</p>
+                          </div>
+                          <div className="flex flex-wrap gap-3">
+                            <button type="button" onClick={handleVoucherPreview} disabled={!!voucherActionLoading} className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-800 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50">
+                              {voucherActionLoading === 'preview' ? 'Opening…' : 'Preview'}
+                            </button>
+                            <button type="button" onClick={handleVoucherDownload} disabled={!!voucherActionLoading} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50">
+                              {voucherActionLoading === 'download' ? 'Downloading…' : 'Download'}
+                            </button>
+                            <button type="button" onClick={handleVoucherSend} disabled={!!voucherActionLoading} className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50">
+                              {voucherActionLoading === 'send' ? 'Sending…' : 'Send by Email'}
+                            </button>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <p className="text-gray-600 mb-4">Pehle <strong>Proposals</strong> tab me jaa kar koi option <strong>Confirm</strong> karo. Confirm hone ke baad yahan voucher ready hoga — Preview, Download, ya Email bhej sakte ho.</p>
+                          <div className="flex flex-wrap gap-3">
+                            <button type="button" onClick={handleVoucherPreview} disabled={!!voucherActionLoading} className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-800 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50">
+                              {voucherActionLoading === 'preview' ? 'Opening…' : 'Preview (draft)'}
+                            </button>
+                            <button type="button" onClick={handleVoucherDownload} disabled={!!voucherActionLoading} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50">
+                              {voucherActionLoading === 'download' ? 'Downloading…' : 'Download (draft)'}
+                            </button>
+                            <button type="button" onClick={handleVoucherSend} disabled={!!voucherActionLoading} className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50">
+                              {voucherActionLoading === 'send' ? 'Sending…' : 'Send by Email'}
+                            </button>
+                          </div>
+                        </>
+                      )}
                     </div>
                   </div>
                 ):
@@ -3846,16 +4463,42 @@ const LeadDetails = () => {
                   <div className="space-y-6">
                     <div className="bg-white border border-gray-200 rounded-lg p-6">
                       <h3 className="text-lg font-semibold text-gray-800 mb-4">Invoices</h3>
-                      <div className="flex justify-end mb-4">
-                        <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
-                          <Plus className="h-4 w-4" />
-                          Create Invoice
-                        </button>
-                      </div>
-                      <div className="text-center py-8 text-gray-500">
-                        <p>No invoices generated</p>
-                        <p className="text-sm mt-2">Generate and manage client invoices here</p>
-                      </div>
+                      <p className="text-sm text-gray-500 mb-4">Confirm option pe automatically invoice create hota hai.</p>
+                      {loadingHistory ? (
+                        <div className="text-center py-8 text-gray-500">Loading...</div>
+                      ) : queryDetailInvoices.length === 0 ? (
+                        <div className="text-center py-8 text-gray-500">
+                          <p>No invoices yet</p>
+                          <p className="text-sm mt-2">Option confirm karo — uske base pe invoice auto-create hoga</p>
+                        </div>
+                      ) : (
+                        <div className="overflow-x-auto">
+                          <table className="min-w-full divide-y divide-gray-200">
+                            <thead>
+                              <tr>
+                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Invoice No.</th>
+                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Option</th>
+                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Itinerary</th>
+                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Amount</th>
+                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Created</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {queryDetailInvoices.map((inv) => (
+                                <tr key={inv.id} className="hover:bg-gray-50">
+                                  <td className="px-4 py-2 text-sm font-medium text-gray-900">{inv.invoice_number}</td>
+                                  <td className="px-4 py-2 text-sm text-gray-600">Option {inv.option_number}</td>
+                                  <td className="px-4 py-2 text-sm text-gray-600">{inv.itinerary_name || '—'}</td>
+                                  <td className="px-4 py-2 text-sm text-gray-900">₹{Number(inv.total_amount).toLocaleString('en-IN')}</td>
+                                  <td className="px-4 py-2"><span className={`text-xs px-2 py-1 rounded ${inv.status === 'paid' ? 'bg-green-100 text-green-800' : inv.status === 'sent' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-700'}`}>{inv.status}</span></td>
+                                  <td className="px-4 py-2 text-sm text-gray-500">{inv.created_at ? new Date(inv.created_at).toLocaleDateString('en-IN') : '—'}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
                     </div>
                   </div>
                 ):
@@ -4037,8 +4680,41 @@ const LeadDetails = () => {
                   </div>
                 ):
                 activeTab === 'history' && (
-                  <div className="text-center py-12 text-gray-500">
-                    No history available
+                  <div className="max-w-3xl">
+                    <h3 className="text-lg font-semibold text-gray-800 mb-4">Query History</h3>
+                    <p className="text-sm text-gray-500 mb-4">Is query me kya kya chala — payments, followups, calls, confirmations sab yahan.</p>
+                    {loadingHistory ? (
+                      <div className="text-center py-8 text-gray-500">Loading...</div>
+                    ) : activityTimeline.length === 0 ? (
+                      <div className="text-center py-12 text-gray-500">No history yet</div>
+                    ) : (
+                      <div className="space-y-0 border-l-2 border-gray-200 pl-6 ml-2">
+                        {activityTimeline.map((item, idx) => (
+                          <div key={idx} className="relative pb-6 last:pb-0">
+                            <span className="absolute -left-[29px] top-1 w-3 h-3 rounded-full bg-gray-300 border-2 border-white" />
+                            <div className="bg-gray-50 rounded-lg p-3 border border-gray-100">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className={`text-xs font-medium px-2 py-0.5 rounded ${
+                                  item.type === 'payment' ? 'bg-green-100 text-green-800' :
+                                  item.type === 'followup' ? 'bg-blue-100 text-blue-800' :
+                                  item.type === 'call' ? 'bg-purple-100 text-purple-800' :
+                                  'bg-gray-200 text-gray-700'
+                                }`}>
+                                  {item.title}
+                                </span>
+                                {item.user?.name && (
+                                  <span className="text-xs text-gray-500">by {item.user.name}</span>
+                                )}
+                                <span className="text-xs text-gray-400 ml-auto">
+                                  {item.created_at ? new Date(item.created_at).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' }) : ''}
+                                </span>
+                              </div>
+                              <p className="text-sm text-gray-700 mt-1">{item.description}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -4046,6 +4722,23 @@ const LeadDetails = () => {
           </div>
         </div>
       </div>
+
+      {/* Voucher Preview Popup */}
+      {showVoucherPopup && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 overflow-y-auto py-8" onClick={() => setShowVoucherPopup(false)}>
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-3xl mx-4 my-auto max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+            <div className="flex justify-between items-center p-4 border-b border-gray-200 shrink-0">
+              <h2 className="text-lg font-bold text-gray-800">Voucher Preview</h2>
+              <button type="button" onClick={() => setShowVoucherPopup(false)} className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="overflow-auto flex-1 p-4 min-h-0">
+              <iframe title="Voucher preview" srcDoc={voucherPopupHtml} className="w-full border border-gray-200 rounded-lg bg-white" style={{ minHeight: '60vh' }} />
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Itinerary Setup Modal */}
       {showItineraryModal && (
@@ -4084,57 +4777,18 @@ const LeadDetails = () => {
                   />
                 </div>
 
-                {/* Start Date */}
+                {/* Duration (days) */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Start Date
-                  </label>
-                  <input
-                    type="date"
-                    value={itineraryFormData.start_date}
-                    onChange={(e) => setItineraryFormData({ ...itineraryFormData, start_date: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-
-                {/* End Date */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    End Date
-                  </label>
-                  <input
-                    type="date"
-                    value={itineraryFormData.end_date}
-                    onChange={(e) => setItineraryFormData({ ...itineraryFormData, end_date: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-
-                {/* Adult */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Adult
+                    Duration (Days)
                   </label>
                   <input
                     type="number"
-                    value={itineraryFormData.adult}
-                    onChange={(e) => setItineraryFormData({ ...itineraryFormData, adult: e.target.value })}
+                    value={itineraryFormData.duration}
+                    onChange={(e) => setItineraryFormData({ ...itineraryFormData, duration: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    min="0"
-                  />
-                </div>
-
-                {/* Child */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Child
-                  </label>
-                  <input
-                    type="number"
-                    value={itineraryFormData.child}
-                    onChange={(e) => setItineraryFormData({ ...itineraryFormData, child: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    min="0"
+                    min="1"
+                    placeholder="e.g. 3"
                   />
                 </div>
 
@@ -4165,6 +4819,80 @@ const LeadDetails = () => {
                     rows="3"
                   />
                 </div>
+
+                {/* Status - Active / Inactive (Visible / Hidden) */}
+                <div className="col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Status
+                  </label>
+                  <div className="flex items-center gap-4">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="itinerary_status"
+                        checked={itineraryFormData.show_on_website === true}
+                        onChange={() => setItineraryFormData(prev => ({ ...prev, show_on_website: true }))}
+                        className="text-blue-600 focus:ring-blue-500"
+                      />
+                      <span className="text-sm font-medium text-gray-700">Active (Visible)</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="itinerary_status"
+                        checked={itineraryFormData.show_on_website === false}
+                        onChange={() => setItineraryFormData(prev => ({ ...prev, show_on_website: false }))}
+                        className="text-blue-600 focus:ring-blue-500"
+                      />
+                      <span className="text-sm font-medium text-gray-700">Inactive (Hidden)</span>
+                    </label>
+                  </div>
+                </div>
+
+                {/* Image */}
+                <div className="col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Image
+                  </label>
+                  <div className="space-y-3">
+                    <div className="flex gap-2">
+                      <label className="flex-1 cursor-pointer">
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={handleItineraryFileChange}
+                          className="hidden"
+                        />
+                        <div className="flex items-center justify-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors border border-gray-300">
+                          <Upload className="h-4 w-4" />
+                          <span className="text-sm font-medium">Upload Image</span>
+                        </div>
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => setShowItineraryLibraryModal(true)}
+                        className="flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded-lg transition-colors"
+                      >
+                        <Camera className="h-4 w-4" />
+                        <span className="text-sm font-medium">Choose from Library</span>
+                      </button>
+                    </div>
+                    {(itineraryImagePreview || itineraryFormData.image) && (
+                      <div className="mt-2">
+                        <div className="relative w-32 h-32 border border-gray-300 rounded-lg overflow-hidden bg-gray-50">
+                          <img
+                            src={itineraryImagePreview || (itineraryFormData.image instanceof File ? URL.createObjectURL(itineraryFormData.image) : itineraryFormData.image?.url)}
+                            alt="Preview"
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                      </div>
+                    )}
+                    {!itineraryImagePreview && !itineraryFormData.image && (
+                      <p className="text-xs text-gray-500">No image selected. Upload or choose from library.</p>
+                    )}
+                  </div>
+                </div>
               </div>
 
               {/* Modal Footer */}
@@ -4178,12 +4906,105 @@ const LeadDetails = () => {
                 </button>
                 <button
                   type="submit"
-                  className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700"
+                  disabled={savingItinerary}
+                  className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Save
+                  {savingItinerary ? 'Saving...' : 'Save'}
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Choose from Library modal (for Itinerary setup) */}
+      {showItineraryLibraryModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60]">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl mx-4 max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="flex justify-between items-center p-4 border-b border-gray-200">
+              <h2 className="text-xl font-bold text-gray-800">Choose Image</h2>
+              <button
+                type="button"
+                onClick={() => { setShowItineraryLibraryModal(false); setItineraryLibrarySearchTerm(''); setItineraryFreeStockPhotos([]); setItineraryLibraryPackages([]); }}
+                className="text-gray-400 hover:text-gray-600 p-1"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+            <div className="flex border-b border-gray-200">
+              <button
+                type="button"
+                onClick={() => setItineraryLibraryTab('free')}
+                className={`px-4 py-3 text-sm font-medium border-b-2 ${itineraryLibraryTab === 'free' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500'}`}
+              >
+                Free stock images
+              </button>
+              <button
+                type="button"
+                onClick={() => setItineraryLibraryTab('your')}
+                className={`px-4 py-3 text-sm font-medium border-b-2 ${itineraryLibraryTab === 'your' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500'}`}
+              >
+                Your itineraries
+              </button>
+            </div>
+            <div className="p-4 border-b border-gray-200">
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-4 w-4" />
+                  <input
+                    type="text"
+                    value={itineraryLibrarySearchTerm}
+                    onChange={(e) => setItineraryLibrarySearchTerm(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && (itineraryLibraryTab === 'free' ? fetchItineraryFreeStockImages() : null)}
+                    placeholder={itineraryLibraryTab === 'free' ? 'Search e.g. Shimla, Kufri...' : 'Search your itineraries...'}
+                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                {itineraryLibraryTab === 'free' && (
+                  <button
+                    type="button"
+                    onClick={fetchItineraryFreeStockImages}
+                    disabled={(itineraryLibrarySearchTerm || '').trim().length < 2 || itineraryFreeStockLoading}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                  >
+                    Search
+                  </button>
+                )}
+              </div>
+            </div>
+            <div className="flex-1 overflow-y-auto p-4">
+              {itineraryLibraryTab === 'free' ? (
+                itineraryFreeStockLoading ? (
+                  <div className="flex justify-center h-48"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" /></div>
+                ) : (itineraryLibrarySearchTerm || '').trim().length < 2 ? (
+                  <p className="text-center py-8 text-gray-500">Type location (e.g. Shimla, Kufri) and click Search.</p>
+                ) : itineraryFreeStockPhotos.length === 0 ? (
+                  <p className="text-center py-8 text-gray-500">No images found. Try another search or add VITE_PEXELS_API_KEY in .env.</p>
+                ) : (
+                  <div className="grid grid-cols-4 gap-2">
+                    {itineraryFreeStockPhotos.map((p) => (
+                      <button key={p.id} type="button" onClick={() => handleSelectItineraryFreeStockImage(p.url)} className="aspect-square rounded-lg overflow-hidden border-2 border-gray-200 hover:border-blue-500">
+                        <img src={p.thumb || p.url} alt={p.alt} className="w-full h-full object-cover" />
+                      </button>
+                    ))}
+                  </div>
+                )
+              ) : (
+                itineraryLibrarySearch.length < 2 ? (
+                  <p className="text-center py-8 text-gray-500">Type at least 2 characters to see your itinerary images.</p>
+                ) : itineraryLibraryImages.length === 0 ? (
+                  <p className="text-center py-8 text-gray-500">No images for this search. Use Free stock images tab.</p>
+                ) : (
+                  <div className="grid grid-cols-4 gap-2">
+                    {itineraryLibraryImages.map((p) => (
+                      <button key={p.id} type="button" onClick={() => handleSelectItineraryLibraryImage(p)} className="aspect-square rounded-lg overflow-hidden border-2 border-gray-200 hover:border-blue-500">
+                        <img src={p.image} alt={p.itinerary_name || p.title || 'Select'} className="w-full h-full object-cover" />
+                      </button>
+                    ))}
+                  </div>
+                )
+              )}
+            </div>
           </div>
         </div>
       )}
@@ -4208,6 +5029,12 @@ const LeadDetails = () => {
 
             {/* Modal Body */}
             <div className="p-6">
+              {/* Trip duration hint when From/To dates set */}
+              {leadTripDays != null && (
+                <div className="mb-3 px-3 py-2 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-800">
+                  Showing itineraries for <strong>{leadTripDays} day{leadTripDays !== 1 ? 's' : ''}</strong> ({leadTripDays} days / {Math.max(0, leadTripDays - 1)} nights) only — based on this query&apos;s From & To dates.
+                </div>
+              )}
               {/* Search Bar */}
               <div className="mb-4">
                 <div className="relative">
@@ -4229,7 +5056,11 @@ const LeadDetails = () => {
                 </div>
               ) : filteredItineraries.length === 0 ? (
                 <div className="text-center py-12 text-gray-500">
-                  {itinerarySearchTerm ? 'No itineraries found matching your search' : 'No itineraries available'}
+                  {itinerarySearchTerm
+                    ? 'No itineraries found matching your search'
+                    : leadTripDays != null
+                      ? `No itineraries for ${leadTripDays} day${leadTripDays !== 1 ? 's' : ''} (${leadTripDays} days / ${Math.max(0, leadTripDays - 1)} nights). Create an itinerary with ${leadTripDays} days duration to see it here.`
+                      : 'No itineraries available'}
                 </div>
               ) : (
                 <div className="max-h-[60vh] overflow-y-auto space-y-3">

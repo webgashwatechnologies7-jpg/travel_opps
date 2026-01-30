@@ -205,7 +205,7 @@ const Leads = () => {
   const handleCreate = async (e) => {
     e.preventDefault();
     try {
-      // Map form data to API format
+      // Map form data to API format (travel_start_date, travel_end_date so Query detail shows From/To Date & Travel Month)
       const apiData = {
         client_name: `${formData.client_title} ${formData.client_name}`.trim(),
         email: formData.email,
@@ -214,6 +214,12 @@ const Leads = () => {
         destination: formData.destination,
         priority: formData.priority === 'General Query' ? 'warm' : formData.priority.toLowerCase(),
         assigned_to: formData.assigned_to || (currentUser ? currentUser.id : null),
+        travel_start_date: formData.from_date || null,
+        travel_end_date: formData.to_date || null,
+        adult: formData.adult ? parseInt(formData.adult, 10) : 1,
+        child: formData.child ? parseInt(formData.child, 10) : 0,
+        infant: formData.infant ? parseInt(formData.infant, 10) : 0,
+        remark: formData.remark || null,
       };
 
       await leadsAPI.create(apiData);
@@ -619,6 +625,7 @@ const Leads = () => {
           <div className='flex items-center gap-2'>
             <h2 className="text-lg font-bold">Queries</h2>
             <span className="text-lg font-bold">• All</span>
+<<<<<<< HEAD
             <button
               type="button"
               onClick={() => setShowModal(true)}
@@ -627,6 +634,8 @@ const Leads = () => {
               <Plus size={20} />
               Add Query
             </button>
+=======
+>>>>>>> 718c369 (today work updated in live side)
           </div>
           <button className="flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-md" onClick={handleRefresh}>
             <History size={20} />
@@ -811,7 +820,7 @@ const Leads = () => {
                     </select>
                   </div>
 
-                  {/* FROM DATE * */}
+                  {/* FROM DATE * - only current date and future */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       FROM DATE *
@@ -820,12 +829,13 @@ const Leads = () => {
                       type="date"
                       value={formData.from_date}
                       onChange={(e) => setFormData({ ...formData, from_date: e.target.value })}
+                      min={new Date().toISOString().split('T')[0]}
                       required
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
 
-                  {/* TO DATE * */}
+                  {/* TO DATE * - only current date and future, and not before FROM DATE */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       TO DATE *
@@ -834,6 +844,7 @@ const Leads = () => {
                       type="date"
                       value={formData.to_date}
                       onChange={(e) => setFormData({ ...formData, to_date: e.target.value })}
+                      min={formData.from_date || new Date().toISOString().split('T')[0]}
                       required
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />

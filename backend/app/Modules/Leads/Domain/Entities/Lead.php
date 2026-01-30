@@ -18,6 +18,7 @@ use App\Modules\PostSales\Domain\Models\PostSale;
 use App\Modules\Vouchers\Domain\Models\Voucher;
 use App\Modules\Documents\Domain\Models\Document;
 use App\Modules\Invoices\Domain\Models\Invoice;
+use App\Models\LeadInvoice;
 use App\Modules\Billing\Domain\Models\BillingRecord;
 use App\Modules\History\Domain\Models\ActivityHistory;
 use App\Traits\HasCompany;
@@ -290,6 +291,16 @@ class Lead extends Model
     public function queryHistoryLogs(): HasMany
     {
         return $this->hasMany(QueryHistoryLog::class, 'lead_id');
+    }
+
+    /**
+     * Get all lead invoices (from confirmed options).
+     *
+     * @return HasMany
+     */
+    public function leadInvoices(): HasMany
+    {
+        return $this->hasMany(LeadInvoice::class, 'lead_id');
     }
 }
 

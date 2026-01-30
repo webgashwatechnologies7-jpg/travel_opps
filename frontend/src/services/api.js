@@ -114,6 +114,7 @@ export const dashboardAPI = {
 export const leadsAPI = {
   list: (filters = {}) => api.get('/leads', { params: filters }),
   get: (id) => api.get(`/leads/${id}`),
+  confirmOption: (id, data) => api.post(`/leads/${id}/confirm-option`, data),
   create: (data) => api.post('/leads', data),
   update: (id, data) => api.put(`/leads/${id}`, data),
   delete: (id) => api.delete(`/leads/${id}`),

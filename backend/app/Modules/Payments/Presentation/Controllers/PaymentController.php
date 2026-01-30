@@ -3,6 +3,7 @@
 namespace App\Modules\Payments\Presentation\Controllers;
 
 use App\Http\Controllers\Controller;
+use App\Models\QueryHistoryLog;
 use App\Modules\Payments\Domain\Entities\Payment;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -71,6 +72,19 @@ class PaymentController extends Controller
 
             // Load lead relationship
             $payment->load(['lead.assignedUser', 'lead.creator', 'creator']);
+
+            QueryHistoryLog::logActivity([
+                'lead_id' => $payment->lead_id,
+                'activity_type' => 'payment_added',
+                'activity_description' => 'Payment added: ₹' . number_format((float) $payment->amount, 2) . ' (Paid: ₹' . number_format((float) $payment->paid_amount, 2) . ')',
+                'module' => 'payment',
+                'record_id' => $payment->id,
+                'metadata' => [
+                    'amount' => $payment->amount,
+                    'paid_amount' => $payment->paid_amount,
+                    'status' => $payment->status,
+                ],
+            ]);
 
             return response()->json([
                 'success' => true,

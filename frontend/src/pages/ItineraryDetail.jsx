@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
 import { packagesAPI, dayItinerariesAPI, hotelsAPI, activitiesAPI, settingsAPI, destinationsAPI, itineraryPricingAPI } from '../services/api';
-import { ArrowLeft, Camera, Edit, Plus, ChevronRight, FileText, Share2, Download, Send, Search, X, Bed, Image as ImageIcon, Car, FileText as PassportIcon, UtensilsCrossed, Plane, User, Ship, Star, Calendar, Hash, Building2 } from 'lucide-react';
+import { ArrowLeft, Camera, Edit, Plus, ChevronRight, FileText, Search, X, Bed, Image as ImageIcon, Car, FileText as PassportIcon, UtensilsCrossed, Plane, User, Ship, Star, Calendar, Hash, Building2 } from 'lucide-react';
 import PricingTab from '../components/PricingTab';
 import FinalTab from '../components/FinalTab';
 
@@ -257,13 +257,71 @@ const ItineraryDetail = () => {
       };
     });
 
-    // Store in localStorage for LeadDetails page
-    const existingProposals = JSON.parse(localStorage.getItem(`itinerary_${id}_proposals`) || '[]');
-    const newProposals = [...existingProposals, ...proposals];
-    localStorage.setItem(`itinerary_${id}_proposals`, JSON.stringify(newProposals));
+    // Store in localStorage for LeadDetails page – REPLACE so only latest 3 options (no duplicate sets)
+    localStorage.setItem(`itinerary_${id}_proposals`, JSON.stringify(proposals));
 
-    alert(`Successfully added ${proposals.length} option(s) to proposals! You can view them in the Lead Details page.`);
+    alert(`Successfully saved ${proposals.length} option(s). When you add this itinerary to a Query, these 3 options with their prices will appear.`);
   };
+
+  // Auto-save options to itinerary_*_proposals whenever pricing/options change (so Query shows latest 3 options without clicking Add Options to Proposals)
+  const syncOptionsToProposalsStorage = () => {
+    if (!id || !itinerary) return;
+    const optionsByNumber = {};
+    Object.keys(pricingData || {}).forEach(key => {
+      const [optNum] = key.split('-');
+      if (!optionsByNumber[optNum]) optionsByNumber[optNum] = [];
+      optionsByNumber[optNum].push({ key, pricing: pricingData[key] });
+    });
+    if (Object.keys(optionsByNumber).length === 0) return;
+    const proposals = Object.keys(optionsByNumber).map(optNum => {
+      const optionData = optionsByNumber[optNum];
+      let totalGross = 0;
+      optionData.forEach(({ pricing }) => { totalGross += pricing.gross || 0; });
+      const finalPrice = finalClientPrices[optNum] !== undefined && finalClientPrices[optNum] !== null
+        ? parseFloat(finalClientPrices[optNum]) || totalGross
+        : totalGross;
+      const hotelDetails = [];
+      Object.keys(dayEvents || {}).forEach(day => {
+        (dayEvents[day] || []).forEach(event => {
+          if (event.eventType === 'accommodation' && event.hotelOptions) {
+            event.hotelOptions.forEach((option, idx) => {
+              if (option.optionNumber === parseInt(optNum)) {
+                hotelDetails.push({
+                  ...option,
+                  day: parseInt(day),
+                  pricing: pricingData[`${optNum}-${day}-${idx}`]
+                });
+              }
+            });
+          }
+        });
+      });
+      return {
+        id: Date.now() + parseInt(optNum),
+        optionNumber: parseInt(optNum),
+        itinerary_id: parseInt(id),
+        itinerary_name: itinerary?.itinerary_name || 'Itinerary',
+        destination: itinerary?.destinations || '',
+        duration: itinerary?.duration || 0,
+        price: finalPrice,
+        website_cost: finalPrice,
+        hotelDetails,
+        pricing: { baseMarkup, extraMarkup, cgst, sgst, igst, tcs, discount, finalClientPrice: finalPrice },
+        image: itinerary?.image || null,
+        inserted_at: new Date().toISOString(),
+        created_at: new Date().toISOString()
+      };
+    });
+    try {
+      localStorage.setItem(`itinerary_${id}_proposals`, JSON.stringify(proposals));
+    } catch (e) {
+      console.error('Failed to sync options to proposals storage', e);
+    }
+  };
+
+  useEffect(() => {
+    syncOptionsToProposalsStorage();
+  }, [pricingData, dayEvents, finalClientPrices, id, itinerary, baseMarkup, extraMarkup, cgst, sgst, igst, tcs, discount]);
 
   // Load images when modal opens
   useEffect(() => {
@@ -2156,7 +2214,6 @@ itinerary.image = itinerary.image.replace('localhost', 'localhost:8000');
             discount={discount}
             setDiscount={setDiscount}
             initialOptionGstSettings={optionGstSettingsFromServer}
-            onAddToProposals={handleAddOptionsToProposals}
           />
         )}
 
@@ -2177,22 +2234,6 @@ itinerary.image = itinerary.image.replace('localhost', 'localhost:8000');
             maxHotelOptions={maxHotelOptions}
           />
         )}
-
-        {/* Top Right Utilities */}
-        <div className="fixed right-6 top-24 space-y-3 z-10">
-          <button className="bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg hover:bg-green-600 flex items-center gap-2 transition-colors text-sm font-medium" title="Share via WhatsApp">
-            <Share2 className="h-4 w-4" />
-            Share
-          </button>
-          <button className="bg-green-600 text-white px-4 py-2 rounded-lg shadow-lg hover:bg-green-700 flex items-center gap-2 transition-colors text-sm font-medium" title="Export">
-            <Download className="h-4 w-4" />
-            Export
-          </button>
-          <button className="bg-red-500 text-white px-4 py-2 rounded-lg shadow-lg hover:bg-red-600 flex items-center gap-2 transition-colors text-sm font-medium" title="Share">
-            <Send className="h-4 w-4" />
-            Share
-          </button>
-        </div>
 
         {/* Day Details Modal */}
         {showDayDetailsModal && (

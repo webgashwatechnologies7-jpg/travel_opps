@@ -5,6 +5,7 @@ use App\Modules\Leads\Presentation\Controllers\LeadImportController;
 use App\Modules\Leads\Presentation\Controllers\LeadsController;
 use App\Modules\Calls\Presentation\Controllers\CallController;
 use App\Http\Controllers\LeadEmailController;
+use App\Http\Controllers\LeadConfirmOptionController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -22,6 +23,7 @@ Route::middleware('auth:sanctum')->prefix('leads')->group(function () {
     Route::get('/', [LeadsController::class, 'index']);
     Route::post('/', [LeadsController::class, 'store']);
     Route::get('/{id}', [LeadsController::class, 'show']);
+    Route::post('/{id}/confirm-option', LeadConfirmOptionController::class);
     Route::get('/{id}/calls', [CallController::class, 'leadHistory']);
     Route::put('/{id}/assign', [LeadsController::class, 'assign']);
     Route::put('/{id}/status', [LeadsController::class, 'updateStatus']);

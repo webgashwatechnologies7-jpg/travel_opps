@@ -3,6 +3,7 @@
 namespace App\Modules\Leads\Presentation\Controllers;
 
 use App\Http\Controllers\Controller;
+use App\Models\QueryHistoryLog;
 use App\Modules\Leads\Domain\Entities\LeadFollowup;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -58,6 +59,18 @@ class FollowupController extends Controller
 
             // Load lead relationship
             $followup->load(['lead.assignedUser', 'lead.creator', 'user']);
+
+            QueryHistoryLog::logActivity([
+                'lead_id' => $followup->lead_id,
+                'activity_type' => 'followup_created',
+                'activity_description' => 'Followup added' . ($followup->remark ? ': ' . \Str::limit($followup->remark, 80) : '') . ($followup->reminder_date ? ' (Reminder: ' . $followup->reminder_date->format('d M Y') . ')' : ''),
+                'module' => 'followup',
+                'record_id' => $followup->id,
+                'metadata' => [
+                    'reminder_date' => $followup->reminder_date?->toDateString(),
+                    'reminder_time' => $followup->reminder_time,
+                ],
+            ]);
 
             return response()->json([
                 'success' => true,

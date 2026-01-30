@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
 import { Search, Plus, Edit, X, Image as ImageIcon, Trash2, Camera, Upload } from 'lucide-react';
-import { dayItinerariesAPI } from '../services/api';
+import { dayItinerariesAPI, packagesAPI } from '../services/api';
+import { searchPexelsPhotos } from '../services/pexels';
 
 const DayItinerary = () => {
   const [dayItineraries, setDayItineraries] = useState([]);
@@ -21,9 +22,12 @@ const DayItinerary = () => {
   const [imagePreview, setImagePreview] = useState(null);
   const [showImageModal, setShowImageModal] = useState(false);
   const [imageSource, setImageSource] = useState('upload'); // 'upload' or 'library'
-  const [libraryImages, setLibraryImages] = useState([]);
-  const [librarySearchTerm, setLibrarySearchTerm] = useState('travel');
+  const [libraryPackages, setLibraryPackages] = useState([]);
+  const [librarySearchTerm, setLibrarySearchTerm] = useState('');
   const [libraryLoading, setLibraryLoading] = useState(false);
+  const [libraryTab, setLibraryTab] = useState('free'); // 'free' = free stock images, 'your' = your itineraries
+  const [freeStockPhotos, setFreeStockPhotos] = useState([]);
+  const [freeStockLoading, setFreeStockLoading] = useState(false);
 
   useEffect(() => {
     fetchDayItineraries();
@@ -92,7 +96,9 @@ const DayItinerary = () => {
     setImagePreview(null);
     setShowImageModal(false);
     setImageSource('upload');
-    setLibraryImages([]);
+    setLibraryPackages([]);
+    setFreeStockPhotos([]);
+    setLibraryTab('free');
   };
 
   const handleInputChange = (field, value) => {
@@ -102,39 +108,79 @@ const DayItinerary = () => {
     }));
   };
 
-  // Fetch images from library (Picsum Photos)
-  const fetchLibraryImages = async () => {
+  // Fetch packages (itineraries) from app for library - when user searches "Shimla", show Shimla images
+  const fetchLibraryPackages = async () => {
     setLibraryLoading(true);
     try {
-      const query = librarySearchTerm || 'travel';
-      const imageUrls = [];
-      const seed = Date.now();
-      
-      for (let i = 0; i < 12; i++) {
-        imageUrls.push({
-          id: `picsum-${i}-${seed}`,
-          urls: {
-            thumb: `https://picsum.photos/seed/${query}-${i}-${seed}/400/300`,
-            regular: `https://picsum.photos/seed/${query}-${i}-${seed}/1200/800`
-          },
-          alt_description: query
-        });
-      }
-      setLibraryImages(imageUrls);
+      const response = await packagesAPI.list();
+      const data = response.data.data || [];
+      const processed = data.map((p) => {
+        if (p.image) {
+          let url = p.image;
+          if (url.startsWith('/storage') || (url.startsWith('/') && !url.startsWith('http'))) {
+            const baseUrl = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api').replace('/api', '');
+            url = `${baseUrl}${url}`;
+          }
+          if (url.includes('localhost') && !url.includes(':8000')) url = url.replace('localhost', 'localhost:8000');
+          return { ...p, image: url };
+        }
+        return p;
+      });
+      setLibraryPackages(processed);
     } catch (err) {
-      console.error('Failed to fetch images:', err);
-      alert('Failed to load images. Please try again.');
+      console.error('Failed to fetch library:', err);
+      alert('Failed to load image library. Please try again.');
     } finally {
       setLibraryLoading(false);
     }
   };
 
-  // Load library images when modal opens
+  // Load packages when library modal opens and user is on "Your itineraries" tab
   useEffect(() => {
-    if (showImageModal && imageSource === 'library' && libraryImages.length === 0) {
-      fetchLibraryImages();
+    if (showImageModal && imageSource === 'library' && libraryTab === 'your' && libraryPackages.length === 0) {
+      fetchLibraryPackages();
     }
-  }, [showImageModal, imageSource]);
+  }, [showImageModal, imageSource, libraryTab]);
+
+  // Free stock images (Pexels) - search e.g. Kufri, Shimla
+  const fetchFreeStockImages = async () => {
+    const q = (librarySearchTerm || '').trim();
+    if (q.length < 2) return;
+    setFreeStockLoading(true);
+    try {
+      const { photos } = await searchPexelsPhotos(q, 15);
+      setFreeStockPhotos(photos || []);
+    } catch (e) {
+      setFreeStockPhotos([]);
+    } finally {
+      setFreeStockLoading(false);
+    }
+  };
+
+  const handleSelectFreeStockImage = async (imageUrl) => {
+    try {
+      const res = await fetch(imageUrl);
+      const blob = await res.blob();
+      const file = new File([blob], 'image.jpg', { type: blob.type || 'image/jpeg' });
+      setFormData((prev) => ({ ...prev, image: file }));
+      setImagePreview(URL.createObjectURL(file));
+      setImageSource('upload');
+      setShowImageModal(false);
+    } catch (e) {
+      alert('Failed to load image. Try another or upload from device.');
+    }
+  };
+
+  // Filter library by search (e.g. Shimla) - show only matching itinerary images
+  const librarySearch = (librarySearchTerm || '').trim().toLowerCase();
+  const libraryImages = librarySearch.length >= 2
+    ? libraryPackages.filter(
+        (p) =>
+          p.image &&
+          ((p.title || p.itinerary_name || '').toLowerCase().includes(librarySearch) ||
+            (p.destination || p.destinations || '').toLowerCase().includes(librarySearch))
+      )
+    : [];
 
   const handleImageSelect = (imageUrl) => {
     setImagePreview(imageUrl);
@@ -585,16 +631,35 @@ const DayItinerary = () => {
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
             <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl mx-4 max-h-[90vh] overflow-hidden flex flex-col">
               {/* Modal Header */}
-              <div className="flex justify-between items-center p-6 border-b border-gray-200">
-                <h2 className="text-xl font-bold text-gray-800">Choose Image from Library</h2>
+              <div className="flex justify-between items-center p-4 border-b border-gray-200">
+                <h2 className="text-xl font-bold text-gray-800">Choose Image</h2>
                 <button
                   onClick={() => {
                     setShowImageModal(false);
-                    setLibraryImages([]);
+                    setLibraryPackages([]);
+                    setFreeStockPhotos([]);
                   }}
                   className="text-gray-400 hover:text-gray-600 transition-colors"
                 >
                   <X className="h-6 w-6" />
+                </button>
+              </div>
+
+              {/* Tabs: Free stock images | Your itineraries */}
+              <div className="flex border-b border-gray-200">
+                <button
+                  type="button"
+                  onClick={() => setLibraryTab('free')}
+                  className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${libraryTab === 'free' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+                >
+                  Free stock images
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setLibraryTab('your')}
+                  className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${libraryTab === 'your' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+                >
+                  Your itineraries
                 </button>
               </div>
 
@@ -607,53 +672,87 @@ const DayItinerary = () => {
                       type="text"
                       value={librarySearchTerm}
                       onChange={(e) => setLibrarySearchTerm(e.target.value)}
-                      onKeyPress={(e) => {
-                        if (e.key === 'Enter') {
-                          fetchLibraryImages();
-                        }
-                      }}
-                      placeholder="Search images..."
+                      onKeyDown={(e) => e.key === 'Enter' && (libraryTab === 'free' ? fetchFreeStockImages() : null)}
+                      placeholder={libraryTab === 'free' ? 'Search e.g. Shimla, Kufri...' : 'Search your itineraries e.g. Shimla'}
                       className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
-                  <button
-                    onClick={fetchLibraryImages}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                  >
-                    Search
-                  </button>
+                  {libraryTab === 'free' && (
+                    <button
+                      type="button"
+                      onClick={fetchFreeStockImages}
+                      disabled={(librarySearchTerm || '').trim().length < 2 || freeStockLoading}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Search
+                    </button>
+                  )}
                 </div>
+                <p className="text-xs text-gray-500 mt-2">
+                  {libraryTab === 'free' ? 'Free images from Pexels. Type location (Shimla, Kufri) and click Search.' : 'Images from itineraries you already added.'}
+                </p>
               </div>
 
               {/* Images Grid */}
               <div className="flex-1 overflow-y-auto p-6">
-                {libraryLoading ? (
-                  <div className="flex items-center justify-center h-64">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-                  </div>
-                ) : libraryImages.length === 0 ? (
-                  <div className="text-center py-12 text-gray-500">
-                    <p>No images found. Try searching for something else.</p>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-3 gap-4">
-                    {libraryImages.map((image) => (
-                      <div
-                        key={image.id}
-                        onClick={() => handleImageSelect(image.urls.regular)}
-                        className="relative aspect-video cursor-pointer group overflow-hidden rounded-lg border-2 border-gray-200 hover:border-blue-500 transition-colors"
-                      >
-                        <img
-                          src={image.urls.thumb}
-                          alt={image.alt_description}
-                          className="w-full h-full object-cover"
-                        />
-                        <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-opacity flex items-center justify-center">
-                          <span className="text-white opacity-0 group-hover:opacity-100 font-medium">Select</span>
+                {libraryTab === 'free' ? (
+                  freeStockLoading ? (
+                    <div className="flex items-center justify-center h-64">
+                      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+                    </div>
+                  ) : (librarySearchTerm || '').trim().length < 2 ? (
+                    <div className="text-center py-12 text-gray-500">
+                      <p>Type a location (e.g. Shimla, Kufri) and click Search to get free images.</p>
+                    </div>
+                  ) : freeStockPhotos.length === 0 ? (
+                    <div className="text-center py-12 text-gray-500">
+                      <p>No images found. Try another search or add VITE_PEXELS_API_KEY in .env (pexels.com/api).</p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-3 gap-4">
+                      {freeStockPhotos.map((p) => (
+                        <div
+                          key={p.id}
+                          onClick={() => handleSelectFreeStockImage(p.url)}
+                          className="relative aspect-video cursor-pointer group overflow-hidden rounded-lg border-2 border-gray-200 hover:border-blue-500 transition-colors"
+                        >
+                          <img src={p.thumb || p.url} alt={p.alt} className="w-full h-full object-cover" />
+                          <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-opacity flex items-center justify-center">
+                            <span className="text-white opacity-0 group-hover:opacity-100 font-medium">Select</span>
+                          </div>
                         </div>
-                      </div>
-                    ))}
-                  </div>
+                      ))}
+                    </div>
+                  )
+                ) : (
+                  libraryLoading ? (
+                    <div className="flex items-center justify-center h-64">
+                      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+                    </div>
+                  ) : librarySearch.length < 2 ? (
+                    <div className="text-center py-12 text-gray-500">
+                      <p>Type at least 2 characters to see images from your itineraries.</p>
+                    </div>
+                  ) : libraryImages.length === 0 ? (
+                    <div className="text-center py-12 text-gray-500">
+                      <p>No images for &quot;{librarySearchTerm}&quot;. Use &quot;Free stock images&quot; tab to search Kufri, Shimla, etc.</p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-3 gap-4">
+                      {libraryImages.map((p) => (
+                        <div
+                          key={p.id}
+                          onClick={() => handleImageSelect(p.image)}
+                          className="relative aspect-video cursor-pointer group overflow-hidden rounded-lg border-2 border-gray-200 hover:border-blue-500 transition-colors"
+                        >
+                          <img src={p.image} alt={p.itinerary_name || p.title || 'Select'} className="w-full h-full object-cover" />
+                          <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-opacity flex items-center justify-center">
+                            <span className="text-white opacity-0 group-hover:opacity-100 font-medium">Select</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )
                 )}
               </div>
             </div>

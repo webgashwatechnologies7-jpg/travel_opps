@@ -25,7 +25,9 @@ class QueryDetailController extends Controller
                 'payments.creator:id,name',
                 'queryProposals',
                 'queryDocuments.uploader:id,name',
-                'queryHistoryLogs.user:id,name,email'
+                'queryHistoryLogs.user:id,name,email',
+                'callLogs.employee:id,name,email',
+                'leadInvoices.creator:id,name',
             ])->findOrFail($id);
 
             // Calculate billing summary
@@ -33,6 +35,9 @@ class QueryDetailController extends Controller
 
             // Get activity history logs
             $activityLogs = $this->getActivityLogs($lead);
+
+            // Build merged activity timeline (payments, followups, calls, history logs)
+            $activityTimeline = $this->buildActivityTimeline($lead);
 
             // Prepare response data
             $response = [
@@ -90,16 +95,17 @@ class QueryDetailController extends Controller
                     ];
                 }),
                 'payments' => $lead->payments->map(function ($payment) {
+                    $dueAmount = (float) $payment->amount - (float) $payment->paid_amount;
                     return [
                         'id' => $payment->id,
                         'amount' => $payment->amount,
                         'paid_amount' => $payment->paid_amount,
-                        'due_amount' => $payment->due_amount,
+                        'due_amount' => $dueAmount,
                         'due_date' => $payment->due_date,
                         'status' => $payment->status,
-                        'payment_method' => $payment->payment_method,
-                        'transaction_id' => $payment->transaction_id,
-                        'notes' => $payment->notes,
+                        'payment_method' => $payment->payment_method ?? null,
+                        'transaction_id' => $payment->transaction_id ?? null,
+                        'notes' => $payment->notes ?? null,
                         'created_at' => $payment->created_at,
                         'created_by' => $payment->creator
                     ];
@@ -125,9 +131,22 @@ class QueryDetailController extends Controller
                         'uploaded_by' => $document->uploader
                     ];
                 }),
-                'invoices' => [],
+                'invoices' => $lead->leadInvoices->map(function ($inv) {
+                    return [
+                        'id' => $inv->id,
+                        'invoice_number' => $inv->invoice_number,
+                        'option_number' => $inv->option_number,
+                        'total_amount' => $inv->total_amount,
+                        'currency' => $inv->currency,
+                        'itinerary_name' => $inv->itinerary_name,
+                        'status' => $inv->status,
+                        'created_at' => $inv->created_at,
+                        'created_by' => $inv->creator,
+                    ];
+                }),
                 'billing_summary' => $billingSummary,
                 'activity_history' => $activityLogs,
+                'activity_timeline' => $activityTimeline,
                 'statistics' => [
                     'total_proposals' => $lead->queryProposals->count(),
                     'confirmed_proposals' => $lead->queryProposals->where('is_confirmed', true)->count(),
@@ -137,8 +156,8 @@ class QueryDetailController extends Controller
                     'total_paid_amount' => $lead->payments->sum('paid_amount'),
                     'total_documents' => $lead->queryDocuments->count(),
                     'verified_documents' => $lead->queryDocuments->where('is_verified', true)->count(),
-                    'total_invoices' => 0,
-                    'paid_invoices' => 0
+                    'total_invoices' => $lead->leadInvoices->count(),
+                    'paid_invoices' => $lead->leadInvoices->where('status', 'paid')->count()
                 ]
             ];
 
@@ -201,7 +220,7 @@ class QueryDetailController extends Controller
     /**
      * Get activity history logs
      *
-     * @param int $leadId
+     * @param Lead $lead
      * @return array
      */
     private function getActivityLogs(Lead $lead): array
@@ -225,5 +244,84 @@ class QueryDetailController extends Controller
                 ]
             ];
         })->values()->toArray();
+    }
+
+    /**
+     * Build merged activity timeline: followups, payments, calls, history logs.
+     *
+     * @param Lead $lead
+     * @return array
+     */
+    private function buildActivityTimeline(Lead $lead): array
+    {
+        $items = [];
+
+        foreach ($lead->followups ?? [] as $f) {
+            $items[] = [
+                'type' => 'followup',
+                'created_at' => $f->created_at,
+                'title' => 'Followup added',
+                'description' => $f->remark ?: 'Reminder: ' . ($f->reminder_date ? $f->reminder_date->format('d M Y') : '') . ($f->reminder_time ? ' ' . $f->reminder_time : ''),
+                'is_completed' => $f->is_completed ?? false,
+                'user' => $f->user ? ['id' => $f->user->id, 'name' => $f->user->name] : null,
+            ];
+        }
+
+        foreach ($lead->payments ?? [] as $p) {
+            $items[] = [
+                'type' => 'payment',
+                'created_at' => $p->created_at,
+                'title' => 'Payment',
+                'description' => 'Amount: ₹' . number_format((float) $p->amount, 2) . ', Paid: ₹' . number_format((float) $p->paid_amount, 2) . ' | Status: ' . $p->status,
+                'amount' => $p->amount,
+                'paid_amount' => $p->paid_amount,
+                'status' => $p->status,
+                'user' => $p->creator ? ['id' => $p->creator->id, 'name' => $p->creator->name] : null,
+            ];
+        }
+
+        foreach ($lead->callLogs ?? [] as $c) {
+            $duration = $c->duration_seconds ?? 0;
+            $items[] = [
+                'type' => 'call',
+                'created_at' => $c->created_at ?? $c->updated_at,
+                'title' => 'Call',
+                'description' => $duration > 0 ? 'Call duration: ' . gmdate('i:s', $duration) : 'Call logged',
+                'user' => $c->employee ? ['id' => $c->employee->id, 'name' => $c->employee->name] : null,
+            ];
+        }
+
+        foreach ($lead->queryHistoryLogs ?? [] as $a) {
+            $items[] = [
+                'type' => 'activity',
+                'created_at' => $a->created_at,
+                'title' => $this->humanActivityType($a->activity_type),
+                'description' => $a->activity_description,
+                'activity_type' => $a->activity_type,
+                'user' => $a->user ? ['id' => $a->user->id, 'name' => $a->user->name] : null,
+            ];
+        }
+
+        usort($items, function ($a, $b) {
+            return strtotime($b['created_at']) - strtotime($a['created_at']);
+        });
+
+        return array_slice($items, 0, 100);
+    }
+
+    private function humanActivityType(string $type): string
+    {
+        $map = [
+            'option_confirmed' => 'Option confirmed',
+            'invoice_created' => 'Invoice created',
+            'voucher_created' => 'Voucher created',
+            'followup_created' => 'Followup added',
+            'payment_added' => 'Payment added',
+            'payment' => 'Payment',
+            'create' => 'Activity',
+            'update' => 'Update',
+            'status_change' => 'Status changed',
+        ];
+        return $map[$type] ?? ucfirst(str_replace('_', ' ', $type));
     }
 }

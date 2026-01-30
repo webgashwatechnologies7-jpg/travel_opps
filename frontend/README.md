@@ -25,9 +25,11 @@ npm install
 cp .env.example .env
 ```
 
-3. Update `.env` with your Laravel API URL:
+3. Update `.env` with your Laravel API URL (and optional Pexels key for free stock images in Itinerary/Day Itinerary):
 ```
 VITE_API_BASE_URL=http://localhost:8000/api
+# Optional: free stock images (Shimla, Kufri, etc.) - get key at https://www.pexels.com/api/
+VITE_PEXELS_API_KEY=your_pexels_api_key
 ```
 
 4. Start development server:
