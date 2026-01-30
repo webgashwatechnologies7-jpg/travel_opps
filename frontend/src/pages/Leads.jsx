@@ -625,7 +625,6 @@ const Leads = () => {
           <div className='flex items-center gap-2'>
             <h2 className="text-lg font-bold">Queries</h2>
             <span className="text-lg font-bold">• All</span>
-<<<<<<< HEAD
             <button
               type="button"
               onClick={() => setShowModal(true)}
@@ -634,8 +633,6 @@ const Leads = () => {
               <Plus size={20} />
               Add Query
             </button>
-=======
->>>>>>> 718c369 (today work updated in live side)
           </div>
           <button className="flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-md" onClick={handleRefresh}>
             <History size={20} />

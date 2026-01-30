@@ -1,16 +1,10 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-<<<<<<< HEAD
-import { leadsAPI, usersAPI, followupsAPI, dayItinerariesAPI, packagesAPI, settingsAPI, suppliersAPI, hotelsAPI, paymentsAPI, googleMailAPI, whatsappAPI } from '../services/api';
-import Layout from '../components/Layout';
-import { ArrowLeft, Calendar, Mail, Plus, Upload, X, Search, FileText, Printer, Send, MessageCircle, CheckCircle, CheckCircle2, Clock, Briefcase, MapPin, CalendarDays, Users, UserCheck, Leaf, Smartphone, Phone, MoreVertical, Download, Pencil, Trash2 } from 'lucide-react';
-=======
 import { leadsAPI, usersAPI, followupsAPI, dayItinerariesAPI, packagesAPI, settingsAPI, suppliersAPI, hotelsAPI, paymentsAPI, googleMailAPI, whatsappAPI, queryDetailAPI, vouchersAPI } from '../services/api';
 import { searchPexelsPhotos } from '../services/pexels';
 import Layout from '../components/Layout';
 import { ArrowLeft, Calendar, Mail, Plus, Upload, X, Search, FileText, Printer, Send, MessageCircle, CheckCircle, CheckCircle2, Clock, Briefcase, MapPin, CalendarDays, Users, UserCheck, Leaf, Smartphone, Phone, MoreVertical, Download, Pencil, Trash2, Camera } from 'lucide-react';
->>>>>>> 718c369 (today work updated in live side)
 import DetailRow from '../components/Quiries/DetailRow';
 import html2pdf from 'html2pdf.js';
 const LeadDetails = () => {
@@ -162,15 +156,12 @@ const LeadDetails = () => {
     return () => clearInterval(interval);
   }, [activeTab, id]);
 
-<<<<<<< HEAD
-=======
   useEffect(() => {
     if ((activeTab === 'history' || activeTab === 'invoice') && id) {
       fetchQueryDetail();
     }
   }, [activeTab, id]);
 
->>>>>>> 718c369 (today work updated in live side)
   // Fetch company settings (use /settings not /admin/settings to avoid 500 tenant error)
   const fetchCompanySettings = async () => {
     try {
@@ -216,37 +207,12 @@ const LeadDetails = () => {
 
   // Load hotels from ALL proposals (all options in all itineraries for this lead)
   useEffect(() => {
-<<<<<<< HEAD
-    const loadHotelsFromConfirmedOption = async () => {
-      const confirmedOption = getConfirmedOption();
-
-      // Check for hotels in different possible structures
-      let hotelsList = [];
-
-      if (confirmedOption) {
-        // Try different possible hotel structures
-        if (confirmedOption.hotels && Array.isArray(confirmedOption.hotels)) {
-          hotelsList = confirmedOption.hotels;
-        } else if (confirmedOption.hotelDetails && Array.isArray(confirmedOption.hotelDetails)) {
-          hotelsList = confirmedOption.hotelDetails;
-        } else if (quotationData && confirmedOption.optionNumber) {
-          // Try to get hotels from quotationData
-          const optionNum = confirmedOption.optionNumber.toString();
-          if (quotationData.hotelOptions && quotationData.hotelOptions[optionNum]) {
-            hotelsList = quotationData.hotelOptions[optionNum];
-          }
-        }
-      }
-
-      if (hotelsList.length > 0) {
-=======
     const loadHotelsFromAllProposals = async () => {
       const rawHotelsList = [];
       proposals.forEach((proposal) => {
         const itineraryId = proposal.itinerary_id;
         const optionNum = proposal.optionNumber ?? 1;
         if (!itineraryId) return;
->>>>>>> 718c369 (today work updated in live side)
         try {
           const stored = localStorage.getItem(`itinerary_${itineraryId}_events`);
           if (!stored) return;
@@ -272,43 +238,6 @@ const LeadDetails = () => {
         } catch (_) {}
       });
 
-<<<<<<< HEAD
-            if (hotelId) {
-              try {
-                const response = await hotelsAPI.get(hotelId);
-                const hotelData = response.data.data;
-                return {
-                  id: `hotel_${hotelId}_${index}`,
-                  hotel_id: hotelId,
-                  company_name: hotelData.name || hotelName,
-                  name: hotelData.contact_person || '',
-                  email: hotelData.email || '',
-                  type: 'hotel',
-                  hotel_name: hotelData.name || hotelName,
-                  room_type: roomType,
-                  meal_plan: mealPlan,
-                  price: price,
-                  day: day
-                };
-              } catch {
-                // If hotel fetch fails, use the data from confirmed option
-                return {
-                  id: `hotel_${hotelId || hotelName}_${index}`,
-                  hotel_id: hotelId,
-                  company_name: hotelName,
-                  name: '',
-                  email: hotel.email || '',
-                  type: 'hotel',
-                  hotel_name: hotelName,
-                  room_type: roomType,
-                  meal_plan: mealPlan,
-                  price: price,
-                  day: day
-                };
-              }
-            } else {
-              // If no hotel_id, use the data from confirmed option
-=======
       const seen = new Set();
       const uniqueRaw = rawHotelsList.filter((h) => {
         const key = getHotelDedupeKey(h);
@@ -333,7 +262,6 @@ const LeadDetails = () => {
             try {
               const response = await hotelsAPI.get(hotelId);
               const hotelData = response.data.data;
->>>>>>> 718c369 (today work updated in live side)
               return {
                 id: `hotel_${hotelId}_${day}_${index}`,
                 hotel_id: hotelId,
@@ -362,25 +290,6 @@ const LeadDetails = () => {
                 day
               };
             }
-<<<<<<< HEAD
-          });
-
-          const hotelsData = await Promise.all(hotelPromises);
-          // Show all hotels, but prioritize those with email
-          const validHotels = hotelsData.filter(h => h.company_name && h.company_name !== 'Hotel');
-          // Sort: hotels with email first
-          validHotels.sort((a, b) => {
-            if (a.email && !b.email) return -1;
-            if (!a.email && b.email) return 1;
-            return 0;
-          });
-          setHotelsFromConfirmedOption(validHotels);
-        } catch (err) {
-          setHotelsFromConfirmedOption([]);
-          setHotelsFromConfirmedOption([]);
-        }
-      } else {
-=======
           }
           return {
             id: `hotel_${hotelName}_${day}_${index}_${Date.now()}`,
@@ -405,7 +314,6 @@ const LeadDetails = () => {
         });
         setHotelsFromConfirmedOption(validHotels);
       } catch (err) {
->>>>>>> 718c369 (today work updated in live side)
         setHotelsFromConfirmedOption([]);
       }
     };
@@ -505,8 +413,6 @@ const LeadDetails = () => {
 
     const confirmedProposal = updatedProposals.find(p => p.id === optionId);
     if (confirmedProposal) {
-<<<<<<< HEAD
-=======
       const optionNumber = confirmedProposal.optionNumber ?? 1;
       const totalAmount = confirmedProposal.price ?? 0;
       const itineraryName = confirmedProposal.itinerary_name || quotationData?.itinerary?.itinerary_name || '';
@@ -521,7 +427,6 @@ const LeadDetails = () => {
         console.error('Confirm option API failed:', err);
       }
 
->>>>>>> 718c369 (today work updated in live side)
       try {
         const quotationDataForSend = await handleViewQuotation(confirmedProposal);
         if (quotationDataForSend && (lead?.email || lead?.phone)) {
@@ -535,11 +440,6 @@ const LeadDetails = () => {
         console.error('Failed to load quotation or auto-send:', err);
         alert('Option confirmed! Email/WhatsApp auto-send fail ho gaya. Share Email / Share WhatsApp se manually bhejein.');
       }
-<<<<<<< HEAD
-    } else {
-      alert('Option confirmed successfully! You can now share the final itinerary.');
-    }
-=======
 
       fetchPayments();
       if (activeTab === 'history' || activeTab === 'invoice') fetchQueryDetail();
@@ -618,7 +518,6 @@ const LeadDetails = () => {
     } finally {
       setVoucherActionLoading(null);
     }
->>>>>>> 718c369 (today work updated in live side)
   };
 
   // Get confirmed option
@@ -3389,16 +3288,12 @@ const LeadDetails = () => {
                     <div className="flex justify-between items-start">
                       {/* LEFT SIDE */}
                       <div className="space-y-6">
-<<<<<<< HEAD
                         {/* COMPANY NAME */}
                         <div className="text-sm font-medium text-black">
                           {lead.company_name || 'Triplive b2b'}
                         </div>
 
-                        {/* NOTES LABEL + ADD BUTTON */}
-=======
                         {/* NOTES LABEL + ADD BUTTON - at top */}
->>>>>>> 718c369 (today work updated in live side)
                         <div className="flex items-center gap-4">
                           <span className="text-sm text-black">Notes :</span>
 
@@ -3413,11 +3308,7 @@ const LeadDetails = () => {
                           )}
                         </div>
 
-<<<<<<< HEAD
-                        {/* NOTES LIST - above Add Note */}
-=======
                         {/* NOTES LIST */}
->>>>>>> 718c369 (today work updated in live side)
                         {notes.length > 0 && (
                           <div className="space-y-3 mt-3">
                             {notes
@@ -3646,49 +3537,6 @@ const LeadDetails = () => {
                               </div>
                               <hr className="my-4" />
 
-<<<<<<< HEAD
-                              {/* All options in one list */}
-                              <div className="space-y-3 mb-4">
-                                {proposals.map((opt) => (
-                                  <div
-                                    key={opt.id}
-                                    className={`flex flex-wrap items-center justify-between gap-2 p-3 rounded-lg border ${opt.confirmed ? 'border-green-500 bg-green-50' : 'border-gray-200 bg-gray-50'}`}
-                                  >
-                                    <div className="font-semibold text-gray-800">
-                                      {opt.itinerary_name || 'Itinerary'} {opt.optionNumber != null ? `· Option ${opt.optionNumber}` : ''}: ₹{(opt.price ?? 0).toLocaleString('en-IN')}
-                                      {opt.confirmed && <span className="ml-2 text-green-600 text-sm">(Confirmed)</span>}
-                                    </div>
-                                    <div className="flex flex-wrap gap-2 items-center">
-                                      {opt.confirmed ? (
-                                        <span className="px-3 py-1.5 bg-green-100 text-green-700 text-sm font-semibold rounded-full border border-green-300">
-                                          Confirmed
-                                        </span>
-                                      ) : (
-                                        <button
-                                          onClick={(e) => { e.stopPropagation(); handleConfirmOption(opt.id); }}
-                                          className="bg-orange-400 hover:bg-orange-500 text-white text-sm font-semibold px-3 py-1.5 rounded-full"
-                                        >
-                                          Make Confirm
-                                        </button>
-                                      )}
-                                      <button
-                                        onClick={(e) => { e.stopPropagation(); handleViewQuotation(opt); }}
-                                        className="bg-blue-500 hover:bg-blue-600 text-white text-sm font-semibold px-3 py-1.5 rounded-full"
-                                      >
-                                        View Quotation
-                                      </button>
-                                      {opt.itinerary_id && (
-                                        <button
-                                          onClick={(e) => { e.stopPropagation(); navigate(`/itineraries/${opt.itinerary_id}`); }}
-                                          className="text-gray-600 hover:text-gray-800 text-sm font-medium underline-offset-2 hover:underline"
-                                        >
-                                          Edit
-                                        </button>
-                                      )}
-                                    </div>
-                                  </div>
-                                ))}
-=======
                               {/* Package options – professional card layout */}
                               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
                                 {proposals.map((opt) => {
@@ -3748,7 +3596,6 @@ const LeadDetails = () => {
                                     </div>
                                   );
                                 })}
->>>>>>> 718c369 (today work updated in live side)
                               </div>
 
                               {/* Delete all proposals for this lead */}
