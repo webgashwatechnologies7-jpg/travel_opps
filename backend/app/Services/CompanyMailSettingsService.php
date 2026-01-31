@@ -98,9 +98,9 @@ class CompanyMailSettingsService
                 'transport' => 'smtp',
                 'host' => $host,
                 'port' => (int) ($settings['port'] ?? 587),
-                'encryption' => $settings['encryption'] ?: null,
-                'username' => $settings['username'] ?: null,
-                'password' => $settings['password'] ?: null,
+                'encryption' => ($settings['encryption'] ?? null) ?: null,
+                'username' => ($settings['username'] ?? null) ?: null,
+                'password' => ($settings['password'] ?? null) ?: null,
                 'timeout' => null,
                 'local_domain' => config('mail.mailers.smtp.local_domain'),
             ]);
