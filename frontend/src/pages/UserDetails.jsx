@@ -911,7 +911,7 @@ const UserDetails = () => {
           </div>
         </div>
 
-        {/* WhatsApp Chats - is employee ne kis kis se WhatsApp pe baat ki (admin dekh sakta hai) */}
+        {/* WhatsApp Chats - who this employee messaged via WhatsApp (admin can view) */}
         <div className="bg-white shadow-sm rounded-lg mb-6">
           <div className="px-6 py-4 border-b border-gray-200">
             <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
@@ -919,7 +919,7 @@ const UserDetails = () => {
               WhatsApp Chats
             </h2>
             <p className="text-sm text-gray-500 mt-1">
-              Is employee ne CRM se kis kis lead/customer se WhatsApp pe message bheje – yahan saari conversations dikhengi.
+              WhatsApp messages sent by this employee from the CRM to leads/customers — all conversations are shown here.
             </p>
           </div>
           <div className="px-6 py-4">
@@ -928,7 +928,7 @@ const UserDetails = () => {
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600"></div>
               </div>
             ) : whatsappInbox.length === 0 ? (
-              <p className="text-sm text-gray-500">Is user ne abhi tak koi WhatsApp message nahi bheja.</p>
+              <p className="text-sm text-gray-500">This user has not sent any WhatsApp messages yet.</p>
             ) : (
               <div className="flex flex-col md:flex-row gap-6">
                 <div className="md:w-1/2 space-y-2 max-h-80 overflow-y-auto">
@@ -956,7 +956,7 @@ const UserDetails = () => {
                 </div>
                 <div className="md:w-1/2 border border-gray-200 rounded-lg p-4 min-h-[200px] bg-gray-50">
                   {!selectedChatLeadId ? (
-                    <p className="text-sm text-gray-500">Conversation dikhane ke liye upar se koi chat select karein.</p>
+                    <p className="text-sm text-gray-500">Select a chat from the list above to view the conversation.</p>
                   ) : chatLoading ? (
                     <div className="flex items-center justify-center h-32">
                       <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-green-600"></div>

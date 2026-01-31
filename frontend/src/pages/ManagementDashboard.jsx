@@ -107,7 +107,7 @@ const ManagementDashboard = () => {
         loadTeamReport();
       }
     } catch (err) {
-      setError('Data load karne mein problem aayi. Baad mein dobara try karein.');
+      setError('Failed to load data. Please try again later.');
       console.error(err);
     } finally {
       setLoading(false);
@@ -167,21 +167,21 @@ const ManagementDashboard = () => {
   const quickLinks = [
     {
       title: 'Add New User',
-      description: 'Naya employee / user add karein',
+      description: 'Add a new employee or user',
       icon: UserPlus,
       path: '/users/add',
       color: 'bg-blue-500',
     },
     {
       title: 'All Users',
-      description: 'Saare users list, edit, activate/deactivate',
+      description: 'List, edit, activate or deactivate all users',
       icon: Users,
       path: '/staff-management/users',
       color: 'bg-indigo-500',
     },
     {
       title: 'Team Management',
-      description: 'Teams, branches aur users manage karein',
+      description: 'Manage teams, branches and users',
       icon: Building2,
       path: '/staff-management/teams',
       color: 'bg-violet-500',
@@ -223,7 +223,7 @@ const ManagementDashboard = () => {
                 Management Dashboard
               </h1>
               <p className="text-gray-600 mt-1">
-                Employees, teams, leads assign, roles aur reports — sab yahin se dekhein
+                Employees, teams, lead assignment, roles and reports — all in one place
               </p>
             </div>
             <button
@@ -330,10 +330,10 @@ const ManagementDashboard = () => {
 
               {/* New user add – prominent */}
               <div className="bg-white rounded-xl border border-gray-200 p-6">
-                <h2 className="text-lg font-semibold text-gray-900 mb-2">New User kaise add karein?</h2>
+                <h2 className="text-lg font-semibold text-gray-900 mb-2">How to add a new user?</h2>
                 <p className="text-gray-600 text-sm mb-4">
-                  Sidebar se <strong>Staff Management → All Users</strong> pe jayein, phir <strong>+ Add User</strong> button dabayein.
-                  Ya upar <strong>Add New User</strong> card pe click karke seedha add page pe jaa sakte hain.
+                  Go to <strong>Staff Management → All Users</strong> in the sidebar, then click the <strong>+ Add User</strong> button.
+                  Or click the <strong>Add New User</strong> card above to go directly to the add page.
                 </p>
                 <button
                   onClick={() => navigate('/users/add')}
@@ -347,7 +347,7 @@ const ManagementDashboard = () => {
               <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
                 <div className="px-6 py-4 border-b border-gray-200 flex flex-wrap items-center justify-between gap-4">
                   <h2 className="text-lg font-semibold text-gray-900">
-                    Employees — kon kitna kaam kar raha, role, team
+                    Employees — workload, role, team
                   </h2>
                   <button
                     onClick={() => navigate('/staff-management/users')}
@@ -372,7 +372,7 @@ const ManagementDashboard = () => {
                       {empWithLeads.length === 0 ? (
                         <tr>
                           <td colSpan="6" className="px-6 py-8 text-center text-gray-500">
-                            Koi user nahi mila. Pehle Add User se user add karein.
+                            No users found. Add a user first using Add User.
                           </td>
                         </tr>
                       ) : (

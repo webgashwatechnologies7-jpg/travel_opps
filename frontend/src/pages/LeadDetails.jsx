@@ -434,13 +434,13 @@ const LeadDetails = () => {
         if (quotationDataForSend && (lead?.email || lead?.phone)) {
           await autoSendConfirmedToClient(quotationDataForSend, confirmedProposal);
         } else if (!quotationDataForSend) {
-          alert('Option confirmed! Quotation load nahi hua. Share Email / Share WhatsApp se manually bhejein.');
+          alert('Option confirmed! Quotation could not be loaded. Please share via Email or WhatsApp manually.');
         } else {
-          alert('Option confirmed! Client ka email/phone nahi hai — Mails/WhatsApp tabs me manually add karein.');
+          alert('Option confirmed! Client email/phone is missing — add it in Mails or WhatsApp tabs and send manually.');
         }
       } catch (err) {
         console.error('Failed to load quotation or auto-send:', err);
-        alert('Option confirmed! Email/WhatsApp auto-send fail ho gaya. Share Email / Share WhatsApp se manually bhejein.');
+        alert('Option confirmed! Email/WhatsApp auto-send failed. Please share via Email or WhatsApp manually.');
       }
 
       fetchPayments();
@@ -480,7 +480,7 @@ const LeadDetails = () => {
       setShowVoucherPopup(true);
     } catch (err) {
       console.error('Voucher preview failed:', err);
-      alert('Voucher preview load nahi hua. Please try again.');
+      alert('Voucher preview could not be loaded. Please try again.');
     } finally {
       setVoucherActionLoading(null);
     }
@@ -513,10 +513,10 @@ const LeadDetails = () => {
     setVoucherActionLoading('send');
     try {
       await vouchersAPI.send(id, { to_email: email || toEmail, subject: 'Travel Voucher' });
-      alert('Voucher email bhej diya gaya.');
+      alert('Voucher email sent successfully.');
     } catch (err) {
       console.error('Voucher send failed:', err);
-      alert('Voucher send fail. Client email check karein.');
+      alert('Voucher send failed. Please check client email.');
     } finally {
       setVoucherActionLoading(null);
     }
@@ -594,12 +594,12 @@ const LeadDetails = () => {
         fetchWhatsAppMessages();
       }
       if (toEmail || lead.phone) {
-        alert('Final itinerary aur payment summary client ko Email aur WhatsApp pe bhej diye gaye. Mails aur WhatsApp tabs me dikh jayega.');
+        alert('Final itinerary and payment summary have been sent to the client via Email and WhatsApp. You can see them in the Mails and WhatsApp tabs.');
       }
     } catch (err) {
       console.error('Auto-send failed:', err);
       const msg = err.response?.data?.message || err.response?.data?.error || err.message || 'Unknown error';
-      alert('Mail send nahi hua.\n\nIssue: ' + msg);
+      alert('Mail could not be sent.\n\nIssue: ' + msg);
     }
   };
 
@@ -721,7 +721,7 @@ const LeadDetails = () => {
           fetchGmailEmails();
         } else {
           const msg = response.data?.message || response.data?.error || 'Unknown error';
-          alert('Mail send nahi hua.\n\nIssue: ' + msg);
+          alert('Mail could not be sent.\n\nIssue: ' + msg);
         }
       } else {
         // Fallback to existing system email (local mailer)
@@ -747,13 +747,13 @@ const LeadDetails = () => {
           fetchLeadEmails();
         } else {
           const msg = response.data?.message || response.data?.error || 'Unknown error';
-          alert('Mail send nahi hua.\n\nIssue: ' + msg);
+          alert('Mail could not be sent.\n\nIssue: ' + msg);
         }
       }
     } catch (err) {
       console.error('Failed to send email:', err);
       const msg = err.response?.data?.message || err.response?.data?.error || err.message || 'Unknown error';
-      alert('Mail send nahi hua.\n\nIssue: ' + msg);
+      alert('Mail could not be sent.\n\nIssue: ' + msg);
     } finally {
       setSendingClientEmail(false);
     }
@@ -2666,12 +2666,12 @@ const LeadDetails = () => {
         alert('Email sent successfully! Lead status updated to PROPOSAL.');
       } else {
         const msg = response.data?.message || response.data?.error || 'Unknown error';
-        alert('Mail send nahi hua.\n\nIssue: ' + msg);
+        alert('Mail could not be sent.\n\nIssue: ' + msg);
       }
     } catch (error) {
       console.error('Error sending email:', error);
       const msg = error.response?.data?.message || error.response?.data?.error || error.message || 'Unknown error';
-      alert('Mail send nahi hua.\n\nIssue: ' + msg);
+      alert('Mail could not be sent.\n\nIssue: ' + msg);
     }
   };
 
@@ -3785,7 +3785,7 @@ const LeadDetails = () => {
                 )
                 : activeTab === 'whatsapp' ? (
                   <div className="space-y-4">
-                    <p className="text-sm text-gray-600 mb-4">Sent / received WhatsApp messages is lead ke saath yahin dikhenge.</p>
+                    <p className="text-sm text-gray-600 mb-4">Sent and received WhatsApp messages for this lead will appear here.</p>
                     {whatsappMessages.length === 0 ? (
                       <div className="text-center py-12 text-gray-500">
                         No WhatsApp messages yet
@@ -4271,7 +4271,7 @@ const LeadDetails = () => {
                       {getConfirmedOption() ? (
                         <>
                           <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
-                            <p className="text-sm font-medium text-green-800">Voucher ready — Option {getConfirmedOption()?.optionNumber ?? ''} confirmed. Preview, download, ya client ko email bhejo.</p>
+                            <p className="text-sm font-medium text-green-800">Voucher ready — Option {getConfirmedOption()?.optionNumber ?? ''} confirmed. You can preview, download, or email it to the client.</p>
                           </div>
                           <div className="flex flex-wrap gap-3">
                             <button type="button" onClick={handleVoucherPreview} disabled={!!voucherActionLoading} className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-800 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50">
@@ -4287,7 +4287,7 @@ const LeadDetails = () => {
                         </>
                       ) : (
                         <>
-                          <p className="text-gray-600 mb-4">Pehle <strong>Proposals</strong> tab me jaa kar koi option <strong>Confirm</strong> karo. Confirm hone ke baad yahan voucher ready hoga — Preview, Download, ya Email bhej sakte ho.</p>
+                          <p className="text-gray-600 mb-4">Go to the <strong>Proposals</strong> tab and <strong>Confirm</strong> an option first. After confirmation, the voucher will be ready here — you can Preview, Download, or Email it.</p>
                           <div className="flex flex-wrap gap-3">
                             <button type="button" onClick={handleVoucherPreview} disabled={!!voucherActionLoading} className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-800 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50">
                               {voucherActionLoading === 'preview' ? 'Opening…' : 'Preview (draft)'}
@@ -4325,13 +4325,13 @@ const LeadDetails = () => {
                   <div className="space-y-6">
                     <div className="bg-white border border-gray-200 rounded-lg p-6">
                       <h3 className="text-lg font-semibold text-gray-800 mb-4">Invoices</h3>
-                      <p className="text-sm text-gray-500 mb-4">Confirm option pe automatically invoice create hota hai.</p>
+                      <p className="text-sm text-gray-500 mb-4">Confirming an option automatically creates an invoice.</p>
                       {loadingHistory ? (
                         <div className="text-center py-8 text-gray-500">Loading...</div>
                       ) : queryDetailInvoices.length === 0 ? (
                         <div className="text-center py-8 text-gray-500">
                           <p>No invoices yet</p>
-                          <p className="text-sm mt-2">Option confirm karo — uske base pe invoice auto-create hoga</p>
+                          <p className="text-sm mt-2">Confirm an option — invoice will be auto-created based on it</p>
                         </div>
                       ) : (
                         <div className="overflow-x-auto">
@@ -4544,7 +4544,7 @@ const LeadDetails = () => {
                 activeTab === 'history' && (
                   <div className="max-w-3xl">
                     <h3 className="text-lg font-semibold text-gray-800 mb-4">Query History</h3>
-                    <p className="text-sm text-gray-500 mb-4">Is query me kya kya chala — payments, followups, calls, confirmations sab yahan.</p>
+                    <p className="text-sm text-gray-500 mb-4">All activity for this query — payments, followups, calls, confirmations — is shown here.</p>
                     {loadingHistory ? (
                       <div className="text-center py-8 text-gray-500">Loading...</div>
                     ) : activityTimeline.length === 0 ? (
@@ -4844,8 +4844,8 @@ const LeadDetails = () => {
                   <div className="text-center py-8 px-4">
                     {itineraryFreeStockError === 'no_api_key' ? (
                       <>
-                        <p className="text-gray-600 mb-2">Free stock images ke liye Pexels API key chahiye.</p>
-                        <p className="text-sm text-gray-500">Live server pe <code className="bg-gray-100 px-1 rounded">VITE_PEXELS_API_KEY</code> .env me add karo, phir <code className="bg-gray-100 px-1 rounded">npm run build</code> dubara chalao. Ya <strong>Upload Image</strong> use karo.</p>
+                        <p className="text-gray-600 mb-2">Pexels API key is required for free stock images.</p>
+                        <p className="text-sm text-gray-500">On the live server add <code className="bg-gray-100 px-1 rounded">VITE_PEXELS_API_KEY</code> to .env, then run <code className="bg-gray-100 px-1 rounded">npm run build</code> again. Or use <strong>Upload Image</strong>.</p>
                         <p className="text-xs text-gray-400 mt-2">Free key: pexels.com/api</p>
                       </>
                     ) : (

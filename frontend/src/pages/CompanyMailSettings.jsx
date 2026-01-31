@@ -100,6 +100,12 @@ const CompanyMailSettings = () => {
   };
 
   const handleTest = async () => {
+    const isGmail = (formData.host || '').toLowerCase().includes('gmail');
+    if (isGmail && !formData.password && !hasPassword) {
+      alert('SMTP Password is required for Gmail.\n\nEnter your Gmail App Password (16-character code) in the SMTP Password field, then click Save Settings, then Send Test Mail.\n\nYour normal Gmail password will not work — use an App Password.');
+      return;
+    }
+
     try {
       setTesting(true);
       setMessage({ type: '', text: '' });
@@ -117,7 +123,7 @@ const CompanyMailSettings = () => {
       };
 
       if (formData.password) {
-        payload.password = formData.password;
+        payload.password = formData.password.replace(/\s/g, '');
       }
 
       const response = await companySettingsAPI.testMailSettings(payload);
@@ -125,13 +131,21 @@ const CompanyMailSettings = () => {
       setTestResult(payloadData.data || null);
       if (!payloadData.success) {
         const msg = payloadData.message || payloadData.error || (payloadData.data?.errors?.join?.(' ') || 'Mail test failed');
-        setMessage({ type: 'error', text: 'Mail send nahi hua. Issue: ' + msg });
-        alert('Mail send nahi hua.\n\nIssue: ' + msg);
+        const is535 = /535|Password not accepted|BadCredentials|Username and Password not accepted/i.test(msg);
+        const tip = is535
+          ? '\n\nTip: Gmail 535 = wrong credentials. (1) Use App Password, not your normal password. (2) Enter the 16-char App Password in the Password field, Save, then Test again.'
+          : '';
+        setMessage({ type: 'error', text: 'Mail could not be sent. Issue: ' + msg + (tip ? '\n\n' + tip.trim() : '') });
+        alert('Mail could not be sent.\n\nIssue: ' + msg + tip);
       }
     } catch (err) {
       const msg = err.response?.data?.message || err.response?.data?.error || err.message || 'Mail test failed';
-      setMessage({ type: 'error', text: 'Mail send nahi hua. Issue: ' + msg });
-      alert('Mail send nahi hua.\n\nIssue: ' + msg);
+      const is535 = /535|Password not accepted|BadCredentials|Username and Password not accepted/i.test(msg);
+      const tip = is535
+        ? '\n\nTip: Gmail 535 = wrong credentials. Use App Password, enter it in the Password field, Save, then Test again.'
+        : '';
+      setMessage({ type: 'error', text: 'Mail could not be sent. Issue: ' + msg + (tip ? '\n\n' + tip.trim() : '') });
+      alert('Mail could not be sent.\n\nIssue: ' + msg + tip);
     } finally {
       setTesting(false);
     }
@@ -156,58 +170,58 @@ const CompanyMailSettings = () => {
               >
                 <span className="flex items-center gap-2 font-medium text-gray-800">
                   <HelpCircle className="h-5 w-5 text-blue-600" />
-                  Mail setup kaise karein (Step-by-step guide)
+                  How to set up mail (Step-by-step guide)
                 </span>
                 {showSteps ? <ChevronUp className="h-5 w-5 text-gray-500" /> : <ChevronDown className="h-5 w-5 text-gray-500" />}
               </button>
               {showSteps && (
                 <div className="p-4 bg-blue-50/50 border-t border-gray-200 text-sm text-gray-700 space-y-4">
                   <p className="text-gray-600">
-                    Company Admin ye steps follow karke CRM se email bhejne ke liye mail settings set kar sakta hai. Pehle <strong>Save Settings</strong> karein, phir niche <strong>Send Test Mail</strong> se test karein.
+                    Company Admin can set up mail by following these steps so the CRM can send emails. First click <strong>Save Settings</strong>, then use <strong>Send Test Mail</strong> below to test.
                   </p>
 
                   <div>
-                    <p className="font-semibold text-gray-800 mb-2">Step 1 — Company mail enable karein</p>
+                    <p className="font-semibold text-gray-800 mb-2">Step 1 — Enable company mail</p>
                     <ul className="list-disc list-inside space-y-1 text-gray-700">
-                      <li>Neeche form mein <strong>Use company mail settings</strong> checkbox ko tick karein.</li>
+                      <li>Check the <strong>Use company mail settings</strong> checkbox in the form below.</li>
                     </ul>
                   </div>
 
                   <div>
-                    <p className="font-semibold text-gray-800 mb-2">Step 2 — SMTP details bharein (Gmail ke liye)</p>
+                    <p className="font-semibold text-gray-800 mb-2">Step 2 — SMTP details (for Gmail)</p>
                     <ul className="list-disc list-inside space-y-1 text-gray-700">
                       <li><strong>SMTP Host:</strong> <code className="bg-white px-1 rounded">smtp.gmail.com</code></li>
                       <li><strong>SMTP Port:</strong> <code className="bg-white px-1 rounded">587</code></li>
-                      <li><strong>Encryption:</strong> <code className="bg-white px-1 rounded">TLS</code> select karein (Gmail ke liye zaroori — None mat chhodein).</li>
+                      <li><strong>Encryption:</strong> Select <code className="bg-white px-1 rounded">TLS</code> (required for Gmail — do not leave as None).</li>
                     </ul>
                   </div>
 
                   <div>
-                    <p className="font-semibold text-gray-800 mb-2">Step 3 — Gmail login aur App Password</p>
+                    <p className="font-semibold text-gray-800 mb-2">Step 3 — Gmail login and App Password</p>
                     <ul className="list-disc list-inside space-y-1 text-gray-700">
-                      <li><strong>SMTP Username:</strong> apna Gmail address daalein (jaise <code className="bg-white px-1 rounded">yourcompany@gmail.com</code>).</li>
-                      <li><strong>SMTP Password:</strong> Gmail ka <strong>App Password</strong> use karein — normal Gmail password yahan kaam nahi karega. App Password banane ke liye: Google Account → Security → 2-Step Verification on karein, phir <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener noreferrer" className="text-blue-600 underline font-medium">App passwords</a> se naya password generate karein aur us 16-character code ko SMTP Password field mein daalein.</li>
+                      <li><strong>SMTP Username:</strong> Your Gmail address (e.g. <code className="bg-white px-1 rounded">yourcompany@gmail.com</code>).</li>
+                      <li><strong>SMTP Password:</strong> Use Gmail <strong>App Password</strong> — your normal Gmail password will not work. To create one: Google Account → Security → turn on 2-Step Verification, then generate a new password at <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener noreferrer" className="text-blue-600 underline font-medium">App passwords</a> and enter that 16-character code in the SMTP Password field.</li>
                     </ul>
                   </div>
 
                   <div>
                     <p className="font-semibold text-gray-800 mb-2">Step 4 — Sender (From) details</p>
                     <ul className="list-disc list-inside space-y-1 text-gray-700">
-                      <li><strong>From Email:</strong> wahi email jo recipient ko dikhega (same Gmail use kar sakte hain, ya company domain email).</li>
-                      <li><strong>From Name:</strong> jo naam dikhana hai (jaise <code className="bg-white px-1 rounded">TravelOps</code> ya company name).</li>
+                      <li><strong>From Email:</strong> The email that will appear to the recipient (you can use the same Gmail or a company domain email).</li>
+                      <li><strong>From Name:</strong> The name to display (e.g. <code className="bg-white px-1 rounded">TravelOps</code> or your company name).</li>
                     </ul>
                   </div>
 
                   <div>
-                    <p className="font-semibold text-gray-800 mb-2">Step 5 — Save aur Test</p>
+                    <p className="font-semibold text-gray-800 mb-2">Step 5 — Save and Test</p>
                     <ul className="list-disc list-inside space-y-1 text-gray-700">
-                      <li><strong>Save Settings</strong> button dabayein.</li>
-                      <li>Neeche <strong>Send Test Mail</strong> mein apna ya koi test email daal kar test bhejein. Agar test mail inbox (ya Spam) mein aa jaye to setup sahi hai.</li>
+                      <li>Click the <strong>Save Settings</strong> button.</li>
+                      <li>Enter your email or a test address in <strong>Send Test Mail</strong> and click to send. If the test email arrives in inbox (or Spam), the setup is correct.</li>
                     </ul>
                   </div>
 
                   <p className="pt-2 text-gray-600 border-t border-gray-200">
-                    <strong>Note:</strong> Agar Gmail ki jagah koi aur provider use kar rahe hain (Hostinger, Zoho, etc.) to unke SMTP host, port aur encryption values use karein (provider ki documentation dekhein).
+                    <strong>Note:</strong> If using a provider other than Gmail (Hostinger, Zoho, etc.), use their SMTP host, port and encryption values (see provider documentation).
                   </p>
                 </div>
               )}
@@ -240,22 +254,22 @@ const CompanyMailSettings = () => {
                   </label>
                 </div>
                 <p className="text-xs text-amber-800 ml-7">
-                  Is checkbox ko <strong>zaroor tick karein</strong> — tabhi Leads/Mails se bheja hua mail inhi SMTP settings se jayega. Unchecked rehne pe saved settings use nahi honge aur mail nahi ja sakta.
+                  <strong>You must check this box</strong> — only then will emails sent from Leads/Mails use these SMTP settings. If unchecked, saved settings will not be used and mail may not send.
                 </p>
               </div>
 
-              {/* Saved configuration summary - dikhane ke liye ke data add/save hua hai */}
+              {/* Saved configuration summary */}
               {(formData.host || formData.username) && (
                 <div className="p-3 bg-green-50 border border-green-200 rounded-lg text-sm">
-                  <p className="font-medium text-green-800 mb-2">Abhi saved configuration (jo add/save hua hai):</p>
+                  <p className="font-medium text-green-800 mb-2">Current saved configuration:</p>
                   <ul className="text-gray-700 space-y-1">
                     <li><strong>Host:</strong> {formData.host || '—'}</li>
                     <li><strong>Port:</strong> {formData.port || '—'} · <strong>Encryption:</strong> {formData.encryption || 'None'}</li>
                     <li><strong>Username:</strong> {formData.username || '—'}</li>
-                    <li><strong>Password:</strong> {formData.password ? '•••••••• (set)' : (hasPassword ? '•••••••• (saved, yahan edit karke change kar sakte hain)' : '— not set')}</li>
+                    <li><strong>Password:</strong> {formData.password ? '•••••••• (set)' : (hasPassword ? '•••••••• (saved — edit above to change)' : '— not set')}</li>
                     <li><strong>From:</strong> {formData.from_address || '—'} ({formData.from_name || '—'})</li>
                   </ul>
-                  <p className="mt-2 text-green-700 text-xs">Ye values form mein upar dikh rahi hain — save karne ke baad bhi yahi dikhengi. Mail bhejne ke liye &quot;Use company mail settings&quot; checkbox tick karein.</p>
+                  <p className="mt-2 text-green-700 text-xs">These values are shown in the form above and will stay after save. Check &quot;Use company mail settings&quot; when sending mail.</p>
                 </div>
               )}
 
@@ -325,7 +339,7 @@ const CompanyMailSettings = () => {
                       {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </button>
                   </div>
-                  <p className="mt-1 text-xs text-gray-500">Save ke baad bhi password yahan dikhega (show/hide se chhupa sakte hain). Gmail App Password: Google spaces ke saath dikhata hai — paste karein, system spaces hata kar use karega.</p>
+                  <p className="mt-1 text-xs text-gray-500">Password will remain visible here after save (use show/hide to mask). Gmail App Password: Google shows it with spaces — you can paste as-is; the system will remove spaces when using it.</p>
                 </div>
               </div>
 
