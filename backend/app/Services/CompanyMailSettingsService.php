@@ -105,6 +105,9 @@ class CompanyMailSettingsService
                 'local_domain' => config('mail.mailers.smtp.local_domain'),
             ]);
 
+            // When MAIL_VERIFY_PEER=false: fix "Peer certificate CN did not match expected CN" on live (Symfony Mailer reads verify_peer from Dsn options)
+            $smtpConfig['verify_peer'] = filter_var(env('MAIL_VERIFY_PEER', 'true'), FILTER_VALIDATE_BOOLEAN);
+
             config(['mail.mailers.smtp' => $smtpConfig]);
         }
 

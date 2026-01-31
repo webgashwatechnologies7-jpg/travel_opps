@@ -45,6 +45,8 @@ return [
             'password' => env('MAIL_PASSWORD'),
             'timeout' => null,
             'local_domain' => env('MAIL_EHLO_DOMAIN'),
+            // When MAIL_VERIFY_PEER=false: fix "Peer certificate CN did not match expected CN" (Symfony Mailer reads this from Dsn options)
+            'verify_peer' => filter_var(env('MAIL_VERIFY_PEER', 'true'), FILTER_VALIDATE_BOOLEAN),
         ],
 
         'postfix' => [
@@ -56,6 +58,8 @@ return [
             'password' => env('POSTFIX_PASSWORD'),
             'timeout' => null,
             'local_domain' => env('MAIL_EHLO_DOMAIN'),
+            // When MAIL_VERIFY_PEER=false: fix certificate CN mismatch (e.g. 127.0.0.1 vs srv*.hstgr.cloud)
+            'verify_peer' => filter_var(env('MAIL_VERIFY_PEER', 'true'), FILTER_VALIDATE_BOOLEAN),
         ],
 
         'ses' => [
