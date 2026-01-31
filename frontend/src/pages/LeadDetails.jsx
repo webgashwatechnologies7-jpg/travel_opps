@@ -598,7 +598,8 @@ const LeadDetails = () => {
       }
     } catch (err) {
       console.error('Auto-send failed:', err);
-      alert(err.response?.data?.message || 'Email/WhatsApp send karne me problem aayi. Mails/WhatsApp tabs check karein.');
+      const msg = err.response?.data?.message || err.response?.data?.error || err.message || 'Unknown error';
+      alert('Mail send nahi hua.\n\nIssue: ' + msg);
     }
   };
 
@@ -718,6 +719,9 @@ const LeadDetails = () => {
             body: ''
           });
           fetchGmailEmails();
+        } else {
+          const msg = response.data?.message || response.data?.error || 'Unknown error';
+          alert('Mail send nahi hua.\n\nIssue: ' + msg);
         }
       } else {
         // Fallback to existing system email (local mailer)
@@ -741,11 +745,15 @@ const LeadDetails = () => {
           });
           setEmailAttachment(null);
           fetchLeadEmails();
+        } else {
+          const msg = response.data?.message || response.data?.error || 'Unknown error';
+          alert('Mail send nahi hua.\n\nIssue: ' + msg);
         }
       }
     } catch (err) {
       console.error('Failed to send email:', err);
-      alert(err.response?.data?.message || 'Failed to send email');
+      const msg = err.response?.data?.message || err.response?.data?.error || err.message || 'Unknown error';
+      alert('Mail send nahi hua.\n\nIssue: ' + msg);
     } finally {
       setSendingClientEmail(false);
     }
@@ -2657,11 +2665,13 @@ const LeadDetails = () => {
         
         alert('Email sent successfully! Lead status updated to PROPOSAL.');
       } else {
-        alert(response.data.message || 'Failed to send email');
+        const msg = response.data?.message || response.data?.error || 'Unknown error';
+        alert('Mail send nahi hua.\n\nIssue: ' + msg);
       }
     } catch (error) {
       console.error('Error sending email:', error);
-      alert(error.response?.data?.message || 'Failed to send email');
+      const msg = error.response?.data?.message || error.response?.data?.error || error.message || 'Unknown error';
+      alert('Mail send nahi hua.\n\nIssue: ' + msg);
     }
   };
 

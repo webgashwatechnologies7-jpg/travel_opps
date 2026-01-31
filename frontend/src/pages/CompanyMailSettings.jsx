@@ -222,18 +222,38 @@ const CompanyMailSettings = () => {
             )}
 
             <form onSubmit={handleSave} className="space-y-4">
-              <div className="flex items-center gap-3">
-                <input
-                  id="mail-enabled"
-                  type="checkbox"
-                  checked={formData.enabled}
-                  onChange={(e) => handleChange('enabled', e.target.checked)}
-                  className="h-4 w-4"
-                />
-                <label htmlFor="mail-enabled" className="text-sm font-medium text-gray-700">
-                  Use company mail settings
-                </label>
+              <div className="flex flex-col gap-2 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                <div className="flex items-center gap-3">
+                  <input
+                    id="mail-enabled"
+                    type="checkbox"
+                    checked={formData.enabled}
+                    onChange={(e) => handleChange('enabled', e.target.checked)}
+                    className="h-4 w-4"
+                  />
+                  <label htmlFor="mail-enabled" className="text-sm font-medium text-gray-800">
+                    Use company mail settings
+                  </label>
+                </div>
+                <p className="text-xs text-amber-800 ml-7">
+                  Is checkbox ko <strong>zaroor tick karein</strong> — tabhi Leads/Mails se bheja hua mail inhi SMTP settings se jayega. Unchecked rehne pe saved settings use nahi honge aur mail nahi ja sakta.
+                </p>
               </div>
+
+              {/* Saved configuration summary - dikhane ke liye ke data add/save hua hai */}
+              {(formData.host || formData.username) && (
+                <div className="p-3 bg-green-50 border border-green-200 rounded-lg text-sm">
+                  <p className="font-medium text-green-800 mb-2">Abhi saved configuration (jo add/save hua hai):</p>
+                  <ul className="text-gray-700 space-y-1">
+                    <li><strong>Host:</strong> {formData.host || '—'}</li>
+                    <li><strong>Port:</strong> {formData.port || '—'} · <strong>Encryption:</strong> {formData.encryption || 'None'}</li>
+                    <li><strong>Username:</strong> {formData.username || '—'}</li>
+                    <li><strong>Password:</strong> {formData.password ? '•••••••• (set)' : (hasPassword ? '•••••••• (saved, yahan edit karke change kar sakte hain)' : '— not set')}</li>
+                    <li><strong>From:</strong> {formData.from_address || '—'} ({formData.from_name || '—'})</li>
+                  </ul>
+                  <p className="mt-2 text-green-700 text-xs">Ye values form mein upar dikh rahi hain — save karne ke baad bhi yahi dikhengi. Mail bhejne ke liye &quot;Use company mail settings&quot; checkbox tick karein.</p>
+                </div>
+              )}
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">SMTP Host</label>
