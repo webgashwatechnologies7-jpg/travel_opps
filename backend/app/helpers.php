@@ -11,7 +11,7 @@ if (!function_exists('tenant')) {
      */
     function tenant(?string $key = null)
     {
-        $tenant = app('tenant');
+        $tenant = app()->bound('tenant') ? app('tenant') : null;
 
         if (!$tenant) {
             return null;

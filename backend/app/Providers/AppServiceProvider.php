@@ -14,6 +14,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
+        // Ensure 'tenant' is always bound (avoids "Target class [tenant] does not exist" on live when accessed by IP)
+        $this->app->instance('tenant', null);
+
         // Bind repository interfaces to implementations
         $this->app->bind(
             LeadRepositoryInterface::class,
