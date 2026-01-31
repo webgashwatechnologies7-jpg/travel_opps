@@ -8,9 +8,12 @@ const EmailInbox = () => {
   const navigate = useNavigate();
   const [emails, setEmails] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [syncing, setSyncing] = useState(false);
+  const [syncMessage, setSyncMessage] = useState(null);
 
   const fetchInbox = async () => {
     setLoading(true);
+    setSyncMessage(null);
     try {
       const response = await googleMailAPI.getEmailInbox();
       if (response.data?.success && response.data?.data?.emails) {
@@ -23,6 +26,20 @@ const EmailInbox = () => {
       setEmails([]);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSyncInbox = async () => {
+    setSyncing(true);
+    setSyncMessage(null);
+    try {
+      await googleMailAPI.syncInbox();
+      setSyncMessage({ type: 'success', text: 'Inbox synced. Refreshing list.' });
+      await fetchInbox();
+    } catch (err) {
+      setSyncMessage({ type: 'error', text: err.response?.data?.error || err.message || 'Sync failed' });
+    } finally {
+      setSyncing(false);
     }
   };
 
@@ -65,15 +82,31 @@ const EmailInbox = () => {
             <Mail className="h-7 w-7 text-blue-600" />
             Email Inbox
           </h1>
-          <button
-            type="button"
-            onClick={fetchInbox}
-            disabled={loading}
-            className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 border border-gray-300 disabled:opacity-60"
-          >
-            <RefreshCw className="h-4 w-4" />
-            Refresh
-          </button>
+          <div className="flex items-center gap-2">
+            {syncMessage && (
+              <span className={`text-sm ${syncMessage.type === 'success' ? 'text-green-600' : 'text-red-600'}`}>
+                {syncMessage.text}
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={handleSyncInbox}
+              disabled={loading || syncing}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 border border-blue-700 disabled:opacity-60"
+            >
+              <RefreshCw className={`h-4 w-4 ${syncing ? 'animate-spin' : ''}`} />
+              {syncing ? 'Syncing…' : 'Sync inbox'}
+            </button>
+            <button
+              type="button"
+              onClick={fetchInbox}
+              disabled={loading}
+              className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 border border-gray-300 disabled:opacity-60"
+            >
+              <RefreshCw className="h-4 w-4" />
+              Refresh
+            </button>
+          </div>
         </div>
 
         <p className="text-sm text-gray-600 mb-4">

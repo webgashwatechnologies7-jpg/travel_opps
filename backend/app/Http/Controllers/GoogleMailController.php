@@ -176,6 +176,7 @@ class GoogleMailController extends Controller
 
     /**
      * Get recent emails across all leads (for Mail inbox page).
+     * Includes emails linked to company leads, and synced emails to/from company users' Gmail (even without lead).
      */
     public function getInbox(): JsonResponse
     {
@@ -189,8 +190,31 @@ class GoogleMailController extends Controller
             ->pluck('id')
             ->all();
 
-        $emails = CrmEmail::whereIn('lead_id', $leadIds)
+        $companyGmailEmails = collect();
+        if ($companyId) {
+            $companyGmailEmails = User::where('company_id', $companyId)
+                ->whereNotNull('gmail_email')
+                ->where('gmail_email', '!=', '')
+                ->pluck('gmail_email');
+        }
+        if ($user?->gmail_email) {
+            $companyGmailEmails = $companyGmailEmails->push($user->gmail_email)->unique()->values();
+        }
+
+        $emails = CrmEmail::query()
             ->with('lead:id,client_name,email,query_id')
+            ->where(function ($q) use ($leadIds, $companyGmailEmails) {
+                $q->whereIn('lead_id', $leadIds);
+                if ($companyGmailEmails->isNotEmpty()) {
+                    $q->orWhere(function ($q2) use ($companyGmailEmails) {
+                        $q2->whereNull('lead_id')
+                            ->where(function ($q3) use ($companyGmailEmails) {
+                                $q3->whereIn('to_email', $companyGmailEmails)
+                                    ->orWhereIn('from_email', $companyGmailEmails);
+                            });
+                    });
+                }
+            })
             ->orderBy('created_at', 'desc')
             ->limit(100)
             ->get();

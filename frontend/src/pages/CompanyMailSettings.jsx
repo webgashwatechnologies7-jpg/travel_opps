@@ -301,6 +301,44 @@ const CompanyMailSettings = () => {
               )}
             </div>
 
+            {/* Setup status — show when steps are done */}
+            <div className="mb-6 p-4 bg-white border border-gray-200 rounded-lg shadow-sm">
+              <h2 className="text-base font-semibold text-gray-800 mb-3">Setup status</h2>
+              <ul className="space-y-2 text-sm">
+                <li className="flex items-center gap-2">
+                  {googleOAuth.google_client_id?.trim() ? (
+                    <>
+                      <span className="w-2 h-2 bg-green-600 rounded-full" />
+                      <span className="text-green-700">Google OAuth: Configured</span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="w-2 h-2 bg-gray-300 rounded-full" />
+                      <span className="text-gray-600">Google OAuth: Not configured</span>
+                    </>
+                  )}
+                </li>
+                <li className="flex items-center gap-2">
+                  {user?.google_token ? (
+                    <>
+                      <span className="w-2 h-2 bg-green-600 rounded-full" />
+                      <span className="text-green-700">Gmail for receiving: Connected ({user.gmail_email})</span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="w-2 h-2 bg-gray-300 rounded-full" />
+                      <span className="text-gray-600">Gmail for receiving: Not connected</span>
+                    </>
+                  )}
+                </li>
+              </ul>
+              {googleOAuth.google_client_id?.trim() && user?.google_token && (
+                <p className="mt-3 pt-3 border-t border-gray-100 text-sm font-medium text-green-700">
+                  Setup complete — You can send and receive emails in the CRM. Use Mail in the sidebar and Sync inbox to see received emails.
+                </p>
+              )}
+            </div>
+
             {/* Connect Gmail for receiving — so replies and received mails come into CRM */}
             <div className="mb-6 p-4 bg-white border border-gray-200 rounded-lg shadow-sm">
               <h2 className="text-base font-semibold text-gray-800 mb-2 flex items-center gap-2">

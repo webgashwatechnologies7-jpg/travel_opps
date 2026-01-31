@@ -139,7 +139,7 @@ class GmailService
         }
 
         $gmail = new Gmail($this->client);
-        $results = $gmail->users_messages->listUsersMessages('me', ['q' => 'is:inbox', 'maxResults' => 10]);
+        $results = $gmail->users_messages->listUsersMessages('me', ['q' => 'is:inbox', 'maxResults' => 50]);
 
         foreach ($results->getMessages() as $messageSummary) {
             $msg = $gmail->users_messages->get('me', $messageSummary->getId());
