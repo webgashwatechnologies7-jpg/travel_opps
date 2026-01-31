@@ -83,7 +83,17 @@ class GoogleMailController extends Controller
     public function callback()
     {
         $frontendUrl = rtrim(config('app.frontend_url', '/'), '/');
-        $settingsPath = $frontendUrl . '/settings';
+        $settingsPath = $frontendUrl . '/settings/mail';
+
+        // Google can redirect with ?error=... (e.g. access_denied) instead of code
+        if (request()->has('error')) {
+            $err = request('error');
+            $msg = $err === 'access_denied' ? 'You cancelled or Google denied access.' : ('Google error: ' . $err);
+            return redirect($settingsPath . '?google_connected=false&error=' . urlencode($msg));
+        }
+        if (!request()->has('code')) {
+            return redirect($settingsPath . '?google_connected=false&error=' . urlencode('No authorization code from Google. Try Connect Gmail again.'));
+        }
 
         try {
             $this->applyCompanyGoogleConfig();
@@ -119,6 +129,7 @@ class GoogleMailController extends Controller
 
             return redirect($settingsPath . '?google_connected=true');
         } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::warning('Google callback error: ' . $e->getMessage());
             return redirect($settingsPath . '?google_connected=false&error=' . urlencode($e->getMessage()));
         }
     }

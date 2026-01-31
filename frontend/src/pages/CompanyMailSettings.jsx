@@ -288,6 +288,7 @@ const CompanyMailSettings = () => {
                         className="w-full border border-gray-300 rounded-lg px-3 py-2"
                       />
                       <p className="mt-1 text-xs text-gray-500">Use your server URL + /api/google/callback (e.g. https://yoursite.com/api/google/callback). Add this exact URL in Google Cloud Console under your OAuth client → Authorized redirect URIs.</p>
+                      <p className="mt-1 text-xs text-amber-700">If you click Continue on Google but connection does not complete, the Redirect URI here must exactly match the one in Google Console (same protocol, domain, path). For local testing use http://127.0.0.1:YOUR_BACKEND_PORT/api/google/callback.</p>
                     </div>
                     <button
                       type="submit"
