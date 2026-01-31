@@ -124,10 +124,14 @@ const CompanyMailSettings = () => {
       const payloadData = response.data || {};
       setTestResult(payloadData.data || null);
       if (!payloadData.success) {
-        setMessage({ type: 'error', text: payloadData.message || 'Mail test failed' });
+        const msg = payloadData.message || payloadData.error || (payloadData.data?.errors?.join?.(' ') || 'Mail test failed');
+        setMessage({ type: 'error', text: 'Mail send nahi hua. Issue: ' + msg });
+        alert('Mail send nahi hua.\n\nIssue: ' + msg);
       }
     } catch (err) {
-      setMessage({ type: 'error', text: 'Mail test failed' });
+      const msg = err.response?.data?.message || err.response?.data?.error || err.message || 'Mail test failed';
+      setMessage({ type: 'error', text: 'Mail send nahi hua. Issue: ' + msg });
+      alert('Mail send nahi hua.\n\nIssue: ' + msg);
     } finally {
       setTesting(false);
     }

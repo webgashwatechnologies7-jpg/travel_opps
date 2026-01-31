@@ -105,103 +105,121 @@ class CompanyMailSettingsController extends Controller
 
     public function test(Request $request): JsonResponse
     {
-        $validator = Validator::make($request->all(), [
-            'to' => 'required|email',
-            'enabled' => 'nullable|boolean',
-            'mailer' => 'nullable|in:smtp',
-            'host' => 'nullable|string|max:255',
-            'port' => 'nullable|integer|min:1|max:65535',
-            'encryption' => 'nullable|in:tls,ssl',
-            'username' => 'nullable|string|max:255',
-            'password' => 'nullable|string|max:255',
-            'from_address' => 'nullable|email',
-            'from_name' => 'nullable|string|max:255',
-        ]);
+        try {
+            $validator = Validator::make($request->all(), [
+                'to' => 'required|email',
+                'enabled' => 'nullable|boolean',
+                'mailer' => 'nullable|in:smtp',
+                'host' => 'nullable|string|max:255',
+                'port' => 'nullable|integer|min:1|max:65535',
+                'encryption' => 'nullable|in:tls,ssl',
+                'username' => 'nullable|string|max:255',
+                'password' => 'nullable|string|max:255',
+                'from_address' => 'nullable|email',
+                'from_name' => 'nullable|string|max:255',
+            ]);
 
-        if ($validator->fails()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Validation failed',
-                'errors' => $validator->errors(),
-            ], 422);
-        }
-
-        $settings = CompanyMailSettingsService::getSettings();
-        $overrides = array_filter($request->only([
-            'enabled',
-            'mailer',
-            'host',
-            'port',
-            'encryption',
-            'username',
-            'password',
-            'from_address',
-            'from_name',
-        ]), static function ($value) {
-            return $value !== null;
-        });
-
-        $settings = array_merge($settings, $overrides);
-        CompanyMailSettingsService::applySettings($settings);
-
-        $errors = [];
-        $checks = [];
-        $mailer = $settings['mailer'] ?? 'smtp';
-        $transport = $mailer;
-
-        if ($mailer === 'smtp') {
-            $host = $settings['host'] ?? null;
-            $port = $settings['port'] ?? null;
-
-            if (!$host) {
-                $errors[] = 'SMTP host is not configured.';
-            }
-            if (!$port) {
-                $errors[] = 'SMTP port is not configured.';
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Validation failed',
+                    'errors' => $validator->errors(),
+                ], 422);
             }
 
-            if ($host && $port) {
-                $timeout = 5;
-                $connection = @fsockopen($host, (int) $port, $errno, $errstr, $timeout);
-                if ($connection) {
-                    fclose($connection);
-                    $checks[] = "SMTP connection OK ({$host}:{$port}).";
-                } else {
-                    $errors[] = "SMTP connection failed: {$errstr} ({$errno}).";
+            $settings = CompanyMailSettingsService::getSettings();
+            $overrides = array_filter($request->only([
+                'enabled',
+                'mailer',
+                'host',
+                'port',
+                'encryption',
+                'username',
+                'password',
+                'from_address',
+                'from_name',
+            ]), static function ($value) {
+                return $value !== null;
+            });
+
+            $settings = array_merge($settings, $overrides);
+            CompanyMailSettingsService::applySettings($settings);
+
+            $errors = [];
+            $checks = [];
+            $mailer = $settings['mailer'] ?? 'smtp';
+            $transport = $mailer;
+
+            if ($mailer === 'smtp') {
+                $host = $settings['host'] ?? null;
+                $port = $settings['port'] ?? null;
+
+                if (!$host) {
+                    $errors[] = 'SMTP host is not configured.';
+                }
+                if (!$port) {
+                    $errors[] = 'SMTP port is not configured.';
+                }
+
+                if ($host && $port) {
+                    $timeout = 5;
+                    $connection = @fsockopen($host, (int) $port, $errno, $errstr, $timeout);
+                    if ($connection) {
+                        fclose($connection);
+                        $checks[] = "SMTP connection OK ({$host}:{$port}).";
+                    } else {
+                        $errors[] = "SMTP connection failed: {$errstr} ({$errno}).";
+                    }
                 }
             }
-        }
 
-        if (empty($errors)) {
-            try {
-                $fromAddress = $settings['from_address'] ?? config('mail.from.address');
-                $fromName = $settings['from_name'] ?? config('mail.from.name');
+            if (empty($errors)) {
+                try {
+                    $fromAddress = $settings['from_address'] ?? config('mail.from.address');
+                    $fromName = $settings['from_name'] ?? config('mail.from.name');
 
-                Mail::raw('Mail test from ' . config('app.name', 'TravelOps'), function ($message) use ($request, $fromAddress, $fromName) {
-                    if ($fromAddress) {
-                        $message->from($fromAddress, $fromName ?: null);
-                    }
-                    $message->to($request->to)
-                        ->subject('Mail Test');
-                });
-                $checks[] = "Test email sent to {$request->to}.";
-            } catch (\Throwable $e) {
-                $errors[] = 'Failed to send test email: ' . $e->getMessage();
+                    Mail::raw('Mail test from ' . config('app.name', 'TravelOps'), function ($message) use ($request, $fromAddress, $fromName) {
+                        if ($fromAddress) {
+                            $message->from($fromAddress, $fromName ?: null);
+                        }
+                        $message->to($request->to)
+                            ->subject('Mail Test');
+                    });
+                    $checks[] = "Test email sent to {$request->to}.";
+                } catch (\Throwable $e) {
+                    $errors[] = 'Failed to send test email: ' . $e->getMessage();
+                }
             }
+
+            $success = empty($errors);
+            $message = $success ? 'Mail is working.' : 'Mail is not working.';
+            if (!empty($errors)) {
+                $message = implode(' ', $errors);
+            }
+
+            return response()->json([
+                'success' => $success,
+                'message' => $message,
+                'data' => [
+                    'mailer' => $mailer,
+                    'transport' => $transport,
+                    'to' => $request->to,
+                    'checks' => $checks,
+                    'errors' => $errors,
+                ],
+            ]);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error('Mail test error: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+                'data' => [
+                    'errors' => [$e->getMessage()],
+                ],
+            ], 500);
         }
-
-        $success = empty($errors);
-
-        return response()->json([
-            'success' => $success,
-            'message' => $success ? 'Mail is working.' : 'Mail is not working.',
-            'data' => [
-                'mailer' => $mailer,
-                'transport' => $transport,
-                'to' => $request->to,
-                'checks' => $checks,
-                'errors' => $errors,
-            ],
-        ]);
     }
 }
