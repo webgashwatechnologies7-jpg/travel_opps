@@ -91,7 +91,8 @@ const CompanyMailSettings = () => {
         setMessage({ type: 'error', text: response.data.message || 'Failed to save' });
       }
     } catch (err) {
-      setMessage({ type: 'error', text: 'Failed to save mail settings' });
+      const msg = err.response?.data?.message || err.response?.data?.error || err.message;
+      setMessage({ type: 'error', text: msg || 'Failed to save mail settings' });
     } finally {
       setSaving(false);
     }

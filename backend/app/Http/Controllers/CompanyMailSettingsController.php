@@ -42,72 +42,89 @@ class CompanyMailSettingsController extends Controller
 
     public function update(Request $request): JsonResponse
     {
-        $validator = Validator::make($request->all(), [
-            'enabled' => 'nullable|boolean',
-            'mailer' => 'nullable|in:smtp',
-            'host' => 'nullable|string|max:255',
-            'port' => 'nullable|integer|min:1|max:65535',
-            'encryption' => 'nullable|in:tls,ssl',
-            'username' => 'nullable|string|max:255',
-            'password' => 'nullable|string|max:255',
-            'from_address' => 'nullable|email',
-            'from_name' => 'nullable|string|max:255',
-        ]);
+        try {
+            $validator = Validator::make($request->all(), [
+                'enabled' => 'nullable|boolean',
+                'mailer' => 'nullable|in:smtp',
+                'host' => 'nullable|string|max:255',
+                'port' => 'nullable|integer|min:1|max:65535',
+                'encryption' => 'nullable|in:tls,ssl',
+                'username' => 'nullable|string|max:255',
+                'password' => 'nullable|string|max:255',
+                'from_address' => 'nullable|email',
+                'from_name' => 'nullable|string|max:255',
+            ]);
 
-        if ($validator->fails()) {
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Validation failed',
+                    'errors' => $validator->errors(),
+                ], 422);
+            }
+
+            $payload = array_filter($request->only([
+                'enabled',
+                'mailer',
+                'host',
+                'port',
+                'encryption',
+                'username',
+                'password',
+                'from_address',
+                'from_name',
+            ]), static function ($value, $key) {
+                if ($value === null) {
+                    return false;
+                }
+                // Never overwrite password with empty string — keep existing if user left field blank
+                if ($key === 'password' && $value === '') {
+                    return false;
+                }
+                return true;
+            }, ARRAY_FILTER_USE_BOTH);
+
+            $companyId = CompanyMailSettingsService::getCompanyId();
+            if (!$companyId) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Could not determine company. Please ensure you are logged in and have a company assigned.',
+                ], 500);
+            }
+
+            $settings = CompanyMailSettingsService::saveSettings($payload, $companyId);
+
+            // Update integration flag for company (used for reports / quick checks)
+            if (Schema::hasTable('company_settings') && Schema::hasColumn('company_settings', 'email_integration_enabled')) {
+                $enabled = filter_var($settings['enabled'] ?? false, FILTER_VALIDATE_BOOLEAN);
+                CompanySettings::where('company_id', $companyId)->update(['email_integration_enabled' => $enabled]);
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Mail settings updated',
+                'data' => [
+                    'enabled' => filter_var($settings['enabled'] ?? false, FILTER_VALIDATE_BOOLEAN),
+                    'mailer' => $settings['mailer'] ?? 'smtp',
+                    'host' => $settings['host'] ?? '',
+                    'port' => $settings['port'] ?? '',
+                    'encryption' => $settings['encryption'] ?? '',
+                    'username' => $settings['username'] ?? '',
+                    'password' => (string) ($settings['password'] ?? ''),
+                    'has_password' => !empty($settings['password']),
+                    'from_address' => $settings['from_address'] ?? config('mail.from.address'),
+                    'from_name' => $settings['from_name'] ?? config('mail.from.name'),
+                ],
+            ]);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error('Mail settings update error: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString(),
+            ]);
             return response()->json([
                 'success' => false,
-                'message' => 'Validation failed',
-                'errors' => $validator->errors(),
-            ], 422);
+                'message' => 'Failed to save mail settings: ' . $e->getMessage(),
+            ], 500);
         }
-
-        $payload = array_filter($request->only([
-            'enabled',
-            'mailer',
-            'host',
-            'port',
-            'encryption',
-            'username',
-            'password',
-            'from_address',
-            'from_name',
-        ]), static function ($value, $key) {
-            if ($value === null) {
-                return false;
-            }
-            // Never overwrite password with empty string — keep existing if user left field blank
-            if ($key === 'password' && $value === '') {
-                return false;
-            }
-            return true;
-        }, ARRAY_FILTER_USE_BOTH);
-
-        $settings = CompanyMailSettingsService::saveSettings($payload);
-
-        // Update integration flag for company (used for reports / quick checks)
-        $companyId = CompanyMailSettingsService::getCompanyId();
-        if ($companyId && Schema::hasColumn('company_settings', 'email_integration_enabled')) {
-            $enabled = filter_var($settings['enabled'] ?? false, FILTER_VALIDATE_BOOLEAN);
-            CompanySettings::where('company_id', $companyId)->update(['email_integration_enabled' => $enabled]);
-        }
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Mail settings updated',
-            'data' => [
-                'enabled' => filter_var($settings['enabled'] ?? false, FILTER_VALIDATE_BOOLEAN),
-                'mailer' => $settings['mailer'] ?? 'smtp',
-                'host' => $settings['host'] ?? '',
-                'port' => $settings['port'] ?? '',
-                'encryption' => $settings['encryption'] ?? '',
-                'username' => $settings['username'] ?? '',
-                'password' => (string) ($settings['password'] ?? ''),
-                'has_password' => !empty($settings['password']),
-                'from_address' => $settings['from_address'] ?? config('mail.from.address'),
-                'from_name' => $settings['from_name'] ?? config('mail.from.name'),
-            ],
-        ]);
     }
 
     public function test(Request $request): JsonResponse
