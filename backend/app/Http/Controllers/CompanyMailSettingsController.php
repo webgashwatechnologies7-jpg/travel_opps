@@ -95,9 +95,18 @@ class CompanyMailSettingsController extends Controller
             $settings = CompanyMailSettingsService::saveSettings($payload, $companyId);
 
             // Update integration flag for company (used for reports / quick checks)
-            if (Schema::hasTable('company_settings') && Schema::hasColumn('company_settings', 'email_integration_enabled')) {
-                $enabled = filter_var($settings['enabled'] ?? false, FILTER_VALIDATE_BOOLEAN);
-                CompanySettings::where('company_id', $companyId)->update(['email_integration_enabled' => $enabled]);
+            // Skip if company_settings table lacks required columns — mail settings are already saved above
+            try {
+                if (Schema::hasTable('company_settings') && Schema::hasColumn('company_settings', 'email_integration_enabled')) {
+                    $enabled = filter_var($settings['enabled'] ?? false, FILTER_VALIDATE_BOOLEAN);
+                    $query = CompanySettings::query();
+                    if (Schema::hasColumn('company_settings', 'company_id')) {
+                        $query->where('company_id', $companyId);
+                    }
+                    $query->update(['email_integration_enabled' => $enabled]);
+                }
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning('Could not update company_settings.email_integration_enabled: ' . $e->getMessage());
             }
 
             return response()->json([

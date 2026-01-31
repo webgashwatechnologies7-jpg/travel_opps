@@ -33,8 +33,6 @@ class CompanyMailSettingsService
                 return (int) $tenant->id;
             }
         }
-
-        // Fallback for Super Admin (company_id null): use first active company so mail settings work
         $first = Company::where('status', 'active')->orderBy('id')->value('id');
         if ($first) {
             return (int) $first;
