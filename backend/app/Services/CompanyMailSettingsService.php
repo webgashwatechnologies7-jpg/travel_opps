@@ -63,8 +63,14 @@ class CompanyMailSettingsService
                 continue;
             }
 
+            $value = $data[$key];
+            // Gmail App Password is often pasted with spaces; SMTP expects no spaces
+            if ($key === 'password' && is_string($value)) {
+                $value = str_replace(' ', '', $value);
+            }
+
             $type = $key === 'enabled' ? 'boolean' : 'string';
-            Setting::setValue(self::buildKey($companyId, $key), $data[$key], $type, 'Company mail setting');
+            Setting::setValue(self::buildKey($companyId, $key), $value, $type, 'Company mail setting');
         }
 
         return self::getSettings($companyId);
@@ -94,13 +100,19 @@ class CompanyMailSettingsService
         }
 
         if ($mailer === 'smtp') {
+            // Gmail App Password is shown with spaces (e.g. "cklv kjhj jqsf ziqi") but SMTP expects no spaces
+            $password = ($settings['password'] ?? null) ?: null;
+            if ($password !== null && $password !== '') {
+                $password = str_replace(' ', '', $password);
+            }
+
             $smtpConfig = array_merge(config('mail.mailers.smtp', []), [
                 'transport' => 'smtp',
                 'host' => $host,
                 'port' => (int) ($settings['port'] ?? 587),
                 'encryption' => ($settings['encryption'] ?? null) ?: null,
                 'username' => ($settings['username'] ?? null) ?: null,
-                'password' => ($settings['password'] ?? null) ?: null,
+                'password' => $password,
                 'timeout' => null,
                 'local_domain' => config('mail.mailers.smtp.local_domain'),
             ]);

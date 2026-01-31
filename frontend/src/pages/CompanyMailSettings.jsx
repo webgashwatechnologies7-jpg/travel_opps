@@ -325,7 +325,7 @@ const CompanyMailSettings = () => {
                       {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </button>
                   </div>
-                  <p className="mt-1 text-xs text-gray-500">Save ke baad bhi password yahan dikhega (show/hide se chhupa sakte hain).</p>
+                  <p className="mt-1 text-xs text-gray-500">Save ke baad bhi password yahan dikhega (show/hide se chhupa sakte hain). Gmail App Password: Google spaces ke saath dikhata hai — paste karein, system spaces hata kar use karega.</p>
                 </div>
               </div>
 
