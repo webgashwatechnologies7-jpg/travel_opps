@@ -85,6 +85,20 @@ const CompanyMailSettings = () => {
     fetchGoogleOAuth();
   }, []);
 
+  // Show success/error after Gmail OAuth callback redirect
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const connected = params.get('google_connected');
+    const error = params.get('error');
+    if (connected === 'true') {
+      setMessage({ type: 'success', text: 'Gmail connected. You can now receive and sync emails in the CRM.' });
+      window.history.replaceState({}, '', window.location.pathname);
+    } else if (connected === 'false' && error) {
+      setMessage({ type: 'error', text: decodeURIComponent(error) });
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  }, []);
+
   const handleChange = (field, value) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
@@ -304,7 +318,18 @@ const CompanyMailSettings = () => {
                   </div>
                   <button
                     type="button"
-                    onClick={() => { window.location.href = googleMailAPI.getConnectUrl(); }}
+                    onClick={async () => {
+                    try {
+                      const res = await googleMailAPI.getConnectUrlForRedirect();
+                      if (res.data?.url) {
+                        window.location.href = res.data.url;
+                      } else {
+                        setMessage({ type: 'error', text: res.data?.error || 'Could not get connect URL' });
+                      }
+                    } catch (err) {
+                      setMessage({ type: 'error', text: err.response?.data?.error || err.message || 'Failed to start Gmail connect' });
+                    }
+                  }}
                     className="w-fit px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
                   >
                     Reconnect Gmail
@@ -313,7 +338,18 @@ const CompanyMailSettings = () => {
               ) : (
                 <button
                   type="button"
-                  onClick={() => { window.location.href = googleMailAPI.getConnectUrl(); }}
+                  onClick={async () => {
+                    try {
+                      const res = await googleMailAPI.getConnectUrlForRedirect();
+                      if (res.data?.url) {
+                        window.location.href = res.data.url;
+                      } else {
+                        setMessage({ type: 'error', text: res.data?.error || 'Could not get connect URL' });
+                      }
+                    } catch (err) {
+                      setMessage({ type: 'error', text: err.response?.data?.error || err.message || 'Failed to start Gmail connect' });
+                    }
+                  }}
                   className="flex items-center gap-2 px-5 py-2.5 text-white bg-red-600 rounded-lg hover:bg-red-700 font-medium"
                 >
                   <Mail className="h-4 w-4" />

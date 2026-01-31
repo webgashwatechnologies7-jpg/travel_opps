@@ -28,6 +28,7 @@ Route::prefix('auth')->group(function () {
 // Google OAuth routes
 Route::prefix('google')->group(function () {
     Route::get('/connect', [GoogleMailController::class, 'redirect']);
+    Route::get('/connect-url', [GoogleMailController::class, 'getConnectUrl'])->middleware('auth:sanctum');
     Route::get('/callback', [GoogleMailController::class, 'callback']);
 });
 

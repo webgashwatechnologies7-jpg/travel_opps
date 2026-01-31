@@ -236,6 +236,9 @@ export const googleSheetsAPI = {
 
 // Google Mail APIs
 export const googleMailAPI = {
+  /** Get Google OAuth URL with signed state (requires auth). Use this then redirect to returned url to avoid "User not found" on callback. */
+  getConnectUrlForRedirect: () => api.get('/google/connect-url'),
+  /** Legacy: direct URL to /google/connect (no auth on redirect, may cause "User not found" on callback). */
   getConnectUrl: () => {
     const base = `${API_BASE_URL}/google/connect`;
     if (typeof window === 'undefined') {

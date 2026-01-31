@@ -10,6 +10,7 @@ use App\Models\CrmEmail;
 use App\Modules\Leads\Domain\Entities\Lead;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Crypt;
 use Carbon\Carbon;
 
 class GoogleMailController extends Controller
@@ -21,6 +22,44 @@ class GoogleMailController extends Controller
         $this->gmailService = $gmailService;
     }
 
+    /**
+     * Return the Google OAuth URL with signed state (user_id).
+     * Requires auth so we know which CRM user is connecting. Frontend should call this then redirect to the URL.
+     */
+    public function getConnectUrl(): JsonResponse
+    {
+        $user = Auth::user();
+        if (!$user) {
+            return response()->json(['error' => 'You must be logged in to connect Gmail.'], 401);
+        }
+
+        $this->applyCompanyGoogleConfig();
+
+        if (!config('services.google.client_id')) {
+            return response()->json([
+                'error' => 'Google Client ID not set. Add GOOGLE_CLIENT_ID in .env or configure in Settings → Email Integration.',
+            ], 400);
+        }
+
+        $state = Crypt::encryptString(json_encode(['user_id' => $user->id, 'ts' => time()]));
+
+        $redirectResponse = Socialite::driver('google')
+            ->scopes([
+                'https://www.googleapis.com/auth/gmail.send',
+                'https://www.googleapis.com/auth/gmail.readonly',
+                'https://www.googleapis.com/auth/gmail.modify',
+            ])
+            ->with(['access_type' => 'offline', 'prompt' => 'consent', 'state' => $state])
+            ->stateless()
+            ->redirect();
+
+        return response()->json(['url' => $redirectResponse->getTargetUrl()]);
+    }
+
+    /**
+     * Legacy: direct redirect to Google (no auth on this request, so callback may get "User not found").
+     * Prefer using getConnectUrl() from frontend with auth, then redirect to returned URL.
+     */
     public function redirect()
     {
         $this->applyCompanyGoogleConfig();
@@ -30,7 +69,6 @@ class GoogleMailController extends Controller
             return redirect(rtrim($frontendUrl, '/') . '/settings?google_connected=false&error=' . urlencode('Google Client ID not set. Add GOOGLE_CLIENT_ID in .env or configure in Settings → Email Integration.'));
         }
 
-        // We use Socialite for the initial redirect to handle scopes easily
         return Socialite::driver('google')
             ->scopes([
                 'https://www.googleapis.com/auth/gmail.send',
@@ -44,28 +82,44 @@ class GoogleMailController extends Controller
 
     public function callback()
     {
+        $frontendUrl = rtrim(config('app.frontend_url', '/'), '/');
+        $settingsPath = $frontendUrl . '/settings';
+
         try {
             $this->applyCompanyGoogleConfig();
 
             $googleUser = Socialite::driver('google')->stateless()->user();
-            
-            $user = Auth::user() ?: User::where('email', $googleUser->getEmail())->first();
+
+            $user = null;
+            $state = request()->input('state');
+            if ($state) {
+                try {
+                    $decoded = json_decode(Crypt::decryptString($state), true);
+                    if (!empty($decoded['user_id'])) {
+                        $user = User::find($decoded['user_id']);
+                    }
+                } catch (\Exception $e) {
+                    // Invalid or expired state; fall back to email match
+                }
+            }
+            if (!$user) {
+                $user = Auth::user() ?: User::where('email', $googleUser->getEmail())->first();
+            }
 
             if (!$user) {
-                return response()->json(['error' => 'User not found'], 404);
+                return redirect($settingsPath . '?google_connected=false&error=' . urlencode('User not found. Please start "Connect Gmail" again while logged in to the CRM.'));
             }
 
             $user->update([
                 'google_token' => $googleUser->token,
                 'google_refresh_token' => $googleUser->refreshToken,
-                'google_token_expires_at' => Carbon::now()->addSeconds($googleUser->expiresIn),
+                'google_token_expires_at' => Carbon::now()->addSeconds($googleUser->expiresIn ?? 3600),
                 'gmail_email' => $googleUser->getEmail(),
             ]);
 
-            // Redirect back to frontend
-            return redirect(config('app.frontend_url') . '/settings?google_connected=true');
+            return redirect($settingsPath . '?google_connected=true');
         } catch (\Exception $e) {
-            return redirect(config('app.frontend_url') . '/settings?google_connected=false&error=' . urlencode($e->getMessage()));
+            return redirect($settingsPath . '?google_connected=false&error=' . urlencode($e->getMessage()));
         }
     }
 
