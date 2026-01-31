@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Mail, Save, Send } from 'lucide-react';
+import { Mail, Save, Send, HelpCircle, ChevronDown, ChevronUp, Eye, EyeOff } from 'lucide-react';
 import Layout from '../components/Layout';
 import { companySettingsAPI } from '../services/api';
 
@@ -21,6 +21,8 @@ const CompanyMailSettings = () => {
   const [message, setMessage] = useState({ type: '', text: '' });
   const [testEmail, setTestEmail] = useState('');
   const [testResult, setTestResult] = useState(null);
+  const [showSteps, setShowSteps] = useState(true);
+  const [showPassword, setShowPassword] = useState(true);
 
   useEffect(() => {
     const fetchSettings = async () => {
@@ -36,7 +38,7 @@ const CompanyMailSettings = () => {
             port: data.port ? String(data.port) : '587',
             encryption: data.encryption || '',
             username: data.username || '',
-            password: '',
+            password: data.password ?? '',
             from_address: data.from_address || '',
             from_name: data.from_name || '',
           }));
@@ -83,8 +85,9 @@ const CompanyMailSettings = () => {
 
       const response = await companySettingsAPI.updateMailSettings(payload);
       if (response.data.success) {
-        setHasPassword(!!response.data.data.has_password);
-        setFormData((prev) => ({ ...prev, password: '' }));
+        const data = response.data.data;
+        setHasPassword(!!data.has_password);
+        setFormData((prev) => ({ ...prev, password: data.password ?? prev.password }));
         setMessage({ type: 'success', text: 'Mail settings saved' });
       } else {
         setMessage({ type: 'error', text: response.data.message || 'Failed to save' });
@@ -138,6 +141,72 @@ const CompanyMailSettings = () => {
             <div className="flex items-center gap-2 mb-6">
               <Mail className="h-6 w-6 text-blue-600" />
               <h1 className="text-xl font-semibold text-gray-800">Email Integration</h1>
+            </div>
+
+            {/* Step-by-step guide for Company Admin */}
+            <div className="mb-6 border border-gray-200 rounded-lg overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setShowSteps(!showSteps)}
+                className="w-full flex items-center justify-between gap-2 px-4 py-3 bg-gray-50 hover:bg-gray-100 text-left"
+              >
+                <span className="flex items-center gap-2 font-medium text-gray-800">
+                  <HelpCircle className="h-5 w-5 text-blue-600" />
+                  Mail setup kaise karein (Step-by-step guide)
+                </span>
+                {showSteps ? <ChevronUp className="h-5 w-5 text-gray-500" /> : <ChevronDown className="h-5 w-5 text-gray-500" />}
+              </button>
+              {showSteps && (
+                <div className="p-4 bg-blue-50/50 border-t border-gray-200 text-sm text-gray-700 space-y-4">
+                  <p className="text-gray-600">
+                    Company Admin ye steps follow karke CRM se email bhejne ke liye mail settings set kar sakta hai. Pehle <strong>Save Settings</strong> karein, phir niche <strong>Send Test Mail</strong> se test karein.
+                  </p>
+
+                  <div>
+                    <p className="font-semibold text-gray-800 mb-2">Step 1 — Company mail enable karein</p>
+                    <ul className="list-disc list-inside space-y-1 text-gray-700">
+                      <li>Neeche form mein <strong>Use company mail settings</strong> checkbox ko tick karein.</li>
+                    </ul>
+                  </div>
+
+                  <div>
+                    <p className="font-semibold text-gray-800 mb-2">Step 2 — SMTP details bharein (Gmail ke liye)</p>
+                    <ul className="list-disc list-inside space-y-1 text-gray-700">
+                      <li><strong>SMTP Host:</strong> <code className="bg-white px-1 rounded">smtp.gmail.com</code></li>
+                      <li><strong>SMTP Port:</strong> <code className="bg-white px-1 rounded">587</code></li>
+                      <li><strong>Encryption:</strong> <code className="bg-white px-1 rounded">TLS</code> select karein (Gmail ke liye zaroori — None mat chhodein).</li>
+                    </ul>
+                  </div>
+
+                  <div>
+                    <p className="font-semibold text-gray-800 mb-2">Step 3 — Gmail login aur App Password</p>
+                    <ul className="list-disc list-inside space-y-1 text-gray-700">
+                      <li><strong>SMTP Username:</strong> apna Gmail address daalein (jaise <code className="bg-white px-1 rounded">yourcompany@gmail.com</code>).</li>
+                      <li><strong>SMTP Password:</strong> Gmail ka <strong>App Password</strong> use karein — normal Gmail password yahan kaam nahi karega. App Password banane ke liye: Google Account → Security → 2-Step Verification on karein, phir <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener noreferrer" className="text-blue-600 underline font-medium">App passwords</a> se naya password generate karein aur us 16-character code ko SMTP Password field mein daalein.</li>
+                    </ul>
+                  </div>
+
+                  <div>
+                    <p className="font-semibold text-gray-800 mb-2">Step 4 — Sender (From) details</p>
+                    <ul className="list-disc list-inside space-y-1 text-gray-700">
+                      <li><strong>From Email:</strong> wahi email jo recipient ko dikhega (same Gmail use kar sakte hain, ya company domain email).</li>
+                      <li><strong>From Name:</strong> jo naam dikhana hai (jaise <code className="bg-white px-1 rounded">TravelOps</code> ya company name).</li>
+                    </ul>
+                  </div>
+
+                  <div>
+                    <p className="font-semibold text-gray-800 mb-2">Step 5 — Save aur Test</p>
+                    <ul className="list-disc list-inside space-y-1 text-gray-700">
+                      <li><strong>Save Settings</strong> button dabayein.</li>
+                      <li>Neeche <strong>Send Test Mail</strong> mein apna ya koi test email daal kar test bhejein. Agar test mail inbox (ya Spam) mein aa jaye to setup sahi hai.</li>
+                    </ul>
+                  </div>
+
+                  <p className="pt-2 text-gray-600 border-t border-gray-200">
+                    <strong>Note:</strong> Agar Gmail ki jagah koi aur provider use kar rahe hain (Hostinger, Zoho, etc.) to unke SMTP host, port aur encryption values use karein (provider ki documentation dekhein).
+                  </p>
+                </div>
+              )}
             </div>
 
             {message.text && (
@@ -215,13 +284,24 @@ const CompanyMailSettings = () => {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">SMTP Password</label>
-                  <input
-                    type="password"
-                    value={formData.password}
-                    onChange={(e) => handleChange('password', e.target.value)}
-                    placeholder={hasPassword ? '********' : 'Enter password'}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2"
-                  />
+                  <div className="relative flex items-center">
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      value={formData.password}
+                      onChange={(e) => handleChange('password', e.target.value)}
+                      placeholder={hasPassword ? '********' : 'Enter password'}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 pr-10"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword((p) => !p)}
+                      className="absolute right-2 p-1 text-gray-500 hover:text-gray-700"
+                      title={showPassword ? 'Hide password' : 'Show password'}
+                    >
+                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                  <p className="mt-1 text-xs text-gray-500">Save ke baad bhi password yahan dikhega (show/hide se chhupa sakte hain).</p>
                 </div>
               </div>
 
