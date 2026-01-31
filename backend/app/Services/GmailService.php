@@ -159,8 +159,11 @@ class GmailService
             preg_match('/[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,4}/i', $from, $matches);
             $fromEmail = $matches[0] ?? $from;
 
-            // Find lead by email
-            $lead = \App\Modules\Leads\Domain\Entities\Lead::where('email', $fromEmail)->first();
+            // Find lead by sender email, scoped to user's company
+            $lead = \App\Modules\Leads\Domain\Entities\Lead::withoutGlobalScopes()
+                ->where('email', $fromEmail)
+                ->when($user->company_id, fn ($q) => $q->where('company_id', $user->company_id))
+                ->first();
 
             // Check if already exists
             if (CrmEmail::where('gmail_message_id', $msg->getId())->exists()) {

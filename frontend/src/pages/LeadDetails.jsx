@@ -5,7 +5,7 @@ import { leadsAPI, usersAPI, followupsAPI, dayItinerariesAPI, packagesAPI, setti
 import { searchPexelsPhotos } from '../services/pexels';
 import { getDisplayImageUrl, rewriteHtmlImageUrls } from '../utils/imageUrl';
 import Layout from '../components/Layout';
-import { ArrowLeft, Calendar, Mail, Plus, Upload, X, Search, FileText, Printer, Send, MessageCircle, CheckCircle, CheckCircle2, Clock, Briefcase, MapPin, CalendarDays, Users, UserCheck, Leaf, Smartphone, Phone, MoreVertical, Download, Pencil, Trash2, Camera } from 'lucide-react';
+import { ArrowLeft, Calendar, Mail, Plus, Upload, X, Search, FileText, Printer, Send, MessageCircle, CheckCircle, CheckCircle2, Clock, Briefcase, MapPin, CalendarDays, Users, UserCheck, Leaf, Smartphone, Phone, MoreVertical, Download, Pencil, Trash2, Camera, RefreshCw } from 'lucide-react';
 import DetailRow from '../components/Quiries/DetailRow';
 import html2pdf from 'html2pdf.js';
 const LeadDetails = () => {
@@ -112,6 +112,7 @@ const LeadDetails = () => {
   const [companySettings, setCompanySettings] = useState(null);
   const [gmailEmails, setGmailEmails] = useState([]);
   const [loadingGmail, setLoadingGmail] = useState(false);
+  const [syncingInbox, setSyncingInbox] = useState(false);
   const [whatsappMessages, setWhatsappMessages] = useState([]);
 
   useEffect(() => {
@@ -772,6 +773,24 @@ const LeadDetails = () => {
       console.error('Failed to fetch Gmail emails:', err);
     } finally {
       setLoadingGmail(false);
+    }
+  };
+
+  // Sync Gmail inbox so received/reply emails show in CRM
+  const handleSyncInbox = async () => {
+    if (!user?.google_token) {
+      alert('Connect Gmail in Settings (Accounts → Gmail / Email Integration) so received and reply emails can appear here.');
+      return;
+    }
+    setSyncingInbox(true);
+    try {
+      await googleMailAPI.syncInbox();
+      await fetchGmailEmails();
+      alert('Inbox synced. Received and reply emails will appear in Gmail Conversations below.');
+    } catch (err) {
+      alert('Sync failed. Make sure Gmail is connected in Settings.');
+    } finally {
+      setSyncingInbox(false);
     }
   };
 
@@ -3653,8 +3672,8 @@ const LeadDetails = () => {
                 ):
                 activeTab === 'mails' ? (
                   <div className="space-y-4">
-                    {/* Header with Compose Button and Customer Email */}
-                    <div className="flex items-center gap-4 mb-6">
+                    {/* Header with Compose, Sync Inbox, and Customer Email */}
+                    <div className="flex flex-wrap items-center gap-4 mb-6">
                       <button
                         onClick={openComposeModal}
                         className="bg-blue-600 text-white px-5 py-2.5 rounded-lg hover:bg-blue-700 flex items-center gap-2 font-medium shadow-md"
@@ -3662,6 +3681,21 @@ const LeadDetails = () => {
                         <Mail className="h-5 w-5" />
                         Compose
                       </button>
+                      {user?.google_token && (
+                        <button
+                          type="button"
+                          onClick={handleSyncInbox}
+                          disabled={syncingInbox}
+                          className="bg-gray-100 text-gray-700 px-4 py-2.5 rounded-lg hover:bg-gray-200 flex items-center gap-2 font-medium border border-gray-300 disabled:opacity-60"
+                        >
+                          {syncingInbox ? (
+                            <span className="animate-spin rounded-full h-4 w-4 border-2 border-gray-500 border-t-transparent" />
+                          ) : (
+                            <RefreshCw className="h-4 w-4" />
+                          )}
+                          {syncingInbox ? 'Syncing...' : 'Sync inbox'}
+                        </button>
+                      )}
                       {lead?.email && (
                         <div className="flex items-center gap-2 px-4 py-2.5 bg-gray-100 rounded-lg border border-gray-200">
                           <span className="text-gray-500 text-sm">ℹ</span>
@@ -3669,6 +3703,11 @@ const LeadDetails = () => {
                         </div>
                       )}
                     </div>
+                    {user?.google_token && (
+                      <p className="text-sm text-gray-600 mb-2">
+                        Received and reply emails appear in &quot;Gmail Conversations&quot; when you connect Gmail in Settings and use &quot;Sync inbox&quot; (or they sync automatically every 5 minutes).
+                      </p>
+                    )}
 
                     {/* Emails List */}
                     {loadingEmails || loadingGmail ? (

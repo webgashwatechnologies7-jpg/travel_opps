@@ -112,7 +112,10 @@ class GoogleMailController extends Controller
             ->orderBy('created_at', 'desc')
             ->get();
 
-        return response()->json($emails);
+        return response()->json([
+            'success' => true,
+            'data' => ['emails' => $emails],
+        ]);
     }
 
     private function applyCompanyGoogleConfig(): void
