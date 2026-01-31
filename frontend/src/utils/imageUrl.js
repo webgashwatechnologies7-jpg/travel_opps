@@ -29,3 +29,15 @@ export function getDisplayImageUrl(url) {
   }
   return url;
 }
+
+/**
+ * Rewrite all img src in HTML so localhost/127.0.0.1 URLs use current origin (fixes CORS on live).
+ * Use before rendering email.body or any HTML with dangerouslySetInnerHTML.
+ */
+export function rewriteHtmlImageUrls(html) {
+  if (!html || typeof html !== 'string') return html;
+  return html.replace(/<img([^>]*?)src=["']([^"']+)["']/gi, (match, attrs, src) => {
+    const resolved = getDisplayImageUrl(src);
+    return `<img${attrs}src="${resolved || src}"`;
+  });
+}

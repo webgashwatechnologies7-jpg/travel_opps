@@ -3,6 +3,7 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { leadsAPI, usersAPI, followupsAPI, dayItinerariesAPI, packagesAPI, settingsAPI, suppliersAPI, hotelsAPI, paymentsAPI, googleMailAPI, whatsappAPI, queryDetailAPI, vouchersAPI } from '../services/api';
 import { searchPexelsPhotos } from '../services/pexels';
+import { getDisplayImageUrl, rewriteHtmlImageUrls } from '../utils/imageUrl';
 import Layout from '../components/Layout';
 import { ArrowLeft, Calendar, Mail, Plus, Upload, X, Search, FileText, Printer, Send, MessageCircle, CheckCircle, CheckCircle2, Clock, Briefcase, MapPin, CalendarDays, Users, UserCheck, Leaf, Smartphone, Phone, MoreVertical, Download, Pencil, Trash2, Camera } from 'lucide-react';
 import DetailRow from '../components/Quiries/DetailRow';
@@ -51,6 +52,7 @@ const LeadDetails = () => {
   const [itineraryLibraryTab, setItineraryLibraryTab] = useState('free');
   const [itineraryFreeStockPhotos, setItineraryFreeStockPhotos] = useState([]);
   const [itineraryFreeStockLoading, setItineraryFreeStockLoading] = useState(false);
+  const [itineraryFreeStockError, setItineraryFreeStockError] = useState(null); // 'no_api_key' | 'api_error' | null
   const [itineraryLibraryPackages, setItineraryLibraryPackages] = useState([]);
   const [followups, setFollowups] = useState([]);
   const [showFollowupModal, setShowFollowupModal] = useState(false);
@@ -1339,11 +1341,14 @@ const LeadDetails = () => {
     const q = (itineraryLibrarySearchTerm || '').trim();
     if (q.length < 2) return;
     setItineraryFreeStockLoading(true);
+    setItineraryFreeStockError(null);
     try {
-      const { photos } = await searchPexelsPhotos(q, 15);
+      const { photos, error } = await searchPexelsPhotos(q, 15);
       setItineraryFreeStockPhotos(photos || []);
+      setItineraryFreeStockError(error || null);
     } catch (e) {
       setItineraryFreeStockPhotos([]);
+      setItineraryFreeStockError('api_error');
     } finally {
       setItineraryFreeStockLoading(false);
     }
@@ -3492,7 +3497,7 @@ const LeadDetails = () => {
                     ) : (() => {
                       const first = proposals[0];
                       const cardTitle = (lead?.destination || first?.itinerary_name || 'Proposals').toString().trim() || 'Proposals';
-                      const cardImage = first?.image || null;
+                      const cardImage = getDisplayImageUrl(first?.image) || first?.image || null;
                       const cardDestination = first?.destination || lead?.destination || '';
 
                       return (
@@ -3512,7 +3517,7 @@ const LeadDetails = () => {
                               }}
                             >
                               {cardImage ? (
-                                <img src={cardImage} alt={cardTitle} className="w-full h-full object-cover" />
+                                <img src={cardImage} alt={cardTitle} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                               ) : (
                                 <div className="w-full h-full bg-gray-200 flex items-center justify-center">
                                   <span className="text-gray-500 font-semibold">Proposals</span>
@@ -3749,7 +3754,7 @@ const LeadDetails = () => {
                                       )}
                                     </div>
                                     <p className="text-blue-600 font-medium truncate">{email.subject}</p>
-                                    <div className="text-sm text-gray-500 truncate mt-1" dangerouslySetInnerHTML={{ __html: email.body }}></div>
+                                    <div className="text-sm text-gray-500 truncate mt-1" dangerouslySetInnerHTML={{ __html: rewriteHtmlImageUrls(email.body || '') }}></div>
                                   </div>
                                   <div className="flex-shrink-0 text-right">
                                     <p className="text-sm text-gray-500">
@@ -4826,7 +4831,17 @@ const LeadDetails = () => {
                 ) : (itineraryLibrarySearchTerm || '').trim().length < 2 ? (
                   <p className="text-center py-8 text-gray-500">Type location (e.g. Shimla, Kufri) and click Search.</p>
                 ) : itineraryFreeStockPhotos.length === 0 ? (
-                  <p className="text-center py-8 text-gray-500">No images found. Try another search or add VITE_PEXELS_API_KEY in .env.</p>
+                  <div className="text-center py-8 px-4">
+                    {itineraryFreeStockError === 'no_api_key' ? (
+                      <>
+                        <p className="text-gray-600 mb-2">Free stock images ke liye Pexels API key chahiye.</p>
+                        <p className="text-sm text-gray-500">Live server pe <code className="bg-gray-100 px-1 rounded">VITE_PEXELS_API_KEY</code> .env me add karo, phir <code className="bg-gray-100 px-1 rounded">npm run build</code> dubara chalao. Ya <strong>Upload Image</strong> use karo.</p>
+                        <p className="text-xs text-gray-400 mt-2">Free key: pexels.com/api</p>
+                      </>
+                    ) : (
+                      <p className="text-gray-500">No images found. Try another search.</p>
+                    )}
+                  </div>
                 ) : (
                   <div className="grid grid-cols-4 gap-2">
                     {itineraryFreeStockPhotos.map((p) => (

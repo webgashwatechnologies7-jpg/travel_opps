@@ -1386,7 +1386,13 @@ itinerary.image = itinerary.image.replace('localhost', 'localhost:8000');
                       </div>
                     ))}
                     <div className="mt-4 pt-4 border-t border-gray-200">
-                      <div className="flex items-center gap-2 text-gray-600 hover:text-gray-900 cursor-pointer">
+                      <div
+                        role="button"
+                        tabIndex={0}
+                        className="flex items-center gap-2 text-gray-600 hover:text-gray-900 cursor-pointer"
+                        onClick={() => setActiveTab('final')}
+                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setActiveTab('final'); } }}
+                      >
                         <FileText className="h-4 w-4" />
                         <span className="text-sm font-medium">Package Terms</span>
                         <ChevronRight className="h-4 w-4 ml-auto" />
@@ -1831,6 +1837,8 @@ itinerary.image = itinerary.image.replace('localhost', 'localhost:8000');
                                 onClick={() => {
                                   if (selectedDay) {
                                     handleAddDayItinerary(di.id);
+                                  } else {
+                                    alert('Please select a day from the left (e.g. DAY 1, DAY 2) first, then add this item.');
                                   }
                                 }}
                               >
@@ -1864,6 +1872,8 @@ itinerary.image = itinerary.image.replace('localhost', 'localhost:8000');
                                     e.stopPropagation();
                                     if (selectedDay) {
                                       handleAddDayItinerary(di.id);
+                                    } else {
+                                      alert('Please select a day from the left (e.g. DAY 1, DAY 2) first, then add this item.');
                                     }
                                   }}
                                   className="w-8 h-8 bg-black text-white rounded-full flex items-center justify-center hover:bg-gray-800 flex-shrink-0"
@@ -1913,6 +1923,8 @@ itinerary.image = itinerary.image.replace('localhost', 'localhost:8000');
                                         editingOptionIndex: null,
                                       };
                                       saveEvent(eventData);
+                                    } else {
+                                      alert('Please select a day from the left (e.g. DAY 1, DAY 2) first, then add this item.');
                                     }
                                   }}
                                 >
@@ -1962,6 +1974,8 @@ itinerary.image = itinerary.image.replace('localhost', 'localhost:8000');
                                           editingOptionIndex: null,
                                         };
                                         saveEvent(eventData);
+                                      } else {
+                                        alert('Please select a day from the left (e.g. DAY 1, DAY 2) first, then add this item.');
                                       }
                                     }}
                                     className="w-8 h-8 bg-black text-white rounded-full flex items-center justify-center hover:bg-gray-800 flex-shrink-0"
