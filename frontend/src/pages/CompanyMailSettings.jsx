@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
-import { Mail, Save, Send, HelpCircle, ChevronDown, ChevronUp, Eye, EyeOff } from 'lucide-react';
+import { Mail, Save, Send, HelpCircle, ChevronDown, ChevronUp, Eye, EyeOff, Inbox, Link2 } from 'lucide-react';
 import Layout from '../components/Layout';
-import { companySettingsAPI } from '../services/api';
+import { companySettingsAPI, googleMailAPI } from '../services/api';
+import { useAuth } from '../contexts/AuthContext';
 
 const CompanyMailSettings = () => {
+  const { user } = useAuth();
   const [formData, setFormData] = useState({
     enabled: false,
     mailer: 'smtp',
@@ -160,6 +162,57 @@ const CompanyMailSettings = () => {
               <h1 className="text-xl font-semibold text-gray-800">Email Integration</h1>
             </div>
 
+            {/* How the flow works — one mail set, all CRM mails in one place */}
+            <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+              <h2 className="text-base font-semibold text-green-800 mb-2 flex items-center gap-2">
+                <Link2 className="h-5 w-5" />
+                How email integration works
+              </h2>
+              <ol className="list-decimal list-inside text-sm text-gray-700 space-y-2 mb-4">
+                <li><strong>Set company mail (below)</strong> — Same Gmail for sending (SMTP + From name/email). This is the mail where replies will come.</li>
+                <li><strong>Connect same Gmail for receiving</strong> — Use the &quot;Connect Gmail for receiving&quot; button below so all mails to/from this address sync into the CRM.</li>
+                <li><strong>Where you see mails</strong> — Sidebar → <strong>Mail</strong> (inbox), and inside each lead → <strong>Mails</strong> tab. Sync runs every 5 minutes, or click &quot;Sync inbox&quot; on a lead&apos;s Mails tab.</li>
+              </ol>
+              <p className="text-xs text-green-700">
+                Use one company Gmail (e.g. sales@company.com or web.company@gmail.com). Set it here for sending, then connect it for receiving — all CRM-related mails will appear in the CRM.
+              </p>
+            </div>
+
+            {/* Connect Gmail for receiving — so replies and received mails come into CRM */}
+            <div className="mb-6 p-4 bg-white border border-gray-200 rounded-lg shadow-sm">
+              <h2 className="text-base font-semibold text-gray-800 mb-2 flex items-center gap-2">
+                <Inbox className="h-5 w-5 text-blue-600" />
+                Receive mails in CRM
+              </h2>
+              <p className="text-sm text-gray-600 mb-4">
+                Connect the <strong>same Gmail</strong> you set below (From Email) so that replies and any mails sent to that address sync into the CRM and show in <strong>Mail</strong> and in each lead&apos;s <strong>Mails</strong> tab.
+              </p>
+              {user?.google_token ? (
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-center gap-2 font-medium text-green-600">
+                    <span className="w-2 h-2 bg-green-600 rounded-full animate-pulse" />
+                    Connected as {user.gmail_email}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => { window.location.href = googleMailAPI.getConnectUrl(); }}
+                    className="w-fit px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
+                  >
+                    Reconnect Gmail
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => { window.location.href = googleMailAPI.getConnectUrl(); }}
+                  className="flex items-center gap-2 px-5 py-2.5 text-white bg-red-600 rounded-lg hover:bg-red-700 font-medium"
+                >
+                  <Mail className="h-4 w-4" />
+                  Connect Gmail for receiving
+                </button>
+              )}
+            </div>
+
             {/* Step-by-step guide for Company Admin */}
             <div className="mb-6 border border-gray-200 rounded-lg overflow-hidden">
               <button
@@ -216,6 +269,14 @@ const CompanyMailSettings = () => {
                     <ul className="list-disc list-inside space-y-1 text-gray-700">
                       <li>Click the <strong>Save Settings</strong> button.</li>
                       <li>Enter your email or a test address in <strong>Send Test Mail</strong> and click to send. If the test email arrives in inbox (or Spam), the setup is correct.</li>
+                    </ul>
+                  </div>
+
+                  <div>
+                    <p className="font-semibold text-gray-800 mb-2">Step 6 — Receive replies in CRM</p>
+                    <ul className="list-disc list-inside space-y-1 text-gray-700">
+                      <li>Use <strong>Connect Gmail for receiving</strong> (above) with the <strong>same Gmail</strong> you set for From Email. After connecting, all mails to/from that address sync into the CRM.</li>
+                      <li>View them in sidebar → <strong>Mail</strong>, or inside any lead → <strong>Mails</strong> tab. Sync runs every 5 minutes; you can also click <strong>Sync inbox</strong> on a lead&apos;s Mails tab.</li>
                     </ul>
                   </div>
 

@@ -7,6 +7,8 @@ use App\Services\GmailService;
 use Laravel\Socialite\Facades\Socialite;
 use App\Models\User;
 use App\Models\CrmEmail;
+use App\Modules\Leads\Domain\Entities\Lead;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
 
@@ -110,6 +112,33 @@ class GoogleMailController extends Controller
     {
         $emails = CrmEmail::where('lead_id', $leadId)
             ->orderBy('created_at', 'desc')
+            ->get();
+
+        return response()->json([
+            'success' => true,
+            'data' => ['emails' => $emails],
+        ]);
+    }
+
+    /**
+     * Get recent emails across all leads (for Mail inbox page).
+     */
+    public function getInbox(): JsonResponse
+    {
+        $user = Auth::user();
+        $companyId = $user?->company_id;
+        if (function_exists('tenant') && $tenant = tenant()) {
+            $companyId = $companyId ?? (isset($tenant->id) ? (int) $tenant->id : null);
+        }
+        $leadIds = Lead::withoutGlobalScopes()
+            ->when($companyId, fn ($q) => $q->where('company_id', $companyId))
+            ->pluck('id')
+            ->all();
+
+        $emails = CrmEmail::whereIn('lead_id', $leadIds)
+            ->with('lead:id,client_name,email,query_id')
+            ->orderBy('created_at', 'desc')
+            ->limit(100)
             ->get();
 
         return response()->json([

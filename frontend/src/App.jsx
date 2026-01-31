@@ -20,6 +20,7 @@ import Payments from './pages/Payments';
 import SalesReps from './pages/SalesReps';
 import Notes from './pages/Notes';
 import WhatsAppInbox from './pages/WhatsAppInbox';
+import EmailInbox from './pages/EmailInbox';
 import Performance from './pages/Performance';
 import Analytics from './pages/Analytics';
 import Users from './pages/Users';
@@ -283,7 +284,7 @@ const AppRoutes = () => {
         path="/mail"
         element={
           <ProtectedRoute>
-            <WhatsAppInbox />
+            <EmailInbox />
           </ProtectedRoute>
         }
       />

@@ -252,6 +252,7 @@ export const googleMailAPI = {
   },
   sendMail: (data) => api.post('/send-gmail', data),
   syncInbox: () => api.get('/sync-inbox'),
+  getEmailInbox: () => api.get('/emails/inbox'),
   getGmailEmails: (leadId) => api.get(`/leads/${leadId}/gmail-emails`),
 };
 

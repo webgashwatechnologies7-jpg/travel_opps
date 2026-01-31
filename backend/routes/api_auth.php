@@ -35,5 +35,6 @@ Route::prefix('google')->group(function () {
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/send-gmail', [GoogleMailController::class, 'sendGmail']);
     Route::get('/sync-inbox', [GoogleMailController::class, 'syncInbox']);
+    Route::get('/emails/inbox', [GoogleMailController::class, 'getInbox']);
     Route::get('/leads/{leadId}/gmail-emails', [GoogleMailController::class, 'getEmails']);
 });
