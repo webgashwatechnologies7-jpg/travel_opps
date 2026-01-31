@@ -1,11 +1,18 @@
 import { useEffect, useState } from 'react';
 import { Mail, Save, Send, HelpCircle, ChevronDown, ChevronUp, Eye, EyeOff, Inbox, Link2 } from 'lucide-react';
 import Layout from '../components/Layout';
-import { companySettingsAPI, googleMailAPI } from '../services/api';
+import { companySettingsAPI, googleMailAPI, companyGoogleAPI } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 
 const CompanyMailSettings = () => {
   const { user } = useAuth();
+  const [googleOAuth, setGoogleOAuth] = useState({
+    google_client_id: '',
+    google_client_secret: '',
+    google_redirect_uri: '',
+  });
+  const [savingGoogleOAuth, setSavingGoogleOAuth] = useState(false);
+  const [showGoogleOAuth, setShowGoogleOAuth] = useState(true);
   const [formData, setFormData] = useState({
     enabled: false,
     mailer: 'smtp',
@@ -57,12 +64,53 @@ const CompanyMailSettings = () => {
     }
   };
 
+  const fetchGoogleOAuth = async () => {
+    try {
+      const res = await companyGoogleAPI.getSettings();
+      if (res.data?.success && res.data?.data) {
+        const d = res.data.data;
+        setGoogleOAuth({
+          google_client_id: d.google_client_id || '',
+          google_client_secret: d.google_client_secret || '',
+          google_redirect_uri: d.google_redirect_uri || '',
+        });
+      }
+    } catch {
+      // Non-blocking
+    }
+  };
+
   useEffect(() => {
     fetchSettings();
+    fetchGoogleOAuth();
   }, []);
 
   const handleChange = (field, value) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleSaveGoogleOAuth = async (e) => {
+    e.preventDefault();
+    setSavingGoogleOAuth(true);
+    setMessage({ type: '', text: '' });
+    try {
+      const res = await companyGoogleAPI.updateSettings({
+        google_client_id: googleOAuth.google_client_id || null,
+        google_client_secret: googleOAuth.google_client_secret || null,
+        google_redirect_uri: googleOAuth.google_redirect_uri || null,
+      });
+      if (res.data?.success) {
+        setMessage({ type: 'success', text: 'Google OAuth settings saved. You can now use Connect Gmail for receiving.' });
+        await fetchGoogleOAuth();
+      } else {
+        setMessage({ type: 'error', text: res.data?.message || 'Failed to save Google OAuth settings' });
+      }
+    } catch (err) {
+      const msg = err.response?.data?.message || err.response?.data?.error || err.message;
+      setMessage({ type: 'error', text: msg || 'Failed to save Google OAuth settings' });
+    } finally {
+      setSavingGoogleOAuth(false);
+    }
   };
 
   const handleSave = async (event) => {
@@ -176,6 +224,67 @@ const CompanyMailSettings = () => {
               <p className="text-xs text-green-700">
                 Use one company Gmail (e.g. sales@company.com or web.company@gmail.com). Set it here for sending, then connect it for receiving — all CRM-related mails will appear in the CRM.
               </p>
+            </div>
+
+            {/* Google OAuth — required for "Connect Gmail for receiving" */}
+            <div className="mb-6 p-4 bg-white border border-gray-200 rounded-lg shadow-sm">
+              <button
+                type="button"
+                onClick={() => setShowGoogleOAuth(!showGoogleOAuth)}
+                className="w-full flex items-center justify-between gap-2 text-left"
+              >
+                <h2 className="text-base font-semibold text-gray-800">
+                  Google OAuth (required for Connect Gmail)
+                </h2>
+                {showGoogleOAuth ? <ChevronUp className="h-5 w-5 text-gray-500" /> : <ChevronDown className="h-5 w-5 text-gray-500" />}
+              </button>
+              {showGoogleOAuth && (
+                <div className="mt-4 space-y-4">
+                  <p className="text-sm text-gray-600">
+                    If &quot;Connect Gmail for receiving&quot; shows &quot;Google Client ID not set&quot;, add the credentials below. Get them from <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">Google Cloud Console → APIs &amp; Services → Credentials</a> (create OAuth 2.0 Client ID, type Web application). Add the Redirect URI in the Google project to match the value below. If you are Super Admin and this section does not save, add GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET to the server .env file instead.
+                  </p>
+                  <form onSubmit={handleSaveGoogleOAuth} className="space-y-3">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Google Client ID</label>
+                      <input
+                        type="text"
+                        value={googleOAuth.google_client_id}
+                        onChange={(e) => setGoogleOAuth((p) => ({ ...p, google_client_id: e.target.value }))}
+                        placeholder="xxxxx.apps.googleusercontent.com"
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Google Client Secret</label>
+                      <input
+                        type="password"
+                        value={googleOAuth.google_client_secret}
+                        onChange={(e) => setGoogleOAuth((p) => ({ ...p, google_client_secret: e.target.value }))}
+                        placeholder="GOCSPX-..."
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Redirect URI (must match Google Console)</label>
+                      <input
+                        type="text"
+                        value={googleOAuth.google_redirect_uri}
+                        onChange={(e) => setGoogleOAuth((p) => ({ ...p, google_redirect_uri: e.target.value }))}
+                        placeholder="https://145.223.23.45/api/google/callback"
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                      />
+                      <p className="mt-1 text-xs text-gray-500">Use your server URL + /api/google/callback (e.g. https://yoursite.com/api/google/callback). Add this exact URL in Google Cloud Console under your OAuth client → Authorized redirect URIs.</p>
+                    </div>
+                    <button
+                      type="submit"
+                      disabled={savingGoogleOAuth}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-60 text-sm font-medium"
+                    >
+                      {savingGoogleOAuth ? 'Saving...' : 'Save Google OAuth'}
+                    </button>
+                  </form>
+                </div>
+              )}
             </div>
 
             {/* Connect Gmail for receiving — so replies and received mails come into CRM */}
