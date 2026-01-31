@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\Company;
 use App\Models\Setting;
 use Illuminate\Support\Facades\Auth;
 
@@ -27,10 +28,16 @@ class CompanyMailSettingsService
         }
 
         if (function_exists('tenant')) {
-            $tenantId = tenant('id');
-            if ($tenantId) {
-                return (int) $tenantId;
+            $tenant = tenant();
+            if ($tenant && isset($tenant->id)) {
+                return (int) $tenant->id;
             }
+        }
+
+        // Fallback for Super Admin (company_id null): use first active company so mail settings work
+        $first = Company::where('status', 'active')->orderBy('id')->value('id');
+        if ($first) {
+            return (int) $first;
         }
 
         return null;

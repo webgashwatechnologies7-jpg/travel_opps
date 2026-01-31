@@ -72,9 +72,16 @@ class CompanyMailSettingsController extends Controller
             'password',
             'from_address',
             'from_name',
-        ]), static function ($value) {
-            return $value !== null;
-        });
+        ]), static function ($value, $key) {
+            if ($value === null) {
+                return false;
+            }
+            // Never overwrite password with empty string — keep existing if user left field blank
+            if ($key === 'password' && $value === '') {
+                return false;
+            }
+            return true;
+        }, ARRAY_FILTER_USE_BOTH);
 
         $settings = CompanyMailSettingsService::saveSettings($payload);
 

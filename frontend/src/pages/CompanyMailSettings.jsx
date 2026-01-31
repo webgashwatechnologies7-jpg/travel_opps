@@ -24,38 +24,38 @@ const CompanyMailSettings = () => {
   const [showSteps, setShowSteps] = useState(true);
   const [showPassword, setShowPassword] = useState(true);
 
-  useEffect(() => {
-    const fetchSettings = async () => {
-      try {
-        const response = await companySettingsAPI.getMailSettings();
-        if (response.data.success) {
-          const data = response.data.data;
-          setFormData((prev) => ({
-            ...prev,
-            enabled: !!data.enabled,
-            mailer: data.mailer || 'smtp',
-            host: data.host || '',
-            port: data.port ? String(data.port) : '587',
-            encryption: data.encryption || '',
-            username: data.username || '',
-            password: data.password ?? '',
-            from_address: data.from_address || '',
-            from_name: data.from_name || '',
-          }));
-          setHasPassword(!!data.has_password);
-        }
-      } catch (err) {
-        const status = err.response?.status;
-        const msg = err.response?.data?.message || err.response?.data?.error || err.message;
-        let text = 'Failed to load mail settings.';
-        if (status === 401) text = 'Session expired or unauthorized. Please log in again.';
-        else if (status === 404) text = 'Mail settings API not found. Check server URL.';
-        else if (status === 500) text = msg ? `Server error: ${msg}` : 'Server error. Check backend logs.';
-        else if (msg) text = msg;
-        setMessage({ type: 'error', text });
+  const fetchSettings = async () => {
+    try {
+      const response = await companySettingsAPI.getMailSettings();
+      if (response.data.success) {
+        const data = response.data.data;
+        setFormData((prev) => ({
+          ...prev,
+          enabled: !!data.enabled,
+          mailer: data.mailer || 'smtp',
+          host: data.host || '',
+          port: data.port ? String(data.port) : '587',
+          encryption: data.encryption || '',
+          username: data.username || '',
+          password: data.password ?? '',
+          from_address: data.from_address || '',
+          from_name: data.from_name || '',
+        }));
+        setHasPassword(!!data.has_password);
       }
-    };
+    } catch (err) {
+      const status = err.response?.status;
+      const msg = err.response?.data?.message || err.response?.data?.error || err.message;
+      let text = 'Failed to load mail settings.';
+      if (status === 401) text = 'Session expired or unauthorized. Please log in again.';
+      else if (status === 404) text = 'Mail settings API not found. Check server URL.';
+      else if (status === 500) text = msg ? `Server error: ${msg}` : 'Server error. Check backend logs.';
+      else if (msg) text = msg;
+      setMessage({ type: 'error', text });
+    }
+  };
 
+  useEffect(() => {
     fetchSettings();
   }, []);
 
@@ -80,15 +80,13 @@ const CompanyMailSettings = () => {
       };
 
       if (formData.password) {
-        payload.password = formData.password;
+        payload.password = String(formData.password).replace(/\s/g, '');
       }
 
       const response = await companySettingsAPI.updateMailSettings(payload);
       if (response.data.success) {
-        const data = response.data.data;
-        setHasPassword(!!data.has_password);
-        setFormData((prev) => ({ ...prev, password: data.password ?? prev.password }));
         setMessage({ type: 'success', text: 'Mail settings saved' });
+        await fetchSettings();
       } else {
         setMessage({ type: 'error', text: response.data.message || 'Failed to save' });
       }
