@@ -96,10 +96,17 @@ class LeadEmailController extends Controller
                 ], 404);
             }
 
-            // Get company settings for email
+            // Prefer Email Integration (company mail) From Name/Email when enabled — so sender shows company name and company email
+            $mailSettings = CompanyMailSettingsService::getSettings();
+            $useCompanyMail = !empty($mailSettings['enabled']) && (!empty($mailSettings['from_address']) || !empty($mailSettings['from_name']));
+
             $companyLogo = Setting::getValue('company_logo', '');
-            $companyName = Setting::getValue('company_name', config('app.name', 'TravelOps'));
-            $companyEmail = Setting::getValue('company_email', config('mail.from.address', ''));
+            $companyName = $useCompanyMail && !empty($mailSettings['from_name'])
+                ? $mailSettings['from_name']
+                : Setting::getValue('company_name', config('app.name', 'TravelOps'));
+            $companyEmail = $useCompanyMail && !empty($mailSettings['from_address'])
+                ? $mailSettings['from_address']
+                : Setting::getValue('company_email', config('mail.from.address', ''));
             $companyPhone = Setting::getValue('company_phone', '');
             $companyAddress = Setting::getValue('company_address', '');
 
