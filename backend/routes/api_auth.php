@@ -32,10 +32,14 @@ Route::prefix('google')->group(function () {
     Route::get('/callback', [GoogleMailController::class, 'callback']);
 });
 
+// Email open tracking - public (pixel load from lead's email client)
+Route::get('/emails/track/{token}', [GoogleMailController::class, 'trackOpen'])->name('emails.track');
+
 // Gmail API routes - require authentication
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/send-gmail', [GoogleMailController::class, 'sendGmail']);
     Route::get('/sync-inbox', [GoogleMailController::class, 'syncInbox']);
     Route::get('/emails/inbox', [GoogleMailController::class, 'getInbox']);
+    Route::post('/emails/mark-read', [GoogleMailController::class, 'markRead']);
     Route::get('/leads/{leadId}/gmail-emails', [GoogleMailController::class, 'getEmails']);
 });

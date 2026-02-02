@@ -266,7 +266,8 @@ export const googleMailAPI = {
     return api.post('/send-gmail', form, { headers: { 'Content-Type': 'multipart/form-data' } });
   },
   syncInbox: () => api.get('/sync-inbox'),
-  getEmailInbox: () => api.get('/emails/inbox'),
+  getEmailInbox: (params) => api.get('/emails/inbox', { params: params || {} }),
+  markEmailsRead: (data) => api.post('/emails/mark-read', data),
   getGmailEmails: (leadId) => api.get(`/leads/${leadId}/gmail-emails`),
 };
 

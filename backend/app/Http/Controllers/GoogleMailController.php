@@ -218,10 +218,10 @@ class GoogleMailController extends Controller
     }
 
     /**
-     * Get recent emails across all leads (for Mail inbox page).
-     * Includes emails linked to company leads, and synced emails to/from company users' Gmail (even without lead).
+     * Get recent emails (for Mail inbox page).
+     * Only lead-related mails (lead_id set). Supports search (name/email/subject) and date filters.
      */
-    public function getInbox(): JsonResponse
+    public function getInbox(Request $request): JsonResponse
     {
         $user = Auth::user();
         $companyId = $user?->company_id;
@@ -233,31 +233,24 @@ class GoogleMailController extends Controller
             ->pluck('id')
             ->all();
 
-        $companyGmailEmails = collect();
-        if ($companyId) {
-            $companyGmailEmails = User::where('company_id', $companyId)
-                ->whereNotNull('gmail_email')
-                ->where('gmail_email', '!=', '')
-                ->pluck('gmail_email');
-        }
-        if ($user?->gmail_email) {
-            $companyGmailEmails = $companyGmailEmails->push($user->gmail_email)->unique()->values();
-        }
+        $search = trim((string) $request->input('search'));
+        $dateFrom = $request->input('date_from');
+        $dateTo = $request->input('date_to');
 
         $emails = CrmEmail::query()
             ->with('lead:id,client_name,email')
-            ->where(function ($q) use ($leadIds, $companyGmailEmails) {
-                $q->whereIn('lead_id', $leadIds);
-                if ($companyGmailEmails->isNotEmpty()) {
-                    $q->orWhere(function ($q2) use ($companyGmailEmails) {
-                        $q2->whereNull('lead_id')
-                            ->where(function ($q3) use ($companyGmailEmails) {
-                                $q3->whereIn('to_email', $companyGmailEmails)
-                                    ->orWhereIn('from_email', $companyGmailEmails);
-                            });
-                    });
-                }
+            ->whereIn('lead_id', $leadIds)
+            ->when($search !== '', function ($q) use ($search) {
+                $term = '%' . $search . '%';
+                $q->where(function ($q2) use ($term) {
+                    $q2->where('from_email', 'like', $term)
+                        ->orWhere('to_email', 'like', $term)
+                        ->orWhere('subject', 'like', $term)
+                        ->orWhereHas('lead', fn ($l) => $l->where('client_name', 'like', $term)->orWhere('email', 'like', $term));
+                });
             })
+            ->when($dateFrom, fn ($q) => $q->whereDate('created_at', '>=', $dateFrom))
+            ->when($dateTo, fn ($q) => $q->whereDate('created_at', '<=', $dateTo))
             ->orderBy('created_at', 'desc')
             ->limit(100)
             ->get();
@@ -265,6 +258,49 @@ class GoogleMailController extends Controller
         return response()->json([
             'success' => true,
             'data' => ['emails' => $emails],
+        ]);
+    }
+
+    /**
+     * Mark emails in a thread as read (or single email by id).
+     */
+    public function markRead(Request $request): JsonResponse
+    {
+        $request->validate([
+            'thread_id' => 'nullable|string',
+            'email_ids' => 'nullable|array',
+            'email_ids.*' => 'exists:crm_emails,id',
+        ]);
+        $user = Auth::user();
+        $companyId = $user?->company_id;
+        $leadIds = Lead::withoutGlobalScopes()
+            ->when($companyId, fn ($q) => $q->where('company_id', $companyId))
+            ->pluck('id')
+            ->all();
+
+        $q = CrmEmail::query()->whereIn('lead_id', $leadIds);
+        if ($request->filled('thread_id')) {
+            $q->where('thread_id', $request->thread_id);
+        }
+        if ($request->filled('email_ids')) {
+            $q->whereIn('id', $request->email_ids);
+        }
+        $q->update(['is_read' => true]);
+
+        return response()->json(['success' => true]);
+    }
+
+    /**
+     * Track email open (1x1 pixel). Called when lead opens our sent email.
+     * No auth - returns transparent 1x1 GIF.
+     */
+    public function trackOpen(string $token)
+    {
+        CrmEmail::where('track_token', $token)->update(['opened_at' => now()]);
+        $gif = base64_decode('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7');
+        return response($gif, 200, [
+            'Content-Type' => 'image/gif',
+            'Cache-Control' => 'no-store, no-cache, must-revalidate, max-age=0',
         ]);
     }
 

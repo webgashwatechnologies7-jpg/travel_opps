@@ -19,6 +19,14 @@ class CrmEmail extends Model
         'gmail_message_id',
         'direction',
         'status',
+        'is_read',
+        'opened_at',
+        'track_token',
+    ];
+
+    protected $casts = [
+        'is_read' => 'boolean',
+        'opened_at' => 'datetime',
     ];
 
     public function lead()

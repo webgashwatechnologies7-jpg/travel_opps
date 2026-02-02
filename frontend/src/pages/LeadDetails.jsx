@@ -822,7 +822,13 @@ const LeadDetails = () => {
   };
 
   // Open compose as reply to a Gmail thread
-  const openReplyModal = (thread) => {
+  const openReplyModal = async (thread) => {
+    const tid = thread[0]?.thread_id;
+    const ids = thread.map(e => e.id);
+    try {
+      await googleMailAPI.markEmailsRead(tid ? { thread_id: tid } : { email_ids: ids });
+      setGmailEmails(prev => prev.map(e => (ids.includes(e.id) ? { ...e, is_read: true } : e)));
+    } catch (_) {}
     const sorted = [...thread].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
     const lastMsg = sorted[sorted.length - 1];
     const replyToEmail = lastMsg.direction === 'inbound' ? lastMsg.from_email : lastMsg.to_email;
@@ -3832,26 +3838,32 @@ const LeadDetails = () => {
                               Gmail Conversations
                             </h3>
                             <div className="space-y-3">
-                              {/* Group by thread_id */}
+                              {/* Group by thread_id, sort latest first */}
                               {Object.values(gmailEmails.reduce((acc, email) => {
-                                if (!acc[email.thread_id]) acc[email.thread_id] = [];
-                                acc[email.thread_id].push(email);
+                                const tid = email.thread_id || `single-${email.id}`;
+                                if (!acc[tid]) acc[tid] = [];
+                                acc[tid].push(email);
                                 return acc;
-                              }, {})).map((thread, threadIdx) => {
+                              }, {}))
+                                .map(t => t.sort((a, b) => new Date(b.created_at) - new Date(a.created_at)))
+                                .sort((a, b) => new Date((b[0]?.created_at) || 0) - new Date((a[0]?.created_at) || 0))
+                                .map((thread, threadIdx) => {
                                 const sorted = [...thread].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
                                 const latestEmail = thread[0];
+                                const hasUnread = thread.some(e => e.direction === 'inbound' && !e.is_read);
 
                                 return (
-                                  <div key={latestEmail.thread_id} className="bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+                                  <div key={latestEmail.thread_id || latestEmail.id} className={`bg-white border rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow ${hasUnread ? 'border-blue-300 ring-1 ring-blue-100' : 'border-gray-200'}`}>
                                     <div className="p-4 bg-gray-50 border-b border-gray-200 flex justify-between items-center">
                                       <div className="flex items-center gap-3">
                                         <div className="bg-red-100 p-2 rounded-lg">
                                           <Mail className="h-4 w-4 text-red-600" />
                                         </div>
                                         <div>
-                                          <p className="font-semibold text-gray-800">{latestEmail.subject}</p>
+                                          <p className={`${hasUnread ? 'font-bold text-gray-900' : 'font-semibold text-gray-800'}`}>{latestEmail.subject}</p>
                                           <p className="text-xs text-gray-500">
                                             {thread.length} message{thread.length > 1 ? 's' : ''} • Last message {new Date(latestEmail.created_at).toLocaleString()}
+                                            {hasUnread && <span className="ml-2 px-1.5 py-0.5 rounded bg-blue-200 text-blue-800">Unread</span>}
                                           </p>
                                         </div>
                                       </div>
@@ -3867,12 +3879,19 @@ const LeadDetails = () => {
                                     <div className="divide-y divide-gray-100 max-h-80 overflow-y-auto">
                                       {sorted.map((email) => (
                                         <div key={email.id} className={`p-4 ${email.direction === 'inbound' ? 'bg-white' : 'bg-blue-50/50'}`}>
-                                          <div className="flex justify-between items-start mb-2">
+                                          <div className="flex justify-between items-start mb-2 flex-wrap gap-1">
                                             <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${email.direction === 'inbound' ? 'bg-gray-100 text-gray-600' : 'bg-blue-100 text-blue-600'}`}>
                                               {email.direction === 'inbound' ? 'Received' : 'Sent'}
                                             </span>
-                                            <span className="text-xs text-gray-400">
-                                              {new Date(email.created_at).toLocaleString()}
+                                            <span className="flex items-center gap-2">
+                                              {email.direction === 'outbound' && email.opened_at && (
+                                                <span className="text-xs px-2 py-0.5 rounded bg-green-100 text-green-700" title={`Opened ${new Date(email.opened_at).toLocaleString()}`}>
+                                                  Opened
+                                                </span>
+                                              )}
+                                              <span className="text-xs text-gray-400">
+                                                {new Date(email.created_at).toLocaleString()}
+                                              </span>
                                             </span>
                                           </div>
                                           <div

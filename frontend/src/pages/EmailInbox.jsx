@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Mail, ArrowRight, RefreshCw, Inbox, Reply, X } from 'lucide-react';
+import { Mail, ArrowRight, RefreshCw, Inbox, Reply, X, Search } from 'lucide-react';
 import Layout from '../components/Layout';
 import { googleMailAPI } from '../services/api';
 import { rewriteHtmlImageUrls, sanitizeEmailHtmlForDisplay } from '../utils/imageUrl';
@@ -16,12 +16,19 @@ const EmailInbox = () => {
   const [replyAttachment, setReplyAttachment] = useState(null);
   const [sendingReply, setSendingReply] = useState(false);
   const [showReplyForm, setShowReplyForm] = useState(false);
+  const [searchText, setSearchText] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
 
   const fetchInbox = async () => {
     setLoading(true);
     setSyncMessage(null);
     try {
-      const response = await googleMailAPI.getEmailInbox();
+      const params = {};
+      if (searchText.trim()) params.search = searchText.trim();
+      if (dateFrom) params.date_from = dateFrom;
+      if (dateTo) params.date_to = dateTo;
+      const response = await googleMailAPI.getEmailInbox(params);
       const list = response.data?.success && response.data?.data?.emails ? response.data.data.emails : [];
       setEmails(list);
       return list;
@@ -65,6 +72,10 @@ const EmailInbox = () => {
     return () => clearInterval(interval);
   }, []);
 
+  const handleApplyFilter = () => {
+    fetchInbox();
+  };
+
   // Group emails by thread_id
   const threads = emails.reduce((acc, email) => {
     const tid = email.thread_id || `single-${email.id}`;
@@ -73,16 +84,32 @@ const EmailInbox = () => {
     return acc;
   }, {});
 
-  const threadList = Object.values(threads).map(t => t.sort((a, b) => new Date(b.created_at) - new Date(a.created_at)));
+  const threadList = Object.values(threads)
+    .map(t => t.sort((a, b) => new Date(b.created_at) - new Date(a.created_at)))
+    .sort((a, b) => {
+      const latestA = a[0]?.created_at || 0;
+      const latestB = b[0]?.created_at || 0;
+      const hasUnreadA = a.some(e => e.direction === 'inbound' && !e.is_read);
+      const hasUnreadB = b.some(e => e.direction === 'inbound' && !e.is_read);
+      if (hasUnreadA && !hasUnreadB) return -1;
+      if (!hasUnreadA && hasUnreadB) return 1;
+      return new Date(latestB) - new Date(latestA);
+    });
 
   const openLeadMails = (leadId) => {
     navigate(`/leads/${leadId}?tab=mails`);
   };
 
-  const openThread = (thread) => {
+  const openThread = async (thread) => {
     setSelectedThread(thread);
     setShowReplyForm(false);
     setReplyForm({ to_email: '', subject: '', body: '' });
+    const tid = thread[0]?.thread_id;
+    const ids = thread.map(e => e.id);
+    try {
+      await googleMailAPI.markEmailsRead(tid ? { thread_id: tid } : { email_ids: ids });
+      setEmails(prev => prev.map(e => (ids.includes(e.id) ? { ...e, is_read: true } : e)));
+    } catch (_) {}
   };
 
   const startReply = (thread) => {
@@ -209,6 +236,51 @@ const EmailInbox = () => {
           Click any conversation to see all messages and reply. Connect Gmail in Settings and use &quot;Sync inbox&quot; so sent/received emails appear here.
         </p>
 
+        {/* Search & Date Filters */}
+        <div className="flex flex-wrap items-center gap-3 mb-4 p-3 bg-gray-50 rounded-lg border border-gray-200">
+          <div className="flex items-center gap-2 flex-1 min-w-[180px]">
+            <Search className="h-4 w-4 text-gray-500" />
+            <input
+              type="text"
+              placeholder="Search by name, email, subject..."
+              value={searchText}
+              onChange={(e) => setSearchText(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleApplyFilter()}
+              className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          <input
+            type="date"
+            value={dateFrom}
+            onChange={(e) => setDateFrom(e.target.value)}
+            placeholder="From date"
+            className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          <input
+            type="date"
+            value={dateTo}
+            onChange={(e) => setDateTo(e.target.value)}
+            placeholder="To date"
+            className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          <button
+            type="button"
+            onClick={handleApplyFilter}
+            className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 text-sm font-medium"
+          >
+            Apply
+          </button>
+          {(searchText || dateFrom || dateTo) && (
+            <button
+              type="button"
+              onClick={() => { setSearchText(''); setDateFrom(''); setDateTo(''); fetchInbox(); }}
+              className="px-3 py-2 text-gray-600 hover:text-gray-800 text-sm"
+            >
+              Clear
+            </button>
+          )}
+        </div>
+
         <div className="flex gap-4 flex-1" style={{ minHeight: 400 }}>
           {/* Conversation list */}
           <div className="bg-white rounded-lg shadow border border-gray-200 overflow-hidden flex-1 min-w-0">
@@ -227,26 +299,28 @@ const EmailInbox = () => {
                 <ul className="divide-y divide-gray-100">
                   {threadList.map((thread) => {
                     const latest = thread[0];
+                    const hasUnread = thread.some(e => e.direction === 'inbound' && !e.is_read);
                     return (
                       <li key={latest.thread_id || latest.id}>
                         <button
                           type="button"
                           onClick={() => openThread(thread)}
-                          className={`w-full text-left p-4 hover:bg-gray-50 flex items-start gap-4 transition-colors ${selectedThread?.[0]?.id === latest.id ? 'bg-blue-50 border-l-4 border-blue-600' : ''}`}
+                          className={`w-full text-left p-4 hover:bg-gray-50 flex items-start gap-4 transition-colors ${selectedThread?.[0]?.id === latest.id ? 'bg-blue-50 border-l-4 border-blue-600' : ''} ${hasUnread ? 'bg-blue-50/50' : ''}`}
                         >
                           <div className="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center bg-blue-100">
                             <Mail className="h-5 w-5 text-blue-600" />
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 flex-wrap">
-                              <span className="font-medium text-gray-900 truncate">
+                              <span className={`truncate ${hasUnread ? 'font-bold text-gray-900' : 'font-medium text-gray-900'}`}>
                                 {latest.lead?.client_name || latest.from_email || latest.to_email || 'Unknown'}
                               </span>
                               <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">
                                 {thread.length} msg
                               </span>
+                              {hasUnread && <span className="text-xs px-2 py-0.5 rounded-full bg-blue-200 text-blue-800">Unread</span>}
                             </div>
-                            <p className="text-sm text-gray-700 truncate mt-0.5">{latest.subject}</p>
+                            <p className={`text-sm truncate mt-0.5 ${hasUnread ? 'font-semibold text-gray-800' : 'text-gray-700'}`}>{latest.subject}</p>
                             <p className="text-xs text-gray-400 mt-1">
                               {latest.created_at ? new Date(latest.created_at).toLocaleString() : ''}
                             </p>
@@ -293,11 +367,18 @@ const EmailInbox = () => {
                 <div className="flex-1 overflow-y-auto p-4 space-y-4">
                   {[...selectedThread].sort((a, b) => new Date(a.created_at) - new Date(b.created_at)).map((email) => (
                     <div key={email.id} className={`p-4 rounded-lg ${email.direction === 'inbound' ? 'bg-white border border-gray-200' : 'bg-blue-50 border border-blue-100'}`}>
-                      <div className="flex justify-between items-center mb-2">
+                      <div className="flex justify-between items-center mb-2 flex-wrap gap-1">
                         <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${email.direction === 'inbound' ? 'bg-gray-100 text-gray-600' : 'bg-blue-100 text-blue-600'}`}>
                           {email.direction === 'inbound' ? 'Received' : 'Sent'}
                         </span>
-                        <span className="text-xs text-gray-500">{new Date(email.created_at).toLocaleString()}</span>
+                        <span className="flex items-center gap-2">
+                          {email.direction === 'outbound' && email.opened_at && (
+                            <span className="text-xs px-2 py-0.5 rounded bg-green-100 text-green-700" title={`Opened ${new Date(email.opened_at).toLocaleString()}`}>
+                              Opened
+                            </span>
+                          )}
+                          <span className="text-xs text-gray-500">{new Date(email.created_at).toLocaleString()}</span>
+                        </span>
                       </div>
                       <p className="text-xs text-gray-600 mb-1">{email.direction === 'inbound' ? email.from_email : email.to_email}</p>
                       <div

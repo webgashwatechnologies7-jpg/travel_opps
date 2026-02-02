@@ -106,6 +106,13 @@ class GmailService
             return ['status' => 'failed', 'error' => 'Gmail not connected or token expired'];
         }
 
+        $trackToken = bin2hex(random_bytes(16));
+        $trackUrl = rtrim(config('app.url'), '/') . '/api/emails/track/' . $trackToken;
+        $pixel = '<img src="' . $trackUrl . '" width="1" height="1" alt="" style="display:none" />';
+        $bodyToSend = strpos($body, '</body>') !== false
+            ? str_replace('</body>', $pixel . '</body>', $body)
+            : $body . $pixel;
+
         $gmail = new Gmail($this->client);
 
         $strRawMessage = "From: {$user->gmail_email}\r\n";
@@ -118,7 +125,7 @@ class GmailService
             $strRawMessage .= "Content-Type: multipart/mixed; boundary=\"{$boundary}\"\r\n\r\n";
             $strRawMessage .= "--{$boundary}\r\n";
             $strRawMessage .= "Content-Type: text/html; charset=utf-8\r\n\r\n";
-            $strRawMessage .= $body . "\r\n";
+            $strRawMessage .= $bodyToSend . "\r\n";
             $filename = $attachment->getClientOriginalName();
             $mimeType = $attachment->getMimeType() ?: 'application/octet-stream';
             $strRawMessage .= "--{$boundary}\r\n";
@@ -129,7 +136,7 @@ class GmailService
             $strRawMessage .= "--{$boundary}--";
         } else {
             $strRawMessage .= "Content-Type: text/html; charset=utf-8\r\n\r\n";
-            $strRawMessage .= $body;
+            $strRawMessage .= $bodyToSend;
         }
 
         $mimeMessage = base64_encode($strRawMessage);
@@ -143,7 +150,7 @@ class GmailService
 
         try {
             $sentMessage = $gmail->users_messages->send('me', $message);
-            
+
             CrmEmail::create([
                 'lead_id' => $leadId,
                 'from_email' => $user->gmail_email,
@@ -154,6 +161,7 @@ class GmailService
                 'gmail_message_id' => $sentMessage->getId(),
                 'direction' => 'outbound',
                 'status' => 'sent',
+                'track_token' => $trackToken,
             ]);
 
             return ['status' => 'success', 'message_id' => $sentMessage->getId()];
