@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Smartphone, Settings, CheckCircle, AlertCircle, RefreshCw, BarChart3, MessageSquare, Phone } from 'lucide-react';
+import { Smartphone, Settings, CheckCircle, AlertCircle, RefreshCw, BarChart3, MessageSquare, Phone, Edit2, Save } from 'lucide-react';
 import { useErrorHandler } from '../hooks/useErrorHandler';
 import { companyWhatsappAPI } from '../services/api';
 
@@ -9,10 +9,36 @@ const CompanyWhatsAppSetup = () => {
   const [loading, setLoading] = useState(false);
   const [provisioning, setProvisioning] = useState(false);
   const [testing, setTesting] = useState(false);
+  const [showManualForm, setShowManualForm] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [manualForm, setManualForm] = useState({
+    whatsapp_phone_number: '',
+    whatsapp_display_name: '',
+    whatsapp_api_key: '',
+    whatsapp_phone_number_id: '',
+    whatsapp_webhook_secret: '',
+    whatsapp_verify_token: '',
+  });
 
   useEffect(() => {
     fetchSettings();
   }, []);
+
+  useEffect(() => {
+    if (settings && !settings.enabled) {
+      setManualForm({
+        whatsapp_phone_number: settings?.whatsapp_phone_number || settings?.phone_number || '',
+        whatsapp_display_name: settings?.whatsapp_display_name || settings?.display_name || '',
+        whatsapp_api_key: settings?.whatsapp_api_key || '',
+        whatsapp_phone_number_id: settings?.whatsapp_phone_number_id || '',
+        whatsapp_webhook_secret: settings?.whatsapp_webhook_secret || '',
+        whatsapp_verify_token: settings?.whatsapp_verify_token || '',
+      });
+      setShowManualForm(true);
+    } else if (settings?.enabled) {
+      setShowManualForm(false);
+    }
+  }, [settings?.enabled]);
 
   const fetchSettings = async () => {
     const result = await executeWithErrorHandling(async () => {
@@ -104,6 +130,46 @@ const CompanyWhatsAppSetup = () => {
     }
   };
 
+  const openManualForm = () => {
+    setManualForm({
+      whatsapp_phone_number: settings?.whatsapp_phone_number || settings?.phone_number || '',
+      whatsapp_display_name: settings?.whatsapp_display_name || settings?.display_name || '',
+      whatsapp_api_key: settings?.whatsapp_api_key || '',
+      whatsapp_phone_number_id: settings?.whatsapp_phone_number_id || '',
+      whatsapp_webhook_secret: settings?.whatsapp_webhook_secret || '',
+      whatsapp_verify_token: settings?.whatsapp_verify_token || '',
+    });
+    setShowManualForm(true);
+  };
+
+  const handleSaveManual = async () => {
+    if (!manualForm.whatsapp_phone_number?.trim() || !manualForm.whatsapp_api_key?.trim() || !manualForm.whatsapp_phone_number_id?.trim()) {
+      alert('Phone Number, API Key and Phone Number ID are required.');
+      return;
+    }
+    setSaving(true);
+    const result = await executeWithErrorHandling(
+      async () => {
+        const res = await companyWhatsappAPI.updateSettings({
+          whatsapp_phone_number: manualForm.whatsapp_phone_number.trim(),
+          whatsapp_display_name: manualForm.whatsapp_display_name.trim() || undefined,
+          whatsapp_api_key: manualForm.whatsapp_api_key.trim(),
+          whatsapp_phone_number_id: manualForm.whatsapp_phone_number_id.trim(),
+          whatsapp_webhook_secret: manualForm.whatsapp_webhook_secret.trim() || undefined,
+          whatsapp_verify_token: manualForm.whatsapp_verify_token.trim() || undefined,
+        });
+        if (!res.data?.success) throw new Error(res.data?.message || 'Save failed');
+        return res.data;
+      },
+      'WhatsApp number saved. You can now send messages from the CRM.'
+    );
+    if (result.success) {
+      setShowManualForm(false);
+      await fetchSettings();
+    }
+    setSaving(false);
+  };
+
   if (!settings) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -166,6 +232,92 @@ const CompanyWhatsAppSetup = () => {
             </div>
           </div>
 
+          {/* Manual: Connect Your WhatsApp Number */}
+          {(showManualForm || !settings.enabled) && (
+            <div className="border border-gray-200 bg-white rounded-lg p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-2 flex items-center gap-2">
+                <Phone className="w-5 h-5 text-green-600" />
+                Connect Your WhatsApp Business Number
+              </h3>
+              <p className="text-gray-600 text-sm mb-4">
+                Enter your WhatsApp Business API credentials from Meta Developer Console. 
+                You can connect any number that is registered with WhatsApp Business API.
+              </p>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">WhatsApp Phone Number *</label>
+                  <input
+                    type="text"
+                    value={manualForm.whatsapp_phone_number}
+                    onChange={(e) => setManualForm({ ...manualForm, whatsapp_phone_number: e.target.value })}
+                    placeholder="e.g. +919854465655 or 919854465655"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Display Name</label>
+                  <input
+                    type="text"
+                    value={manualForm.whatsapp_display_name}
+                    onChange={(e) => setManualForm({ ...manualForm, whatsapp_display_name: e.target.value })}
+                    placeholder="e.g. Your Company Name"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number ID *</label>
+                  <input
+                    type="text"
+                    value={manualForm.whatsapp_phone_number_id}
+                    onChange={(e) => setManualForm({ ...manualForm, whatsapp_phone_number_id: e.target.value })}
+                    placeholder="From Meta: WhatsApp → API Setup"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">API Key / Access Token *</label>
+                  <input
+                    type="password"
+                    value={manualForm.whatsapp_api_key}
+                    onChange={(e) => setManualForm({ ...manualForm, whatsapp_api_key: e.target.value })}
+                    placeholder="Permanent access token from Meta"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                  />
+                </div>
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Webhook Verify Token (optional)</label>
+                  <input
+                    type="text"
+                    value={manualForm.whatsapp_verify_token}
+                    onChange={(e) => setManualForm({ ...manualForm, whatsapp_verify_token: e.target.value })}
+                    placeholder="For receiving replies"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-2 mt-4">
+                <button
+                  onClick={handleSaveManual}
+                  disabled={saving}
+                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 flex items-center gap-2"
+                >
+                  <Save className="w-4 h-4" />
+                  {saving ? 'Saving...' : 'Save & Connect'}
+                </button>
+                {settings.enabled && (
+                  <button
+                    onClick={() => setShowManualForm(false)}
+                    className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
+                  >
+                    Cancel
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Auto-Provision Section */}
           {!settings.enabled && (
             <div className="border border-blue-200 bg-blue-50 rounded-lg p-6">
@@ -210,27 +362,36 @@ const CompanyWhatsAppSetup = () => {
             </div>
           )}
 
-          {/* Current Settings */}
-          {settings.enabled && (
+          {/* Current Settings - Connected Number */}
+          {settings.enabled && !showManualForm && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-4">
-                <h4 className="font-semibold text-gray-900 flex items-center space-x-2">
-                  <Settings className="w-5 h-5" />
-                  Configuration Details
-                </h4>
+                <div className="flex items-center justify-between">
+                  <h4 className="font-semibold text-gray-900 flex items-center space-x-2">
+                    <Settings className="w-5 h-5" />
+                    Connected WhatsApp Number
+                  </h4>
+                  <button
+                    onClick={openManualForm}
+                    className="flex items-center gap-2 px-3 py-1.5 text-sm text-green-600 hover:bg-green-50 rounded-lg border border-green-200"
+                  >
+                    <Edit2 className="w-4 h-4" />
+                    Change Number
+                  </button>
+                </div>
                 
                 <div className="space-y-3">
                   <div>
                     <label className="block text-sm font-medium text-gray-700">Phone Number</label>
                     <div className="mt-1 p-3 bg-gray-50 rounded border border-gray-200">
-                      <span className="font-mono text-sm">{settings.phone_number || 'Not configured'}</span>
+                      <span className="font-mono text-sm">{settings.phone_number || settings.whatsapp_phone_number || 'Not configured'}</span>
                     </div>
                   </div>
                   
                   <div>
                     <label className="block text-sm font-medium text-gray-700">Display Name</label>
                     <div className="mt-1 p-3 bg-gray-50 rounded border border-gray-200">
-                      <span className="text-sm">{settings.display_name || 'Not configured'}</span>
+                      <span className="text-sm">{settings.display_name || settings.whatsapp_display_name || 'Not configured'}</span>
                     </div>
                   </div>
                   

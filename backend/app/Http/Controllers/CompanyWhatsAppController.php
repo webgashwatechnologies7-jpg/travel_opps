@@ -100,6 +100,9 @@ class CompanyWhatsAppController extends Controller
                 'data' => array_merge($status, [
                     'company_id' => $company->id,
                     'company_name' => $company->name,
+                    'phone_number' => $company->whatsapp_phone_number,
+                    'display_name' => $company->whatsapp_display_name,
+                    'whatsapp_phone_number' => $company->whatsapp_phone_number,
                     'whatsapp_phone_number_id' => $company->whatsapp_phone_number_id,
                     'whatsapp_api_key' => $company->whatsapp_api_key,
                     'whatsapp_business_account_id' => $company->whatsapp_business_account_id,
@@ -131,14 +134,15 @@ class CompanyWhatsAppController extends Controller
         try {
             $validator = validator($request->all(), [
                 'whatsapp_phone_number' => 'nullable|string|max:20',
-                'whatsapp_api_key' => 'nullable|string|max:255',
+                'whatsapp_display_name' => 'nullable|string|max:100',
+                'whatsapp_api_key' => 'nullable|string|max:500',
                 'whatsapp_phone_number_id' => 'nullable|string|max:100',
                 'whatsapp_webhook_secret' => 'nullable|string|max:255',
                 'whatsapp_verify_token' => 'nullable|string|max:100',
                 'whatsapp_business_account_id' => 'nullable|string|max:150',
                 'whatsapp_app_secret' => 'nullable|string|max:255',
-                'whatsapp_enabled' => 'boolean',
-                'auto_provision_whatsapp' => 'boolean'
+                'whatsapp_enabled' => 'nullable|boolean',
+                'auto_provision_whatsapp' => 'nullable|boolean'
             ]);
 
             if ($validator->fails()) {
@@ -158,8 +162,9 @@ class CompanyWhatsAppController extends Controller
                 ], 404);
             }
 
-            $company->update($request->only([
+            $updateData = $request->only([
                 'whatsapp_phone_number',
+                'whatsapp_display_name',
                 'whatsapp_api_key',
                 'whatsapp_phone_number_id',
                 'whatsapp_webhook_secret',
@@ -167,7 +172,14 @@ class CompanyWhatsAppController extends Controller
                 'whatsapp_business_account_id',
                 'whatsapp_enabled',
                 'auto_provision_whatsapp'
-            ]));
+            ]);
+
+            if ($request->filled('whatsapp_api_key') && $request->filled('whatsapp_phone_number_id')) {
+                $updateData['whatsapp_enabled'] = true;
+                $updateData['whatsapp_status'] = 'active';
+            }
+
+            $company->update($updateData);
 
             if ($request->filled('whatsapp_app_secret')) {
                 $settings = $company->whatsapp_settings ?? [];
@@ -257,9 +269,13 @@ class CompanyWhatsAppController extends Controller
                 ], 400);
             }
 
-            // Test sending a message to a test number
-            $testResult = app(\App\Services\WhatsAppService::class)->sendMessage(
-                $company->whatsapp_phone_number,
+            $api = app(\App\Services\WhatsAppService::class)->setCompanyConfig($company);
+            $testNumber = preg_replace('/\D/', '', $company->whatsapp_phone_number ?? '');
+            if (strlen($testNumber) === 10 && preg_match('/^[6-9]/', $testNumber)) {
+                $testNumber = '91' . $testNumber;
+            }
+            $testResult = $api->sendMessage(
+                $testNumber ?: '0',
                 'Test message from CRM - WhatsApp integration is working!',
                 null,
                 []
