@@ -135,7 +135,7 @@ class CompanyWhatsAppController extends Controller
             $validator = validator($request->all(), [
                 'whatsapp_phone_number' => 'nullable|string|max:20',
                 'whatsapp_display_name' => 'nullable|string|max:100',
-                'whatsapp_api_key' => 'nullable|string|max:500',
+                'whatsapp_api_key' => 'nullable|string|max:2000',
                 'whatsapp_phone_number_id' => 'nullable|string|max:100',
                 'whatsapp_webhook_secret' => 'nullable|string|max:255',
                 'whatsapp_verify_token' => 'nullable|string|max:100',

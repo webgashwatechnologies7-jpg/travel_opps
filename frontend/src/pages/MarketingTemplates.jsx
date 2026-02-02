@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import Layout from '../components/Layout';
+import { marketingTemplatesAPI } from '../services/api';
 import { 
   Mail,
   MessageSquare,
@@ -28,16 +29,15 @@ const MarketingTemplates = () => {
 
   const fetchTemplates = async () => {
     try {
-      const response = await fetch('/api/marketing/templates');
-      const data = await response.json();
-      
-      if (data.success) {
-        setTemplates(data.data || []);
+      setError('');
+      const res = await marketingTemplatesAPI.list();
+      if (res.data?.success) {
+        setTemplates(res.data.data || []);
       } else {
-        setError(data.message);
+        setError(res.data?.message || 'Failed to load');
       }
     } catch (err) {
-      setError('Failed to load marketing templates');
+      setError(err.response?.data?.message || 'Failed to load marketing templates');
     } finally {
       setLoading(false);
     }

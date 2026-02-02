@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
+import { clientGroupsAPI } from '../services/api';
 import { 
   Users,
   Plus,
@@ -36,8 +37,17 @@ const ClientGroups = () => {
   const [formData, setFormData] = useState({
     name: '',
     description: '',
+    type: 'leisure',
     status: 'active'
   });
+  const [createForm, setCreateForm] = useState({
+    name: '',
+    description: '',
+    type: 'leisure',
+    status: 'active'
+  });
+  const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(null);
 
   useEffect(() => {
     fetchGroups();
@@ -45,82 +55,54 @@ const ClientGroups = () => {
 
   const fetchGroups = async () => {
     try {
-      const response = await fetch('/api/marketing/client-groups');
-      const data = await response.json();
-      
-      if (data.success) {
-        setGroups(data.data);
+      setError('');
+      const res = await clientGroupsAPI.list();
+      if (res.data?.success && Array.isArray(res.data.data)) {
+        setGroups(res.data.data);
       } else {
-        setError(data.message);
+        setError(res.data?.message || 'Failed to load');
       }
     } catch (err) {
-      setError('Failed to load client groups');
-      // Fallback to mock data for demonstration
-      const mockGroups = [
-        {
-          id: 1,
-          name: 'VIP Clients',
-          description: 'High-value clients with premium services',
-          client_count: 45,
-          type: 'premium',
-          created_at: '2024-01-15',
-          created_by: 'John Doe',
-          status: 'active',
-          total_revenue: 125000,
-          avg_booking_value: 2500
-        },
-        {
-          id: 2,
-          name: 'Corporate Groups',
-          description: 'Business clients and corporate bookings',
-          client_count: 32,
-          type: 'corporate',
-          created_at: '2024-01-12',
-          created_by: 'Jane Smith',
-          status: 'active',
-          total_revenue: 89000,
-          avg_booking_value: 1800
-        },
-        {
-          id: 3,
-          name: 'Family Travelers',
-          description: 'Family vacation packages and group tours',
-          client_count: 78,
-          type: 'family',
-          created_at: '2024-01-10',
-          created_by: 'Mike Johnson',
-          status: 'active',
-          total_revenue: 156000,
-          avg_booking_value: 1200
-        },
-        {
-          id: 4,
-          name: 'International Tours',
-          description: 'Clients interested in international destinations',
-          client_count: 23,
-          type: 'international',
-          created_at: '2024-01-08',
-          created_by: 'Sarah Wilson',
-          status: 'inactive',
-          total_revenue: 67000,
-          avg_booking_value: 3200
-        },
-        {
-          id: 5,
-          name: 'Weekend Getaways',
-          description: 'Short trip and weekend vacation clients',
-          client_count: 56,
-          type: 'leisure',
-          created_at: '2024-01-05',
-          created_by: 'Tom Brown',
-          status: 'active',
-          total_revenue: 45000,
-          avg_booking_value: 800
-        }
-      ];
-      setGroups(mockGroups);
+      setError(err.response?.data?.message || 'Failed to load client groups');
+      setGroups([]);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleCreate = async () => {
+    if (!createForm.name?.trim()) return;
+    setSaving(true);
+    try {
+      const res = await clientGroupsAPI.create(createForm);
+      if (res.data?.success) {
+        setShowCreateModal(false);
+        setCreateForm({ name: '', description: '', type: 'leisure', status: 'active' });
+        await fetchGroups();
+      } else {
+        setError(res.data?.message || 'Create failed');
+      }
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to create group');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async (group) => {
+    if (!window.confirm(`Delete "${group.name}"?`)) return;
+    setDeleting(group.id);
+    try {
+      const res = await clientGroupsAPI.delete(group.id);
+      if (res.data?.success) {
+        await fetchGroups();
+      } else {
+        setError(res.data?.message || 'Delete failed');
+      }
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to delete');
+    } finally {
+      setDeleting(null);
     }
   };
 
@@ -135,35 +117,29 @@ const ClientGroups = () => {
   };
 
   const handleSaveEdit = async () => {
+    if (!selectedGroup) return;
+    setSaving(true);
     try {
-      const response = await fetch(`/api/marketing/client-groups/${selectedGroup.id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(formData)
-      });
-      
-      const data = await response.json();
-      
-      if (data.success) {
-        // Update local state
-        setGroups(groups.map(g => 
+      const res = await clientGroupsAPI.update(selectedGroup.id, formData);
+      if (res.data?.success) {
+        setGroups(groups.map(g =>
           g.id === selectedGroup.id ? { ...g, ...formData } : g
         ));
         setShowEditModal(false);
         setSelectedGroup(null);
       } else {
-        setError(data.message);
+        setError(res.data?.message || 'Update failed');
       }
     } catch (err) {
-      setError('Failed to update client group');
+      setError(err.response?.data?.message || 'Failed to update');
+    } finally {
+      setSaving(false);
     }
   };
 
   const filteredGroups = groups.filter(group =>
-    group.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    group.description.toLowerCase().includes(searchTerm.toLowerCase())
+    (group.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (group.description || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const getStatusColor = (status) => {
@@ -217,7 +193,10 @@ const ClientGroups = () => {
                   <Filter className="w-4 h-4" />
                   <span>Filter</span>
                 </button>
-                <button className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                <button
+                  onClick={() => setShowCreateModal(true)}
+                  className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                >
                   <Plus className="w-4 h-4" />
                   <span>Add Group</span>
                 </button>
@@ -227,6 +206,12 @@ const ClientGroups = () => {
         </div>
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          {error && (
+            <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 flex items-center justify-between">
+              <span>{error}</span>
+              <button onClick={() => setError('')} className="text-red-500 hover:text-red-700">×</button>
+            </div>
+          )}
           {/* Stats Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl p-6 text-white">
@@ -236,7 +221,7 @@ const ClientGroups = () => {
                   <p className="text-3xl font-bold mt-2">{groups.length}</p>
                   <div className="flex items-center mt-2 text-sm">
                     <Users className="w-4 h-4 mr-1" />
-                    <span>{groups.reduce((sum, g) => sum + g.client_count, 0)} Total Clients</span>
+                    <span>{groups.reduce((sum, g) => sum + (g.client_count || 0), 0)} Total Clients</span>
                   </div>
                 </div>
                 <div className="bg-white/20 p-3 rounded-lg">
@@ -266,7 +251,7 @@ const ClientGroups = () => {
                 <div>
                   <p className="text-purple-100 text-sm font-medium">Total Revenue</p>
                   <p className="text-3xl font-bold mt-2">
-                    ${groups.reduce((sum, g) => sum + g.total_revenue, 0).toLocaleString()}
+                    ${groups.reduce((sum, g) => sum + (g.total_revenue || 0), 0).toLocaleString()}
                   </p>
                   <div className="flex items-center mt-2 text-sm">
                     <TrendingUp className="w-4 h-4 mr-1" />
@@ -284,7 +269,7 @@ const ClientGroups = () => {
                 <div>
                   <p className="text-orange-100 text-sm font-medium">Avg Booking</p>
                   <p className="text-3xl font-bold mt-2">
-                    ${Math.round(groups.reduce((sum, g) => sum + g.avg_booking_value, 0) / groups.length || 0).toLocaleString()}
+                    ${Math.round((groups.reduce((sum, g) => sum + (g.avg_booking_value || 0), 0) / (groups.length || 1)) || 0).toLocaleString()}
                   </p>
                   <div className="flex items-center mt-2 text-sm">
                     <Calendar className="w-4 h-4 mr-1" />
@@ -365,10 +350,10 @@ const ClientGroups = () => {
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <span className="text-sm text-gray-900">${group.total_revenue.toLocaleString()}</span>
+                          <span className="text-sm text-gray-900">${(group.total_revenue || 0).toLocaleString()}</span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <span className="text-sm text-gray-900">${group.avg_booking_value.toLocaleString()}</span>
+                          <span className="text-sm text-gray-900">${(group.avg_booking_value || 0).toLocaleString()}</span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(group.status)}`}>
@@ -400,7 +385,12 @@ const ClientGroups = () => {
                             >
                               <Edit className="w-4 h-4" />
                             </button>
-                            <button className="text-red-600 hover:text-red-900" title="Delete">
+                            <button
+                              onClick={() => handleDelete(group)}
+                              disabled={deleting === group.id}
+                              className="text-red-600 hover:text-red-900 disabled:opacity-50"
+                              title="Delete"
+                            >
                               <Trash2 className="w-4 h-4" />
                             </button>
                             <button className="text-gray-400 hover:text-gray-600" title="More">
@@ -492,12 +482,78 @@ const ClientGroups = () => {
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                  disabled={saving}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
                 >
-                  Save
+                  {saving ? 'Saving...' : 'Save'}
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Create Group Modal */}
+      {showCreateModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold text-gray-900">Create Client Group</h2>
+              <button onClick={() => setShowCreateModal(false)} className="text-gray-400 hover:text-gray-600">×</button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Group Name *</label>
+                <input
+                  type="text"
+                  value={createForm.name}
+                  onChange={(e) => setCreateForm({ ...createForm, name: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  placeholder="Enter group name"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                <textarea
+                  rows={3}
+                  value={createForm.description}
+                  onChange={(e) => setCreateForm({ ...createForm, description: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  placeholder="Enter description"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
+                <select
+                  value={createForm.type}
+                  onChange={(e) => setCreateForm({ ...createForm, type: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="premium">Premium</option>
+                  <option value="corporate">Corporate</option>
+                  <option value="family">Family</option>
+                  <option value="international">International</option>
+                  <option value="leisure">Leisure</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                <select
+                  value={createForm.status}
+                  onChange={(e) => setCreateForm({ ...createForm, status: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="active">Active</option>
+                  <option value="inactive">Inactive</option>
+                </select>
+              </div>
+              <div className="flex justify-end space-x-3 pt-4">
+                <button onClick={() => setShowCreateModal(false)} className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">Cancel</button>
+                <button onClick={handleCreate} disabled={saving || !createForm.name?.trim()} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50">
+                  {saving ? 'Creating...' : 'Create'}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
@@ -538,17 +594,17 @@ const ClientGroups = () => {
               
               <div>
                 <p className="text-sm text-gray-600 mb-2">Description</p>
-                <p className="text-gray-900">{selectedGroup.description}</p>
+                <p className="text-gray-900">{selectedGroup.description || '—'}</p>
               </div>
               
               <div className="grid grid-cols-2 gap-4">
                 <div className="bg-blue-50 p-4 rounded-lg">
                   <p className="text-sm text-blue-600 mb-1">Total Revenue</p>
-                  <p className="text-2xl font-bold text-blue-900">${selectedGroup.total_revenue.toLocaleString()}</p>
+                  <p className="text-2xl font-bold text-blue-900">${(selectedGroup.total_revenue || 0).toLocaleString()}</p>
                 </div>
                 <div className="bg-green-50 p-4 rounded-lg">
                   <p className="text-sm text-green-600 mb-1">Average Booking</p>
-                  <p className="text-2xl font-bold text-green-900">${selectedGroup.avg_booking_value.toLocaleString()}</p>
+                  <p className="text-2xl font-bold text-green-900">${(selectedGroup.avg_booking_value || 0).toLocaleString()}</p>
                 </div>
               </div>
               

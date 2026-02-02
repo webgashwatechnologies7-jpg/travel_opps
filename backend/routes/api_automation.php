@@ -20,6 +20,9 @@ Route::middleware('auth:sanctum')->prefix('google-sheets')->group(function () {
 });
 
 // WhatsApp webhook routes - public (Meta will call these)
+// Single URL for Meta: /api/whatsapp/webhook - handles both GET (verify) and POST (messages)
+Route::match(['get', 'post'], 'whatsapp/webhook', [PublicWhatsAppController::class, 'webhookUnified']);
+
 Route::prefix('webhooks/whatsapp')->group(function () {
     Route::post('/{company_id}', [PublicWhatsAppController::class, 'webhook'])
         ->middleware('tenant.param');

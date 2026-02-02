@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\ClientGroup;
 use App\Models\EmailCampaign;
 use App\Models\SmsCampaign;
 use App\Models\MarketingTemplate;
@@ -461,33 +462,36 @@ class MarketingController extends Controller
     public function clientGroups(): JsonResponse
     {
         try {
-            // Mock data - replace with actual database query
-            $groups = [
-                [
-                    'id' => 1,
-                    'name' => 'VIP Clients',
-                    'description' => 'High-value clients with premium services',
-                    'client_count' => 45,
-                    'type' => 'premium',
-                    'created_at' => '2024-01-15',
-                    'created_by' => 'John Doe',
-                    'status' => 'active',
-                    'total_revenue' => 125000,
-                    'avg_booking_value' => 2500
-                ],
-                [
-                    'id' => 2,
-                    'name' => 'Corporate Groups',
-                    'description' => 'Business clients and corporate bookings',
-                    'client_count' => 32,
-                    'type' => 'corporate',
-                    'created_at' => '2024-01-12',
-                    'created_by' => 'Jane Smith',
-                    'status' => 'active',
-                    'total_revenue' => 89000,
-                    'avg_booking_value' => 1800
-                ]
-            ];
+            $companyId = auth()->user()->company_id;
+
+            $groups = ClientGroup::where('company_id', $companyId)
+                ->withCount('leads')
+                ->with('creator:id,name')
+                ->orderBy('created_at', 'desc')
+                ->get()
+                ->map(function ($g) {
+                    $leadIds = $g->leads()->pluck('leads.id');
+                    $revenueData = DB::table('lead_payments')
+                        ->whereIn('lead_id', $leadIds)
+                        ->selectRaw('COALESCE(SUM(amount), 0) as total, COUNT(DISTINCT lead_id) as cnt')
+                        ->first();
+                    $totalRevenue = (float) ($revenueData->total ?? 0);
+                    $clientCount = $g->leads_count;
+                    $avgBooking = $clientCount > 0 ? round($totalRevenue / $clientCount, 2) : 0;
+
+                    return [
+                        'id' => $g->id,
+                        'name' => $g->name,
+                        'description' => $g->description,
+                        'client_count' => $clientCount,
+                        'type' => $g->type,
+                        'created_at' => $g->created_at?->format('Y-m-d'),
+                        'created_by' => $g->creator?->name ?? 'System',
+                        'status' => $g->status,
+                        'total_revenue' => $totalRevenue,
+                        'avg_booking_value' => $avgBooking,
+                    ];
+                });
 
             return response()->json([
                 'success' => true,
@@ -514,7 +518,7 @@ class MarketingController extends Controller
                 'name' => 'required|string|max:255',
                 'description' => 'nullable|string',
                 'type' => 'required|in:premium,corporate,family,international,leisure',
-                'status' => 'boolean',
+                'status' => 'nullable|in:active,inactive',
             ]);
 
             if ($validator->fails()) {
@@ -525,24 +529,30 @@ class MarketingController extends Controller
                 ], 422);
             }
 
-            // Mock implementation - replace with actual database save
-            $group = [
-                'id' => rand(1000, 9999),
+            $group = ClientGroup::create([
+                'company_id' => auth()->user()->company_id,
                 'name' => $request->name,
                 'description' => $request->description,
                 'type' => $request->type,
-                'status' => $request->status ? 'active' : 'inactive',
-                'client_count' => 0,
-                'created_at' => now()->format('Y-m-d'),
-                'created_by' => auth()->user()->name,
-                'total_revenue' => 0,
-                'avg_booking_value' => 0
-            ];
+                'status' => $request->status ?? 'active',
+                'created_by' => auth()->id(),
+            ]);
 
             return response()->json([
                 'success' => true,
                 'message' => 'Client group created successfully',
-                'data' => $group
+                'data' => [
+                    'id' => $group->id,
+                    'name' => $group->name,
+                    'description' => $group->description,
+                    'type' => $group->type,
+                    'status' => $group->status,
+                    'client_count' => 0,
+                    'created_at' => $group->created_at->format('Y-m-d'),
+                    'created_by' => auth()->user()->name,
+                    'total_revenue' => 0,
+                    'avg_booking_value' => 0,
+                ]
             ], 201);
 
         } catch (\Exception $e) {
@@ -560,26 +570,37 @@ class MarketingController extends Controller
     public function showClientGroup($id): JsonResponse
     {
         try {
-            // Mock implementation - replace with actual database query
-            $group = [
-                'id' => $id,
-                'name' => 'VIP Clients',
-                'description' => 'High-value clients with premium services',
-                'client_count' => 45,
-                'type' => 'premium',
-                'created_at' => '2024-01-15',
-                'created_by' => 'John Doe',
-                'status' => 'active',
-                'total_revenue' => 125000,
-                'avg_booking_value' => 2500
-            ];
+            $companyId = auth()->user()->company_id;
+            $g = ClientGroup::where('company_id', $companyId)->with('creator:id,name')->findOrFail($id);
+
+            $leadIds = $g->leads()->pluck('leads.id');
+            $revenueData = DB::table('lead_payments')
+                ->whereIn('lead_id', $leadIds)
+                ->selectRaw('COALESCE(SUM(amount), 0) as total')
+                ->first();
+            $totalRevenue = (float) ($revenueData->total ?? 0);
+            $clientCount = $g->leads()->count();
+            $avgBooking = $clientCount > 0 ? round($totalRevenue / $clientCount, 2) : 0;
 
             return response()->json([
                 'success' => true,
                 'message' => 'Client group retrieved successfully',
-                'data' => $group
+                'data' => [
+                    'id' => $g->id,
+                    'name' => $g->name,
+                    'description' => $g->description,
+                    'client_count' => $clientCount,
+                    'type' => $g->type,
+                    'created_at' => $g->created_at?->format('Y-m-d'),
+                    'created_by' => $g->creator?->name ?? 'System',
+                    'status' => $g->status,
+                    'total_revenue' => $totalRevenue,
+                    'avg_booking_value' => $avgBooking,
+                ]
             ], 200);
 
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return response()->json(['success' => false, 'message' => 'Client group not found'], 404);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
@@ -609,21 +630,27 @@ class MarketingController extends Controller
                 ], 422);
             }
 
-            // Mock implementation - replace with actual database update
-            $updatedGroup = [
-                'id' => $id,
+            $companyId = auth()->user()->company_id;
+            $group = ClientGroup::where('company_id', $companyId)->findOrFail($id);
+            $group->update([
                 'name' => $request->name,
                 'description' => $request->description,
                 'status' => $request->status,
-                'updated_at' => now()->format('Y-m-d H:i:s')
-            ];
+            ]);
 
             return response()->json([
                 'success' => true,
                 'message' => 'Client group updated successfully',
-                'data' => $updatedGroup
+                'data' => [
+                    'id' => $group->id,
+                    'name' => $group->name,
+                    'description' => $group->description,
+                    'status' => $group->status,
+                ]
             ], 200);
 
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return response()->json(['success' => false, 'message' => 'Client group not found'], 404);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
@@ -639,12 +666,17 @@ class MarketingController extends Controller
     public function deleteClientGroup($id): JsonResponse
     {
         try {
-            // Mock implementation - replace with actual database delete
+            $companyId = auth()->user()->company_id;
+            $group = ClientGroup::where('company_id', $companyId)->findOrFail($id);
+            $group->delete();
+
             return response()->json([
                 'success' => true,
                 'message' => 'Client group deleted successfully'
             ], 200);
 
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return response()->json(['success' => false, 'message' => 'Client group not found'], 404);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
@@ -673,13 +705,18 @@ class MarketingController extends Controller
                 ], 422);
             }
 
-            // Mock implementation
+            $companyId = auth()->user()->company_id;
+            $group = ClientGroup::where('company_id', $companyId)->findOrFail($id);
+            $group->leads()->syncWithoutDetaching($request->client_ids);
+
             return response()->json([
                 'success' => true,
                 'message' => 'Clients added to group successfully',
                 'added_count' => count($request->client_ids)
             ], 200);
 
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return response()->json(['success' => false, 'message' => 'Client group not found'], 404);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
@@ -695,23 +732,19 @@ class MarketingController extends Controller
     public function getGroupClients($id): JsonResponse
     {
         try {
-            // Mock implementation - replace with actual database query
-            $clients = [
-                [
-                    'id' => 1,
-                    'name' => 'John Smith',
-                    'email' => 'john@example.com',
-                    'phone' => '+1234567890',
-                    'status' => 'active'
-                ],
-                [
-                    'id' => 2,
-                    'name' => 'Jane Doe',
-                    'email' => 'jane@example.com',
-                    'phone' => '+1234567891',
-                    'status' => 'active'
-                ]
-            ];
+            $companyId = auth()->user()->company_id;
+            $group = ClientGroup::where('company_id', $companyId)->findOrFail($id);
+
+            $clients = $group->leads()
+                ->select('leads.id', 'leads.client_name as name', 'leads.email', 'leads.phone', 'leads.status')
+                ->get()
+                ->map(fn ($l) => [
+                    'id' => $l->id,
+                    'name' => $l->name,
+                    'email' => $l->email,
+                    'phone' => $l->phone,
+                    'status' => $l->status,
+                ]);
 
             return response()->json([
                 'success' => true,
@@ -719,6 +752,8 @@ class MarketingController extends Controller
                 'data' => $clients
             ], 200);
 
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return response()->json(['success' => false, 'message' => 'Client group not found'], 404);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Company;
 use App\Services\WhatsAppService;
 use App\Modules\Leads\Domain\Entities\Lead;
 use App\Modules\Automation\Domain\Entities\WhatsappLog;
@@ -183,6 +184,44 @@ class WhatsAppController extends Controller
                 'message' => 'Failed to send media',
                 'error' => config('app.debug') ? $e->getMessage() : 'Internal server error'
             ], 500);
+        }
+    }
+
+    /**
+     * Unified webhook for /api/whatsapp/webhook - handles GET (Meta verification) and POST (incoming messages)
+     */
+    public function webhookUnified(Request $request)
+    {
+        if ($request->isMethod('get')) {
+            return $this->verifyWebhook($request);
+        }
+
+        // POST: find company from payload and process
+        try {
+            $data = $request->json();
+            $phoneNumberId = null;
+            if (isset($data['entry'][0]['changes'][0]['value']['metadata']['phone_number_id'])) {
+                $phoneNumberId = $data['entry'][0]['changes'][0]['value']['metadata']['phone_number_id'];
+            }
+            $company = null;
+            if ($phoneNumberId) {
+                $company = Company::where('whatsapp_phone_number_id', $phoneNumberId)->first();
+            }
+            if (!$company) {
+                $company = Company::where('whatsapp_enabled', true)->first();
+            }
+            if (!$company) {
+                Log::warning('WhatsApp webhook: no company found for phone_number_id', ['phone_number_id' => $phoneNumberId]);
+                return response()->json(['status' => 'ignored'], 200);
+            }
+
+            $tenantId = $company->id;
+            app()->instance('tenant.id', $tenantId);
+
+            return $this->webhook($request, $company->id);
+        } catch (\Exception $e) {
+            Log::error('WhatsApp webhookUnified error', ['error' => $e->getMessage()]);
+            return response()->json(['error' => 'Webhook failed'], 500);
         }
     }
 
@@ -407,16 +446,29 @@ class WhatsAppController extends Controller
     }
 
     /**
-     * Webhook verification
+     * Webhook verification (GET from Meta)
      */
-    public function verifyWebhook(Request $request): JsonResponse
+    public function verifyWebhook(Request $request)
     {
         $mode = $request->input('hub.mode');
         $token = $request->input('hub.verify_token');
         $challenge = $request->input('hub.challenge');
 
-        if ($mode === 'subscribe' && $token === config('services.whatsapp.verify_token')) {
-            return response($challenge, 200);
+        if ($mode !== 'subscribe' || !$challenge) {
+            return response()->json(['error' => 'Verification failed'], 403);
+        }
+
+        $configToken = config('services.whatsapp.verify_token');
+        if ($token && ($token === $configToken)) {
+            return response($challenge, 200)->header('Content-Type', 'text/plain');
+        }
+
+        $companyToken = Company::where('whatsapp_enabled', true)
+            ->whereNotNull('whatsapp_verify_token')
+            ->where('whatsapp_verify_token', $token)
+            ->exists();
+        if ($companyToken) {
+            return response($challenge, 200)->header('Content-Type', 'text/plain');
         }
 
         return response()->json(['error' => 'Verification failed'], 403);

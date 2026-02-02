@@ -254,8 +254,16 @@ class WhatsAppService
     public function verifyWebhook($payload, $signature)
     {
         $webhookSecret = config('services.whatsapp.webhook_secret');
+        if (empty($webhookSecret)) {
+            return true; // Skip when not configured (e.g. dev/test)
+        }
+        if (empty($signature)) {
+            return false;
+        }
+        if (str_starts_with($signature, 'sha256=')) {
+            $signature = substr($signature, 7);
+        }
         $expectedSignature = hash_hmac('sha256', $payload, $webhookSecret);
-        
         return hash_equals($expectedSignature, $signature);
     }
 }

@@ -228,6 +228,26 @@ export const whatsappAPI = {
   messages: (leadId, params = {}) => api.get(`/whatsapp/messages/${leadId}`, { params }),
 };
 
+// Marketing Templates
+export const marketingTemplatesAPI = {
+  list: () => api.get('/marketing/templates'),
+  create: (data) => api.post('/marketing/templates', data),
+  get: (id) => api.get(`/marketing/templates/${id}`),
+  update: (id, data) => api.put(`/marketing/templates/${id}`, data),
+  delete: (id) => api.delete(`/marketing/templates/${id}`),
+};
+
+// Client Groups (Marketing)
+export const clientGroupsAPI = {
+  list: () => api.get('/marketing/client-groups'),
+  create: (data) => api.post('/marketing/client-groups', data),
+  get: (id) => api.get(`/marketing/client-groups/${id}`),
+  update: (id, data) => api.put(`/marketing/client-groups/${id}`, data),
+  delete: (id) => api.delete(`/marketing/client-groups/${id}`),
+  addClients: (id, clientIds) => api.post(`/marketing/client-groups/${id}/add-clients`, { client_ids: clientIds }),
+  getClients: (id) => api.get(`/marketing/client-groups/${id}/clients`),
+};
+
 // Targets APIs (Admin only)
 export const targetsAPI = {
   get: (userId, month) => api.get(`/targets/${userId}/${month}`),
