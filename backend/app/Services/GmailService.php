@@ -100,7 +100,7 @@ class GmailService
         return true;
     }
 
-    public function sendMail(User $user, $to, $subject, $body, $leadId = null)
+    public function sendMail(User $user, $to, $subject, $body, $leadId = null, ?string $threadId = null)
     {
         if (!$this->setUser($user)) {
             return ['status' => 'failed', 'error' => 'Gmail not connected or token expired'];
@@ -120,6 +120,9 @@ class GmailService
 
         $message = new Message();
         $message->setRaw($mimeMessage);
+        if ($threadId) {
+            $message->setThreadId($threadId);
+        }
 
         try {
             $sentMessage = $gmail->users_messages->send('me', $message);

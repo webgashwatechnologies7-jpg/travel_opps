@@ -139,25 +139,30 @@ class GoogleMailController extends Controller
         $this->applyCompanyGoogleConfig();
 
         $request->validate([
-            'to' => 'required|email',
+            'to' => 'required_without:to_email|email',
+            'to_email' => 'required_without:to|email',
             'subject' => 'required|string',
             'body' => 'required|string',
             'lead_id' => 'nullable|exists:leads,id',
+            'thread_id' => 'nullable|string',
         ]);
+
+        $to = $request->to ?? $request->to_email;
 
         $result = $this->gmailService->sendMail(
             Auth::user(),
-            $request->to,
+            $to,
             $request->subject,
             $request->body,
-            $request->lead_id
+            $request->lead_id,
+            $request->thread_id
         );
 
         if ($result['status'] === 'success') {
-            return response()->json(['message' => 'Email sent successfully', 'data' => $result]);
+            return response()->json(['success' => true, 'message' => 'Email sent successfully', 'data' => $result]);
         }
 
-        return response()->json(['error' => $result['error']], 400);
+        return response()->json(['success' => false, 'error' => $result['error']], 400);
     }
 
     public function syncInbox()

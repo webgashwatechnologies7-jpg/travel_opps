@@ -5,7 +5,7 @@ import { leadsAPI, usersAPI, followupsAPI, dayItinerariesAPI, packagesAPI, setti
 import { searchPexelsPhotos } from '../services/pexels';
 import { getDisplayImageUrl, rewriteHtmlImageUrls } from '../utils/imageUrl';
 import Layout from '../components/Layout';
-import { ArrowLeft, Calendar, Mail, Plus, Upload, X, Search, FileText, Printer, Send, MessageCircle, CheckCircle, CheckCircle2, Clock, Briefcase, MapPin, CalendarDays, Users, UserCheck, Leaf, Smartphone, Phone, MoreVertical, Download, Pencil, Trash2, Camera, RefreshCw } from 'lucide-react';
+import { ArrowLeft, Calendar, Mail, Plus, Upload, X, Search, FileText, Printer, Send, MessageCircle, CheckCircle, CheckCircle2, Clock, Briefcase, MapPin, CalendarDays, Users, UserCheck, Leaf, Smartphone, Phone, MoreVertical, Download, Pencil, Trash2, Camera, RefreshCw, Reply } from 'lucide-react';
 import DetailRow from '../components/Quiries/DetailRow';
 import html2pdf from 'html2pdf.js';
 const LeadDetails = () => {
@@ -113,6 +113,7 @@ const LeadDetails = () => {
   const [gmailEmails, setGmailEmails] = useState([]);
   const [loadingGmail, setLoadingGmail] = useState(false);
   const [syncingInbox, setSyncingInbox] = useState(false);
+  const [replyThreadId, setReplyThreadId] = useState(null);
   const [whatsappMessages, setWhatsappMessages] = useState([]);
 
   useEffect(() => {
@@ -703,16 +704,21 @@ const LeadDetails = () => {
       if (user?.google_token) {
         // Use Gmail API if connected
         const emailData = {
+          to: toEmail,
           to_email: toEmail,
           cc_email: emailFormData.cc_email,
           subject: emailFormData.subject,
           body: emailFormData.body,
           lead_id: id
         };
+        if (replyThreadId) {
+          emailData.thread_id = replyThreadId;
+        }
         const response = await googleMailAPI.sendMail(emailData);
-        if (response.data.success) {
+        if (response.data?.success || response.data?.message) {
           alert('Email sent successfully via Gmail!');
           setShowComposeModal(false);
+          setReplyThreadId(null);
           setEmailFormData({
             to_email: lead?.email || '',
             cc_email: '',
@@ -796,10 +802,27 @@ const LeadDetails = () => {
 
   // Open compose modal with pre-filled email
   const openComposeModal = () => {
+    setReplyThreadId(null);
     setEmailFormData({
       to_email: lead?.email || '',
       cc_email: '',
       subject: '',
+      body: ''
+    });
+    setShowComposeModal(true);
+  };
+
+  // Open compose as reply to a Gmail thread
+  const openReplyModal = (thread) => {
+    const sorted = [...thread].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+    const lastMsg = sorted[sorted.length - 1];
+    const replyToEmail = lastMsg.direction === 'inbound' ? lastMsg.from_email : lastMsg.to_email;
+    const subject = lastMsg.subject?.startsWith('Re:') ? lastMsg.subject : `Re: ${lastMsg.subject || ''}`;
+    setReplyThreadId(lastMsg.thread_id);
+    setEmailFormData({
+      to_email: replyToEmail,
+      cc_email: '',
+      subject,
       body: ''
     });
     setShowComposeModal(true);
@@ -3736,12 +3759,12 @@ const LeadDetails = () => {
                                 acc[email.thread_id].push(email);
                                 return acc;
                               }, {})).map((thread, threadIdx) => {
+                                const sorted = [...thread].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
                                 const latestEmail = thread[0];
-                                const isExpanded = false; // Add state for expansion if needed
 
                                 return (
                                   <div key={latestEmail.thread_id} className="bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow">
-                                    <div className="p-4 bg-gray-50 border-b border-gray-200 flex justify-between items-center cursor-pointer">
+                                    <div className="p-4 bg-gray-50 border-b border-gray-200 flex justify-between items-center">
                                       <div className="flex items-center gap-3">
                                         <div className="bg-red-100 p-2 rounded-lg">
                                           <Mail className="h-4 w-4 text-red-600" />
@@ -3753,22 +3776,36 @@ const LeadDetails = () => {
                                           </p>
                                         </div>
                                       </div>
+                                      <button
+                                        type="button"
+                                        onClick={() => openReplyModal(thread)}
+                                        className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+                                      >
+                                        <Reply className="h-4 w-4" />
+                                        Reply
+                                      </button>
                                     </div>
-                                    <div className="divide-y divide-gray-100 max-h-60 overflow-y-auto">
-                                      {thread.map((email) => (
-                                        <div key={email.id} className={`p-4 ${email.direction === 'inbound' ? 'bg-white' : 'bg-blue-50'}`}>
+                                    <div className="divide-y divide-gray-100 max-h-80 overflow-y-auto">
+                                      {sorted.map((email) => (
+                                        <div key={email.id} className={`p-4 ${email.direction === 'inbound' ? 'bg-white' : 'bg-blue-50/50'}`}>
                                           <div className="flex justify-between items-start mb-2">
-                                            <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${email.direction === 'inbound' ? 'bg-gray-100 text-gray-600' : 'bg-blue-100 text-blue-600'
-                                              }`}>
+                                            <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${email.direction === 'inbound' ? 'bg-gray-100 text-gray-600' : 'bg-blue-100 text-blue-600'}`}>
                                               {email.direction === 'inbound' ? 'Received' : 'Sent'}
                                             </span>
                                             <span className="text-xs text-gray-400">
                                               {new Date(email.created_at).toLocaleString()}
                                             </span>
                                           </div>
-                                          <div className="text-sm text-gray-800 whitespace-pre-wrap line-clamp-3">
-                                            {email.body}
-                                          </div>
+                                          <div
+                                            className="text-sm text-gray-800 prose prose-sm max-w-none break-words"
+                                            dangerouslySetInnerHTML={{
+                                              __html: (() => {
+                                                const raw = email.body || '—';
+                                                const isHtml = /<[a-z][\s\S]*>/i.test(raw);
+                                                return isHtml ? rewriteHtmlImageUrls(raw) : raw.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br/>');
+                                              })()
+                                            }}
+                                          />
                                         </div>
                                       ))}
                                     </div>
@@ -5629,10 +5666,11 @@ const LeadDetails = () => {
           <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl mx-4 my-auto">
             {/* Modal Header */}
             <div className="flex justify-between items-center p-4 border-b border-gray-200">
-              <h2 className="text-lg font-semibold text-gray-800">Compose Mail</h2>
+              <h2 className="text-lg font-semibold text-gray-800">{replyThreadId ? 'Reply to Mail' : 'Compose Mail'}</h2>
               <button
                 onClick={() => {
                   setShowComposeModal(false);
+                  setReplyThreadId(null);
                   setEmailFormData({ to_email: '', cc_email: '', subject: '', body: '' });
                   setEmailAttachment(null);
                 }}
