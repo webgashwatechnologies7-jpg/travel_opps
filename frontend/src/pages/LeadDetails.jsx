@@ -716,15 +716,13 @@ const LeadDetails = () => {
         const emailData = {
           to: toEmail,
           to_email: toEmail,
-          cc_email: emailFormData.cc_email,
           subject: emailFormData.subject,
           body: emailFormData.body,
           lead_id: id
         };
-        if (replyThreadId) {
-          emailData.thread_id = replyThreadId;
-        }
-        const response = await googleMailAPI.sendMail(emailData);
+        if (replyThreadId) emailData.thread_id = replyThreadId;
+        const sendFn = emailAttachment ? () => googleMailAPI.sendMailWithAttachment({ ...emailData, attachment: emailAttachment }) : () => googleMailAPI.sendMail(emailData);
+        const response = await sendFn();
         if (response.data?.success || response.data?.message) {
           alert('Email sent successfully via Gmail!');
           setShowComposeModal(false);
@@ -735,6 +733,7 @@ const LeadDetails = () => {
             subject: '',
             body: ''
           });
+          setEmailAttachment(null);
           fetchGmailEmails();
         } else {
           const msg = response.data?.message || response.data?.error || 'Unknown error';
@@ -776,9 +775,9 @@ const LeadDetails = () => {
     }
   };
 
-  // Fetch Gmail emails
+  // Fetch Gmail emails (so sent mails show in Mails tab)
   const fetchGmailEmails = async () => {
-    if (!id || !user?.google_token) return;
+    if (!id) return;
     setLoadingGmail(true);
     try {
       const response = await googleMailAPI.getGmailEmails(id);
@@ -909,15 +908,13 @@ const LeadDetails = () => {
     }
   }, [activeTab, id]);
 
-  // Fetch emails when mails tab is active
+  // Fetch emails when mails tab is active (so sent mails show immediately)
   useEffect(() => {
     if (activeTab === 'mails' && id) {
       fetchLeadEmails();
-      if (user?.google_token) {
-        fetchGmailEmails();
-      }
+      fetchGmailEmails();
     }
-  }, [activeTab, id, user?.google_token]);
+  }, [activeTab, id]);
 
   // Fetch WhatsApp messages when WhatsApp tab is active
   useEffect(() => {
@@ -2537,47 +2534,35 @@ const LeadDetails = () => {
     };
 
     const styles = templateStyles[templateId] || templateStyles['template-1'];
+    const headerStyle = `background:${styles.headerBg};color:${styles.headerColor || 'white'};padding:30px;text-align:center;font-family:Arial,sans-serif;`;
+    const contentStyle = 'padding:30px;max-width:800px;margin:0 auto;font-family:Arial,sans-serif;line-height:1.6;color:#333;';
+    const quoteStyle = 'background:#f8f9fa;padding:20px;border-radius:8px;margin:20px 0;';
+    const optionSectionStyle = `border:2px solid ${styles.optionBorder};border-radius:10px;padding:25px;margin:30px 0;background:white;box-shadow:0 2px 8px rgba(0,0,0,0.1);`;
+    const optionHeaderStyle = `background:${styles.optionHeaderBg};color:${styles.optionHeaderColor || 'white'};padding:15px;border-radius:8px;margin-bottom:20px;`;
+    const hotelCardStyle = `background:${styles.hotelCardBg};padding:15px;border-radius:8px;margin:15px 0;border-left:4px solid ${styles.optionBorder};`;
+    const priceBoxStyle = `background:${styles.priceBoxBg};color:white;padding:20px;text-align:center;border-radius:8px;margin:20px 0;font-size:24px;font-weight:bold;`;
+    const footerStyle = `background:${styles.footerBg};color:${styles.footerColor || 'white'};padding:20px;text-align:center;`;
 
     let htmlContent = `
-      <html>
-        <head>
-          <style>
-            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; }
-            .header { background: ${styles.headerBg}; color: ${styles.headerColor || 'white'}; padding: 30px; text-align: center; }
-            .header h1 { margin: 0; font-size: 32px; }
-            .content { padding: 30px; max-width: 800px; margin: 0 auto; }
-            .itinerary-image { width: 100%; max-width: 600px; height: 300px; object-fit: cover; border-radius: 10px; margin: 20px auto; display: block; }
-            .quote-details { background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0; }
-            .option-section { border: 2px solid ${styles.optionBorder}; border-radius: 10px; padding: 25px; margin: 30px 0; background: white; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
-            .option-header { background: ${styles.optionHeaderBg}; color: ${styles.optionHeaderColor || 'white'}; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
-            .hotel-card { background: ${styles.hotelCardBg}; padding: 15px; border-radius: 8px; margin: 15px 0; border-left: 4px solid ${styles.optionBorder}; }
-            .hotel-image { width: 120px; height: 120px; object-fit: cover; border-radius: 8px; float: left; margin-right: 15px; }
-            .price-box { background: ${styles.priceBoxBg}; color: white; padding: 20px; text-align: center; border-radius: 8px; margin: 20px 0; font-size: 24px; font-weight: bold; }
-            .footer { background: ${styles.footerBg}; color: ${styles.footerColor || 'white'}; padding: 20px; text-align: center; }
-            table { width: 100%; border-collapse: collapse; margin: 15px 0; }
-            td { padding: 8px; border-bottom: 1px solid #e5e7eb; }
-            .label { font-weight: bold; color: #4b5563; }
-          </style>
-        </head>
-        <body>
-          <div class="header">
-            <h1>TravelOps</h1>
-            <p>Delhi, India | Email: info@travelops.com | Mobile: +91-9871023004</p>
+      <div style="font-family:Arial,sans-serif;line-height:1.6;color:#333;margin:0;padding:0;">
+          <div style="${headerStyle}">
+            <h1 style="margin:0;font-size:32px;">TravelOps</h1>
+            <p style="margin:8px 0 0 0;">Delhi, India | Email: info@travelops.com | Mobile: +91-9871023004</p>
           </div>
           
-          <div class="content">
-            <h2 style="color: ${styles.optionBorder}; font-size: 28px;">Travel Quotation</h2>
+          <div style="${contentStyle}">
+            <h2 style="color:${styles.optionBorder};font-size:28px;">Travel Quotation</h2>
             
-            ${itinerary.image ? `<img src="${itinerary.image}" alt="${itinerary.itinerary_name}" class="itinerary-image" />` : ''}
+            ${itinerary.image ? `<img src="${itinerary.image}" alt="${itinerary.itinerary_name || 'Itinerary'}" style="width:100%;max-width:600px;height:300px;object-fit:cover;border-radius:10px;margin:20px auto;display:block;" />` : ''}
             
-            <div class="quote-details">
-              <h3 style="margin-top: 0;">Quote Details</h3>
-              <table>
-                <tr><td class="label">Query ID:</td><td>${formatLeadId(lead?.id)}</td></tr>
-                <tr><td class="label">Destination:</td><td>${itinerary.destinations || 'N/A'}</td></tr>
-                <tr><td class="label">Duration:</td><td>${itinerary.duration || 0} Nights & ${(itinerary.duration || 0) + 1} Days</td></tr>
-                <tr><td class="label">Adults:</td><td>${lead?.adult || 1}</td></tr>
-                <tr><td class="label">Children:</td><td>${lead?.child || 0}</td></tr>
+            <div style="${quoteStyle}">
+              <h3 style="margin-top:0;">Quote Details</h3>
+              <table style="width:100%;border-collapse:collapse;margin:15px 0;">
+                <tr><td style="padding:8px;border-bottom:1px solid #e5e7eb;font-weight:bold;color:#4b5563;">Query ID:</td><td style="padding:8px;border-bottom:1px solid #e5e7eb;">${formatLeadId(lead?.id)}</td></tr>
+                <tr><td style="padding:8px;border-bottom:1px solid #e5e7eb;font-weight:bold;color:#4b5563;">Destination:</td><td style="padding:8px;border-bottom:1px solid #e5e7eb;">${itinerary.destinations || 'N/A'}</td></tr>
+                <tr><td style="padding:8px;border-bottom:1px solid #e5e7eb;font-weight:bold;color:#4b5563;">Duration:</td><td style="padding:8px;border-bottom:1px solid #e5e7eb;">${itinerary.duration || 0} Nights & ${(itinerary.duration || 0) + 1} Days</td></tr>
+                <tr><td style="padding:8px;border-bottom:1px solid #e5e7eb;font-weight:bold;color:#4b5563;">Adults:</td><td style="padding:8px;border-bottom:1px solid #e5e7eb;">${lead?.adult || 1}</td></tr>
+                <tr><td style="padding:8px;border-bottom:1px solid #e5e7eb;font-weight:bold;color:#4b5563;">Children:</td><td style="padding:8px;border-bottom:1px solid #e5e7eb;">${lead?.child || 0}</td></tr>
               </table>
             </div>
     `;
@@ -2588,19 +2573,19 @@ const LeadDetails = () => {
       const totalPrice = hotels.reduce((sum, h) => sum + (parseFloat(h.price) || 0), 0);
 
       htmlContent += `
-        <div class="option-section">
-          <div class="option-header">
-            <h2 style="margin: 0; font-size: 24px;">Option ${optNum}</h2>
+        <div style="${optionSectionStyle}">
+          <div style="${optionHeaderStyle}">
+            <h2 style="margin:0;font-size:24px;">Option ${optNum}</h2>
           </div>
           
-          <h3 style="color: #1e40af;">🏨 Hotels Included:</h3>
+          <h3 style="color:#1e40af;">🏨 Hotels Included:</h3>
       `;
 
       hotels.forEach((hotel, idx) => {
         htmlContent += `
-          <div class="hotel-card">
-            ${hotel.image ? `<img src="${hotel.image}" alt="${hotel.hotelName}" class="hotel-image" />` : ''}
-            <div style="margin-left: ${hotel.image ? '135px' : '0'};">
+          <div style="${hotelCardStyle}">
+            ${hotel.image ? `<img src="${hotel.image}" alt="${hotel.hotelName || 'Hotel'}" style="width:120px;height:120px;object-fit:cover;border-radius:8px;float:left;margin-right:15px;" />` : ''}
+            <div style="margin-left:${hotel.image ? '135px' : '0'};">
               <h4 style="margin-top: 0; color: #1e40af; font-size: 18px;">Day ${hotel.day}: ${hotel.hotelName || 'Hotel'}</h4>
               <p><strong>Category:</strong> ${hotel.category ? `${hotel.category} Star` : 'N/A'}</p>
               <p><strong>Room:</strong> ${hotel.roomName || 'N/A'}</p>
@@ -2615,7 +2600,7 @@ const LeadDetails = () => {
       });
 
       htmlContent += `
-          <div class="price-box">
+          <div style="${priceBoxStyle}">
             Total Package Price: ₹${totalPrice.toLocaleString('en-IN')}
           </div>
         </div>
@@ -2635,19 +2620,18 @@ const LeadDetails = () => {
       termsTextSize: '14px'
     })}
           ${allPolicies.thankYouMessage ? `
-          <div style="background: #f8f9fa; padding: 20px; border-radius: 10px; margin-top: 20px; border: 2px solid ${styles.optionBorder}; box-shadow: 0 5px 15px rgba(0,0,0,0.1);">
-            <div style="color: #555; line-height: 1.8; font-size: 14px;">
+          <div style="background:#f8f9fa;padding:20px;border-radius:10px;margin-top:20px;border:2px solid ${styles.optionBorder};box-shadow:0 5px 15px rgba(0,0,0,0.1);">
+            <div style="color:#555;line-height:1.8;font-size:14px;">
               ${formatTextForHTML(allPolicies.thankYouMessage)}
             </div>
           </div>
           ` : ''}
           
-          <div class="footer">
-            <p>Thank you for choosing TravelOps!</p>
-            <p>For any queries, please contact us at info@travelops.com or +91-9871023004</p>
+          <div style="${footerStyle}">
+            <p style="margin:0;">Thank you for choosing TravelOps!</p>
+            <p style="margin:8px 0 0 0;">For any queries, please contact us at info@travelops.com or +91-9871023004</p>
           </div>
-        </body>
-      </html>
+      </div>
     `;
 
     return htmlContent;
@@ -2692,6 +2676,7 @@ const LeadDetails = () => {
         }
         
         alert('Email sent successfully via Gmail! Lead status updated to PROPOSAL.');
+        await fetchGmailEmails();
         return;
       }
 

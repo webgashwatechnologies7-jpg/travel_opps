@@ -13,6 +13,7 @@ const EmailInbox = () => {
   const [syncMessage, setSyncMessage] = useState(null);
   const [selectedThread, setSelectedThread] = useState(null);
   const [replyForm, setReplyForm] = useState({ to_email: '', subject: '', body: '' });
+  const [replyAttachment, setReplyAttachment] = useState(null);
   const [sendingReply, setSendingReply] = useState(false);
   const [showReplyForm, setShowReplyForm] = useState(false);
 
@@ -56,6 +57,14 @@ const EmailInbox = () => {
     fetchInbox();
   }, []);
 
+  // Auto-refresh inbox every 90 seconds so new replies show without manual sync
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetchInbox();
+    }, 90000);
+    return () => clearInterval(interval);
+  }, []);
+
   // Group emails by thread_id
   const threads = emails.reduce((acc, email) => {
     const tid = email.thread_id || `single-${email.id}`;
@@ -82,6 +91,7 @@ const EmailInbox = () => {
     const replyTo = lastMsg.direction === 'inbound' ? lastMsg.from_email : lastMsg.to_email;
     const subj = lastMsg.subject?.startsWith('Re:') ? lastMsg.subject : `Re: ${lastMsg.subject || ''}`;
     setReplyForm({ to_email: replyTo, subject: subj, body: '' });
+    setReplyAttachment(null);
     setShowReplyForm(true);
   };
 
@@ -101,11 +111,14 @@ const EmailInbox = () => {
         lead_id: selectedThread?.[0]?.lead_id || null,
         thread_id: selectedThread?.[0]?.thread_id || null
       };
-      const res = await googleMailAPI.sendMail(payload);
+      const res = replyAttachment
+        ? await googleMailAPI.sendMailWithAttachment({ ...payload, attachment: replyAttachment })
+        : await googleMailAPI.sendMail(payload);
       if (res.data?.success || res.data?.message) {
         alert('Reply sent successfully!');
         setShowReplyForm(false);
         setReplyForm({ to_email: '', subject: '', body: '' });
+        setReplyAttachment(null);
         const freshRes = await googleMailAPI.getEmailInbox();
         const fresh = freshRes.data?.data?.emails || [];
         setEmails(fresh);
@@ -319,6 +332,16 @@ const EmailInbox = () => {
                       className="w-full px-3 py-2 border rounded-lg min-h-[100px]"
                       required
                     />
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Attachment (optional)</label>
+                      <input
+                        type="file"
+                        accept=".pdf,.doc,.docx,image/*"
+                        onChange={(e) => setReplyAttachment(e.target.files?.[0] || null)}
+                        className="w-full text-sm text-gray-600 file:mr-3 file:py-2 file:px-3 file:rounded file:border-0 file:bg-blue-50 file:text-blue-700"
+                      />
+                      {replyAttachment && <span className="text-xs text-gray-500 mt-1 block">{replyAttachment.name}</span>}
+                    </div>
                     <div className="flex gap-2">
                       <button type="submit" disabled={sendingReply} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-60">
                         {sendingReply ? 'Sending…' : 'Send Reply'}

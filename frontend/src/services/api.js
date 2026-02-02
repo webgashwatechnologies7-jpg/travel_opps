@@ -254,6 +254,17 @@ export const googleMailAPI = {
     return base;
   },
   sendMail: (data) => api.post('/send-gmail', data),
+  sendMailWithAttachment: (data) => {
+    const form = new FormData();
+    form.append('to', data.to || data.to_email);
+    form.append('to_email', data.to_email);
+    form.append('subject', data.subject);
+    form.append('body', data.body);
+    if (data.lead_id != null) form.append('lead_id', data.lead_id);
+    if (data.thread_id) form.append('thread_id', data.thread_id);
+    if (data.attachment) form.append('attachment', data.attachment);
+    return api.post('/send-gmail', form, { headers: { 'Content-Type': 'multipart/form-data' } });
+  },
   syncInbox: () => api.get('/sync-inbox'),
   getEmailInbox: () => api.get('/emails/inbox'),
   getGmailEmails: (leadId) => api.get(`/leads/${leadId}/gmail-emails`),

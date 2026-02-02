@@ -145,9 +145,11 @@ class GoogleMailController extends Controller
             'body' => 'required|string',
             'lead_id' => 'nullable|exists:leads,id',
             'thread_id' => 'nullable|string',
+            'attachment' => 'nullable|file|max:10240',
         ]);
 
         $to = $request->to ?? $request->to_email;
+        $attachment = $request->hasFile('attachment') ? $request->file('attachment') : null;
 
         $result = $this->gmailService->sendMail(
             Auth::user(),
@@ -155,7 +157,8 @@ class GoogleMailController extends Controller
             $request->subject,
             $request->body,
             $request->lead_id,
-            $request->thread_id
+            $request->thread_id,
+            $attachment
         );
 
         if ($result['status'] === 'success') {

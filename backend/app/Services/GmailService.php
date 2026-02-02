@@ -100,20 +100,37 @@ class GmailService
         return true;
     }
 
-    public function sendMail(User $user, $to, $subject, $body, $leadId = null, ?string $threadId = null)
+    public function sendMail(User $user, $to, $subject, $body, $leadId = null, ?string $threadId = null, $attachment = null)
     {
         if (!$this->setUser($user)) {
             return ['status' => 'failed', 'error' => 'Gmail not connected or token expired'];
         }
 
         $gmail = new Gmail($this->client);
-        
+
         $strRawMessage = "From: {$user->gmail_email}\r\n";
         $strRawMessage .= "To: {$to}\r\n";
         $strRawMessage .= "Subject: {$subject}\r\n";
         $strRawMessage .= "MIME-Version: 1.0\r\n";
-        $strRawMessage .= "Content-Type: text/html; charset=utf-8\r\n\r\n";
-        $strRawMessage .= $body;
+
+        if ($attachment && $attachment->isValid()) {
+            $boundary = '----=_Part_' . uniqid();
+            $strRawMessage .= "Content-Type: multipart/mixed; boundary=\"{$boundary}\"\r\n\r\n";
+            $strRawMessage .= "--{$boundary}\r\n";
+            $strRawMessage .= "Content-Type: text/html; charset=utf-8\r\n\r\n";
+            $strRawMessage .= $body . "\r\n";
+            $filename = $attachment->getClientOriginalName();
+            $mimeType = $attachment->getMimeType() ?: 'application/octet-stream';
+            $strRawMessage .= "--{$boundary}\r\n";
+            $strRawMessage .= "Content-Type: {$mimeType}; name=\"" . addslashes($filename) . "\"\r\n";
+            $strRawMessage .= "Content-Disposition: attachment; filename=\"" . addslashes($filename) . "\"\r\n";
+            $strRawMessage .= "Content-Transfer-Encoding: base64\r\n\r\n";
+            $strRawMessage .= chunk_split(base64_encode($attachment->get())) . "\r\n";
+            $strRawMessage .= "--{$boundary}--";
+        } else {
+            $strRawMessage .= "Content-Type: text/html; charset=utf-8\r\n\r\n";
+            $strRawMessage .= $body;
+        }
 
         $mimeMessage = base64_encode($strRawMessage);
         $mimeMessage = str_replace(['+', '/', '='], ['-', '_', ''], $mimeMessage);
