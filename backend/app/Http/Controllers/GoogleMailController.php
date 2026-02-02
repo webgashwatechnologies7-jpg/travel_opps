@@ -237,7 +237,7 @@ class GoogleMailController extends Controller
         }
 
         $emails = CrmEmail::query()
-            ->with('lead:id,client_name,email,query_id')
+            ->with('lead:id,client_name,email')
             ->where(function ($q) use ($leadIds, $companyGmailEmails) {
                 $q->whereIn('lead_id', $leadIds);
                 if ($companyGmailEmails->isNotEmpty()) {
