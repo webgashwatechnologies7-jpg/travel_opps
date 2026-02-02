@@ -5,7 +5,7 @@ import { leadsAPI, usersAPI, followupsAPI, dayItinerariesAPI, packagesAPI, setti
 import { searchPexelsPhotos } from '../services/pexels';
 import { getDisplayImageUrl, rewriteHtmlImageUrls, sanitizeEmailHtmlForDisplay } from '../utils/imageUrl';
 import Layout from '../components/Layout';
-import { ArrowLeft, Calendar, Mail, Plus, Upload, X, Search, FileText, Printer, Send, MessageCircle, CheckCircle, CheckCircle2, Clock, Briefcase, MapPin, CalendarDays, Users, UserCheck, Leaf, Smartphone, Phone, MoreVertical, Download, Pencil, Trash2, Camera, RefreshCw, Reply } from 'lucide-react';
+import { ArrowLeft, Calendar, Mail, Plus, Upload, X, Search, FileText, Printer, Send, MessageCircle, CheckCircle, CheckCircle2, Clock, Briefcase, MapPin, CalendarDays, Users, UserCheck, Leaf, Smartphone, Phone, MoreVertical, Download, Pencil, Trash2, Camera, RefreshCw, Reply, ChevronDown } from 'lucide-react';
 import DetailRow from '../components/Quiries/DetailRow';
 import html2pdf from 'html2pdf.js';
 const LeadDetails = () => {
@@ -28,6 +28,8 @@ const LeadDetails = () => {
   const [editingNoteId, setEditingNoteId] = useState(null);
   const [showItineraryModal, setShowItineraryModal] = useState(false);
   const [showInsertItineraryModal, setShowInsertItineraryModal] = useState(false);
+  const [sendDropdownOptId, setSendDropdownOptId] = useState(null);
+  const [sendingOptionChannel, setSendingOptionChannel] = useState(null);
   const [dayItineraries, setDayItineraries] = useState([]);
   const [loadingItineraries, setLoadingItineraries] = useState(false);
   const [itinerarySearchTerm, setItinerarySearchTerm] = useState('');
@@ -131,6 +133,14 @@ const LeadDetails = () => {
       setActiveTab(tab);
     }
   }, [location.search]);
+
+  useEffect(() => {
+    const closeDropdown = () => setSendDropdownOptId(null);
+    if (sendDropdownOptId) {
+      document.addEventListener('click', closeDropdown);
+      return () => document.removeEventListener('click', closeDropdown);
+    }
+  }, [sendDropdownOptId]);
 
   // Outgoing numbers for calls tab (no-op if not used; implement with callsAPI.getMappings() if needed)
   const fetchOutgoingNumbers = async () => {
@@ -1776,7 +1786,7 @@ const LeadDetails = () => {
     }
   };
 
-  const handleViewQuotation = async (proposal) => {
+  const handleViewQuotation = async (proposal, openModal = true) => {
     setLoadingQuotation(true);
     setSelectedProposal(proposal);
     setSelectedOption(null);
@@ -1838,13 +1848,10 @@ const LeadDetails = () => {
 
       // Set first option as selected if available
       const optionNumbers = Object.keys(hotelOptions).sort((a, b) => parseInt(a) - parseInt(b));
-      if (optionNumbers.length > 0) {
-        setSelectedOption(optionNumbers[0]);
-      } else if (proposal.optionNumber) {
-        setSelectedOption(proposal.optionNumber.toString());
-      }
+      const selOpt = optionNumbers.length > 0 ? optionNumbers[0] : (proposal.optionNumber?.toString() || null);
+      if (selOpt) setSelectedOption(selOpt);
 
-      setShowQuotationModal(true);
+      if (openModal) setShowQuotationModal(true);
       return builtQuotation;
     } catch (err) {
       console.error('Failed to load quotation:', err);
@@ -2652,17 +2659,21 @@ const LeadDetails = () => {
       return;
     }
 
-    const emailContent = await generateEmailContent();
-    const subject = encodeURIComponent(`Travel Quotation - ${quotationData.itinerary.itinerary_name || 'Itinerary'} - ${formatLeadId(lead.id)}`);
+    const recipientEmail = lead?.email || '';
+    const optionNumbers = Object.keys(quotationData.hotelOptions || {}).sort((a, b) => parseInt(a) - parseInt(b));
+    if (!recipientEmail) {
+      alert('Lead email is required to send. Please add customer email.');
+      return;
+    }
 
-    // Create a blob with HTML content
-    const blob = new Blob([emailContent], { type: 'text/html' });
-    const url = URL.createObjectURL(blob);
+    const subject = `Travel Quotation - ${quotationData.itinerary.itinerary_name || 'Itinerary'} - ${formatLeadId(lead.id)}`;
+    const emailContent = await generateEmailContent();
 
     try {
       if (user?.google_token) {
         await googleMailAPI.sendMail({
           to: recipientEmail,
+          to_email: recipientEmail,
           subject,
           body: emailContent,
           lead_id: id,
@@ -2684,11 +2695,10 @@ const LeadDetails = () => {
         return;
       }
 
-      const textBody = buildAllOptionsTextMessage(optionNumbers);
       const response = await leadsAPI.sendEmail(id, {
         to_email: recipientEmail,
         subject,
-        body: textBody,
+        body: emailContent,
       });
 
       if (response.data.success) {
@@ -2842,6 +2852,57 @@ const LeadDetails = () => {
     } catch (error) {
       console.error('Error sending WhatsApp:', error);
       alert(error.response?.data?.message || 'Failed to send WhatsApp message');
+    }
+  };
+
+  // Send option directly from card (Email / WhatsApp / Both) - loads quotation if needed
+  const handleSendOptionFromCard = async (opt, channel) => {
+    setSendDropdownOptId(null);
+    if (!lead?.email && (channel === 'email' || channel === 'both')) {
+      alert('Customer email is required. Please add email to the lead.');
+      return;
+    }
+    if (!lead?.phone && (channel === 'whatsapp' || channel === 'both')) {
+      alert('Customer phone is required for WhatsApp. Please add phone to the lead.');
+      return;
+    }
+    setSendingOptionChannel(channel);
+    try {
+      const qData = quotationData && selectedProposal?.id === opt.id
+        ? quotationData
+        : await handleViewQuotation(opt, false);
+      if (!qData) return;
+      setQuotationData(qData);
+      setSelectedProposal(opt);
+      const optNum = opt.optionNumber?.toString() || Object.keys(qData.hotelOptions || {})[0];
+      setSelectedOption(optNum);
+      await new Promise(r => setTimeout(r, 50));
+      if (channel === 'email' || channel === 'both') await handleSendMail(optNum);
+      if (channel === 'whatsapp' || channel === 'both') await handleSendWhatsApp(optNum);
+    } catch (err) {
+      console.error('Send from card failed:', err);
+      alert('Failed to send. ' + (err.message || ''));
+    } finally {
+      setSendingOptionChannel(null);
+    }
+  };
+
+  // Download PDF directly from card - loads quotation if needed
+  const handleDownloadPdfFromCard = async (opt) => {
+    try {
+      const qData = quotationData && selectedProposal?.id === opt.id
+        ? quotationData
+        : await handleViewQuotation(opt, false);
+      if (!qData) return;
+      setQuotationData(qData);
+      setSelectedProposal(opt);
+      const optNum = opt.optionNumber?.toString() || Object.keys(qData.hotelOptions || {})[0];
+      setSelectedOption(optNum);
+      await new Promise(r => setTimeout(r, 50));
+      await handleDownloadSingleOptionPdf(optNum);
+    } catch (err) {
+      console.error('PDF download failed:', err);
+      alert('Failed to download PDF. ' + (err.message || ''));
     }
   };
 
@@ -3632,6 +3693,39 @@ const LeadDetails = () => {
                                               Make Confirm
                                             </button>
                                           )}
+                                          <div className="relative">
+                                            <button
+                                              type="button"
+                                              onClick={(e) => { e.stopPropagation(); setSendDropdownOptId(sendDropdownOptId === opt.id ? null : opt.id); }}
+                                              disabled={sendingOptionChannel}
+                                              className="w-full bg-green-600 hover:bg-green-700 text-white text-sm font-semibold px-3 py-2 rounded-lg transition-colors flex items-center justify-center gap-1"
+                                            >
+                                              <Send className="h-4 w-4" />
+                                              {sendingOptionChannel ? 'Sending…' : 'Send'}
+                                              <ChevronDown className="h-4 w-4" />
+                                            </button>
+                                            {sendDropdownOptId === opt.id && (
+                                              <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10 py-1">
+                                                <button type="button" onClick={(e) => { e.stopPropagation(); handleSendOptionFromCard(opt, 'email'); }} className="w-full text-left px-3 py-2 hover:bg-gray-100 flex items-center gap-2 text-sm">
+                                                  <Mail className="h-4 w-4 text-blue-600" /> Email pe bhejo
+                                                </button>
+                                                <button type="button" onClick={(e) => { e.stopPropagation(); handleSendOptionFromCard(opt, 'whatsapp'); }} className="w-full text-left px-3 py-2 hover:bg-gray-100 flex items-center gap-2 text-sm">
+                                                  <MessageCircle className="h-4 w-4 text-green-600" /> WhatsApp pe bhejo
+                                                </button>
+                                                <button type="button" onClick={(e) => { e.stopPropagation(); handleSendOptionFromCard(opt, 'both'); }} className="w-full text-left px-3 py-2 hover:bg-gray-100 flex items-center gap-2 text-sm">
+                                                  <Send className="h-4 w-4" /> Dono pe bhejo (Email + WhatsApp)
+                                                </button>
+                                              </div>
+                                            )}
+                                          </div>
+                                          <button
+                                            type="button"
+                                            onClick={(e) => { e.stopPropagation(); handleDownloadPdfFromCard(opt); }}
+                                            className="w-full bg-purple-600 hover:bg-purple-700 text-white text-sm font-semibold px-3 py-2 rounded-lg transition-colors flex items-center justify-center gap-1"
+                                          >
+                                            <Download className="h-4 w-4" />
+                                            Download PDF
+                                          </button>
                                           <button
                                             type="button"
                                             onClick={(e) => { e.stopPropagation(); handleViewQuotation(opt); }}
