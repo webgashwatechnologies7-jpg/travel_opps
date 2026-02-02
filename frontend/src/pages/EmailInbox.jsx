@@ -57,11 +57,11 @@ const EmailInbox = () => {
     fetchInbox();
   }, []);
 
-  // Auto-refresh inbox every 90 seconds so new replies show without manual sync
+  // Auto-refresh inbox every 60 seconds so sent/received mails show without manual sync
   useEffect(() => {
     const interval = setInterval(() => {
       fetchInbox();
-    }, 90000);
+    }, 60000);
     return () => clearInterval(interval);
   }, []);
 

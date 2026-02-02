@@ -6,6 +6,30 @@ import Layout from '../components/Layout';
 import { X, ChevronDown, Filter, Eye, Mail, MessageSquare, Edit, MoreVertical, History, Plus } from 'lucide-react';
 import LeadCard from '../components/Quiries/LeadCard';
 
+const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+const getCurrentMonth = () => MONTHS[new Date().getMonth()];
+const getTodayDate = () => new Date().toISOString().split('T')[0];
+
+const getDefaultFormData = () => ({
+  type: 'Client',
+  phone: '',
+  email: '',
+  client_title: 'Mr.',
+  client_name: '',
+  destination: '',
+  travel_month: getCurrentMonth(),
+  from_date: getTodayDate(),
+  to_date: getTodayDate(),
+  adult: '1',
+  child: '0',
+  infant: '0',
+  source: '',
+  priority: 'General Query',
+  assigned_to: '',
+  service: '',
+  remark: '',
+});
+
 const Leads = () => {
   const navigate = useNavigate();
   const { user: currentUser } = useAuth();
@@ -25,25 +49,7 @@ const Leads = () => {
   const [assignedToFilter, setAssignedToFilter] = useState('');
   const [assignedNameFilter, setAssignedNameFilter] = useState('');
   const [openActionMenu, setOpenActionMenu] = useState(null); // Track which row's action menu is open
-  const [formData, setFormData] = useState({
-    type: 'Client',
-    phone: '',
-    email: '',
-    client_title: 'Mr.',
-    client_name: '',
-    destination: '',
-    travel_month: 'January',
-    from_date: '',
-    to_date: '',
-    adult: '1',
-    child: '0',
-    infant: '0',
-    source: '',
-    priority: 'General Query',
-    assigned_to: '',
-    service: '',
-    remark: '',
-  });
+  const [formData, setFormData] = useState(getDefaultFormData);
 
   useEffect(() => {
     fetchLeadSources();
@@ -224,26 +230,7 @@ const Leads = () => {
 
       await leadsAPI.create(apiData);
       setShowModal(false);
-      // Reset form
-      setFormData({
-        type: 'Client',
-        phone: '',
-        email: '',
-        client_title: 'Mr.',
-        client_name: '',
-        destination: '',
-        travel_month: 'January',
-        from_date: '',
-        to_date: '',
-        adult: '1',
-        child: '0',
-        infant: '0',
-        source: '',
-        priority: 'General Query',
-        assigned_to: '',
-        service: '',
-        remark: '',
-      });
+      setFormData(getDefaultFormData());
       fetchLeads();
     } catch (err) {
       alert('Failed to create lead');
@@ -551,7 +538,7 @@ const Leads = () => {
         <h1 className="text-xl font-semibold text-gray-900">Queries</h1>
         <button
           type="button"
-          onClick={() => setShowModal(true)}
+          onClick={() => { setFormData(getDefaultFormData()); setShowModal(true); }}
           className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium"
         >
           <Plus size={18} />
@@ -627,7 +614,7 @@ const Leads = () => {
             <span className="text-lg font-bold">• All</span>
             <button
               type="button"
-              onClick={() => setShowModal(true)}
+              onClick={() => { setFormData(getDefaultFormData()); setShowModal(true); }}
               className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium"
             >
               <Plus size={20} />

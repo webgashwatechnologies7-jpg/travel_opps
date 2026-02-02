@@ -181,9 +181,8 @@ class GmailService
         }
 
         $gmail = new Gmail($this->client);
-        $results = $gmail->users_messages->listUsersMessages('me', ['q' => 'is:inbox', 'maxResults' => 50]);
 
-        foreach ($results->getMessages() as $messageSummary) {
+        foreach ($gmail->users_messages->listUsersMessages('me', ['q' => 'is:inbox', 'maxResults' => 50])->getMessages() as $messageSummary) {
             $msg = $gmail->users_messages->get('me', $messageSummary->getId());
             $payload = $msg->getPayload();
             $headers = $payload->getHeaders();
@@ -225,6 +224,45 @@ class GmailService
                 'direction' => 'inbound',
                 'status' => 'received',
             ]);
+        }
+
+        try {
+            foreach ($gmail->users_messages->listUsersMessages('me', ['q' => 'in:sent', 'maxResults' => 50])->getMessages() as $messageSummary) {
+                if (CrmEmail::where('gmail_message_id', $messageSummary->getId())->exists()) {
+                    continue;
+                }
+                $msg = $gmail->users_messages->get('me', $messageSummary->getId());
+                $payload = $msg->getPayload();
+                $headers = $payload->getHeaders();
+                $from = '';
+                $to = '';
+                $subject = '';
+                foreach ($headers as $header) {
+                    if ($header->getName() == 'From') $from = $header->getValue();
+                    if ($header->getName() == 'To') $to = $header->getValue();
+                    if ($header->getName() == 'Subject') $subject = $header->getValue();
+                }
+                preg_match('/[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,4}/i', $to, $toMatches);
+                $toEmail = $toMatches[0] ?? $to;
+                $lead = \App\Modules\Leads\Domain\Entities\Lead::withoutGlobalScopes()
+                    ->where('email', $toEmail)
+                    ->when($user->company_id, fn ($q) => $q->where('company_id', $user->company_id))
+                    ->first();
+                $body = $this->getMessageBody($payload);
+                CrmEmail::create([
+                    'lead_id' => $lead ? $lead->id : null,
+                    'from_email' => $user->gmail_email,
+                    'to_email' => $toEmail,
+                    'subject' => $subject,
+                    'body' => $body,
+                    'thread_id' => $msg->getThreadId(),
+                    'gmail_message_id' => $msg->getId(),
+                    'direction' => 'outbound',
+                    'status' => 'sent',
+                ]);
+            }
+        } catch (\Throwable $e) {
+            Log::warning('Gmail sync sent folder: ' . $e->getMessage());
         }
 
         return true;
