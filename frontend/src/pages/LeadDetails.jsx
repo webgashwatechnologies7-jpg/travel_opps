@@ -3,7 +3,7 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { leadsAPI, usersAPI, followupsAPI, dayItinerariesAPI, packagesAPI, settingsAPI, suppliersAPI, hotelsAPI, paymentsAPI, googleMailAPI, whatsappAPI, queryDetailAPI, vouchersAPI } from '../services/api';
 import { searchPexelsPhotos } from '../services/pexels';
-import { getDisplayImageUrl, rewriteHtmlImageUrls } from '../utils/imageUrl';
+import { getDisplayImageUrl, rewriteHtmlImageUrls, sanitizeEmailHtmlForDisplay } from '../utils/imageUrl';
 import Layout from '../components/Layout';
 import { ArrowLeft, Calendar, Mail, Plus, Upload, X, Search, FileText, Printer, Send, MessageCircle, CheckCircle, CheckCircle2, Clock, Briefcase, MapPin, CalendarDays, Users, UserCheck, Leaf, Smartphone, Phone, MoreVertical, Download, Pencil, Trash2, Camera, RefreshCw, Reply } from 'lucide-react';
 import DetailRow from '../components/Quiries/DetailRow';
@@ -3802,7 +3802,8 @@ const LeadDetails = () => {
                                               __html: (() => {
                                                 const raw = email.body || '—';
                                                 const isHtml = /<[a-z][\s\S]*>/i.test(raw);
-                                                return isHtml ? rewriteHtmlImageUrls(raw) : raw.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br/>');
+                                                const processed = isHtml ? rewriteHtmlImageUrls(sanitizeEmailHtmlForDisplay(raw)) : raw.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br/>');
+                                                return processed;
                                               })()
                                             }}
                                           />
@@ -3840,7 +3841,7 @@ const LeadDetails = () => {
                                       )}
                                     </div>
                                     <p className="text-blue-600 font-medium truncate">{email.subject}</p>
-                                    <div className="text-sm text-gray-500 truncate mt-1" dangerouslySetInnerHTML={{ __html: rewriteHtmlImageUrls(email.body || '') }}></div>
+                                    <div className="text-sm text-gray-500 truncate mt-1" dangerouslySetInnerHTML={{ __html: rewriteHtmlImageUrls(sanitizeEmailHtmlForDisplay(email.body || '')) }}></div>
                                   </div>
                                   <div className="flex-shrink-0 text-right">
                                     <p className="text-sm text-gray-500">

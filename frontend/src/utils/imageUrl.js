@@ -41,3 +41,34 @@ export function rewriteHtmlImageUrls(html) {
     return `<img${attrs}src="${resolved || src}"`;
   });
 }
+
+/** Domains that block hotlinking (403) or cause ERR_NAME_NOT_RESOLVED */
+const BLOCKED_IMAGE_DOMAINS = [
+  'facebook.com', 'fbcdn.net', 'fb.com', 'fb.me', 'graph.facebook.com',
+  'cdninstagram.com', 'instagram.com', 'whatsapp.com', 'tiktok.com',
+  'twitter.com', 'twimg.com', 't.co', 'linkedin.com', 'snapchat.com',
+  'pinterest.com', 'pinimg.com', 'scontent.', 'cdn.fbsbx.com'
+];
+
+/**
+ * Sanitize email HTML: block external images from domains that return 403 (Facebook, etc.)
+ * or cause ERR_NAME_NOT_RESOLVED. Replaces them with a placeholder span.
+ */
+export function sanitizeEmailHtmlForDisplay(html) {
+  if (!html || typeof html !== 'string') return html;
+  return html.replace(/<img([^>]*?)src=["']([^"']+)["']/gi, (match, attrs, src) => {
+    try {
+      if (src.startsWith('data:')) return match; // allow data URLs
+      const url = new URL(src, 'https://example.com');
+      const host = (url.hostname || '').toLowerCase();
+      const isBlocked = BLOCKED_IMAGE_DOMAINS.some(d => host.includes(d));
+      const isSuspicious = host.length > 60 || /^[a-z0-9_-]{40,}$/i.test(host);
+      if (isBlocked || isSuspicious) {
+        return '<span class="inline-block px-2 py-1 bg-gray-100 text-gray-400 text-xs rounded">[Image]</span>';
+      }
+    } catch (_) {
+      return '<span class="inline-block px-2 py-1 bg-gray-100 text-gray-400 text-xs rounded">[Image]</span>';
+    }
+    return match;
+  });
+}
