@@ -4,11 +4,9 @@ import { Mail, ArrowRight, RefreshCw, Inbox, Reply, X } from 'lucide-react';
 import Layout from '../components/Layout';
 import { googleMailAPI } from '../services/api';
 import { rewriteHtmlImageUrls, sanitizeEmailHtmlForDisplay } from '../utils/imageUrl';
-import { useAuth } from '../contexts/AuthContext';
 
 const EmailInbox = () => {
   const navigate = useNavigate();
-  const { user } = useAuth();
   const [emails, setEmails] = useState([]);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
@@ -91,10 +89,6 @@ const EmailInbox = () => {
     e.preventDefault();
     if (!replyForm.to_email || !replyForm.subject || !replyForm.body) {
       alert('Please fill To, Subject and Body');
-      return;
-    }
-    if (!user?.google_token && !user?.google_refresh_token) {
-      alert('Connect Gmail in Settings to send replies.');
       return;
     }
     setSendingReply(true);
