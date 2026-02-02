@@ -20,6 +20,18 @@ class WhatsAppService
     }
 
     /**
+     * Use company-specific WhatsApp config (for multi-tenant).
+     */
+    public function setCompanyConfig($company): self
+    {
+        if ($company) {
+            $this->apiKey = $company->whatsapp_api_key ?? $this->apiKey;
+            $this->phoneNumberId = $company->whatsapp_phone_number_id ?? $this->phoneNumberId;
+        }
+        return $this;
+    }
+
+    /**
      * Send WhatsApp message
      */
     public function sendMessage($to, $message, $templateName = null, $templateData = [])

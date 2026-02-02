@@ -81,8 +81,20 @@ class InboxController extends Controller
                 $query->where('user_id', (int) $request->user_id);
             }
             $messages = $query->with('user:id,name,phone')
-                ->orderBy('sent_at', 'desc')
-                ->get();
+                ->orderBy('sent_at', 'asc')
+                ->get()
+                ->map(function ($m) {
+                    return [
+                        'id' => $m->id,
+                        'message' => $m->message,
+                        'direction' => $m->direction ?? 'outbound',
+                        'media_url' => $m->media_url,
+                        'media_type' => $m->media_type,
+                        'created_at' => $m->sent_at?->toIso8601String() ?? $m->created_at?->toIso8601String(),
+                        'sent_at' => $m->sent_at?->toIso8601String(),
+                        'user' => $m->user,
+                    ];
+                });
 
             return response()->json([
                 'success' => true,

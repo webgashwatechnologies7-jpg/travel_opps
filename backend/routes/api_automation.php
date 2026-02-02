@@ -31,6 +31,7 @@ Route::middleware('auth:sanctum')->prefix('whatsapp')->group(function () {
     Route::get('/inbox-by-user/{userId}', [InboxController::class, 'inboxByUser']);
     Route::get('/messages/{leadId}', [InboxController::class, 'messagesByLead']);
     Route::post('/send', [WhatsappController::class, 'send']);
+    Route::post('/send-media', [WhatsappController::class, 'sendMedia']);
 });
 
 // Campaign routes - require authentication

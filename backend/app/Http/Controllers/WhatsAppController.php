@@ -4,9 +4,11 @@ namespace App\Http\Controllers;
 
 use App\Services\WhatsAppService;
 use App\Modules\Leads\Domain\Entities\Lead;
+use App\Modules\Automation\Domain\Entities\WhatsappLog;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Validator;
 
 class WhatsAppController extends Controller
@@ -336,6 +338,19 @@ class WhatsAppController extends Controller
                 'status' => 'received',
                 'received_at' => date('Y-m-d H:i:s', $timestamp)
             ]);
+
+            // Also save to whatsapp_logs so LeadDetails WhatsApp tab shows it
+            if (Schema::hasColumn('whatsapp_logs', 'direction')) {
+                WhatsappLog::create([
+                    'lead_id' => $lead->id,
+                    'user_id' => null,
+                    'sent_to' => null,
+                    'from_phone' => $from,
+                    'message' => $messageText,
+                    'direction' => 'inbound',
+                    'sent_at' => date('Y-m-d H:i:s', $timestamp),
+                ]);
+            }
 
             // Trigger real-time event
             if (class_exists(\App\Events\NewWhatsAppMessage::class)) {

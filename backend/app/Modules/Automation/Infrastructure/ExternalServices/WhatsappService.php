@@ -3,14 +3,15 @@
 namespace App\Modules\Automation\Infrastructure\ExternalServices;
 
 use App\Modules\Automation\Domain\Entities\WhatsappLog;
+use App\Services\WhatsAppService as WhatsAppApiService;
 use Illuminate\Support\Facades\Log;
 
 class WhatsappService
 {
     /**
-     * Send a WhatsApp message.
+     * Send a WhatsApp message. Uses WhatsApp Business API when company has it configured.
      *
-     * @param string $phone Phone number (with country code, e.g., +1234567890)
+     * @param string $phone Phone number (with country code, e.g., 919854465655)
      * @param string $message Message content
      * @param int|null $leadId Optional lead ID for logging
      * @param int|null $userId Optional user (employee) who sent the message
@@ -19,36 +20,112 @@ class WhatsappService
     public function sendMessage(string $phone, string $message, ?int $leadId = null, ?int $userId = null): bool
     {
         try {
-            // TODO: Implement actual WhatsApp API integration (use $userId to send from that user's number when multi-number is supported)
-            Log::info("WhatsApp Message Sent (Placeholder)", [
-                'phone' => $phone,
-                'message' => $message,
-                'lead_id' => $leadId,
-                'user_id' => $userId,
-            ]);
+            $company = auth()->user()?->company;
+            $apiKey = $company?->whatsapp_api_key ?? config('services.whatsapp.api_key');
+            $phoneNumberId = $company?->whatsapp_phone_number_id ?? config('services.whatsapp.phone_number_id');
 
-            // Log in database (user_id = employee who sent, so admin can see per-user chats)
+            if ($apiKey && $phoneNumberId) {
+                $api = app(WhatsAppApiService::class)->setCompanyConfig($company);
+                $to = preg_replace('/\D/', '', $phone);
+                if (strlen($to) < 10) {
+                    return false;
+                }
+                if (strlen($to) === 10 && preg_match('/^[6-9]/', $to)) {
+                    $to = '91' . $to;
+                }
+                $result = $api->sendMessage($to, $message);
+                if (!$result['success']) {
+                    Log::warning('WhatsApp API send failed', ['error' => $result['error'] ?? 'Unknown']);
+                    return false;
+                }
+            }
+
             WhatsappLog::create([
                 'lead_id' => $leadId,
                 'user_id' => $userId,
                 'sent_to' => $phone,
                 'message' => $message,
+                'direction' => 'outbound',
                 'sent_at' => now(),
             ]);
 
             return true;
-
         } catch (\Exception $e) {
-            Log::error("WhatsApp Message Send Failed", [
+            Log::error('WhatsApp Message Send Failed', [
                 'phone' => $phone,
-                'message' => $message,
                 'lead_id' => $leadId,
-                'user_id' => $userId,
                 'error' => $e->getMessage(),
             ]);
-
             return false;
         }
+    }
+
+    /**
+     * Send media (image, document, etc.) via WhatsApp.
+     *
+     * @param string $phone Phone number with country code
+     * @param \Illuminate\Http\UploadedFile $file
+     * @param string|null $caption
+     * @param int|null $leadId
+     * @param int|null $userId
+     * @return array{success: bool, error?: string}
+     */
+    public function sendMedia(string $phone, $file, ?string $caption = null, ?int $leadId = null, ?int $userId = null): array
+    {
+        try {
+            $company = auth()->user()?->company;
+            $apiKey = $company?->whatsapp_api_key ?? config('services.whatsapp.api_key');
+            $phoneNumberId = $company?->whatsapp_phone_number_id ?? config('services.whatsapp.phone_number_id');
+
+            if (!$apiKey || !$phoneNumberId) {
+                return ['success' => false, 'error' => 'WhatsApp not configured. Set up in Settings → WhatsApp.'];
+            }
+
+            $api = app(WhatsAppApiService::class)->setCompanyConfig($company);
+            $mediaType = $this->getMediaType($file);
+            $uploadResult = $api->uploadMedia($file->getPathname(), $mediaType);
+
+            if (!$uploadResult['success']) {
+                return ['success' => false, 'error' => $uploadResult['error'] ?? 'Upload failed'];
+            }
+
+            $to = preg_replace('/\D/', '', $phone);
+            if (strlen($to) < 10) {
+                return ['success' => false, 'error' => 'Invalid phone number'];
+            }
+            if (strlen($to) === 10 && preg_match('/^[6-9]/', $to)) {
+                $to = '91' . $to;
+            }
+
+            $result = $api->sendMedia($to, $uploadResult['url'], $mediaType, $caption ?? '');
+
+            if ($result['success']) {
+                WhatsappLog::create([
+                    'lead_id' => $leadId,
+                    'user_id' => $userId,
+                    'sent_to' => $phone,
+                    'message' => $caption,
+                    'direction' => 'outbound',
+                    'media_url' => $uploadResult['url'] ?? null,
+                    'media_type' => $mediaType,
+                    'sent_at' => now(),
+                ]);
+            }
+
+            return $result;
+        } catch (\Exception $e) {
+            Log::error('WhatsApp media send failed', ['error' => $e->getMessage()]);
+            return ['success' => false, 'error' => $e->getMessage()];
+        }
+    }
+
+    private function getMediaType($file): string
+    {
+        $mime = $file->getMimeType();
+        if (str_starts_with($mime ?? '', 'image/')) return 'image';
+        if (str_starts_with($mime ?? '', 'video/')) return 'video';
+        if (str_starts_with($mime ?? '', 'audio/')) return 'audio';
+        return 'document';
     }
 
     /**

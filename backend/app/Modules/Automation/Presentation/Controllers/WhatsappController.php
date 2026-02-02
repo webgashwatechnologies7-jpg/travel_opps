@@ -108,5 +108,62 @@ class WhatsappController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Send media (image, document, PDF) via WhatsApp.
+     */
+    public function sendMedia(Request $request): JsonResponse
+    {
+        try {
+            $validator = Validator::make($request->all(), [
+                'lead_id' => 'required|integer|exists:leads,id',
+                'media_file' => 'required|file|max:10240',
+                'caption' => 'nullable|string|max:1000',
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Validation failed',
+                    'errors' => $validator->errors(),
+                ], 422);
+            }
+
+            $lead = Lead::find($request->input('lead_id'));
+            if (!$lead || empty($lead->phone)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Lead not found or has no phone number',
+                ], 400);
+            }
+
+            $result = $this->whatsappService->sendMedia(
+                $lead->phone,
+                $request->file('media_file'),
+                $request->input('caption'),
+                $lead->id,
+                auth()->id()
+            );
+
+            if ($result['success']) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Media sent successfully',
+                    'data' => ['lead_id' => $lead->id],
+                ], 200);
+            }
+
+            return response()->json([
+                'success' => false,
+                'message' => $result['error'] ?? 'Failed to send media',
+            ], 500);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'An error occurred',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
+            ], 500);
+        }
+    }
 }
 

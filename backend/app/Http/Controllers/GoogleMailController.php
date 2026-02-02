@@ -11,6 +11,7 @@ use App\Modules\Leads\Domain\Entities\Lead;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Crypt;
+use Illuminate\Support\Facades\Schema;
 use Carbon\Carbon;
 
 class GoogleMailController extends Controller
@@ -278,6 +279,9 @@ class GoogleMailController extends Controller
             ->pluck('id')
             ->all();
 
+        if (!Schema::hasColumn('crm_emails', 'is_read')) {
+            return response()->json(['success' => true]);
+        }
         $q = CrmEmail::query()->whereIn('lead_id', $leadIds);
         if ($request->filled('thread_id')) {
             $q->where('thread_id', $request->thread_id);
@@ -296,7 +300,9 @@ class GoogleMailController extends Controller
      */
     public function trackOpen(string $token)
     {
-        CrmEmail::where('track_token', $token)->update(['opened_at' => now()]);
+        if (Schema::hasColumn('crm_emails', 'track_token') && Schema::hasColumn('crm_emails', 'opened_at')) {
+            CrmEmail::where('track_token', $token)->update(['opened_at' => now()]);
+        }
         $gif = base64_decode('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7');
         return response($gif, 200, [
             'Content-Type' => 'image/gif',

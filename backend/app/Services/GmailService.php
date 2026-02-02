@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Models\CrmEmail;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 
 class GmailService
 {
@@ -106,12 +107,16 @@ class GmailService
             return ['status' => 'failed', 'error' => 'Gmail not connected or token expired'];
         }
 
-        $trackToken = bin2hex(random_bytes(16));
-        $trackUrl = rtrim(config('app.url'), '/') . '/api/emails/track/' . $trackToken;
-        $pixel = '<img src="' . $trackUrl . '" width="1" height="1" alt="" style="display:none" />';
-        $bodyToSend = strpos($body, '</body>') !== false
-            ? str_replace('</body>', $pixel . '</body>', $body)
-            : $body . $pixel;
+        $hasTrackColumn = Schema::hasColumn('crm_emails', 'track_token');
+        $trackToken = $hasTrackColumn ? bin2hex(random_bytes(16)) : null;
+        $bodyToSend = $body;
+        if ($trackToken) {
+            $trackUrl = rtrim(config('app.url'), '/') . '/api/emails/track/' . $trackToken;
+            $pixel = '<img src="' . $trackUrl . '" width="1" height="1" alt="" style="display:none" />';
+            $bodyToSend = strpos($body, '</body>') !== false
+                ? str_replace('</body>', $pixel . '</body>', $body)
+                : $body . $pixel;
+        }
 
         $gmail = new Gmail($this->client);
 
@@ -151,7 +156,7 @@ class GmailService
         try {
             $sentMessage = $gmail->users_messages->send('me', $message);
 
-            CrmEmail::create([
+            $createData = [
                 'lead_id' => $leadId,
                 'from_email' => $user->gmail_email,
                 'to_email' => $to,
@@ -161,8 +166,11 @@ class GmailService
                 'gmail_message_id' => $sentMessage->getId(),
                 'direction' => 'outbound',
                 'status' => 'sent',
-                'track_token' => $trackToken,
-            ]);
+            ];
+            if ($trackToken) {
+                $createData['track_token'] = $trackToken;
+            }
+            CrmEmail::create($createData);
 
             return ['status' => 'success', 'message_id' => $sentMessage->getId()];
         } catch (\Exception $e) {

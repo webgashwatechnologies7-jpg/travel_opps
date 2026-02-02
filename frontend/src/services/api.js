@@ -218,6 +218,13 @@ export const whatsappAPI = {
   inbox: () => api.get('/whatsapp/inbox'),
   inboxByUser: (userId) => api.get(`/whatsapp/inbox-by-user/${userId}`),
   send: (leadId, message) => api.post('/whatsapp/send', { lead_id: leadId, message }),
+  sendMedia: (leadId, file, caption) => {
+    const form = new FormData();
+    form.append('lead_id', leadId);
+    form.append('media_file', file);
+    if (caption) form.append('caption', caption);
+    return api.post('/whatsapp/send-media', form, { headers: { 'Content-Type': 'multipart/form-data' } });
+  },
   messages: (leadId, params = {}) => api.get(`/whatsapp/messages/${leadId}`, { params }),
 };
 

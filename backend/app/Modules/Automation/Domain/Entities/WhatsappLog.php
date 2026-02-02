@@ -28,7 +28,11 @@ class WhatsappLog extends Model
         'lead_id',
         'user_id',
         'sent_to',
+        'from_phone',
         'message',
+        'direction',
+        'media_url',
+        'media_type',
         'sent_at',
     ];
 
