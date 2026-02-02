@@ -162,15 +162,39 @@ class GoogleMailController extends Controller
 
     public function syncInbox()
     {
-        $this->applyCompanyGoogleConfig();
-
-        $success = $this->gmailService->syncInbox(Auth::user());
-
-        if ($success) {
-            return response()->json(['message' => 'Inbox synced successfully']);
+        $user = Auth::user();
+        if (!$user) {
+            return response()->json(['error' => 'You must be logged in to sync inbox.'], 401);
         }
 
-        return response()->json(['error' => 'Failed to sync inbox'], 400);
+        if (!$user->google_refresh_token && empty($user->google_token)) {
+            return response()->json([
+                'error' => 'Gmail not connected. Connect Gmail in Settings → Email Integration first.',
+            ], 400);
+        }
+
+        try {
+            $this->applyCompanyGoogleConfig();
+            $success = $this->gmailService->syncInbox($user);
+
+            if ($success) {
+                return response()->json(['message' => 'Inbox synced successfully']);
+            }
+
+            return response()->json([
+                'error' => 'Failed to sync inbox. Token may have expired. Try disconnecting and reconnecting Gmail in Settings.',
+            ], 400);
+        } catch (\InvalidArgumentException $e) {
+            \Illuminate\Support\Facades\Log::warning('Gmail sync invalid token: ' . $e->getMessage());
+            return response()->json([
+                'error' => 'Invalid Gmail token. Please disconnect and reconnect Gmail in Settings → Email Integration.',
+            ], 400);
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('Gmail sync error: ' . $e->getMessage());
+            return response()->json([
+                'error' => 'Failed to sync inbox: ' . $e->getMessage(),
+            ], 400);
+        }
     }
 
     public function getEmails($leadId)

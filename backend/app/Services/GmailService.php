@@ -49,12 +49,34 @@ class GmailService
 
     public function setUser(User $user)
     {
-        $accessToken = [
-            'access_token' => $user->google_token,
-            'refresh_token' => $user->google_refresh_token,
-            'expires_in' => Carbon::now()->diffInSeconds($user->google_token_expires_at, false),
-            'created' => Carbon::parse($user->google_token_expires_at)->subSeconds(3600)->timestamp,
-        ];
+        // Google Client requires access_token to be set - null causes "Invalid token format"
+        $accessTokenValue = !empty($user->google_token) ? $user->google_token : null;
+        $refreshToken = $user->google_refresh_token;
+
+        if (!$accessTokenValue && !$refreshToken) {
+            Log::warning("Gmail setUser: User {$user->id} has no Google tokens. Reconnect Gmail in Settings.");
+            return false;
+        }
+
+        $expiresAt = $user->google_token_expires_at;
+        $expiresIn = $expiresAt
+            ? (int) Carbon::now()->diffInSeconds($expiresAt, false)
+            : 0;
+        $created = $expiresAt
+            ? (int) Carbon::parse($expiresAt)->subSeconds(3600)->timestamp
+            : 0;
+
+        $accessToken = array_filter([
+            'access_token' => $accessTokenValue ?? 'pending-refresh',
+            'refresh_token' => $refreshToken,
+            'expires_in' => $expiresIn,
+            'created' => $created,
+        ], fn ($v) => $v !== null && $v !== '');
+
+        // Ensure access_token key exists (required by Google Client)
+        if (empty($accessToken['access_token'])) {
+            $accessToken['access_token'] = 'pending-refresh';
+        }
 
         $this->client->setAccessToken($accessToken);
 
