@@ -82,7 +82,7 @@ class WhatsappController extends Controller
                 auth()->id()
             );
 
-            if ($result) {
+            if ($result['success'] ?? false) {
                 return response()->json([
                     'success' => true,
                     'message' => 'WhatsApp message sent successfully',
@@ -93,12 +93,12 @@ class WhatsappController extends Controller
                         'message' => $request->input('message'),
                     ],
                 ], 200);
-            } else {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Failed to send WhatsApp message',
-                ], 500);
             }
+            $errorMsg = $result['error'] ?? 'Failed to send WhatsApp message';
+            return response()->json([
+                'success' => false,
+                'message' => $errorMsg,
+            ], 500);
 
         } catch (\Exception $e) {
             return response()->json([

@@ -15,29 +15,33 @@ class WhatsappService
      * @param string $message Message content
      * @param int|null $leadId Optional lead ID for logging
      * @param int|null $userId Optional user (employee) who sent the message
-     * @return bool
+     * @return array{success: bool, error?: string}
      */
-    public function sendMessage(string $phone, string $message, ?int $leadId = null, ?int $userId = null): bool
+    public function sendMessage(string $phone, string $message, ?int $leadId = null, ?int $userId = null): array
     {
         try {
             $company = auth()->user()?->company;
             $apiKey = $company?->whatsapp_api_key ?? config('services.whatsapp.api_key');
             $phoneNumberId = $company?->whatsapp_phone_number_id ?? config('services.whatsapp.phone_number_id');
 
-            if ($apiKey && $phoneNumberId) {
-                $api = app(WhatsAppApiService::class)->setCompanyConfig($company);
-                $to = preg_replace('/\D/', '', $phone);
-                if (strlen($to) < 10) {
-                    return false;
-                }
-                if (strlen($to) === 10 && preg_match('/^[6-9]/', $to)) {
-                    $to = '91' . $to;
-                }
-                $result = $api->sendMessage($to, $message);
-                if (!$result['success']) {
-                    Log::warning('WhatsApp API send failed', ['error' => $result['error'] ?? 'Unknown']);
-                    return false;
-                }
+            if (!$apiKey || !$phoneNumberId) {
+                return ['success' => false, 'error' => 'WhatsApp not configured. Set up in Settings → WhatsApp Integration.'];
+            }
+
+            $api = app(WhatsAppApiService::class)->setCompanyConfig($company);
+            $to = preg_replace('/\D/', '', $phone);
+            if (strlen($to) < 10) {
+                return ['success' => false, 'error' => 'Invalid phone number.'];
+            }
+            if (strlen($to) === 10 && preg_match('/^[6-9]/', $to)) {
+                $to = '91' . $to;
+            }
+
+            $result = $api->sendMessage($to, $message);
+            if (!$result['success']) {
+                $err = $result['error'] ?? 'Unknown error';
+                Log::warning('WhatsApp API send failed', ['error' => $err]);
+                return ['success' => false, 'error' => $err];
             }
 
             WhatsappLog::create([
@@ -49,14 +53,14 @@ class WhatsappService
                 'sent_at' => now(),
             ]);
 
-            return true;
+            return ['success' => true];
         } catch (\Exception $e) {
             Log::error('WhatsApp Message Send Failed', [
                 'phone' => $phone,
                 'lead_id' => $leadId,
                 'error' => $e->getMessage(),
             ]);
-            return false;
+            return ['success' => false, 'error' => $e->getMessage()];
         }
     }
 

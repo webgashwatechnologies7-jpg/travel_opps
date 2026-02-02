@@ -228,7 +228,7 @@ class CampaignController extends Controller
                             $lead->id
                         );
 
-                        if ($result) {
+                        if ($result['success'] ?? false) {
                             $sentCount++;
                         } else {
                             $failedCount++;
