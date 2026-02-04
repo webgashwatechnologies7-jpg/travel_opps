@@ -136,6 +136,106 @@ class MarketingController extends Controller
     }
 
     /**
+     * Update existing email campaign
+     */
+    public function updateEmailCampaign(Request $request, int $id): JsonResponse
+    {
+        try {
+            $validator = Validator::make($request->all(), [
+                'name' => 'required|string|max:255',
+                'subject' => 'required|string|max:255',
+                'template_id' => 'required|exists:marketing_templates,id',
+                'lead_ids' => 'required|array',
+                'lead_ids.*' => 'exists:leads,id',
+                'scheduled_at' => 'nullable|date|after:now',
+                'send_immediately' => 'boolean',
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Validation failed',
+                    'errors' => $validator->errors(),
+                ], 422);
+            }
+
+            $campaign = EmailCampaign::findOrFail($id);
+
+            $campaign->update([
+                'name' => $request->name,
+                'subject' => $request->subject,
+                'template_id' => $request->template_id,
+                'lead_ids' => $request->lead_ids,
+                'scheduled_at' => $request->scheduled_at,
+                'send_immediately' => $request->send_immediately ?? false,
+                // If user edits and chooses "send now", move to sending state
+                'status' => $request->send_immediately ? 'sending' : $campaign->status,
+            ]);
+
+            if ($request->send_immediately) {
+                $this->processEmailCampaign($campaign->fresh());
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Email campaign updated successfully',
+                'data' => $campaign->load(['template']),
+            ], 200);
+
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Email campaign not found',
+            ], 404);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to update email campaign',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
+            ], 500);
+        }
+    }
+
+    /**
+     * Trigger sending of an email campaign
+     */
+    public function sendEmailCampaign(int $id): JsonResponse
+    {
+        try {
+            $campaign = EmailCampaign::findOrFail($id);
+
+            if ($campaign->status === 'sent') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Campaign has already been sent',
+                ], 400);
+            }
+
+            // Move to sending state and process
+            $campaign->update(['status' => 'sending']);
+            $this->processEmailCampaign($campaign->fresh());
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Email campaign sending started',
+                'data' => $campaign->refresh()->load(['template']),
+            ], 200);
+
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Email campaign not found',
+            ], 404);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to send email campaign',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
+            ], 500);
+        }
+    }
+
+    /**
      * Get all SMS campaigns
      */
     public function smsCampaigns(): JsonResponse
@@ -388,12 +488,21 @@ class MarketingController extends Controller
 
     private function processEmailCampaign(EmailCampaign $campaign): void
     {
-        // Implementation for sending email campaign
-        $campaign->update(['status' => 'sent', 'sent_at' => now()]);
+        // Basic implementation for sending email campaign
+        // (actual mail sending can be added or queued here)
+        $leadIds = (array) $campaign->lead_ids;
+
+        $campaign->update([
+            'status' => 'sent',
+            'sent_at' => now(),
+            'sent_count' => count($leadIds),
+        ]);
         
-        // Update lead status
-        Lead::whereIn('id', $campaign->lead_ids)
-            ->update(['last_contacted_at' => now()]);
+        // Update lead status metadata
+        if (!empty($leadIds)) {
+            Lead::whereIn('id', $leadIds)
+                ->update(['last_contacted_at' => now()]);
+        }
     }
 
     private function processSmsCampaign(SmsCampaign $campaign): void
