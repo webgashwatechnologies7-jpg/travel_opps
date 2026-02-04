@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import Layout from '../components/Layout';
 import { useContent } from '../contexts/ContentContext';
+import { marketingAPI } from '../services/api';
 import { 
   Mail,
   MessageSquare,
@@ -44,59 +45,43 @@ const MarketingDashboard = () => {
   }, [selectedPeriod]);
 
   const fetchMarketingStats = async () => {
+    setLoading(true);
+    setError('');
+
     try {
-      // Mock data for demonstration - replace with actual API call
-      const mockStats = {
-        total_campaigns: 9,
-        active_campaigns: 5,
-        total_sent: 19,
-        total_opens: 12,
-        total_clicks: 8,
-        conversion_rate: 3.2,
-        recent_campaigns: [
-          {
-            id: 1,
-            name: 'Dubai Tour Package',
-            type: 'whatsapp',
-            status: 'active',
-            sent_count: 5,
-            open_rate: 80,
-            created_at: '2025-01-13'
-          },
-          {
-            id: 2,
-            name: 'Delhi to Dubai',
-            type: 'email',
-            status: 'completed',
-            sent_count: 3,
-            open_rate: 66,
-            created_at: '2025-01-12'
-          },
-          {
-            id: 3,
-            name: 'Summer Special',
-            type: 'sms',
-            status: 'scheduled',
-            sent_count: 0,
-            open_rate: 0,
-            created_at: '2025-01-11'
-          }
-        ],
-        customer_stats: {
-          total_customers: 156,
-          new_this_month: 23,
-          birthdays_this_month: 8,
-          anniversaries_this_month: 5
+      const response = await marketingAPI.dashboard({
+        period: selectedPeriod,
+      });
+
+      const apiData = response?.data?.data || {};
+
+      // Ensure we always have the fields the UI expects, with safe fallbacks
+      const normalizedStats = {
+        total_campaigns: apiData.total_campaigns ?? 0,
+        active_campaigns: apiData.active_campaigns ?? 0,
+        total_sent: apiData.total_sent ?? 0,
+        total_opens: apiData.total_opens ?? 0,
+        total_clicks: apiData.total_clicks ?? 0,
+        conversion_rate: apiData.conversion_rate ?? 0,
+        recent_campaigns: apiData.recent_campaigns || [],
+        // Optional sections used only for display; backend may not provide them yet
+        customer_stats: apiData.customer_stats || {
+          total_customers: 0,
+          new_this_month: 0,
+          birthdays_this_month: 0,
+          anniversaries_this_month: 0,
         },
-        performance: {
-          email_performance: 68,
-          sms_performance: 45,
-          whatsapp_performance: 82
-        }
+        performance: apiData.performance || {
+          email_performance: 0,
+          sms_performance: 0,
+          whatsapp_performance: 0,
+        },
       };
-      setStats(mockStats);
+
+      setStats(normalizedStats);
     } catch (err) {
-      setError('Failed to load marketing stats');
+      console.error('Failed to load marketing stats:', err);
+      setError('Failed to load marketing stats. Please try again.');
     } finally {
       setLoading(false);
     }

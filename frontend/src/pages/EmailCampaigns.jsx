@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
 import { useErrorHandler } from '../hooks/useErrorHandler';
+import { marketingEmailCampaignsAPI, marketingTemplatesAPI, leadsAPI } from '../services/api';
 import { 
   Mail,
   Plus,
@@ -41,29 +42,31 @@ const EmailCampaigns = () => {
   const fetchInitialData = async () => {
     await executeWithErrorHandling(async () => {
       const [campaignsResponse, templatesResponse, leadsResponse] = await Promise.all([
-        fetch('/api/marketing/email-campaigns'),
-        fetch('/api/marketing/templates'),
-        fetch('/api/leads?per_page=50&page=1')
+        marketingEmailCampaignsAPI.list(),
+        marketingTemplatesAPI.list(),
+        leadsAPI.list({ per_page: 50, page: 1 }),
       ]);
 
-      const campaignsData = await campaignsResponse.json();
-      const templatesData = await templatesResponse.json();
-      const leadsData = await leadsResponse.json();
+      const campaignsData = campaignsResponse.data;
+      const templatesData = templatesResponse.data;
+      const leadsData = leadsResponse.data;
 
       if (!campaignsData.success) throw new Error(campaignsData.message || 'Failed to fetch campaigns');
       if (!templatesData.success) throw new Error(templatesData.message || 'Failed to fetch templates');
       if (!leadsData.success) throw new Error(leadsData.message || 'Failed to fetch leads');
 
+      // Email campaigns are returned as a Laravel paginator
       setCampaigns(campaignsData.data?.data || []);
       setTemplates(templatesData.data || []);
-      setLeads(leadsData.data?.data || []);
+      // Leads endpoint returns: data: { leads: [...], pagination: {...} }
+      setLeads(leadsData.data?.leads || []);
     }, 'Data loaded successfully');
   };
 
   const fetchCampaigns = async () => {
     try {
-      const response = await fetch('/api/marketing/email-campaigns');
-      const data = await response.json();
+      const response = await marketingEmailCampaignsAPI.list();
+      const data = response.data;
       
       if (data.success) {
         setCampaigns(data.data.data || []);
@@ -122,8 +125,8 @@ const EmailCampaigns = () => {
 
   const fetchTemplates = async () => {
     try {
-      const response = await fetch('/api/marketing/templates');
-      const data = await response.json();
+      const response = await marketingTemplatesAPI.list();
+      const data = response.data;
       
       if (data.success) {
         setTemplates(data.data || []);
@@ -157,11 +160,11 @@ const EmailCampaigns = () => {
   const fetchLeads = async () => {
     try {
       // Implement pagination for large datasets
-      const response = await fetch('/api/leads?per_page=50&page=1');
-      const data = await response.json();
+      const response = await leadsAPI.list({ per_page: 50, page: 1 });
+      const data = response.data;
       
       if (data.success) {
-        setLeads(data.data.data || []);
+        setLeads(data.data?.leads || []);
       } else {
         console.error('Failed to fetch leads');
       }
@@ -237,15 +240,11 @@ const EmailCampaigns = () => {
 
   const handleSave = async () => {
     const result = await executeWithErrorHandling(async () => {
-      const response = await fetch(`/api/marketing/email-campaigns${selectedCampaign?.id ? `/${selectedCampaign.id}` : ''}`, {
-        method: selectedCampaign ? 'PUT' : 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(formData)
-      });
+      const response = selectedCampaign
+        ? await marketingEmailCampaignsAPI.update(selectedCampaign.id, formData)
+        : await marketingEmailCampaignsAPI.create(formData);
       
-      const data = await response.json();
+      const data = response.data;
       
       if (!data.success) {
         throw new Error(data.message || 'Failed to save campaign');
@@ -287,11 +286,8 @@ const EmailCampaigns = () => {
   const handleDelete = async (id) => {
     if (window.confirm('Are you sure you want to delete this campaign?')) {
       const result = await executeWithErrorHandling(async () => {
-        const response = await fetch(`/api/marketing/email-campaigns/${id}`, {
-          method: 'DELETE'
-        });
-        
-        const data = await response.json();
+        const response = await marketingEmailCampaignsAPI.delete(id);
+        const data = response.data;
         
         if (!data.success) {
           throw new Error(data.message || 'Failed to delete campaign');
@@ -308,11 +304,8 @@ const EmailCampaigns = () => {
 
   const handleSendCampaign = async (id) => {
     await executeWithErrorHandling(async () => {
-      const response = await fetch(`/api/marketing/email-campaigns/${id}/send`, {
-        method: 'POST'
-      });
-      
-      const data = await response.json();
+      const response = await marketingEmailCampaignsAPI.send(id);
+      const data = response.data;
       
       if (!data.success) {
         throw new Error(data.message || 'Failed to send campaign');
@@ -611,7 +604,7 @@ const EmailCampaigns = () => {
                       <div key={lead.id} className="flex items-center p-2 hover:bg-gray-50">
                         <input
                           type="checkbox"
-                          value={formData.lead_ids?.includes(lead.id)}
+                          checked={formData.lead_ids?.includes(lead.id)}
                           onChange={(e) => {
                             const leadIds = formData.lead_ids || [];
                             if (e.target.checked) {
@@ -623,7 +616,7 @@ const EmailCampaigns = () => {
                           className="mr-2"
                         />
                         <label className="flex-1">
-                          <span className="text-sm text-gray-900">{lead.name}</span>
+                          <span className="text-sm text-gray-900">{lead.name || lead.client_name}</span>
                           <span className="text-xs text-gray-500">{lead.email}</span>
                         </label>
                       </div>

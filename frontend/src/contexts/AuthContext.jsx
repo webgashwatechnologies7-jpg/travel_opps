@@ -57,7 +57,11 @@ export const AuthProvider = ({ children }) => {
       }
     };
 
-    registerPush().catch((error) => {
+    registerPush().then((result) => {
+      if (result?.reason === 'missing_config' || result?.reason === 'missing_vapid_key') {
+        console.warn('Push notifications disabled:', result.reason, '- Add Firebase env vars (VITE_FIREBASE_*) and VITE_FIREBASE_VAPID_KEY in frontend .env');
+      }
+    }).catch((error) => {
       console.error('Push notification setup failed:', error);
     });
 

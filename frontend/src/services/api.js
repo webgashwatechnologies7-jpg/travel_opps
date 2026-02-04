@@ -237,6 +237,20 @@ export const marketingTemplatesAPI = {
   delete: (id) => api.delete(`/marketing/templates/${id}`),
 };
 
+// Marketing Dashboard
+export const marketingAPI = {
+  dashboard: (params = {}) => api.get('/marketing/dashboard', { params }),
+};
+
+// Email Campaigns (Marketing)
+export const marketingEmailCampaignsAPI = {
+  list: (params = {}) => api.get('/marketing/email-campaigns', { params }),
+  create: (data) => api.post('/marketing/email-campaigns', data),
+  update: (id, data) => api.put(`/marketing/email-campaigns/${id}`, data),
+  delete: (id) => api.delete(`/marketing/email-campaigns/${id}`),
+  send: (id) => api.post(`/marketing/email-campaigns/${id}/send`),
+};
+
 // Client Groups (Marketing)
 export const clientGroupsAPI = {
   list: () => api.get('/marketing/client-groups'),

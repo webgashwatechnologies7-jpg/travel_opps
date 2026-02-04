@@ -22,20 +22,15 @@ class MarketingController extends Controller
     public function dashboard(): JsonResponse
     {
         try {
-            // Add company filtering for multi-tenant
-            $companyId = auth()->user()->company_id;
-            
             $stats = [
-                'total_campaigns' => EmailCampaign::where('company_id', $companyId)->count() + 
-                                     SmsCampaign::where('company_id', $companyId)->count(),
-                'active_campaigns' => EmailCampaign::where('company_id', $companyId)->where('status', 'active')->count() + 
-                                     SmsCampaign::where('company_id', $companyId)->where('status', 'active')->count(),
-                'total_sent' => EmailCampaign::where('company_id', $companyId)->sum('sent_count') + 
-                               SmsCampaign::where('company_id', $companyId)->sum('sent_count'),
-                'total_opens' => EmailCampaign::where('company_id', $companyId)->sum('open_count'),
-                'total_clicks' => EmailCampaign::where('company_id', $companyId)->sum('click_count'),
-                'conversion_rate' => $this->calculateConversionRate($companyId),
-                'recent_campaigns' => $this->getRecentCampaigns($companyId),
+                'total_campaigns' => EmailCampaign::count() + SmsCampaign::count(),
+                'active_campaigns' => EmailCampaign::where('status', 'active')->count() +
+                                     SmsCampaign::where('status', 'active')->count(),
+                'total_sent' => EmailCampaign::sum('sent_count') + SmsCampaign::sum('sent_count'),
+                'total_opens' => EmailCampaign::sum('open_count'),
+                'total_clicks' => EmailCampaign::sum('click_count'),
+                'conversion_rate' => $this->calculateConversionRate(),
+                'recent_campaigns' => $this->getRecentCampaigns(),
             ];
 
             return response()->json([
@@ -365,11 +360,12 @@ class MarketingController extends Controller
     private function calculateConversionRate(): float
     {
         $totalSent = EmailCampaign::sum('sent_count') + SmsCampaign::sum('sent_count');
-        $totalConversions = Lead::where('converted_at', '>=', now()->subDays(30))->count();
+        // Simple approximation: count recently created leads as "conversions"
+        $totalConversions = Lead::where('created_at', '>=', now()->subDays(30))->count();
         
         return $totalSent > 0 ? round(($totalConversions / $totalSent) * 100, 2) : 0;
     }
-
+    
     private function getRecentCampaigns(): array
     {
         return EmailCampaign::with(['template'])

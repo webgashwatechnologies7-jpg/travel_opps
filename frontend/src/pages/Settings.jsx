@@ -3,8 +3,8 @@ import { useSettings } from '../contexts/SettingsContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useContent } from '../contexts/ContentContext';
 import Layout from '../components/Layout';
-import { Settings as SettingsIcon, RotateCcw, Save, Hotel, Mail } from 'lucide-react';
-import { settingsAPI, googleMailAPI } from '../services/api';
+import { Settings as SettingsIcon, RotateCcw, Save, Hotel, Mail, Bell } from 'lucide-react';
+import { settingsAPI, googleMailAPI, notificationsAPI } from '../services/api';
 
 const Settings = () => {
   const { user } = useAuth();
@@ -19,6 +19,7 @@ const Settings = () => {
   const [message, setMessage] = useState({ type: '', text: '' });
   const [maxHotelOptions, setMaxHotelOptions] = useState(4);
   const [savingItinerarySettings, setSavingItinerarySettings] = useState(false);
+  const [sendingTestPush, setSendingTestPush] = useState(false);
 
   useEffect(() => {
     if (settings) {
@@ -276,6 +277,45 @@ const Settings = () => {
               ></div>
             </div>
           </div>
+        </div>
+
+        {/* Push Notifications */}
+        <div className="p-6 mt-6 bg-white rounded-lg shadow">
+          <div className="flex items-center gap-2 mb-4">
+            <Bell className="w-6 h-6 text-blue-600" />
+            <h2 className="text-lg font-semibold text-gray-800">Push notifications</h2>
+          </div>
+          <p className="mb-4 text-sm text-gray-600">
+            Send a test notification to this device to verify push is working. You will receive it when the tab is in background or from the system.
+          </p>
+          <button
+            type="button"
+            disabled={sendingTestPush}
+            onClick={async () => {
+              setSendingTestPush(true);
+              setMessage({ type: '', text: '' });
+              try {
+                const res = await notificationsAPI.sendPush({
+                  title: 'Test notification',
+                  body: 'If you see this, push notifications are working.',
+                });
+                if (res.data?.success) {
+                  setMessage({ type: 'success', text: 'Test notification sent. Check your device or browser.' });
+                } else {
+                  setMessage({ type: 'error', text: res.data?.message || 'Failed to send test notification.' });
+                }
+              } catch (err) {
+                const msg = err.response?.data?.message || err.message || 'Failed to send test notification.';
+                setMessage({ type: 'error', text: msg });
+              } finally {
+                setSendingTestPush(false);
+              }
+            }}
+            className="flex items-center gap-2 px-4 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <Bell className="w-4 h-4" />
+            {sendingTestPush ? 'Sending…' : 'Send test notification'}
+          </button>
         </div>
 
         {/* Email Template Settings */}

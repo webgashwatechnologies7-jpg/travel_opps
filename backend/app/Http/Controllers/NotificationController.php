@@ -4,10 +4,10 @@ namespace App\Http\Controllers;
 
 use App\Models\PushToken;
 use App\Models\Setting;
+use App\Services\PushNotificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Validator;
@@ -117,14 +117,6 @@ class NotificationController extends Controller
             ], 422);
         }
 
-        $serverKey = config('services.fcm.server_key');
-        if (!$serverKey) {
-            return response()->json([
-                'success' => false,
-                'message' => 'FCM server key not configured',
-            ], 500);
-        }
-
         $tokens = $request->input('tokens', []);
         $userIds = $request->input('user_ids', []);
 
@@ -149,55 +141,23 @@ class NotificationController extends Controller
             ], 404);
         }
 
-        $payload = [
-            'notification' => [
-                'title' => $request->input('title'),
-                'body' => $request->input('body'),
-            ],
-            'data' => $request->input('data', []),
-        ];
+        $title = $request->input('title');
+        $body = $request->input('body');
+        $data = $request->input('data', []);
 
-        if (count($tokens) === 1) {
-            $payload['to'] = $tokens[0];
-        } else {
-            $payload['registration_ids'] = $tokens;
-        }
-
-        try {
-            $response = Http::withHeaders([
-                'Authorization' => 'key=' . $serverKey,
-                'Content-Type' => 'application/json',
-            ])->post('https://fcm.googleapis.com/fcm/send', $payload);
-
-            if (!$response->successful()) {
-                Log::error('FCM push send failed', [
-                    'status' => $response->status(),
-                    'body' => $response->body(),
-                ]);
-
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Failed to send push notification',
-                    'error' => $response->body(),
-                ], 500);
-            }
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Push notification sent',
-                'data' => $response->json(),
-            ], 200);
-        } catch (\Exception $e) {
-            Log::error('FCM push exception', [
-                'error' => $e->getMessage(),
-            ]);
-
+        $sent = PushNotificationService::sendToTokens($tokens, $title, $body, $data);
+        if (!$sent) {
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to send push notification',
-                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
+                'message' => 'FCM not configured or send failed. Set FCM_PROJECT_ID and FCM_SERVICE_ACCOUNT_JSON_PATH (v1) or FCM_SERVER_KEY (legacy).',
             ], 500);
         }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Push notification sent',
+            'data' => ['sent' => count($tokens)],
+        ], 200);
     }
 
     /**

@@ -43,6 +43,21 @@ export const initPushNotifications = async ({ prompt = false } = {}) => {
     return { supported: false, reason: 'missing_config' };
   }
 
+  try {
+    return await initPushNotificationsInternal({ prompt });
+  } catch (err) {
+    console.error('Push init error:', err);
+    return {
+      supported: true,
+      permission: Notification.permission,
+      token: null,
+      reason: err?.code || err?.message || 'init_failed',
+    };
+  }
+};
+
+const initPushNotificationsInternal = async ({ prompt = false } = {}) => {
+
   let permission = Notification.permission;
   if (permission === 'default' && !prompt) {
     return { supported: true, permission };
@@ -56,32 +71,41 @@ export const initPushNotifications = async ({ prompt = false } = {}) => {
     return { supported: true, permission };
   }
 
-  const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
-  if (hasFirebaseConfig()) {
-    const readyRegistration = await navigator.serviceWorker.ready;
-    const activeWorker = readyRegistration.active || registration.active;
-    if (activeWorker) {
-      activeWorker.postMessage({
-        type: 'FIREBASE_CONFIG',
-        config: firebaseConfig,
-      });
-    }
+  const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js', { scope: '/' });
+  const readyRegistration = await navigator.serviceWorker.ready;
+  const activeWorker = readyRegistration.active || registration.active;
+  if (activeWorker) {
+    activeWorker.postMessage({
+      type: 'FIREBASE_CONFIG',
+      config: firebaseConfig,
+    });
+    // Give the service worker time to receive config and init Firebase before getToken
+    await new Promise((r) => setTimeout(r, 600));
   }
-  const messaging = getMessagingInstance();
-  const vapidKey = import.meta.env.VITE_FIREBASE_VAPID_KEY;
 
+  const vapidKey = import.meta.env.VITE_FIREBASE_VAPID_KEY;
+  if (!vapidKey) {
+    return { supported: true, permission, token: null, reason: 'missing_vapid_key' };
+  }
+
+  const messaging = getMessagingInstance();
   const token = await getToken(messaging, {
     vapidKey,
     serviceWorkerRegistration: registration,
   });
 
   if (token) {
-    await notificationsAPI.savePushToken({
-      token,
-      platform: 'web',
-      device_name: navigator.userAgent?.slice(0, 100) || null,
-    });
-    localStorage.setItem('push_fcm_token', token);
+    try {
+      await notificationsAPI.savePushToken({
+        token,
+        platform: 'web',
+        device_name: navigator.userAgent?.slice(0, 100) || null,
+      });
+      localStorage.setItem('push_fcm_token', token);
+    } catch (err) {
+      console.warn('Push token save to server failed:', err);
+      // Still return token so app knows push is ready locally
+    }
   }
 
   return { supported: true, permission, token };
@@ -97,7 +121,11 @@ export const removePushToken = async (tokenOverride = null) => {
     return { supported: true, removed: false };
   }
 
-  await notificationsAPI.deletePushToken({ token });
+  try {
+    await notificationsAPI.deletePushToken({ token });
+  } catch (err) {
+    console.warn('Push token delete on server failed:', err);
+  }
   localStorage.removeItem('push_fcm_token');
   return { supported: true, removed: true };
 };

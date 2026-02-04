@@ -5,6 +5,7 @@ namespace App\Modules\Leads\Presentation\Controllers;
 use App\Http\Controllers\Controller;
 use App\Modules\Leads\Domain\Entities\LeadStatusLog;
 use App\Modules\Leads\Domain\Interfaces\LeadRepositoryInterface;
+use App\Services\PushNotificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
@@ -422,6 +423,18 @@ class LeadsController extends Controller
             // Refresh lead with relationships
             $lead->refresh();
             $lead->load(['assignedUser', 'creator', 'followups', 'statusLogs']);
+
+            // Notify assigned user via push notification
+            $assignedUserId = (int) $request->assigned_to;
+            if ($assignedUserId && $assignedUserId !== (int) $oldAssignedTo) {
+                $dest = $lead->destination ?: 'Query';
+                PushNotificationService::sendToUsers(
+                    [$assignedUserId],
+                    'New lead assigned to you',
+                    'Lead #' . $lead->id . ' – ' . $dest . ' has been assigned to you.',
+                    ['lead_id' => (string) $lead->id]
+                );
+            }
 
             return response()->json([
                 'success' => true,

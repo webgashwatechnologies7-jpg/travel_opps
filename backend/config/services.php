@@ -39,9 +39,11 @@ return [
     ],
 
     'fcm' => [
-        'server_key' => env('FCM_SERVER_KEY'),
-        'sender_id' => env('FCM_SENDER_ID'),
+        'server_key' => env('FCM_SERVER_KEY'), // Legacy API (deprecated) - use v1 for new projects
         'project_id' => env('FCM_PROJECT_ID'),
+        // FCM HTTP v1 API: path to Firebase service account JSON (Project Settings > Service Accounts > Generate key)
+        'service_account_json_path' => env('FCM_SERVICE_ACCOUNT_JSON_PATH'),
+        'sender_id' => env('FCM_SENDER_ID'),
         'app_id' => env('FCM_APP_ID'),
         'api_key' => env('FCM_API_KEY'),
         'auth_domain' => env('FCM_AUTH_DOMAIN'),
