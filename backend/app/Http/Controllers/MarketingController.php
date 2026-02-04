@@ -322,13 +322,23 @@ class MarketingController extends Controller
 
             // Move to sending state and process
             $campaign->update(['status' => 'sending']);
-            $this->processEmailCampaign($campaign->fresh());
+            $result = $this->processEmailCampaign($campaign->fresh());
 
+            if ($result['status'] === 'sent' && $result['sent_count'] > 0) {
+                return response()->json([
+                    'success' => true,
+                    'message' => "Email campaign sent to {$result['sent_count']} lead(s)",
+                    'data' => $campaign->refresh()->load(['template']),
+                ], 200);
+            }
+
+            // Failed case – surface reason to frontend
             return response()->json([
-                'success' => true,
-                'message' => 'Email campaign sending started',
-                'data' => $campaign->refresh()->load(['template']),
-            ], 200);
+                'success' => false,
+                'message' => 'Failed to send email campaign',
+                'details' => $result['reason'] ?? null,
+                'sent_count' => $result['sent_count'],
+            ], 422);
 
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
             return response()->json([
@@ -595,14 +605,23 @@ class MarketingController extends Controller
             ->toArray();
     }
 
-    private function processEmailCampaign(EmailCampaign $campaign): void
+    /**
+     * Process and send an email campaign.
+     *
+     * @return array{status:string,sent_count:int,reason:?string}
+     */
+    private function processEmailCampaign(EmailCampaign $campaign): array
     {
         // Load template and leads
         $template = $campaign->template;
         if (!$template || !$template->is_active || $template->type !== 'email') {
             // If template invalid, just mark as failed
             $campaign->update(['status' => 'failed']);
-            return;
+            return [
+                'status' => 'failed',
+                'sent_count' => 0,
+                'reason' => 'Invalid or inactive email template',
+            ];
         }
 
         $leadIds = (array) $campaign->lead_ids;
@@ -616,7 +635,11 @@ class MarketingController extends Controller
                 'sent_at' => now(),
                 'sent_count' => 0,
             ]);
-            return;
+            return [
+                'status' => 'failed',
+                'sent_count' => 0,
+                'reason' => 'No leads with valid email addresses',
+            ];
         }
 
         // Prepare company mail settings
@@ -637,6 +660,7 @@ class MarketingController extends Controller
         $fromName = $companyName ?: config('mail.from.name', 'TravelOps');
 
         $sentCount = 0;
+        $lastError = null;
 
         foreach ($leads as $lead) {
             try {
@@ -679,14 +703,25 @@ class MarketingController extends Controller
                     'lead_id' => $lead->id,
                     'error' => $e->getMessage(),
                 ]);
+                $lastError = $e->getMessage();
             }
         }
 
+        $status = $sentCount > 0 ? 'sent' : 'failed';
+
         $campaign->update([
-            'status' => $sentCount > 0 ? 'sent' : 'failed',
+            'status' => $status,
             'sent_at' => now(),
             'sent_count' => $sentCount,
         ]);
+
+        return [
+            'status' => $status,
+            'sent_count' => $sentCount,
+            'reason' => $status === 'sent'
+                ? null
+                : ($lastError ?: 'Unknown error while sending emails'),
+        ];
     }
 
     private function processSmsCampaign(SmsCampaign $campaign): void
