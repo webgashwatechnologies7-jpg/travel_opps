@@ -81,6 +81,34 @@ class MarketingController extends Controller
     }
 
     /**
+     * Show a single email campaign
+     */
+    public function showEmailCampaign(int $id): JsonResponse
+    {
+        try {
+            $campaign = EmailCampaign::with(['template', 'leads'])->findOrFail($id);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Email campaign retrieved successfully',
+                'data' => $campaign,
+            ], 200);
+
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Email campaign not found',
+            ], 404);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to retrieve email campaign',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
+            ], 500);
+        }
+    }
+
+    /**
      * Create new email campaign
      */
     public function createEmailCampaign(Request $request): JsonResponse
@@ -191,6 +219,84 @@ class MarketingController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to update email campaign',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
+            ], 500);
+        }
+    }
+
+    /**
+     * Delete email campaign
+     */
+    public function deleteEmailCampaign(int $id): JsonResponse
+    {
+        try {
+            $campaign = EmailCampaign::findOrFail($id);
+            $campaign->delete();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Email campaign deleted successfully',
+            ], 200);
+
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Email campaign not found',
+            ], 404);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to delete email campaign',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
+            ], 500);
+        }
+    }
+
+    /**
+     * Duplicate an existing email campaign
+     */
+    public function duplicateEmailCampaign(int $id): JsonResponse
+    {
+        try {
+            $campaign = EmailCampaign::findOrFail($id);
+
+            $newCampaign = $campaign->replicate([
+                'status',
+                'sent_count',
+                'delivered_count',
+                'open_count',
+                'click_count',
+                'bounce_count',
+                'unsubscribe_count',
+                'sent_at',
+            ]);
+
+            $newCampaign->name = $campaign->name . ' (Copy)';
+            $newCampaign->status = 'draft';
+            $newCampaign->sent_count = 0;
+            $newCampaign->delivered_count = 0;
+            $newCampaign->open_count = 0;
+            $newCampaign->click_count = 0;
+            $newCampaign->bounce_count = 0;
+            $newCampaign->unsubscribe_count = 0;
+            $newCampaign->sent_at = null;
+            $newCampaign->save();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Email campaign duplicated successfully',
+                'data' => $newCampaign,
+            ], 201);
+
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Email campaign not found',
+            ], 404);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to duplicate email campaign',
                 'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
             ], 500);
         }
