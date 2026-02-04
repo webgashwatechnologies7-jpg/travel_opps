@@ -8,6 +8,9 @@ use App\Models\SmsCampaign;
 use App\Models\MarketingTemplate;
 use App\Modules\Leads\Domain\Entities\Lead;
 use App\Models\User;
+use App\Models\Setting;
+use App\Services\CompanyMailSettingsService;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -594,14 +597,95 @@ class MarketingController extends Controller
 
     private function processEmailCampaign(EmailCampaign $campaign): void
     {
-        // Basic implementation for sending email campaign
-        // (actual mail sending can be added or queued here)
+        // Load template and leads
+        $template = $campaign->template;
+        if (!$template || !$template->is_active || $template->type !== 'email') {
+            // If template invalid, just mark as failed
+            $campaign->update(['status' => 'failed']);
+            return;
+        }
+
         $leadIds = (array) $campaign->lead_ids;
+        $leads = Lead::whereIn('id', $leadIds)
+            ->whereNotNull('email')
+            ->get();
+
+        if ($leads->isEmpty()) {
+            $campaign->update([
+                'status' => 'failed',
+                'sent_at' => now(),
+                'sent_count' => 0,
+            ]);
+            return;
+        }
+
+        // Prepare company mail settings
+        $mailSettings = CompanyMailSettingsService::getSettings();
+        $useCompanyMail = !empty($mailSettings['enabled']) && (!empty($mailSettings['from_address']) || !empty($mailSettings['from_name']));
+
+        $companyLogo = Setting::getValue('company_logo', '');
+        $companyName = $useCompanyMail && !empty($mailSettings['from_name'])
+            ? $mailSettings['from_name']
+            : Setting::getValue('company_name', config('app.name', 'TravelOps'));
+        $companyEmail = $useCompanyMail && !empty($mailSettings['from_address'])
+            ? $mailSettings['from_address']
+            : Setting::getValue('company_email', config('mail.from.address', ''));
+        $companyPhone = Setting::getValue('company_phone', '');
+        $companyAddress = Setting::getValue('company_address', '');
+
+        $fromEmail = $companyEmail ?: config('mail.from.address', 'noreply@travelops.com');
+        $fromName = $companyName ?: config('mail.from.name', 'TravelOps');
+
+        $sentCount = 0;
+
+        foreach ($leads as $lead) {
+            try {
+                // Build variables for this lead
+                $variables = [
+                    'name' => $lead->client_name,
+                    'email' => $lead->email,
+                    'phone' => $lead->phone,
+                    'company' => $companyName,
+                    'destination' => $lead->destination,
+                ];
+
+                $body = $template->processContent($variables);
+
+                // Simple branded wrapper (lighter than NotificationController version)
+                $emailBody = view('emails.simple-branded', [
+                    'subject' => $campaign->subject,
+                    'body' => $body,
+                    'companyLogo' => $companyLogo,
+                    'companyName' => $companyName,
+                    'companyEmail' => $companyEmail,
+                    'companyPhone' => $companyPhone,
+                    'companyAddress' => $companyAddress,
+                ])->render();
+
+                CompanyMailSettingsService::applyIfEnabled();
+
+                Mail::send([], [], function ($message) use ($lead, $campaign, $emailBody, $fromEmail, $fromName) {
+                    $message->from($fromEmail, $fromName)
+                        ->to($lead->email)
+                        ->subject($campaign->subject)
+                        ->html($emailBody);
+                });
+
+                $sentCount++;
+            } catch (\Throwable $e) {
+                // Log and continue with next lead
+                \Log::error('Email campaign send failed for lead', [
+                    'campaign_id' => $campaign->id,
+                    'lead_id' => $lead->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
 
         $campaign->update([
-            'status' => 'sent',
+            'status' => $sentCount > 0 ? 'sent' : 'failed',
             'sent_at' => now(),
-            'sent_count' => count($leadIds),
+            'sent_count' => $sentCount,
         ]);
     }
 
