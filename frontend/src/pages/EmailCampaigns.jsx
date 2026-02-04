@@ -385,6 +385,14 @@ const EmailCampaigns = () => {
           </div>
         </div>
 
+        {error && (
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-4">
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+              {error}
+            </div>
+          </div>
+        )}
+
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           {/* Campaigns Table */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-200">
