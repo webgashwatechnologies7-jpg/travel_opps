@@ -22,6 +22,15 @@ const MarketingTemplates = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('all');
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [formData, setFormData] = useState({
+    name: '',
+    type: 'email',
+    subject: '',
+    content: '',
+    variables: '',
+    is_active: true,
+  });
+  const [formError, setFormError] = useState('');
 
   useEffect(() => {
     fetchTemplates();
@@ -206,7 +215,66 @@ const MarketingTemplates = () => {
                 </button>
               </div>
               
-              <form className="space-y-4">
+              <form
+                className="space-y-4"
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  setFormError('');
+                  try {
+                    const payload = {
+                      name: formData.name.trim(),
+                      type: formData.type,
+                      subject: formData.type === 'email' ? formData.subject.trim() : null,
+                      content: formData.content,
+                      variables: formData.variables
+                        ? formData.variables.split(',').map(v => v.trim()).filter(Boolean)
+                        : [],
+                      is_active: formData.is_active,
+                    };
+
+                    const res = await marketingTemplatesAPI.create(payload);
+                    const data = res.data;
+
+                    if (!data.success) {
+                      const msg =
+                        data.errors && typeof data.errors === 'object'
+                          ? Object.values(data.errors).flat().join(', ')
+                          : data.message || 'Failed to create template';
+                      setFormError(msg);
+                      return;
+                    }
+
+                    // Append new template and close modal
+                    if (data.data) {
+                      setTemplates([data.data, ...templates]);
+                    } else {
+                      // Fallback: refresh list if API doesn't return created item
+                      fetchTemplates();
+                    }
+
+                    setShowCreateModal(false);
+                    setFormData({
+                      name: '',
+                      type: 'email',
+                      subject: '',
+                      content: '',
+                      variables: '',
+                      is_active: true,
+                    });
+                  } catch (err) {
+                    const apiErrors = err.response?.data?.errors;
+                    if (apiErrors && typeof apiErrors === 'object') {
+                      setFormError(Object.values(apiErrors).flat().join(', '));
+                    } else {
+                      setFormError(
+                        err.response?.data?.message ||
+                          err.message ||
+                          'Failed to create template'
+                      );
+                    }
+                  }
+                }}
+              >
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -214,8 +282,11 @@ const MarketingTemplates = () => {
                     </label>
                     <input
                       type="text"
+                      value={formData.name}
+                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
                       placeholder="Enter template name"
+                      required
                     />
                   </div>
 
@@ -223,7 +294,16 @@ const MarketingTemplates = () => {
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Type
                     </label>
-                    <select className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500">
+                    <select
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                      value={formData.type}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          type: e.target.value,
+                        })
+                      }
+                    >
                       <option value="email">Email</option>
                       <option value="sms">SMS</option>
                       <option value="whatsapp">WhatsApp</option>
@@ -237,8 +317,12 @@ const MarketingTemplates = () => {
                   </label>
                   <input
                     type="text"
+                    value={formData.subject}
+                    onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
                     placeholder="Enter email subject"
+                    disabled={formData.type !== 'email'}
+                    required={formData.type === 'email'}
                   />
                 </div>
 
@@ -248,8 +332,11 @@ const MarketingTemplates = () => {
                   </label>
                   <textarea
                     rows={8}
+                    value={formData.content}
+                    onChange={(e) => setFormData({ ...formData, content: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
                     placeholder="Enter template content. Use variables like {{name}}, {{email}}, etc."
+                    required
                   />
                   <p className="text-xs text-gray-500 mt-1">
                     Available variables: {'{{name}}'}, {'{{email}}'}, {'{{phone}}'}, {'{{company}}'}, {'{{date}}'}
@@ -262,6 +349,8 @@ const MarketingTemplates = () => {
                   </label>
                   <input
                     type="text"
+                    value={formData.variables}
+                    onChange={(e) => setFormData({ ...formData, variables: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
                     placeholder="name, email, phone, company"
                   />
@@ -275,12 +364,21 @@ const MarketingTemplates = () => {
                     type="checkbox"
                     id="is_active"
                     className="mr-2"
-                    defaultChecked
+                    checked={formData.is_active}
+                    onChange={(e) =>
+                      setFormData({ ...formData, is_active: e.target.checked })
+                    }
                   />
                   <label htmlFor="is_active" className="text-sm text-gray-700">
                     Active (template can be used in campaigns)
                   </label>
                 </div>
+
+                {formError && (
+                  <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+                    {formError}
+                  </div>
+                )}
 
                 <div className="flex justify-end space-x-3 pt-4">
                   <button
