@@ -497,12 +497,6 @@ class MarketingController extends Controller
             'sent_at' => now(),
             'sent_count' => count($leadIds),
         ]);
-        
-        // Update lead status metadata
-        if (!empty($leadIds)) {
-            Lead::whereIn('id', $leadIds)
-                ->update(['last_contacted_at' => now()]);
-        }
     }
 
     private function processSmsCampaign(SmsCampaign $campaign): void
