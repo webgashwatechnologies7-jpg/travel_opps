@@ -7,6 +7,7 @@ use App\Models\EmailCampaign;
 use App\Models\SmsCampaign;
 use App\Models\MarketingTemplate;
 use App\Models\LandingPage;
+use App\Services\LandingPageTemplateService;
 use App\Modules\Leads\Domain\Entities\Lead;
 use App\Models\User;
 use App\Models\Setting;
@@ -1156,13 +1157,17 @@ class MarketingController extends Controller
                 ], 422);
             }
 
+            $template = $request->template ?? 'travel-package';
+            $defaultSections = LandingPageTemplateService::getDefaultSections($template);
+
             $page = LandingPage::create([
                 'company_id' => $companyId,
                 'name' => $request->name,
                 'title' => $request->title,
                 'url_slug' => $slug,
-                'template' => $request->template ?? 'lead-capture',
+                'template' => $template,
                 'meta_description' => $request->meta_description,
+                'sections' => $request->sections ?? $defaultSections,
                 'status' => $request->status ?? 'draft',
                 'published_at' => $request->status === 'published' ? now() : null,
                 'created_by' => auth()->id(),
@@ -1173,6 +1178,8 @@ class MarketingController extends Controller
                 'name' => $page->name,
                 'title' => $page->title,
                 'url' => $page->url_slug,
+                'template' => $page->template,
+                'sections' => $page->sections,
                 'status' => $page->status,
                 'views' => 0,
                 'conversions' => 0,
@@ -1221,7 +1228,7 @@ class MarketingController extends Controller
                 ], 422);
             }
 
-            $updateData = $request->only(['name', 'title', 'template', 'meta_description', 'status']);
+            $updateData = $request->only(['name', 'title', 'template', 'meta_description', 'sections', 'status']);
             if ($request->has('url_slug')) {
                 $slug = strtolower($request->url_slug);
                 if (LandingPage::where('company_id', $companyId)->where('url_slug', $slug)->where('id', '!=', $id)->exists()) {
@@ -1243,6 +1250,8 @@ class MarketingController extends Controller
                 'name' => $page->name,
                 'title' => $page->title,
                 'url' => $page->url_slug,
+                'template' => $page->template,
+                'sections' => $page->sections,
                 'status' => $page->status,
                 'views' => $page->views,
                 'conversions' => $page->conversions,
@@ -1341,6 +1350,7 @@ class MarketingController extends Controller
                     'url_slug' => $page->url_slug,
                     'content' => $page->content,
                     'template' => $page->template,
+                    'sections' => $page->sections ?? LandingPageTemplateService::getDefaultSections($page->template ?? 'travel-package'),
                 ],
             ], 200);
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
@@ -1364,6 +1374,8 @@ class MarketingController extends Controller
             $page = LandingPage::when($companyId, fn ($q) => $q->where('company_id', $companyId))
                 ->findOrFail($id);
 
+            $sections = $page->sections ?? LandingPageTemplateService::getDefaultSections($page->template ?? 'travel-package');
+
             return response()->json([
                 'success' => true,
                 'data' => [
@@ -1374,6 +1386,7 @@ class MarketingController extends Controller
                     'url_slug' => $page->url_slug,
                     'template' => $page->template,
                     'meta_description' => $page->meta_description,
+                    'sections' => $sections,
                     'status' => $page->status,
                     'views' => $page->views,
                     'conversions' => $page->conversions,
@@ -1402,6 +1415,8 @@ class MarketingController extends Controller
                 ->where('status', 'published')
                 ->firstOrFail();
 
+            $sections = $page->sections ?? LandingPageTemplateService::getDefaultSections($page->template ?? 'travel-package');
+
             return response()->json([
                 'success' => true,
                 'data' => [
@@ -1410,6 +1425,7 @@ class MarketingController extends Controller
                     'content' => $page->content,
                     'template' => $page->template,
                     'meta_description' => $page->meta_description,
+                    'sections' => $sections,
                 ],
             ], 200);
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {

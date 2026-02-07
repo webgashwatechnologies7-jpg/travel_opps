@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import Layout from '../components/Layout';
 import { landingPagesAPI } from '../services/api';
 import { Globe, Plus, Edit, Trash2, Eye, Copy, ExternalLink, Users, TrendingUp } from 'lucide-react';
@@ -14,7 +15,7 @@ const LandingPages = () => {
     name: '',
     title: '',
     url_slug: '',
-    template: 'lead-capture',
+    template: 'travel-package',
     meta_description: '',
     status: 'draft',
   });
@@ -161,9 +162,8 @@ const LandingPages = () => {
   };
 
   const publicPageUrl = (slug) => {
-    const base = import.meta.env.VITE_API_BASE_URL || '';
-    const apiBase = base.replace(/\/api\/?$/, '');
-    return `${apiBase || window.location.origin}/api/public/marketing/landing-page/${slug}`;
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    return `${origin}/landing-page/${slug}`;
   };
 
   if (loading) {
@@ -333,9 +333,9 @@ const LandingPages = () => {
                           <button onClick={() => handleDuplicate(page)} className="text-gray-600 hover:text-gray-900" title="Duplicate">
                             <Copy className="w-4 h-4" />
                           </button>
-                          <button onClick={() => handleEdit(page)} className="text-blue-600 hover:text-blue-900" title="Edit">
+                          <Link to={`/marketing/landing-pages/${page.id}/edit`} className="text-teal-600 hover:text-teal-900" title="Edit Content">
                             <Edit className="w-4 h-4" />
-                          </button>
+                          </Link>
                           {page.status !== 'published' && (
                             <button onClick={() => handlePublish(page)} className="text-green-600 hover:text-green-900" title="Publish">
                               Publish

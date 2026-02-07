@@ -18,6 +18,7 @@ class LandingPage extends Model
         'template',
         'meta_description',
         'content',
+        'sections',
         'status',
         'views',
         'conversions',
@@ -31,6 +32,7 @@ class LandingPage extends Model
         'views' => 'integer',
         'conversions' => 'integer',
         'conversion_rate' => 'decimal:2',
+        'sections' => 'array',
     ];
 
     public function company(): BelongsTo

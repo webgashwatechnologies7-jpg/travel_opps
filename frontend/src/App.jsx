@@ -38,6 +38,8 @@ import MarketingTemplates from './pages/MarketingTemplates';
 import MarketingAnalytics from './pages/MarketingAnalytics';
 import MarketingAutomation from './pages/MarketingAutomation';
 import LandingPages from './pages/LandingPages';
+import LandingPageEditor from './pages/LandingPageEditor';
+import PublicLandingPage from './pages/PublicLandingPage';
 import TermsConditions from './pages/TermsConditions';
 import Policies from './pages/Policies';
 import AccountDetails from './pages/AccountDetails';
@@ -653,6 +655,15 @@ const AppRoutes = () => {
           </ProtectedRoute>
         }
       />
+      <Route
+        path="/marketing/landing-pages/:id/edit"
+        element={
+          <ProtectedRoute>
+            <LandingPageEditor />
+          </ProtectedRoute>
+        }
+      />
+      <Route path="/landing-page/:slug" element={<PublicLandingPage />} />
       {/* Super Admin Routes */}
       <Route
         path="/super-admin"

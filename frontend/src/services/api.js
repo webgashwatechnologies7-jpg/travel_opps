@@ -270,9 +270,15 @@ export const landingPagesAPI = {
   get: (id) => api.get(`/marketing/landing-pages/${id}`),
   create: (data) => api.post('/marketing/landing-pages', data),
   update: (id, data) => api.put(`/marketing/landing-pages/${id}`, data),
+  updateSections: (id, sections) => api.put(`/marketing/landing-pages/${id}`, { sections }),
   delete: (id) => api.delete(`/marketing/landing-pages/${id}`),
   publish: (id) => api.post(`/marketing/landing-pages/${id}/publish`),
   preview: (id) => api.get(`/marketing/landing-pages/${id}/preview`),
+};
+
+// Public landing page (no auth required)
+export const publicLandingPageAPI = {
+  get: (slug) => api.get(`/public/marketing/landing-page/${slug}`),
 };
 
 // Targets APIs (Admin only)
