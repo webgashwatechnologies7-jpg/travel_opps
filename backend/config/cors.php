@@ -42,7 +42,8 @@ return [
         'X-Requested-With',
         'Accept',
         'Origin',
-        'X-Subdomain'
+        'X-Subdomain',
+        'X-Request-Host'
     ],
 
     'exposed_headers' => [],

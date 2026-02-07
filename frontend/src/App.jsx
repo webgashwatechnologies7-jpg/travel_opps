@@ -4,6 +4,7 @@ import { SettingsProvider } from './contexts/SettingsContext';
 import { ContentProvider } from './contexts/ContentContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import SuperAdminRoute from './components/SuperAdminRoute';
+import { isMainDomain } from './utils/domainUtils';
 import Login from './pages/Login';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
@@ -90,7 +91,7 @@ const AppRoutes = () => {
         path="/login"
         element={
           user && user.id ? (
-            <Navigate to="/dashboard" replace />
+            <Navigate to={user.is_super_admin ? '/super-admin' : '/dashboard'} replace />
           ) : (
             <Login />
           )
@@ -100,7 +101,7 @@ const AppRoutes = () => {
         path="/forgot-password"
         element={
           user && user.id ? (
-            <Navigate to="/dashboard" replace />
+            <Navigate to={user.is_super_admin ? '/super-admin' : '/dashboard'} replace />
           ) : (
             <ForgotPassword />
           )
@@ -110,7 +111,7 @@ const AppRoutes = () => {
         path="/reset-password"
         element={
           user && user.id ? (
-            <Navigate to="/dashboard" replace />
+            <Navigate to={user.is_super_admin ? '/super-admin' : '/dashboard'} replace />
           ) : (
             <ResetPassword />
           )
@@ -677,7 +678,27 @@ const AppRoutes = () => {
           </SuperAdminRoute>
         }
       />
-      <Route path="/" element={<Navigate to="/dashboard" replace />} />
+      <Route
+        path="/"
+        element={
+          user && user.id ? (
+            <Navigate to={user.is_super_admin && isMainDomain() ? '/super-admin' : '/dashboard'} replace />
+          ) : (
+            <Navigate to="/dashboard" replace />
+          )
+        }
+      />
+      {/* Unknown routes (404) -> login ya dashboard/super-admin */}
+      <Route
+        path="*"
+        element={
+          user && user.id ? (
+            <Navigate to={user.is_super_admin && isMainDomain() ? '/super-admin' : '/dashboard'} replace />
+          ) : (
+            <Navigate to="/login" replace />
+          )
+        }
+      />
     </Routes>
   );
 };

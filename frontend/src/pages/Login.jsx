@@ -20,7 +20,7 @@ const Login = () => {
 
       if (result.success) {
         // Check if user is super admin and redirect accordingly
-        const user = JSON.parse(localStorage.getItem('user') || '{}');
+        const user = result.user || JSON.parse(sessionStorage.getItem('user') || '{}');
         if (user.is_super_admin) {
           navigate('/super-admin', { replace: true });
         } else {

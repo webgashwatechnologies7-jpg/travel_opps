@@ -149,8 +149,8 @@ const Dashboard = () => {
 
       // If unauthorized, redirect to login
       if (err.response?.status === 401) {
-        localStorage.removeItem('auth_token');
-        localStorage.removeItem('user');
+        sessionStorage.removeItem('auth_token');
+        sessionStorage.removeItem('user');
         window.location.href = '/login';
         return;
       }

@@ -12,14 +12,16 @@ const api = axios.create({
 
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('auth_token');
+    const token = sessionStorage.getItem('auth_token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
 
-    // Send subdomain for local multi-tenant requests
+    // Send frontend host for domain-based auth (main vs company domain)
     if (typeof window !== 'undefined') {
       const hostname = window.location.hostname;
+      config.headers['X-Request-Host'] = hostname || '';
+      // Send subdomain for local multi-tenant requests
       if (hostname && hostname.endsWith('.localhost')) {
         const subdomain = hostname.split('.')[0];
         if (subdomain && subdomain !== 'localhost') {
@@ -46,8 +48,8 @@ api.interceptors.response.use(
   async (error) => {
     // Only redirect on 401 if not already on login page
     if (error.response?.status === 401 && !window.location.pathname.includes('/login')) {
-      localStorage.removeItem('auth_token');
-      localStorage.removeItem('user');
+      sessionStorage.removeItem('auth_token');
+      sessionStorage.removeItem('user');
       // Use replace to avoid adding to history
       window.location.replace('/login');
     }

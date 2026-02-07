@@ -17,10 +17,10 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check for saved auth data
+    // Check for saved auth data (sessionStorage = session ends when browser/tab closes)
     try {
-      const token = localStorage.getItem('auth_token');
-      const savedUser = localStorage.getItem('user');
+      const token = sessionStorage.getItem('auth_token');
+      const savedUser = sessionStorage.getItem('user');
       
       if (token && savedUser) {
         const parsedUser = JSON.parse(savedUser);
@@ -29,8 +29,8 @@ export const AuthProvider = ({ children }) => {
     } catch (error) {
       console.error('Error loading saved user:', error);
       // Clear invalid data
-      localStorage.removeItem('auth_token');
-      localStorage.removeItem('user');
+      sessionStorage.removeItem('auth_token');
+      sessionStorage.removeItem('user');
     } finally {
       // Always set loading to false after check
       setLoading(false);
@@ -96,11 +96,11 @@ export const AuthProvider = ({ children }) => {
         throw new Error('Invalid response data structure - missing token or user');
       }
       
-      localStorage.setItem('auth_token', token);
-      localStorage.setItem('user', JSON.stringify(user));
+      sessionStorage.setItem('auth_token', token);
+      sessionStorage.setItem('user', JSON.stringify(user));
       setUser(user);
       
-      return { success: true };
+      return { success: true, user };
     } catch (error) {
       console.error('Login error details:', {
         message: error.message,
@@ -126,8 +126,8 @@ export const AuthProvider = ({ children }) => {
     } catch (error) {
       console.error('Logout error:', error);
     } finally {
-      localStorage.removeItem('auth_token');
-      localStorage.removeItem('user');
+      sessionStorage.removeItem('auth_token');
+      sessionStorage.removeItem('user');
       setUser(null);
     }
   };

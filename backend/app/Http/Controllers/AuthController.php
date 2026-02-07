@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use App\Models\Company;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -66,6 +67,45 @@ class AuthController extends Controller
                 ], 403);
             }
 
+            // Domain-based login: main domain = super admin only, company domain = company users only
+            $requestHost = strtolower(trim($request->header('X-Request-Host') ?? ''));
+            if (!$requestHost && $request->header('Origin')) {
+                $parsed = parse_url($request->header('Origin'));
+                $requestHost = isset($parsed['host']) ? strtolower($parsed['host']) : '';
+            }
+            if (!$requestHost) {
+                $requestHost = strtolower($request->getHost());
+            }
+
+            $domainCandidates = $this->getDomainCandidates($requestHost);
+            $companyForHost = Company::whereIn('domain', $domainCandidates)
+                ->where('status', 'active')
+                ->first();
+
+            // If host matches a company domain -> company login (super admin NOT allowed)
+            if ($companyForHost) {
+                if ($user->isSuperAdmin()) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Super admin must login from the main admin panel (e.g. http://127.0.0.1 or your server IP).',
+                    ], 403);
+                }
+                if (!$user->company_id || (int) $user->company_id !== (int) $companyForHost->id) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'You do not have access to this company. Please login from your company\'s domain.',
+                    ], 403);
+                }
+            } else {
+                // Main domain (127.0.0.1, localhost, IP, etc.) -> super admin only
+                if (!$user->isSuperAdmin()) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Company users must login from their company domain (e.g. crm.yourcompany.com). Please use your company\'s URL.',
+                    ], 403);
+                }
+            }
+
             // Revoke all existing tokens (optional - for single device login)
             // $user->tokens()->delete();
 
@@ -106,6 +146,29 @@ class AuthController extends Controller
                 'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
             ], 500);
         }
+    }
+
+    /**
+     * Build possible domain matches for host (same logic as IdentifyTenant).
+     */
+    private function getDomainCandidates(string $host): array
+    {
+        $host = preg_replace('/:\d+$/', '', $host);
+        $host = strtolower(trim($host));
+        if (empty($host)) {
+            return [];
+        }
+        $candidates = [$host];
+        $hostNoWww = preg_replace('/^www\./', '', $host);
+        if ($hostNoWww !== $host) {
+            $candidates[] = $hostNoWww;
+        }
+        if (str_starts_with($hostNoWww, 'crm.')) {
+            $candidates[] = substr($hostNoWww, 4);
+        } else {
+            $candidates[] = 'crm.' . $hostNoWww;
+        }
+        return array_values(array_unique(array_filter($candidates)));
     }
 
     /**
