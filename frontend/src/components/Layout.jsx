@@ -325,7 +325,7 @@ const Layout = ({ children, Header,padding=0 }) => {
         </button>
 
         {isUserDropdownOpen && (
-          <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
+          <div className="user-dropdown absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
             <div className="px-4 py-2 border-b">
               <p className="text-sm font-medium">{user?.name}</p>
               <p className="text-xs text-gray-500">{user?.email}</p>
