@@ -322,6 +322,22 @@ const AppRoutes = () => {
         }
       />
       <Route
+        path="/dashboard/source-roi"
+        element={
+          <ProtectedRoute>
+            <Analytics />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/dashboard/destination-performance"
+        element={
+          <ProtectedRoute>
+            <Analytics />
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/users"
         element={
           <ProtectedRoute>

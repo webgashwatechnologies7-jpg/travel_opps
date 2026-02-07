@@ -1,13 +1,21 @@
 import { useState, useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { dashboardAPI } from '../services/api';
 import Layout from '../components/Layout';
 
 const Analytics = () => {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const isDestination = location.pathname.includes('destination-performance');
   const [sourceRoi, setSourceRoi] = useState([]);
   const [destinationPerf, setDestinationPerf] = useState([]);
   const [month, setMonth] = useState(new Date().toISOString().slice(0, 7));
-  const [activeTab, setActiveTab] = useState('source');
+  const [activeTab, setActiveTab] = useState(isDestination ? 'destination' : 'source');
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setActiveTab(location.pathname.includes('destination-performance') ? 'destination' : 'source');
+  }, [location.pathname]);
 
   useEffect(() => {
     fetchAnalytics();
@@ -55,7 +63,10 @@ const Analytics = () => {
 
         <div className="flex space-x-4 mb-6">
           <button
-            onClick={() => setActiveTab('source')}
+            onClick={() => {
+              setActiveTab('source');
+              navigate('/dashboard/source-roi', { replace: true });
+            }}
             className={`px-6 py-2 rounded-lg ${
               activeTab === 'source'
                 ? 'bg-blue-600 text-white'
@@ -65,7 +76,10 @@ const Analytics = () => {
             Source ROI
           </button>
           <button
-            onClick={() => setActiveTab('destination')}
+            onClick={() => {
+              setActiveTab('destination');
+              navigate('/dashboard/destination-performance', { replace: true });
+            }}
             className={`px-6 py-2 rounded-lg ${
               activeTab === 'destination'
                 ? 'bg-blue-600 text-white'
