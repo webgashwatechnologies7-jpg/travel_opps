@@ -76,7 +76,7 @@ const DEFAULT_SECTIONS = {
   whyBookOnline: { title: '', items: [] },
   footer: { phone: '', email: '', links: [], copyright: '' },
 };
-const SLIDER_DEFAULT = { type: 'slider', title: '', items: [{ image: '', title: '', subtitle: '', link: '#' }] };
+const SLIDER_DEFAULT = { type: 'slider', title: '', autoplay: true, autoplayInterval: 5000, items: [{ image: '', title: '', subtitle: '', link: '#' }] };
 const TEXT_BLOCK_DEFAULT = { type: 'textBlock', title: '', content: '' };
 
 const LandingPageEditor = () => {
@@ -606,6 +606,30 @@ const LandingPageEditor = () => {
                     className="w-full px-3 py-2 border rounded-lg"
                     placeholder="Gallery / Destinations"
                   />
+                </div>
+                <div className="flex items-center gap-4">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={sections[activeTab]?.autoplay !== false}
+                      onChange={(e) => updateSection(activeTab, { ...sections[activeTab], autoplay: e.target.checked })}
+                      className="rounded"
+                    />
+                    <span className="text-sm">Auto-play slider</span>
+                  </label>
+                  {sections[activeTab]?.autoplay !== false && (
+                    <div className="flex items-center gap-2">
+                      <label className="text-sm">Interval (sec):</label>
+                      <input
+                        type="number"
+                        min="2"
+                        max="30"
+                        value={Math.round((sections[activeTab]?.autoplayInterval || 5000) / 1000)}
+                        onChange={(e) => updateSection(activeTab, { ...sections[activeTab], autoplayInterval: Math.max(2000, parseInt(e.target.value, 10) * 1000) })}
+                        className="w-16 px-2 py-1 border rounded"
+                      />
+                    </div>
+                  )}
                 </div>
                 <button onClick={addSliderSlide} className="mb-4 px-3 py-2 bg-teal-100 text-teal-700 rounded flex items-center gap-1">
                   <Plus className="w-4 h-4" /> Add Slide

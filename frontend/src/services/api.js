@@ -287,6 +287,7 @@ export const landingPagesAPI = {
 // Public landing page (no auth required)
 export const publicLandingPageAPI = {
   get: (slug) => api.get(`/public/marketing/landing-page/${slug}`),
+  submitEnquiry: (slug, data) => api.post(`/public/marketing/landing-page/${slug}/enquiry`, data),
 };
 
 // Targets APIs (Admin only)

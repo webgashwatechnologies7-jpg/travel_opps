@@ -135,6 +135,7 @@ Route::middleware('auth:sanctum')->prefix('marketing')->group(function () {
 Route::prefix('public/marketing')->group(function () {
     Route::get('/unsubscribe/{token}', [MarketingController::class, 'publicUnsubscribe']);
     Route::get('/landing-page/{slug}', [MarketingController::class, 'publicLandingPage']);
+    Route::post('/landing-page/{slug}/enquiry', [MarketingController::class, 'submitLandingPageEnquiry']);
     Route::post('/track/email-open', [MarketingController::class, 'publicTrackEmailOpen']);
     Route::post('/track/email-click', [MarketingController::class, 'publicTrackEmailClick']);
     Route::post('/track/sms-delivery', [MarketingController::class, 'publicTrackSmsDelivery']);

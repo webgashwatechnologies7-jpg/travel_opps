@@ -1477,6 +1477,69 @@ class MarketingController extends Controller
     }
 
     /**
+     * Submit enquiry/query from landing page (public, no auth)
+     */
+    public function submitLandingPageEnquiry(Request $request, string $slug): JsonResponse
+    {
+        try {
+            $page = LandingPage::where('url_slug', $slug)->where('status', 'published')->firstOrFail();
+            $companyId = $page->company_id;
+
+            $validator = Validator::make($request->all(), [
+                'name' => 'required|string|max:255',
+                'email' => 'required|email|max:255',
+                'phone' => 'required|string|max:20',
+                'city' => 'nullable|string|max:100',
+                'destination' => 'nullable|string|max:255',
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Validation failed',
+                    'errors' => $validator->errors(),
+                ], 422);
+            }
+
+            $data = $validator->validated();
+            $remark = trim(implode(' | ', array_filter([
+                $data['city'] ? 'City: ' . $data['city'] : '',
+                $data['destination'] ? 'Destination: ' . $data['destination'] : '',
+            ])));
+
+            $createdBy = $companyId
+                ? User::where('company_id', $companyId)->value('id')
+                : User::first()?->id;
+
+            Lead::create([
+                'client_name' => $data['name'],
+                'email' => $data['email'],
+                'phone' => $data['phone'],
+                'source' => 'Landing Page: ' . $page->name,
+                'destination' => $data['destination'] ?? null,
+                'remark' => $remark ?: 'Enquiry from landing page',
+                'company_id' => $companyId,
+                'created_by' => $createdBy ?? 1,
+                'status' => 'new',
+                'priority' => 'warm',
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Thank you! We will contact you soon.',
+            ], 201);
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return response()->json(['success' => false, 'message' => 'Landing page not found'], 404);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to submit enquiry',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
+            ], 500);
+        }
+    }
+
+    /**
      * Get group clients
      */
     public function getGroupClients($id): JsonResponse
