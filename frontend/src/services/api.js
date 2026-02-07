@@ -46,11 +46,12 @@ api.interceptors.response.use(
     return response;
   },
   async (error) => {
-    // Only redirect on 401 if not already on login page
-    if (error.response?.status === 401 && !window.location.pathname.includes('/login')) {
+    // Don't redirect on 401 when viewing public landing page (no auth required)
+    const isPublicLandingPage = typeof window !== 'undefined' && window.location.pathname.startsWith('/landing-page/');
+    const isLoginPage = window.location.pathname.includes('/login');
+    if (error.response?.status === 401 && !isLoginPage && !isPublicLandingPage) {
       sessionStorage.removeItem('auth_token');
       sessionStorage.removeItem('user');
-      // Use replace to avoid adding to history
       window.location.replace('/login');
     }
 
@@ -274,6 +275,13 @@ export const landingPagesAPI = {
   delete: (id) => api.delete(`/marketing/landing-pages/${id}`),
   publish: (id) => api.post(`/marketing/landing-pages/${id}/publish`),
   preview: (id) => api.get(`/marketing/landing-pages/${id}/preview`),
+  uploadImage: (file) => {
+    const formData = new FormData();
+    formData.append('image', file);
+    return api.post('/marketing/landing-pages/upload-image', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+  },
 };
 
 // Public landing page (no auth required)

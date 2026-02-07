@@ -89,6 +89,8 @@ const AppRoutes = () => {
 
   return (
     <Routes>
+      {/* Public landing page - no auth required, must be before catch-all */}
+      <Route path="/landing-page/:slug" element={<PublicLandingPage />} />
       <Route
         path="/login"
         element={
@@ -663,7 +665,6 @@ const AppRoutes = () => {
           </ProtectedRoute>
         }
       />
-      <Route path="/landing-page/:slug" element={<PublicLandingPage />} />
       {/* Super Admin Routes */}
       <Route
         path="/super-admin"

@@ -122,6 +122,7 @@ Route::middleware('auth:sanctum')->prefix('marketing')->group(function () {
     Route::delete('/landing-pages/{id}', [MarketingController::class, 'deleteLandingPage']);
     Route::post('/landing-pages/{id}/publish', [MarketingController::class, 'publishLandingPage']);
     Route::get('/landing-pages/{id}/preview', [MarketingController::class, 'previewLandingPage']);
+    Route::post('/landing-pages/upload-image', [MarketingController::class, 'uploadLandingPageImage']);
     
     // Marketing Reports
     Route::get('/reports/campaign-summary', [MarketingController::class, 'campaignSummaryReport']);

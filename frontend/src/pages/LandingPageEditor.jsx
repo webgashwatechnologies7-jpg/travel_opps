@@ -1,8 +1,65 @@
-import { useState, useEffect } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useState, useEffect, useRef } from 'react';
+import { useParams, Link } from 'react-router-dom';
 import Layout from '../components/Layout';
 import { landingPagesAPI } from '../services/api';
-import { ArrowLeft, Save, Plus, Trash2 } from 'lucide-react';
+import { ArrowLeft, Save, Plus, Trash2, Upload } from 'lucide-react';
+
+const ImageUploadField = ({ label, value, onChange, placeholder = 'https://...' }) => {
+  const fileRef = useRef(null);
+  const [uploading, setUploading] = useState(false);
+
+  const handleUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      alert('Please select an image file (jpg, png, gif, webp, svg)');
+      return;
+    }
+    setUploading(true);
+    try {
+      const res = await landingPagesAPI.uploadImage(file);
+      if (res.data?.success && res.data?.data?.url) {
+        onChange(res.data.data.url);
+      }
+    } catch (err) {
+      alert(err.response?.data?.message || 'Upload failed');
+    } finally {
+      setUploading(false);
+      e.target.value = '';
+    }
+  };
+
+  return (
+    <div>
+      <label className="block text-sm font-medium mb-1">{label}</label>
+      <div className="flex gap-2">
+        <input
+          type="text"
+          value={value || ''}
+          onChange={(e) => onChange(e.target.value)}
+          className="flex-1 px-3 py-2 border rounded-lg"
+          placeholder={placeholder}
+        />
+        <input
+          ref={fileRef}
+          type="file"
+          accept="image/jpeg,image/png,image/gif,image/webp,image/svg+xml"
+          className="hidden"
+          onChange={handleUpload}
+        />
+        <button
+          type="button"
+          onClick={() => fileRef.current?.click()}
+          disabled={uploading}
+          className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 flex items-center gap-2 disabled:opacity-50 shrink-0"
+        >
+          <Upload className="w-4 h-4" />
+          {uploading ? '...' : 'Upload'}
+        </button>
+      </div>
+    </div>
+  );
+};
 
 const DEFAULT_SECTIONS = {
   header: { logo: '', slogan: '', phone: '', email: '' },
@@ -193,16 +250,11 @@ const LandingPageEditor = () => {
             {activeTab === 'header' && (
               <div className="space-y-4">
                 <h2 className="text-lg font-semibold">Header</h2>
-                <div>
-                  <label className="block text-sm font-medium mb-1">Logo URL</label>
-                  <input
-                    type="text"
-                    value={sections.header?.logo || ''}
-                    onChange={(e) => updateSection('header', { logo: e.target.value })}
-                    className="w-full px-3 py-2 border rounded-lg"
-                    placeholder="https://..."
-                  />
-                </div>
+                <ImageUploadField
+                  label="Logo URL"
+                  value={sections.header?.logo || ''}
+                  onChange={(v) => updateSection('header', { logo: v })}
+                />
                 <div>
                   <label className="block text-sm font-medium mb-1">Slogan</label>
                   <input
@@ -267,16 +319,11 @@ const LandingPageEditor = () => {
                     placeholder="Lowest Price Guaranteed"
                   />
                 </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">Background Image URL</label>
-                  <input
-                    type="text"
-                    value={sections.hero?.backgroundImage || ''}
-                    onChange={(e) => updateSection('hero', { backgroundImage: e.target.value })}
-                    className="w-full px-3 py-2 border rounded-lg"
-                    placeholder="https://..."
-                  />
-                </div>
+                <ImageUploadField
+                  label="Background Image URL"
+                  value={sections.hero?.backgroundImage || ''}
+                  onChange={(v) => updateSection('hero', { backgroundImage: v })}
+                />
                 <div>
                   <label className="block text-sm font-medium mb-1">Form Title</label>
                   <input
@@ -396,12 +443,11 @@ const LandingPageEditor = () => {
                       <span className="font-medium">Package {i + 1}</span>
                       <button onClick={() => removePackage(i)} className="text-red-600"><Trash2 className="w-4 h-4" /></button>
                     </div>
-                    <input
-                      type="text"
+                    <ImageUploadField
+                      label="Package Image"
                       value={pkg.image || ''}
-                      onChange={(e) => updatePackage(i, 'image', e.target.value)}
-                      placeholder="Image URL"
-                      className="w-full px-3 py-2 border rounded"
+                      onChange={(v) => updatePackage(i, 'image', v)}
+                      placeholder="Image URL or upload"
                     />
                     <div className="grid grid-cols-2 gap-2">
                       <input
