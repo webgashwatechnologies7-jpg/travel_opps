@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import Layout from '../components/Layout';
 import { landingPagesAPI } from '../services/api';
-import { ArrowLeft, Save, Plus, Trash2, Upload } from 'lucide-react';
+import { ArrowLeft, Save, Plus, Trash2, Upload, ChevronUp, ChevronDown } from 'lucide-react';
 
 const ImageUploadField = ({ label, value, onChange, placeholder = 'https://...' }) => {
   const fileRef = useRef(null);
@@ -61,7 +61,13 @@ const ImageUploadField = ({ label, value, onChange, placeholder = 'https://...' 
   );
 };
 
+const DEFAULT_ORDER = ['header', 'hero', 'about', 'whyUs', 'packages', 'whyBookOnline', 'footer'];
+const SECTION_LABELS = {
+  header: 'Header', hero: 'Hero', about: 'About', whyUs: 'Why Us', packages: 'Packages',
+  whyBookOnline: 'Why Book Online', footer: 'Footer',
+};
 const DEFAULT_SECTIONS = {
+  sectionOrder: DEFAULT_ORDER,
   header: { logo: '', slogan: '', phone: '', email: '' },
   hero: { title: '', subtitle: '', tagline: '', backgroundImage: '', formTitle: '' },
   about: { title: '', content: '', ctaText: '', ctaPhone: '' },
@@ -70,6 +76,8 @@ const DEFAULT_SECTIONS = {
   whyBookOnline: { title: '', items: [] },
   footer: { phone: '', email: '', links: [], copyright: '' },
 };
+const SLIDER_DEFAULT = { type: 'slider', title: '', items: [{ image: '', title: '', subtitle: '', link: '#' }] };
+const TEXT_BLOCK_DEFAULT = { type: 'textBlock', title: '', content: '' };
 
 const LandingPageEditor = () => {
   const { id } = useParams();
@@ -89,7 +97,13 @@ const LandingPageEditor = () => {
       const res = await landingPagesAPI.get(id);
       if (res.data?.success && res.data?.data) {
         setPage(res.data.data);
-        setSections(res.data.data.sections || DEFAULT_SECTIONS);
+        const loaded = res.data.data.sections || {};
+        const merged = { ...DEFAULT_SECTIONS, ...loaded };
+        if (!merged.sectionOrder || !Array.isArray(merged.sectionOrder)) {
+          const custom = Object.keys(loaded).filter((k) => !DEFAULT_ORDER.includes(k) && k !== 'sectionOrder');
+          merged.sectionOrder = [...DEFAULT_ORDER.filter((k) => k in merged), ...custom];
+        }
+        setSections(merged);
       }
     } catch (err) {
       setError('Failed to load landing page');
@@ -102,6 +116,65 @@ const LandingPageEditor = () => {
   const updateSection = (sectionKey, data) => {
     setSections((prev) => ({ ...prev, [sectionKey]: { ...(prev[sectionKey] || {}), ...data } }));
   };
+
+  const getSectionOrder = () => sections.sectionOrder || DEFAULT_ORDER;
+
+  const moveSectionUp = (key) => {
+    const order = [...getSectionOrder()];
+    const i = order.indexOf(key);
+    if (i <= 0) return;
+    [order[i - 1], order[i]] = [order[i], order[i - 1]];
+    setSections((prev) => ({ ...prev, sectionOrder: order }));
+  };
+
+  const moveSectionDown = (key) => {
+    const order = [...getSectionOrder()];
+    const i = order.indexOf(key);
+    if (i < 0 || i >= order.length - 1) return;
+    [order[i], order[i + 1]] = [order[i + 1], order[i]];
+    setSections((prev) => ({ ...prev, sectionOrder: order }));
+  };
+
+  const addNewSection = (type) => {
+    const key = `${type}_${Date.now()}`;
+    const defaultData = type === 'slider' ? SLIDER_DEFAULT : TEXT_BLOCK_DEFAULT;
+    const order = [...getSectionOrder()];
+    order.splice(order.indexOf('footer'), 0, key);
+    setSections((prev) => ({ ...prev, [key]: defaultData, sectionOrder: order }));
+    setActiveTab(key);
+  };
+
+  const removeSection = (key) => {
+    if (['header', 'hero', 'footer'].includes(key)) return;
+    const order = getSectionOrder().filter((k) => k !== key);
+    setSections((prev) => {
+      const next = { ...prev, sectionOrder: order };
+      delete next[key];
+      return next;
+    });
+    if (activeTab === key) setActiveTab(order[0] || 'header');
+  };
+
+  const addSliderSlide = () => {
+    const s = sections[activeTab] || SLIDER_DEFAULT;
+    const items = [...(s.items || []), { image: '', title: '', subtitle: '', link: '#' }];
+    updateSection(activeTab, { ...s, items });
+  };
+
+  const updateSliderSlide = (index, field, value) => {
+    const s = sections[activeTab] || SLIDER_DEFAULT;
+    const items = [...(s.items || [])];
+    items[index] = { ...items[index], [field]: value };
+    updateSection(activeTab, { ...s, items });
+  };
+
+  const removeSliderSlide = (index) => {
+    const s = sections[activeTab] || SLIDER_DEFAULT;
+    const items = (s.items || []).filter((_, i) => i !== index);
+    updateSection(activeTab, { ...s, items });
+  };
+
+  const getSectionLabel = (key) => SECTION_LABELS[key] || (sections[key]?.type === 'slider' ? 'Image Slider' : sections[key]?.type === 'textBlock' ? 'Text Block' : key);
 
   const addPackage = () => {
     const items = [...(sections.packages?.items || [])];
@@ -183,15 +256,7 @@ const LandingPageEditor = () => {
     );
   }
 
-  const tabs = [
-    { key: 'header', label: 'Header' },
-    { key: 'hero', label: 'Hero' },
-    { key: 'about', label: 'About' },
-    { key: 'whyUs', label: 'Why Us' },
-    { key: 'packages', label: 'Packages' },
-    { key: 'whyBookOnline', label: 'Why Book Online' },
-    { key: 'footer', label: 'Footer' },
-  ];
+  const orderedSections = getSectionOrder();
 
   return (
     <Layout>
@@ -231,18 +296,57 @@ const LandingPageEditor = () => {
         )}
 
         <div className="flex gap-4">
-          <div className="w-48 flex-shrink-0 space-y-1">
-            {tabs.map((tab) => (
-              <button
-                key={tab.key}
-                onClick={() => setActiveTab(tab.key)}
-                className={`w-full text-left px-4 py-2 rounded-lg ${
-                  activeTab === tab.key ? 'bg-teal-100 text-teal-800 font-medium' : 'hover:bg-gray-100'
-                }`}
-              >
-                {tab.label}
-              </button>
+          <div className="w-56 flex-shrink-0 space-y-1">
+            <p className="text-xs font-medium text-gray-500 px-2 mb-2">Sections (drag to reorder)</p>
+            {orderedSections.map((key, idx) => (
+              <div key={key} className="flex items-center gap-1 group">
+                <button
+                  onClick={() => setActiveTab(key)}
+                  className={`flex-1 text-left px-3 py-2 rounded-lg ${
+                    activeTab === key ? 'bg-teal-100 text-teal-800 font-medium' : 'hover:bg-gray-100'
+                  }`}
+                >
+                  {getSectionLabel(key)}
+                </button>
+                <div className="flex flex-col opacity-0 group-hover:opacity-100">
+                  <button
+                    onClick={() => moveSectionUp(key)}
+                    disabled={idx === 0}
+                    className="p-0.5 text-gray-500 hover:text-teal-600 disabled:opacity-30"
+                    title="Move up"
+                  >
+                    <ChevronUp className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => moveSectionDown(key)}
+                    disabled={idx === orderedSections.length - 1}
+                    className="p-0.5 text-gray-500 hover:text-teal-600 disabled:opacity-30"
+                    title="Move down"
+                  >
+                    <ChevronDown className="w-4 h-4" />
+                  </button>
+                </div>
+                {!['header', 'hero', 'footer'].includes(key) && (
+                  <button
+                    onClick={() => removeSection(key)}
+                    className="p-1 text-red-500 hover:text-red-700 opacity-0 group-hover:opacity-100"
+                    title="Remove section"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
             ))}
+            <div className="pt-2 border-t mt-2">
+              <select
+                onChange={(e) => { const v = e.target.value; if (v) { addNewSection(v); e.target.value = ''; } }}
+                className="w-full px-3 py-2 border rounded-lg text-sm"
+              >
+                <option value="">+ Add Section</option>
+                <option value="slider">Image Slider</option>
+                <option value="textBlock">Text Block</option>
+              </select>
+            </div>
           </div>
 
           <div className="flex-1 bg-white rounded-lg border border-gray-200 p-6">
@@ -487,6 +591,86 @@ const LandingPageEditor = () => {
                     />
                   </div>
                 ))}
+              </div>
+            )}
+
+            {sections[activeTab]?.type === 'slider' && (
+              <div className="space-y-4">
+                <h2 className="text-lg font-semibold">Image Slider</h2>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Section Title</label>
+                  <input
+                    type="text"
+                    value={sections[activeTab]?.title || ''}
+                    onChange={(e) => updateSection(activeTab, { ...sections[activeTab], title: e.target.value })}
+                    className="w-full px-3 py-2 border rounded-lg"
+                    placeholder="Gallery / Destinations"
+                  />
+                </div>
+                <button onClick={addSliderSlide} className="mb-4 px-3 py-2 bg-teal-100 text-teal-700 rounded flex items-center gap-1">
+                  <Plus className="w-4 h-4" /> Add Slide
+                </button>
+                {(sections[activeTab]?.items || []).map((slide, i) => (
+                  <div key={i} className="border rounded-lg p-4 mb-4 space-y-2 bg-gray-50">
+                    <div className="flex justify-between">
+                      <span className="font-medium">Slide {i + 1}</span>
+                      <button onClick={() => removeSliderSlide(i)} className="text-red-600"><Trash2 className="w-4 h-4" /></button>
+                    </div>
+                    <ImageUploadField
+                      label="Slide Image"
+                      value={slide.image || ''}
+                      onChange={(v) => updateSliderSlide(i, 'image', v)}
+                      placeholder="Image URL or upload"
+                    />
+                    <input
+                      type="text"
+                      value={slide.title || ''}
+                      onChange={(e) => updateSliderSlide(i, 'title', e.target.value)}
+                      placeholder="Title (optional)"
+                      className="w-full px-3 py-2 border rounded"
+                    />
+                    <input
+                      type="text"
+                      value={slide.subtitle || ''}
+                      onChange={(e) => updateSliderSlide(i, 'subtitle', e.target.value)}
+                      placeholder="Subtitle (optional)"
+                      className="w-full px-3 py-2 border rounded"
+                    />
+                    <input
+                      type="text"
+                      value={slide.link || ''}
+                      onChange={(e) => updateSliderSlide(i, 'link', e.target.value)}
+                      placeholder="Link URL (optional)"
+                      className="w-full px-3 py-2 border rounded"
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {sections[activeTab]?.type === 'textBlock' && (
+              <div className="space-y-4">
+                <h2 className="text-lg font-semibold">Text Block</h2>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Title</label>
+                  <input
+                    type="text"
+                    value={sections[activeTab]?.title || ''}
+                    onChange={(e) => updateSection(activeTab, { ...sections[activeTab], title: e.target.value })}
+                    className="w-full px-3 py-2 border rounded-lg"
+                    placeholder="Section Title"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Content</label>
+                  <textarea
+                    rows={6}
+                    value={sections[activeTab]?.content || ''}
+                    onChange={(e) => updateSection(activeTab, { ...sections[activeTab], content: e.target.value })}
+                    className="w-full px-3 py-2 border rounded-lg"
+                    placeholder="Your text content..."
+                  />
+                </div>
               </div>
             )}
 

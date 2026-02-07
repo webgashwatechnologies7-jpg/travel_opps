@@ -12,6 +12,7 @@ class LandingPageTemplateService
     {
         if ($template === 'travel-package') {
             return [
+                'sectionOrder' => ['header', 'hero', 'about', 'whyUs', 'packages', 'whyBookOnline', 'footer'],
                 'header' => [
                     'logo' => '',
                     'slogan' => 'We Plan, You Pack',

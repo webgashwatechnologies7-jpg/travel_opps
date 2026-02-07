@@ -1,10 +1,10 @@
 -- INSERT: Yaarana Holiday - Himachal Tour Package Landing Page
--- Run: Replace @company_id and @created_by with your actual IDs, or use NULL
--- MySQL/MariaDB - escape single quotes in JSON as ''
+-- Run: Replace @company_id and @created_by with your actual IDs
+-- company_id: Use NULL if no company, OR valid ID from companies table (check: SELECT id FROM companies)
+-- created_by: Use NULL or valid user ID from users table
 
-SET @company_id = 1;
-SET @created_by = 1;
-
+SET @company_id = NULL;   -- NULL = no company (avoids FK error). Set to 1,2,3 etc if company exists
+SET @created_by = NULL;   -- NULL = no creator. Set to user id if needed
 INSERT INTO `landing_pages` (
   `company_id`,
   `name`,
