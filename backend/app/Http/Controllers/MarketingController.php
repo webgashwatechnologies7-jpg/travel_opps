@@ -6,6 +6,7 @@ use App\Models\ClientGroup;
 use App\Models\EmailCampaign;
 use App\Models\SmsCampaign;
 use App\Models\MarketingTemplate;
+use App\Models\LandingPage;
 use App\Modules\Leads\Domain\Entities\Lead;
 use App\Models\User;
 use App\Models\Setting;
@@ -1081,6 +1082,342 @@ class MarketingController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to add clients to group',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
+            ], 500);
+        }
+    }
+
+    /**
+     * Get all landing pages
+     */
+    public function landingPages(): JsonResponse
+    {
+        try {
+            $companyId = auth()->user()?->company_id;
+            $pages = LandingPage::when($companyId, fn ($q) => $q->where('company_id', $companyId))
+                ->orderBy('created_at', 'desc')
+                ->get()
+                ->map(fn ($p) => [
+                    'id' => $p->id,
+                    'name' => $p->name,
+                    'title' => $p->title,
+                    'url' => $p->url_slug,
+                    'status' => $p->status,
+                    'views' => $p->views,
+                    'conversions' => $p->conversions,
+                    'conversion_rate' => (float) $p->conversion_rate,
+                    'created_at' => $p->created_at?->format('Y-m-d'),
+                ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Landing pages retrieved successfully',
+                'data' => $pages,
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to retrieve landing pages',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
+            ], 500);
+        }
+    }
+
+    /**
+     * Create new landing page
+     */
+    public function createLandingPage(Request $request): JsonResponse
+    {
+        try {
+            $validator = Validator::make($request->all(), [
+                'name' => 'required|string|max:255',
+                'title' => 'required|string|max:255',
+                'url_slug' => 'required|string|max:255|regex:/^[a-z0-9-]+$/',
+                'template' => 'nullable|string|max:50',
+                'meta_description' => 'nullable|string|max:500',
+                'status' => 'nullable|in:draft,published',
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Validation failed',
+                    'errors' => $validator->errors(),
+                ], 422);
+            }
+
+            $companyId = auth()->user()?->company_id;
+            $slug = strtolower($request->url_slug);
+
+            if (LandingPage::where('company_id', $companyId)->where('url_slug', $slug)->exists()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'A landing page with this URL slug already exists',
+                ], 422);
+            }
+
+            $page = LandingPage::create([
+                'company_id' => $companyId,
+                'name' => $request->name,
+                'title' => $request->title,
+                'url_slug' => $slug,
+                'template' => $request->template ?? 'lead-capture',
+                'meta_description' => $request->meta_description,
+                'status' => $request->status ?? 'draft',
+                'published_at' => $request->status === 'published' ? now() : null,
+                'created_by' => auth()->id(),
+            ]);
+
+            $data = [
+                'id' => $page->id,
+                'name' => $page->name,
+                'title' => $page->title,
+                'url' => $page->url_slug,
+                'status' => $page->status,
+                'views' => 0,
+                'conversions' => 0,
+                'conversion_rate' => 0,
+                'created_at' => $page->created_at?->format('Y-m-d'),
+            ];
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Landing page created successfully',
+                'data' => $data,
+            ], 201);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to create landing page',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
+            ], 500);
+        }
+    }
+
+    /**
+     * Update landing page
+     */
+    public function updateLandingPage(Request $request, int $id): JsonResponse
+    {
+        try {
+            $companyId = auth()->user()?->company_id;
+            $page = LandingPage::when($companyId, fn ($q) => $q->where('company_id', $companyId))
+                ->findOrFail($id);
+
+            $validator = Validator::make($request->all(), [
+                'name' => 'sometimes|required|string|max:255',
+                'title' => 'sometimes|required|string|max:255',
+                'url_slug' => 'sometimes|required|string|max:255|regex:/^[a-z0-9-]+$/',
+                'template' => 'nullable|string|max:50',
+                'meta_description' => 'nullable|string|max:500',
+                'status' => 'nullable|in:draft,published',
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Validation failed',
+                    'errors' => $validator->errors(),
+                ], 422);
+            }
+
+            $updateData = $request->only(['name', 'title', 'template', 'meta_description', 'status']);
+            if ($request->has('url_slug')) {
+                $slug = strtolower($request->url_slug);
+                if (LandingPage::where('company_id', $companyId)->where('url_slug', $slug)->where('id', '!=', $id)->exists()) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'A landing page with this URL slug already exists',
+                    ], 422);
+                }
+                $updateData['url_slug'] = $slug;
+            }
+            if ($request->status === 'published' && $page->status !== 'published') {
+                $updateData['published_at'] = now();
+            }
+
+            $page->update($updateData);
+
+            $data = [
+                'id' => $page->id,
+                'name' => $page->name,
+                'title' => $page->title,
+                'url' => $page->url_slug,
+                'status' => $page->status,
+                'views' => $page->views,
+                'conversions' => $page->conversions,
+                'conversion_rate' => (float) $page->conversion_rate,
+                'created_at' => $page->created_at?->format('Y-m-d'),
+            ];
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Landing page updated successfully',
+                'data' => $data,
+            ], 200);
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return response()->json(['success' => false, 'message' => 'Landing page not found'], 404);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to update landing page',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
+            ], 500);
+        }
+    }
+
+    /**
+     * Delete landing page
+     */
+    public function deleteLandingPage(int $id): JsonResponse
+    {
+        try {
+            $companyId = auth()->user()?->company_id;
+            $page = LandingPage::when($companyId, fn ($q) => $q->where('company_id', $companyId))
+                ->findOrFail($id);
+            $page->delete();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Landing page deleted successfully',
+            ], 200);
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return response()->json(['success' => false, 'message' => 'Landing page not found'], 404);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to delete landing page',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
+            ], 500);
+        }
+    }
+
+    /**
+     * Publish landing page
+     */
+    public function publishLandingPage(int $id): JsonResponse
+    {
+        try {
+            $companyId = auth()->user()?->company_id;
+            $page = LandingPage::when($companyId, fn ($q) => $q->where('company_id', $companyId))
+                ->findOrFail($id);
+            $page->update(['status' => 'published', 'published_at' => now()]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Landing page published successfully',
+                'data' => [
+                    'id' => $page->id,
+                    'status' => $page->status,
+                ],
+            ], 200);
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return response()->json(['success' => false, 'message' => 'Landing page not found'], 404);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to publish landing page',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
+            ], 500);
+        }
+    }
+
+    /**
+     * Preview landing page (admin)
+     */
+    public function previewLandingPage(int $id): JsonResponse
+    {
+        try {
+            $companyId = auth()->user()?->company_id;
+            $page = LandingPage::when($companyId, fn ($q) => $q->where('company_id', $companyId))
+                ->findOrFail($id);
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'id' => $page->id,
+                    'name' => $page->name,
+                    'title' => $page->title,
+                    'url_slug' => $page->url_slug,
+                    'content' => $page->content,
+                    'template' => $page->template,
+                ],
+            ], 200);
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return response()->json(['success' => false, 'message' => 'Landing page not found'], 404);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to preview landing page',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
+            ], 500);
+        }
+    }
+
+    /**
+     * Get landing page by id
+     */
+    public function getLandingPage(int $id): JsonResponse
+    {
+        try {
+            $companyId = auth()->user()?->company_id;
+            $page = LandingPage::when($companyId, fn ($q) => $q->where('company_id', $companyId))
+                ->findOrFail($id);
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'id' => $page->id,
+                    'name' => $page->name,
+                    'title' => $page->title,
+                    'url' => $page->url_slug,
+                    'url_slug' => $page->url_slug,
+                    'template' => $page->template,
+                    'meta_description' => $page->meta_description,
+                    'status' => $page->status,
+                    'views' => $page->views,
+                    'conversions' => $page->conversions,
+                    'conversion_rate' => (float) $page->conversion_rate,
+                    'created_at' => $page->created_at?->format('Y-m-d'),
+                ],
+            ], 200);
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return response()->json(['success' => false, 'message' => 'Landing page not found'], 404);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to retrieve landing page',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
+            ], 500);
+        }
+    }
+
+    /**
+     * Public landing page view (no auth) - for displaying the page
+     */
+    public function publicLandingPage(string $slug): JsonResponse
+    {
+        try {
+            $page = LandingPage::where('url_slug', $slug)
+                ->where('status', 'published')
+                ->firstOrFail();
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'name' => $page->name,
+                    'title' => $page->title,
+                    'content' => $page->content,
+                    'template' => $page->template,
+                    'meta_description' => $page->meta_description,
+                ],
+            ], 200);
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return response()->json(['success' => false, 'message' => 'Landing page not found'], 404);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to load landing page',
                 'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
             ], 500);
         }

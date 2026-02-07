@@ -117,11 +117,11 @@ Route::middleware('auth:sanctum')->prefix('marketing')->group(function () {
     // Landing Pages
     Route::get('/landing-pages', [MarketingController::class, 'landingPages']);
     Route::post('/landing-pages', [MarketingController::class, 'createLandingPage']);
+    Route::get('/landing-pages/{id}', [MarketingController::class, 'getLandingPage'])->whereNumber('id');
     Route::put('/landing-pages/{id}', [MarketingController::class, 'updateLandingPage']);
     Route::delete('/landing-pages/{id}', [MarketingController::class, 'deleteLandingPage']);
     Route::post('/landing-pages/{id}/publish', [MarketingController::class, 'publishLandingPage']);
     Route::get('/landing-pages/{id}/preview', [MarketingController::class, 'previewLandingPage']);
-    Route::get('/landing-pages/{slug}', [MarketingController::class, 'viewLandingPage']);
     
     // Marketing Reports
     Route::get('/reports/campaign-summary', [MarketingController::class, 'campaignSummaryReport']);

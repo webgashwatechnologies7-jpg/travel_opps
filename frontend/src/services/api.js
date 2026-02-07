@@ -264,6 +264,17 @@ export const clientGroupsAPI = {
   getClients: (id) => api.get(`/marketing/client-groups/${id}/clients`),
 };
 
+// Landing Pages (Marketing)
+export const landingPagesAPI = {
+  list: () => api.get('/marketing/landing-pages'),
+  get: (id) => api.get(`/marketing/landing-pages/${id}`),
+  create: (data) => api.post('/marketing/landing-pages', data),
+  update: (id, data) => api.put(`/marketing/landing-pages/${id}`, data),
+  delete: (id) => api.delete(`/marketing/landing-pages/${id}`),
+  publish: (id) => api.post(`/marketing/landing-pages/${id}/publish`),
+  preview: (id) => api.get(`/marketing/landing-pages/${id}/preview`),
+};
+
 // Targets APIs (Admin only)
 export const targetsAPI = {
   get: (userId, month) => api.get(`/targets/${userId}/${month}`),
