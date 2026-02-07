@@ -73,7 +73,6 @@ const DEFAULT_SECTIONS = {
 
 const LandingPageEditor = () => {
   const { id } = useParams();
-  const navigate = useNavigate();
   const [page, setPage] = useState(null);
   const [sections, setSections] = useState(DEFAULT_SECTIONS);
   const [activeTab, setActiveTab] = useState('hero');
