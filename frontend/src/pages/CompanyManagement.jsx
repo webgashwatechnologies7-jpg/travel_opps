@@ -284,7 +284,11 @@ const CompanyManagement = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-blue-600 font-mono">
-                        {company.crm_url ? company.crm_url.replace('https://', '') : `c.${company.subdomain}${company.domain ? '.' + company.domain.split('.').slice(-2).join('.') : ''}`}
+                        {company.crm_url
+                          ? company.crm_url.replace(/^https?:\/\//, '')
+                          : company.domain?.split('.').length > 2
+                          ? company.domain
+                          : `crm.${company.domain || ''}`}
                       </div>
                       <div className="text-xs text-gray-500 mt-1">
                         Subdomain: {company.subdomain}
@@ -298,12 +302,21 @@ const CompanyManagement = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <a
-                        href={company.crm_url || `https://c.${company.subdomain}.${company.domain}`}
+                        href={
+                          company.crm_url ||
+                          (company.domain?.split('.').length > 2
+                            ? `https://${company.domain}`
+                            : `https://crm.${company.domain || ''}`)
+                        }
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-sm text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1"
                       >
-                        {company.crm_url ? company.crm_url.replace('https://', '') : `c.${company.subdomain}.${company.domain}`}
+                        {company.crm_url
+                          ? company.crm_url.replace(/^https?:\/\//, '')
+                          : company.domain?.split('.').length > 2
+                          ? company.domain
+                          : `crm.${company.domain || ''}`}
                         <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                         </svg>
@@ -435,10 +448,10 @@ const CompanyManagement = () => {
                     value={formData.domain}
                     onChange={(e) => setFormData({ ...formData, domain: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                    placeholder="gashwa.com"
+                    placeholder="crm.gashwatechnologies.com"
                   />
                   <p className="text-xs text-blue-600 mt-1 font-semibold">
-                    CRM URL will be: c.{formData.domain || 'domain.com'}
+                    CRM URL will be: {formData.domain?.split('.').length > 2 ? formData.domain : `crm.${formData.domain || 'yourdomain.com'}`}
                   </p>
                 </div>
                 <div>
@@ -634,7 +647,11 @@ const CompanyManagement = () => {
                 <div>
                   <label className="text-sm font-medium text-gray-600">CRM URL</label>
                   <p className="text-lg text-blue-600 font-mono">
-                    {selectedCompany.crm_url ? selectedCompany.crm_url.replace('https://', '') : `c.${selectedCompany.subdomain}.${selectedCompany.domain}`}
+                    {selectedCompany.crm_url
+                    ? selectedCompany.crm_url.replace(/^https?:\/\//, '')
+                    : selectedCompany.domain?.split('.').length > 2
+                    ? selectedCompany.domain
+                    : `crm.${selectedCompany.domain || ''}`}
                   </p>
                 </div>
                 <div>

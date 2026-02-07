@@ -55,6 +55,8 @@ class Company extends Model
      *
      * @var array<string, string>
      */
+    protected $appends = ['crm_url'];
+
     protected $casts = [
         'subscription_start_date' => 'date',
         'subscription_end_date' => 'date',
@@ -195,17 +197,24 @@ class Company extends Model
     }
 
     /**
-     * Get CRM URL for the company (with c. prefix).
+     * Get CRM URL for the company.
+     * Domain can be full host (crm.gashwatechnologies.com) or base (gashwatechnologies.com).
      *
      * @return string
      */
     public function getCrmUrlAttribute(): string
     {
         if ($this->domain) {
-            // If domain is gashwa.com, return c.gashwa.com
-            return 'https://c.' . $this->domain;
+            $domain = trim($this->domain);
+            $parts = explode('.', $domain);
+            // Full host like crm.gashwatechnologies.com (3+ parts) -> use as-is
+            if (count($parts) > 2) {
+                return 'https://' . $domain;
+            }
+            // Base domain like gashwatechnologies.com -> crm.gashwatechnologies.com
+            return 'https://crm.' . $domain;
         }
-        // For localhost or default domain
+        // For localhost or default domain (subdomain only)
         return 'https://c.' . $this->subdomain . '.' . config('app.domain', 'localhost');
     }
 }
