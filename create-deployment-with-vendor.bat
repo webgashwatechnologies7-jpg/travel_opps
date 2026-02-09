@@ -1,18 +1,18 @@
 @echo off
-echo 🚀 Creating Deployment Package with Vendor...
+echo Creating Deployment Package with Vendor...
 
 REM Create deployment directory
 if not exist "deployment-ready" mkdir "deployment-ready"
 cd /d "deployment-ready"
 
 REM Copy frontend build
-echo 📦 Building frontend...
+echo Building frontend...
 cd ..\frontend
 call npm run build
 xcopy "dist" "..\deployment-ready\frontend\dist" /E /I /Y
 
 REM Copy backend with vendor
-echo 📦 Copying backend with vendor...
+echo Copying backend with vendor...
 cd ..\backend
 if not exist "..\deployment-ready\backend" mkdir "..\deployment-ready\backend"
 xcopy "app" "..\deployment-ready\backend\app" /E /I /Y

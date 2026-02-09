@@ -30,6 +30,48 @@ const Itineraries = () => {
     image: null
   });
 
+  const normalizeImageUrl = (url) => {
+    if (!url || typeof url !== 'string') return url;
+
+    let image = url;
+
+    // Handle objects with url property defensively
+    if (typeof image !== 'string' && image?.url) {
+      image = image.url;
+    }
+
+    // Fix localhost domain if needed
+    const fixLocalhost = (value) => {
+      if (value.includes('localhost') && !value.includes(':8000')) {
+        return value.replace('localhost', 'localhost:8000');
+      }
+      return value;
+    };
+
+    // If already absolute URL
+    if (image.startsWith('http://') || image.startsWith('https://')) {
+      return fixLocalhost(image);
+    }
+
+    let apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
+    const baseUrl = apiBaseUrl.replace('/api', '');
+
+    // Handle paths like "storage/..." (without leading slash)
+    if (image.startsWith('storage')) {
+      image = `/${image}`;
+    }
+
+    // Ensure leading slash for relative paths
+    if (!image.startsWith('/')) {
+      image = `/${image}`;
+    }
+
+    image = `${baseUrl}${image}`;
+    image = fixLocalhost(image);
+
+    return image;
+  };
+
   useEffect(() => {
     fetchItineraries(true);
   }, []);
@@ -42,25 +84,7 @@ const Itineraries = () => {
       // Process image URLs - handle both relative and absolute URLs
       const processedData = data.map(itinerary => {
         if (itinerary.image) {
-          // If image is a relative URL (starts with /storage or /), convert to absolute
-          if (itinerary.image.startsWith('/storage') || (itinerary.image.startsWith('/') && !itinerary.image.startsWith('http'))) {
-            let baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
-            // Remove /api from base URL for public assets (images are served from public folder)
-            baseUrl = baseUrl.replace('/api', '');
-            itinerary.image = `${baseUrl}${itinerary.image}`;
-          }
-          // If image already has http/https, keep it as is
-          // Also handle cases where asset() returns full URL but might have wrong domain
-          if (itinerary.image.includes('localhost') && !itinerary.image.includes(':8000')) {
-            itinerary.image = itinerary.image.replace('localhost', 'localhost:8000');
-          }
-
-          // Ensure URL is properly formatted
-          if (!itinerary.image.startsWith('http')) {
-            const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
-            const cleanBaseUrl = baseUrl.replace('/api', '');
-            itinerary.image = `${cleanBaseUrl}${itinerary.image.startsWith('/') ? '' : '/'}${itinerary.image}`;
-          }
+          itinerary.image = normalizeImageUrl(itinerary.image);
         }
         return itinerary;
       });
@@ -116,15 +140,7 @@ const Itineraries = () => {
 
       // Convert image URL to absolute if needed
       if (data.image) {
-        if (data.image.startsWith('/storage') || (data.image.startsWith('/') && !data.image.startsWith('http'))) {
-          const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
-          const baseUrl = apiBaseUrl.replace('/api', '');
-          data.image = `${baseUrl}${data.image}`;
-        }
-        // Fix domain if needed
-        if (data.image.includes('localhost') && !data.image.includes(':8000')) {
-          data.image = data.image.replace('localhost', 'localhost:8000');
-        }
+        data.image = normalizeImageUrl(data.image);
       }
 
       setViewingItinerary(data);
@@ -142,18 +158,7 @@ const Itineraries = () => {
       const data = response.data.data;
 
       // Convert image URL to absolute if needed
-      let imageUrl = data.image || null;
-      if (imageUrl) {
-        if (imageUrl.startsWith('/storage') || (imageUrl.startsWith('/') && !imageUrl.startsWith('http'))) {
-          const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
-          const baseUrl = apiBaseUrl.replace('/api', '');
-          imageUrl = `${baseUrl}${imageUrl}`;
-        }
-        // Fix domain if needed
-        if (imageUrl.includes('localhost') && !imageUrl.includes(':8000')) {
-          imageUrl = imageUrl.replace('localhost', 'localhost:8000');
-        }
-      }
+      const imageUrl = data.image ? normalizeImageUrl(data.image) : null;
 
       setFormData({
         itinerary_name: data.itinerary_name || '',

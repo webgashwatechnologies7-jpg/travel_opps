@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Deployment Script with Vendor Folder
-echo "🚀 Starting Deployment with Vendor..."
+echo "Starting Deployment with Vendor..."
 
 # Navigate to project directory
 cd /var/www/html/
@@ -19,5 +19,5 @@ git add backend/vendor/
 git commit -m "Add vendor dependencies for deployment"
 git push origin main
 
-echo "✅ Vendor folder added and pushed!"
-echo "⚠️  Remember to remove vendor from .gitignore temporarily"
+echo "Vendor folder added and pushed!"
+echo "Remember to remove vendor from .gitignore temporarily"

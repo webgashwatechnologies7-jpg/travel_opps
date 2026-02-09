@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # TravelOps CRM Deployment Script
-echo "🚀 Starting TravelOps CRM Deployment..."
+echo "Starting TravelOps CRM Deployment..."
 
 # Update system
 apt update && apt upgrade -y
@@ -22,10 +22,10 @@ cd /var/www/html/
 
 # Clone or update repository
 if [ ! -d "crm_project" ]; then
-    echo "📥 Cloning repository..."
+    echo "Cloning repository..."
     git clone https://github.com/parasjaswal/crm_project.git
 else
-    echo "🔄 Updating repository..."
+    echo "Updating repository..."
     cd crm_project
     git pull origin main
 fi
@@ -33,7 +33,7 @@ fi
 cd /var/www/html/crm_project
 
 # Backend setup
-echo "🔧 Setting up backend..."
+echo "Setting up backend..."
 cd backend
 composer install --no-dev --optimize-autoloader
 cp .env.example .env
@@ -43,20 +43,20 @@ php artisan route:cache
 php artisan view:cache
 
 # Frontend build
-echo "🎨 Building frontend..."
+echo "Building frontend..."
 cd ../frontend
 npm install
 npm run build
 
 # Set permissions
-echo "🔒 Setting permissions..."
+echo "Setting permissions..."
 chown -R www-data:www-data /var/www/html/crm_project
 chmod -R 755 /var/www/html/crm_project
 chmod -R 775 /var/www/html/crm_project/backend/storage
 chmod -R 775 /var/www/html/crm_project/backend/bootstrap/cache
 
 # Setup Nginx
-echo "🌐 Configuring Nginx..."
+echo "Configuring Nginx..."
 cat > /etc/nginx/sites-available/crm_travel << 'EOF'
 server {
     listen 80;
@@ -94,9 +94,9 @@ nginx -t
 systemctl restart nginx
 systemctl enable nginx
 
-echo "✅ Deployment completed successfully!"
-echo "🌐 Your CRM is now live!"
-echo "📧 Don't forget to:"
+echo "Deployment completed successfully!"
+echo "Your CRM is now live!"
+echo "Don't forget to:"
 echo "   1. Setup your domain DNS"
 echo "   2. Configure SSL certificate"
 echo "   3. Update .env with your database credentials"
