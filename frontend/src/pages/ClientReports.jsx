@@ -14,10 +14,16 @@ const ClientReports = () => {
   const [client, setClient] = useState(null);
   const [loading, setLoading] = useState(true);
   const [allPayments, setAllPayments] = useState([]);
-  const [dateRange, setDateRange] = useState({
-    start: new Date(new Date().setMonth(new Date().getMonth() - 1)).toISOString().split('T')[0],
-    end: new Date().toISOString().split('T')[0]
-  });
+  const getDefaultDateRange = () => {
+    const end = new Date();
+    const start = new Date();
+    start.setFullYear(start.getFullYear() - 1);
+    return {
+      start: start.toISOString().split('T')[0],
+      end: end.toISOString().split('T')[0]
+    };
+  };
+  const [dateRange, setDateRange] = useState(getDefaultDateRange);
   const [reportType, setReportType] = useState('weekly');
 
   useEffect(() => {
@@ -55,7 +61,7 @@ const ClientReports = () => {
   };
 
   const reportData = useMemo(() => {
-    if (!allPayments.length) {
+    if (!allPayments || !allPayments.length) {
       return {
         summary: { totalPayments: 0, totalAmount: '₹0', averagePayment: '₹0', pendingPayments: 0, pendingAmount: '₹0', lastPaymentDate: '-', paymentTrend: '-' },
         payments: [],
@@ -235,6 +241,12 @@ const ClientReports = () => {
               </div>
               <div className="flex items-center space-x-3">
                 <button
+                  onClick={() => fetchClientData()}
+                  className="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 flex items-center space-x-2"
+                >
+                  <span>Refresh</span>
+                </button>
+                <button
                   onClick={generatePDF}
                   className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center space-x-2"
                 >
@@ -393,7 +405,13 @@ const ClientReports = () => {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {reportData?.payments.map((payment) => (
+                  {reportData?.payments.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="px-6 py-8 text-center text-gray-500">
+                        No payments found for the selected date range. Click Refresh to fetch latest data.
+                      </td>
+                    </tr>
+                  ) : reportData?.payments.map((payment) => (
                     <tr key={payment.id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         {payment.date}
