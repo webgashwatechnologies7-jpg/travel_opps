@@ -612,14 +612,6 @@ const Leads = () => {
           <div className='flex items-center gap-2'>
             <h2 className="text-lg font-bold">Queries</h2>
             <span className="text-lg font-bold">• All</span>
-            <button
-              type="button"
-              onClick={() => { setFormData(getDefaultFormData()); setShowModal(true); }}
-              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium"
-            >
-              <Plus size={20} />
-              Add Query
-            </button>
           </div>
           <button className="flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-md" onClick={handleRefresh}>
             <History size={20} />
