@@ -1,16 +1,19 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { accountsAPI } from '../services/api';
+import { accountsAPI, paymentsAPI } from '../services/api';
 import Layout from '../components/Layout';
 import { ArrowLeft, Download, FileText, Table, Calendar, DollarSign, TrendingUp, Filter, FileDown } from 'lucide-react';
 import { generatePDFReport, generateExcelReport, generateDetailedReport } from '../utils/reportGenerator';
+
+const formatCurrency = (val) => `₹${Number(val).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
+const formatDate = (d) => (d ? new Date(d).toISOString().split('T')[0] : '-');
 
 const ClientReports = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const [client, setClient] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [reportData, setReportData] = useState(null);
+  const [allPayments, setAllPayments] = useState([]);
   const [dateRange, setDateRange] = useState({
     start: new Date(new Date().setMonth(new Date().getMonth() - 1)).toISOString().split('T')[0],
     end: new Date().toISOString().split('T')[0]
@@ -23,100 +26,95 @@ const ClientReports = () => {
 
   const fetchClientData = async () => {
     try {
-      // Mock client data
-      const mockClient = {
-        id: id,
-        name: 'Shubi Paras',
-        email: 'web.gashwatechnologies7@gmail.com',
-        mobile: '+919805585855',
-        city: 'Shimla',
-        status: 'Active'
-      };
-      setClient(mockClient);
+      setLoading(true);
+      const [clientRes, paymentsRes] = await Promise.all([
+        accountsAPI.getClient(id),
+        paymentsAPI.getByLead(id)
+      ]);
 
-      // Mock report data
-      const mockReportData = {
-        summary: {
-          totalPayments: 15,
-          totalAmount: '₹2,45,000',
-          averagePayment: '₹16,333',
-          pendingPayments: 3,
-          pendingAmount: '₹45,000',
-          lastPaymentDate: '2024-01-10',
-          paymentTrend: 'up'
-        },
-        payments: [
-          {
-            id: 1,
-            date: '2024-01-10',
-            amount: '₹15,000',
-            status: 'Paid',
-            method: 'Bank Transfer',
-            description: 'Manali Trip - Final Payment',
-            queryId: 'Q001',
-            invoiceNo: 'INV-2024-001'
-          },
-          {
-            id: 2,
-            date: '2024-01-08',
-            amount: '₹20,000',
-            status: 'Paid',
-            method: 'Cash',
-            description: 'Delhi Trip - Advance',
-            queryId: 'Q002',
-            invoiceNo: 'INV-2024-002'
-          },
-          {
-            id: 3,
-            date: '2024-01-05',
-            amount: '₹10,000',
-            status: 'Paid',
-            method: 'Online',
-            description: 'Hotel Booking - Shimla',
-            queryId: 'Q003',
-            invoiceNo: 'INV-2024-003'
-          },
-          {
-            id: 4,
-            date: '2024-01-03',
-            amount: '₹25,000',
-            status: 'Paid',
-            method: 'Bank Transfer',
-            description: 'Manali Trip - Package',
-            queryId: 'Q001',
-            invoiceNo: 'INV-2024-004'
-          },
-          {
-            id: 5,
-            date: '2023-12-28',
-            amount: '₹15,000',
-            status: 'Paid',
-            method: 'UPI',
-            description: 'Transportation - Delhi',
-            queryId: 'Q002',
-            invoiceNo: 'INV-2023-045'
-          }
-        ],
-        monthlyBreakdown: [
-          { month: 'Jan 2024', payments: 4, amount: '₹70,000' },
-          { month: 'Dec 2023', payments: 6, amount: '₹95,000' },
-          { month: 'Nov 2023', payments: 3, amount: '₹45,000' },
-          { month: 'Oct 2023', payments: 2, amount: '₹35,000' }
-        ],
-        paymentMethods: {
-          'Bank Transfer': { count: 8, amount: '₹1,80,000' },
-          'Cash': { count: 4, amount: '₹45,000' },
-          'Online': { count: 2, amount: '₹15,000' },
-          'UPI': { count: 1, amount: '₹5,000' }
-        }
-      };
-      setReportData(mockReportData);
+      if (clientRes?.data?.success) {
+        const c = clientRes.data.data;
+        setClient({ id: c.id, name: c.name, email: c.email, mobile: c.mobile, city: c.city, status: c.status });
+      } else {
+        setClient(null);
+        setLoading(false);
+        return;
+      }
+
+      if (paymentsRes?.data?.success && paymentsRes.data.data?.payments) {
+        setAllPayments(paymentsRes.data.data.payments);
+      } else {
+        setAllPayments([]);
+      }
     } catch (error) {
       console.error('Failed to fetch client data:', error);
+      setAllPayments([]);
     } finally {
       setLoading(false);
     }
   };
+
+  const reportData = useMemo(() => {
+    if (!allPayments.length) {
+      return {
+        summary: { totalPayments: 0, totalAmount: '₹0', averagePayment: '₹0', pendingPayments: 0, pendingAmount: '₹0', lastPaymentDate: '-', paymentTrend: '-' },
+        payments: [],
+        monthlyBreakdown: [],
+        paymentMethods: {}
+      };
+    }
+    const start = new Date(dateRange.start);
+    const end = new Date(dateRange.end);
+    end.setHours(23, 59, 59, 999);
+    const filtered = allPayments.filter((p) => {
+      const d = new Date(p.created_at);
+      return d >= start && d <= end;
+    });
+    const totalAmount = filtered.reduce((s, p) => s + parseFloat(p.amount || 0), 0);
+    const totalPaid = filtered.reduce((s, p) => s + parseFloat(p.paid_amount || 0), 0);
+    const totalDue = filtered.reduce((s, p) => s + parseFloat((p.amount || 0) - (p.paid_amount || 0)), 0);
+    const pendingCount = filtered.filter((p) => (p.status || '').toLowerCase() !== 'paid').length;
+    const lastPayment = filtered.length ? filtered.reduce((a, b) => (new Date(a.created_at) > new Date(b.created_at) ? a : b)) : null;
+    const monthlyMap = {};
+    filtered.forEach((p) => {
+      const m = new Date(p.created_at);
+      const key = `${m.getFullYear()}-${String(m.getMonth() + 1).padStart(2, '0')}`;
+      if (!monthlyMap[key]) monthlyMap[key] = { count: 0, amount: 0 };
+      monthlyMap[key].count += 1;
+      monthlyMap[key].amount += parseFloat(p.amount || 0);
+    });
+    const monthlyBreakdown = Object.entries(monthlyMap)
+      .sort(([a], [b]) => b.localeCompare(a))
+      .map(([k, v]) => ({
+        month: new Date(k + '-01').toLocaleDateString('en-IN', { month: 'short', year: 'numeric' }),
+        payments: v.count,
+        amount: formatCurrency(v.amount)
+      }));
+    const payments = filtered.map((p) => ({
+      id: p.id,
+      date: formatDate(p.created_at),
+      amount: formatCurrency(p.amount),
+      status: (p.status || 'pending').charAt(0).toUpperCase() + (p.status || '').slice(1),
+      method: '-',
+      description: '-',
+      queryId: p.lead_id ? `Q${p.lead_id}` : '-',
+      invoiceNo: '-'
+    }));
+    return {
+      summary: {
+        totalPayments: filtered.length,
+        totalAmount: formatCurrency(totalAmount),
+        averagePayment: filtered.length ? formatCurrency(totalAmount / filtered.length) : '₹0',
+        pendingPayments: pendingCount,
+        pendingAmount: formatCurrency(totalDue),
+        lastPaymentDate: lastPayment ? formatDate(lastPayment.created_at) : '-',
+        paymentTrend: '-'
+      },
+      payments,
+      monthlyBreakdown,
+      paymentMethods: filtered.length ? { Payment: { count: filtered.length, amount: formatCurrency(totalAmount) } } : {}
+    };
+  }, [allPayments, dateRange]);
 
   const generatePDF = () => {
     if (!client || !reportData) return;
@@ -162,6 +160,32 @@ const ClientReports = () => {
       ...prev,
       [field]: value
     }));
+  };
+
+  const handleReportTypeChange = (value) => {
+    setReportType(value);
+    const today = new Date();
+    let start, end;
+    if (value === 'weekly') {
+      start = new Date(today);
+      start.setDate(start.getDate() - 7);
+      end = new Date(today);
+    } else if (value === 'monthly') {
+      start = new Date(today.getFullYear(), today.getMonth(), 1);
+      end = new Date(today);
+    } else if (value === 'quarterly') {
+      start = new Date(today.getFullYear(), Math.floor(today.getMonth() / 3) * 3, 1);
+      end = new Date(today);
+    } else if (value === 'yearly') {
+      start = new Date(today.getFullYear(), 0, 1);
+      end = new Date(today);
+    } else {
+      return;
+    }
+    setDateRange({
+      start: start.toISOString().split('T')[0],
+      end: end.toISOString().split('T')[0]
+    });
   };
 
   if (loading) {
@@ -268,7 +292,7 @@ const ClientReports = () => {
                 </label>
                 <select
                   value={reportType}
-                  onChange={(e) => setReportType(e.target.value)}
+                  onChange={(e) => handleReportTypeChange(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="weekly">Weekly</option>
