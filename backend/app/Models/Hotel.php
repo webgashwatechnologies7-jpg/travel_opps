@@ -64,4 +64,9 @@ class Hotel extends Model
     {
         return $this->hasMany(HotelRate::class);
     }
+
+    public function leadHotelCosts(): HasMany
+    {
+        return $this->hasMany(LeadHotelCost::class);
+    }
 }

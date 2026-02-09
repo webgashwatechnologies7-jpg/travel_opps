@@ -19,6 +19,7 @@ use App\Modules\Vouchers\Domain\Models\Voucher;
 use App\Modules\Documents\Domain\Models\Document;
 use App\Modules\Invoices\Domain\Models\Invoice;
 use App\Models\LeadInvoice;
+use App\Models\Quotation;
 use App\Modules\Billing\Domain\Models\BillingRecord;
 use App\Modules\History\Domain\Models\ActivityHistory;
 use App\Traits\HasCompany;
@@ -301,6 +302,25 @@ class Lead extends Model
     public function leadInvoices(): HasMany
     {
         return $this->hasMany(LeadInvoice::class, 'lead_id');
+    }
+
+    /**
+     * Get dynamic estimated value from actual DB data (Quotation > LeadInvoice > budget).
+     */
+    public function getEstimatedValue(): float
+    {
+        $quotation = Quotation::where('lead_id', $this->id)->orderBy('created_at', 'desc')->first();
+        if ($quotation && $quotation->total_price > 0) {
+            return (float) $quotation->total_price;
+        }
+        $invoiceTotal = LeadInvoice::where('lead_id', $this->id)->sum('total_amount');
+        if ($invoiceTotal > 0) {
+            return (float) $invoiceTotal;
+        }
+        if ($this->budget && (float) $this->budget > 0) {
+            return (float) $this->budget;
+        }
+        return 0;
     }
 }
 

@@ -57,5 +57,15 @@ class Transfer extends Model
     {
         return $this->hasMany(TransferPrice::class);
     }
+
+    /**
+     * Get lead costs for this vehicle (transfer).
+     *
+     * @return HasMany
+     */
+    public function leadTransferCosts(): HasMany
+    {
+        return $this->hasMany(LeadTransferCost::class);
+    }
 }
 

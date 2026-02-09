@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\OverallFinancialController;
 use App\Modules\Finance\Presentation\Controllers\ExpenseController;
 use App\Modules\Hr\Presentation\Controllers\TargetController;
 use App\Modules\Payments\Presentation\Controllers\PaymentController;
@@ -10,6 +11,11 @@ use Illuminate\Support\Facades\Route;
 | Finance & HR Routes
 |--------------------------------------------------------------------------
 */
+
+// Part 5 - Overall financial summary
+Route::middleware('auth:sanctum')->prefix('financial-summary')->group(function () {
+    Route::get('/overall', [OverallFinancialController::class, 'getOverallSummary']);
+});
 
 // Payment routes - require authentication
 Route::middleware('auth:sanctum')->prefix('payments')->group(function () {

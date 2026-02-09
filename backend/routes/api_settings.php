@@ -10,6 +10,7 @@ use App\Http\Controllers\LeadSourceController;
 use App\Http\Controllers\PackageThemeController;
 use App\Http\Controllers\SettingsController;
 use App\Http\Controllers\SupplierController;
+use App\Http\Controllers\SupplierFinancialController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -23,6 +24,13 @@ Route::middleware('auth:sanctum')->prefix('suppliers')->group(function () {
     Route::get('/', [SupplierController::class, 'index']);
     Route::post('/', [SupplierController::class, 'store']);
     Route::post('/send-email', [SupplierController::class, 'sendEmail']);
+    // Part 2 - Supplier financial summary
+    Route::get('/{supplierId}/financial-summary', [SupplierFinancialController::class, 'getSupplierFinancialSummary']);
+    Route::post('/{supplierId}/lead-costs', [SupplierFinancialController::class, 'storeLeadSupplierCost']);
+    Route::get('/{supplierId}/lead-costs', [SupplierFinancialController::class, 'getSupplierLeadCosts']);
+    Route::post('/{supplierId}/financial-transactions', [SupplierFinancialController::class, 'storeSupplierFinancialTransaction']);
+    Route::get('/{supplierId}/financial-transactions', [SupplierFinancialController::class, 'getSupplierFinancialTransactions']);
+    Route::post('/{supplierId}/financial-transactions/{transactionId}/payment', [SupplierFinancialController::class, 'recordSupplierTransactionPayment']);
     Route::get('/{id}', [SupplierController::class, 'show']);
     Route::put('/{id}', [SupplierController::class, 'update']);
     Route::delete('/{id}', [SupplierController::class, 'destroy']);

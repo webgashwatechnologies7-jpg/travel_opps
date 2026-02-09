@@ -42,6 +42,10 @@ require __DIR__.'/api_calls.php';
 // Employee Management routes - require authentication
 Route::middleware('auth:sanctum')->prefix('employees')->group(function () {
     Route::get('/', [\App\Http\Controllers\EmployeeController::class, 'getEmployeesList']);
+    Route::get('/{employeeId}/financial-summary', [\App\Http\Controllers\EmployeeController::class, 'getEmployeeFinancialSummary']);
+    Route::post('/{employeeId}/financial-transactions', [\App\Http\Controllers\EmployeeController::class, 'storeEmployeeFinancialTransaction']);
+    Route::get('/{employeeId}/financial-transactions', [\App\Http\Controllers\EmployeeController::class, 'getEmployeeFinancialTransactions']);
+    Route::post('/{employeeId}/financial-transactions/{transactionId}/payment', [\App\Http\Controllers\EmployeeController::class, 'recordEmployeeTransactionPayment']);
     Route::get('/{employeeId}', [\App\Http\Controllers\EmployeeController::class, 'getEmployeeDetails']);
     Route::get('/{employeeId}/reports', [\App\Http\Controllers\EmployeeController::class, 'getEmployeeReports']);
     Route::get('/{employeeId}/reports/pdf', [\App\Http\Controllers\EmployeeController::class, 'downloadEmployeeReportPDF']);

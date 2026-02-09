@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\User;
 use App\Models\EmployeePerformanceLog;
+use App\Models\EmployeeFinancialTransaction;
 use App\Modules\Leads\Domain\Entities\Lead;
 use App\Modules\Payments\Domain\Entities\Payment;
 use App\Modules\Hr\Domain\Entities\EmployeeTarget;
@@ -323,6 +324,8 @@ class EmployeeController extends Controller
 
     /**
      * Get employee profit/loss analysis.
+     * Supports period: weekly, monthly, yearly (or custom start_date/end_date).
+     * Includes dena (payables) and lena (receivables).
      *
      * @param Request $request
      * @param int $employeeId
@@ -332,6 +335,7 @@ class EmployeeController extends Controller
     {
         try {
             $validator = Validator::make($request->all(), [
+                'period' => 'nullable|in:weekly,monthly,yearly',
                 'start_date' => 'nullable|date',
                 'end_date' => 'nullable|date|after_or_equal:start_date',
             ]);
@@ -345,42 +349,55 @@ class EmployeeController extends Controller
             }
 
             $employee = User::findOrFail($employeeId);
-            $startDate = $request->input('start_date', now()->startOfMonth());
-            $endDate = $request->input('end_date', now()->endOfMonth());
+            $period = $request->input('period');
+            $startDate = $request->input('start_date');
+            $endDate = $request->input('end_date');
+
+            if (!$startDate || !$endDate) {
+                if ($period) {
+                    switch ($period) {
+                        case 'weekly':
+                            $startDate = now()->startOfWeek();
+                            $endDate = now()->endOfWeek();
+                            break;
+                        case 'monthly':
+                            $startDate = now()->startOfMonth();
+                            $endDate = now()->endOfMonth();
+                            break;
+                        case 'yearly':
+                            $startDate = now()->startOfYear();
+                            $endDate = now()->endOfYear();
+                            break;
+                    }
+                } else {
+                    $startDate = now()->startOfMonth();
+                    $endDate = now()->endOfMonth();
+                }
+            }
 
             $startDate = Carbon::parse($startDate);
             $endDate = Carbon::parse($endDate);
 
-            // Get revenue from confirmed leads
+            // Get revenue from confirmed leads (dynamic - actual Payment data)
             $revenue = Payment::whereHas('lead', function($query) use ($employeeId, $startDate, $endDate) {
                 $query->where('assigned_to', $employeeId)
                     ->where('status', 'confirmed')
                     ->whereBetween('created_at', [$startDate, $endDate]);
             })->sum('amount');
 
-            // Get potential lost revenue from cancelled leads (estimated)
+            // Dynamic lost revenue - actual value from quotation/invoice/budget per cancelled lead
             $cancelledLeads = Lead::where('assigned_to', $employeeId)
                 ->where('status', 'cancelled')
                 ->whereBetween('created_at', [$startDate, $endDate])
                 ->get();
-            
-            $lostRevenue = 0;
-            foreach ($cancelledLeads as $lead) {
-                // Estimate lost revenue based on average lead value or a default amount
-                $lostRevenue += 10000; // Default estimated value per cancelled lead
-            }
+            $lostRevenue = $cancelledLeads->sum(fn ($lead) => $lead->getEstimatedValue());
 
-            // Get pending potential revenue (estimated)
-            $pendingLeads = Lead::where('assigned_to', $employeeId)
+            // Dynamic pending revenue - actual value from quotation/invoice/budget per pending lead
+            $pendingLeadsList = Lead::where('assigned_to', $employeeId)
                 ->whereIn('status', ['new', 'proposal', 'followup'])
                 ->whereBetween('created_at', [$startDate, $endDate])
                 ->get();
-            
-            $pendingRevenue = 0;
-            foreach ($pendingLeads as $lead) {
-                // Estimate pending revenue based on average lead value or a default amount
-                $pendingRevenue += 15000; // Default estimated value per pending lead
-            }
+            $pendingRevenue = $pendingLeadsList->sum(fn ($lead) => $lead->getEstimatedValue());
 
             // Calculate conversion rates
             $totalLeads = Lead::where('assigned_to', $employeeId)
@@ -392,13 +409,22 @@ class EmployeeController extends Controller
                 ->whereBetween('created_at', [$startDate, $endDate])
                 ->count();
 
-            $cancelledLeads = Lead::where('assigned_to', $employeeId)
-                ->where('status', 'cancelled')
-                ->whereBetween('created_at', [$startDate, $endDate])
-                ->count();
+            $cancelledLeadsCount = $cancelledLeads->count();
 
             $conversionRate = $totalLeads > 0 ? round(($confirmedLeads / $totalLeads) * 100, 2) : 0;
-            $cancellationRate = $totalLeads > 0 ? round(($cancelledLeads / $totalLeads) * 100, 2) : 0;
+            $cancellationRate = $totalLeads > 0 ? round(($cancelledLeadsCount / $totalLeads) * 100, 2) : 0;
+
+            // Dena & Lena (payables & receivables - total outstanding)
+            $dena = round((float) EmployeeFinancialTransaction::where('user_id', $employeeId)
+                ->where('type', EmployeeFinancialTransaction::TYPE_PAYABLE)
+                ->whereIn('status', [EmployeeFinancialTransaction::STATUS_PENDING, EmployeeFinancialTransaction::STATUS_PARTIAL])
+                ->get()
+                ->sum(fn ($t) => $t->amount - $t->paid_amount), 2);
+            $lena = round((float) EmployeeFinancialTransaction::where('user_id', $employeeId)
+                ->where('type', EmployeeFinancialTransaction::TYPE_RECEIVABLE)
+                ->whereIn('status', [EmployeeFinancialTransaction::STATUS_PENDING, EmployeeFinancialTransaction::STATUS_PARTIAL])
+                ->get()
+                ->sum(fn ($t) => $t->amount - $t->paid_amount), 2);
 
             return response()->json([
                 'success' => true,
@@ -407,7 +433,8 @@ class EmployeeController extends Controller
                         'id' => $employee->id,
                         'name' => $employee->name,
                     ],
-                    'period' => [
+                    'period' => $period ?? 'custom',
+                    'date_range' => [
                         'start_date' => $startDate->format('Y-m-d'),
                         'end_date' => $endDate->format('Y-m-d'),
                     ],
@@ -420,15 +447,22 @@ class EmployeeController extends Controller
                     'performance_metrics' => [
                         'total_leads' => $totalLeads,
                         'confirmed_leads' => $confirmedLeads,
-                        'cancelled_leads' => $cancelledLeads,
+                        'cancelled_leads' => $cancelledLeadsCount,
                         'conversion_rate' => $conversionRate,
                         'cancellation_rate' => $cancellationRate,
                         'average_lead_value' => $confirmedLeads > 0 ? round($revenue / $confirmedLeads, 2) : 0,
                     ],
                     'profit_loss' => [
-                        'net_profit' => round($revenue, 2), // You can subtract expenses here if available
+                        'net_profit' => round($revenue, 2),
                         'profit_margin' => ($revenue + $lostRevenue) > 0 ? round(($revenue / ($revenue + $lostRevenue)) * 100, 2) : 0,
-                    ]
+                    ],
+                    'payables_receivables' => [
+                        'dena' => $dena,
+                        'lena' => $lena,
+                        'kitna_dena' => $dena,
+                        'kitna_lena' => $lena,
+                        'balance' => round($lena - $dena, 2),
+                    ],
                 ]
             ]);
         } catch (\Exception $e) {
@@ -608,4 +642,356 @@ class EmployeeController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Get comprehensive employee financial summary (Part 1 - Full).
+     * Profit, Loss, Dena (payables), Lena (receivables) - Weekly/Monthly/Yearly.
+     *
+     * @param Request $request
+     * @param int $employeeId
+     * @return JsonResponse
+     */
+    public function getEmployeeFinancialSummary(Request $request, $employeeId): JsonResponse
+    {
+        try {
+            $validator = Validator::make($request->all(), [
+                'period' => 'required|in:weekly,monthly,yearly',
+                'start_date' => 'nullable|date',
+                'end_date' => 'nullable|date|after_or_equal:start_date',
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Validation failed',
+                    'errors' => $validator->errors()
+                ], 422);
+            }
+
+            $period = $request->input('period');
+            $employee = User::findOrFail($employeeId);
+
+            $startDate = $request->input('start_date');
+            $endDate = $request->input('end_date');
+
+            if (!$startDate || !$endDate) {
+                switch ($period) {
+                    case 'weekly':
+                        $startDate = now()->startOfWeek();
+                        $endDate = now()->endOfWeek();
+                        break;
+                    case 'monthly':
+                        $startDate = now()->startOfMonth();
+                        $endDate = now()->endOfMonth();
+                        break;
+                    case 'yearly':
+                        $startDate = now()->startOfYear();
+                        $endDate = now()->endOfYear();
+                        break;
+                }
+            }
+
+            $startDate = Carbon::parse($startDate);
+            $endDate = Carbon::parse($endDate);
+
+            // 1. PROFIT - Dynamic: Revenue from confirmed leads (actual Payment data)
+            $revenue = Payment::whereHas('lead', function ($query) use ($employeeId, $startDate, $endDate) {
+                $query->where('assigned_to', $employeeId)
+                    ->where('status', 'confirmed')
+                    ->whereBetween('created_at', [$startDate, $endDate]);
+            })->sum('amount');
+            $profit = round((float) $revenue, 2);
+
+            // 2. LOSS - Dynamic: Actual value per cancelled lead (quotation/invoice/budget from DB)
+            $cancelledLeads = Lead::where('assigned_to', $employeeId)
+                ->where('status', 'cancelled')
+                ->whereBetween('created_at', [$startDate, $endDate])
+                ->get();
+            $loss = round($cancelledLeads->sum(fn ($lead) => $lead->getEstimatedValue()), 2);
+
+            // 3. DENA (Payables) - Company owes to employee - Kitna dena (total outstanding)
+            $dena = round((float) EmployeeFinancialTransaction::where('user_id', $employeeId)
+                ->where('type', EmployeeFinancialTransaction::TYPE_PAYABLE)
+                ->whereIn('status', [EmployeeFinancialTransaction::STATUS_PENDING, EmployeeFinancialTransaction::STATUS_PARTIAL])
+                ->get()
+                ->sum(fn ($t) => $t->amount - $t->paid_amount), 2);
+
+            // 4. LENA (Receivables) - Employee owes to company - Kitna lena (total outstanding)
+            $lena = round((float) EmployeeFinancialTransaction::where('user_id', $employeeId)
+                ->where('type', EmployeeFinancialTransaction::TYPE_RECEIVABLE)
+                ->whereIn('status', [EmployeeFinancialTransaction::STATUS_PENDING, EmployeeFinancialTransaction::STATUS_PARTIAL])
+                ->get()
+                ->sum(fn ($t) => $t->amount - $t->paid_amount), 2);
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'employee' => [
+                        'id' => $employee->id,
+                        'name' => $employee->name,
+                        'email' => $employee->email,
+                    ],
+                    'period' => $period,
+                    'date_range' => [
+                        'start_date' => $startDate->format('Y-m-d'),
+                        'end_date' => $endDate->format('Y-m-d'),
+                    ],
+                    'financial_summary' => [
+                        'profit' => $profit,
+                        'loss' => $loss,
+                        'net_profit' => round($profit - $loss, 2),
+                        'dena' => $dena,
+                        'lena' => $lena,
+                        'summary' => [
+                            'kitna_dena' => $dena,
+                            'kitna_lena' => $lena,
+                            'balance' => round($lena - $dena, 2),
+                        ],
+                    ],
+                ]
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error fetching employee financial summary',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error'
+            ], 500);
+        }
+    }
+
+    /**
+     * Add employee payable (dena) or receivable (lena).
+     *
+     * @param Request $request
+     * @param int $employeeId
+     * @return JsonResponse
+     */
+    public function storeEmployeeFinancialTransaction(Request $request, $employeeId): JsonResponse
+    {
+        try {
+            $validator = Validator::make($request->all(), [
+                'type' => 'required|in:payable,receivable',
+                'category' => 'nullable|string|max:50',
+                'amount' => 'required|numeric|min:0.01',
+                'lead_id' => 'nullable|exists:leads,id',
+                'transaction_date' => 'required|date',
+                'due_date' => 'nullable|date',
+                'description' => 'nullable|string|max:500',
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Validation failed',
+                    'errors' => $validator->errors()
+                ], 422);
+            }
+
+            $user = User::findOrFail($employeeId);
+
+            $transaction = EmployeeFinancialTransaction::create([
+                'company_id' => $request->user()->company_id,
+                'user_id' => $employeeId,
+                'type' => $request->type,
+                'category' => $request->category ?? 'other',
+                'amount' => (float) $request->amount,
+                'paid_amount' => 0,
+                'lead_id' => $request->lead_id,
+                'transaction_date' => $request->transaction_date,
+                'due_date' => $request->due_date,
+                'status' => EmployeeFinancialTransaction::STATUS_PENDING,
+                'description' => $request->description,
+                'created_by' => $request->user()->id,
+            ]);
+
+            $transaction->load(['employee:id,name,email', 'lead:id,client_name']);
+
+            return response()->json([
+                'success' => true,
+                'message' => $request->type === 'payable' ? 'Payable added successfully' : 'Receivable added successfully',
+                'data' => [
+                    'transaction' => [
+                        'id' => $transaction->id,
+                        'type' => $transaction->type,
+                        'category' => $transaction->category,
+                        'amount' => $transaction->amount,
+                        'paid_amount' => $transaction->paid_amount,
+                        'outstanding' => $transaction->outstanding_amount,
+                        'transaction_date' => $transaction->transaction_date->format('Y-m-d'),
+                        'due_date' => $transaction->due_date?->format('Y-m-d'),
+                        'status' => $transaction->status,
+                        'description' => $transaction->description,
+                        'employee' => $transaction->employee ? ['id' => $transaction->employee->id, 'name' => $transaction->employee->name] : null,
+                        'lead' => $transaction->lead ? ['id' => $transaction->lead->id, 'client_name' => $transaction->lead->client_name] : null,
+                    ],
+                ]
+            ], 201);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error adding transaction',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error'
+            ], 500);
+        }
+    }
+
+    /**
+     * Get employee financial transactions (payables & receivables) list.
+     *
+     * @param Request $request
+     * @param int $employeeId
+     * @return JsonResponse
+     */
+    public function getEmployeeFinancialTransactions(Request $request, $employeeId): JsonResponse
+    {
+        try {
+            $validator = Validator::make($request->all(), [
+                'type' => 'nullable|in:payable,receivable',
+                'status' => 'nullable|in:pending,partial,paid,settled',
+                'period' => 'nullable|in:weekly,monthly,yearly',
+                'start_date' => 'nullable|date',
+                'end_date' => 'nullable|date|after_or_equal:start_date',
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Validation failed',
+                    'errors' => $validator->errors()
+                ], 422);
+            }
+
+            $query = EmployeeFinancialTransaction::where('user_id', $employeeId)
+                ->with(['lead:id,client_name', 'creator:id,name'])
+                ->orderBy('transaction_date', 'desc')
+                ->orderBy('created_at', 'desc');
+
+            if ($request->filled('type')) {
+                $query->where('type', $request->type);
+            }
+            if ($request->filled('status')) {
+                $query->where('status', $request->status);
+            }
+
+            $startDate = $request->start_date;
+            $endDate = $request->end_date;
+            if (!$startDate && $request->filled('period')) {
+                switch ($request->period) {
+                    case 'weekly':
+                        $startDate = now()->startOfWeek();
+                        $endDate = now()->endOfWeek();
+                        break;
+                    case 'monthly':
+                        $startDate = now()->startOfMonth();
+                        $endDate = now()->endOfMonth();
+                        break;
+                    case 'yearly':
+                        $startDate = now()->startOfYear();
+                        $endDate = now()->endOfYear();
+                        break;
+                }
+            }
+            if ($startDate && $endDate) {
+                $query->whereBetween('transaction_date', [$startDate, $endDate]);
+            }
+
+            $transactions = $query->get()->map(fn ($t) => [
+                'id' => $t->id,
+                'type' => $t->type,
+                'category' => $t->category,
+                'amount' => (float) $t->amount,
+                'paid_amount' => (float) $t->paid_amount,
+                'outstanding' => (float) ($t->amount - $t->paid_amount),
+                'transaction_date' => $t->transaction_date->format('Y-m-d'),
+                'due_date' => $t->due_date?->format('Y-m-d'),
+                'status' => $t->status,
+                'description' => $t->description,
+                'lead' => $t->lead ? ['id' => $t->lead->id, 'client_name' => $t->lead->client_name] : null,
+                'created_at' => $t->created_at->toIso8601String(),
+            ]);
+
+            $employee = User::find($employeeId);
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'employee' => $employee ? ['id' => $employee->id, 'name' => $employee->name] : null,
+                    'transactions' => $transactions,
+                    'summary' => [
+                        'total_payable_outstanding' => round((float) $transactions->where('type', 'payable')->whereIn('status', ['pending', 'partial'])->sum('outstanding'), 2),
+                        'total_receivable_outstanding' => round((float) $transactions->where('type', 'receivable')->whereIn('status', ['pending', 'partial'])->sum('outstanding'), 2),
+                    ],
+                ]
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error fetching transactions',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error'
+            ], 500);
+        }
+    }
+
+    /**
+     * Record payment/settlement for an employee financial transaction.
+     *
+     * @param Request $request
+     * @param int $employeeId
+     * @param int $transactionId
+     * @return JsonResponse
+     */
+    public function recordEmployeeTransactionPayment(Request $request, $employeeId, $transactionId): JsonResponse
+    {
+        try {
+            $validator = Validator::make($request->all(), [
+                'paid_amount' => 'required|numeric|min:0.01',
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Validation failed',
+                    'errors' => $validator->errors()
+                ], 422);
+            }
+
+            $transaction = EmployeeFinancialTransaction::where('user_id', $employeeId)->findOrFail($transactionId);
+            $paidAmount = (float) $request->paid_amount;
+            $outstanding = (float) ($transaction->amount - $transaction->paid_amount);
+
+            if ($paidAmount > $outstanding) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Paid amount cannot exceed outstanding amount (' . $outstanding . ')',
+                ], 422);
+            }
+
+            $transaction->paid_amount += $paidAmount;
+            $transaction->updateStatus();
+
+            $transaction->load(['employee:id,name,email']);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Payment recorded successfully',
+                'data' => [
+                    'transaction' => [
+                        'id' => $transaction->id,
+                        'type' => $transaction->type,
+                        'amount' => $transaction->amount,
+                        'paid_amount' => $transaction->paid_amount,
+                        'outstanding' => (float) ($transaction->amount - $transaction->paid_amount),
+                        'status' => $transaction->status,
+                    ],
+                ]
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error recording payment',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error'
+            ], 500);
+        }
+    }
+
 }

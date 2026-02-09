@@ -6,12 +6,14 @@ use App\Http\Controllers\DayItineraryController;
 use App\Http\Controllers\DestinationController;
 use App\Http\Controllers\HotelController;
 use App\Http\Controllers\HotelRateController;
+use App\Http\Controllers\HotelFinancialController;
 use App\Http\Controllers\MealPlanController;
 use App\Http\Controllers\ItineraryPricingController;
 use App\Http\Controllers\PackageController;
 use App\Http\Controllers\RoomTypeController;
 use App\Http\Controllers\TransferController;
 use App\Http\Controllers\TransferPriceController;
+use App\Http\Controllers\VehicleFinancialController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -26,6 +28,11 @@ Route::middleware('auth:sanctum')->prefix('hotels')->group(function () {
     Route::post('/', [HotelController::class, 'store']);
     Route::get('/search', [HotelController::class, 'search']);
     Route::get('/{hotelId}/rooms', [HotelController::class, 'getRooms']);
+
+    // Part 4 - Hotel financial summary
+    Route::get('/{hotelId}/financial-summary', [HotelFinancialController::class, 'getHotelFinancialSummary']);
+    Route::post('/{hotelId}/lead-costs', [HotelFinancialController::class, 'storeLeadHotelCost']);
+    Route::get('/{hotelId}/lead-costs', [HotelFinancialController::class, 'getHotelLeadCosts']);
 
     // Hotel import/export routes (must come before /{id} routes)
     Route::post('/import', [HotelController::class, 'import']);
@@ -75,6 +82,11 @@ Route::middleware('auth:sanctum')->prefix('transfers')->group(function () {
     Route::post('/import', [TransferController::class, 'import']);
     Route::get('/export', [TransferController::class, 'export']);
     Route::get('/import-template', [TransferController::class, 'downloadTemplate']);
+
+    // Part 3 - Vehicle financial summary
+    Route::get('/{transferId}/financial-summary', [VehicleFinancialController::class, 'getVehicleFinancialSummary']);
+    Route::post('/{transferId}/lead-costs', [VehicleFinancialController::class, 'storeLeadVehicleCost']);
+    Route::get('/{transferId}/lead-costs', [VehicleFinancialController::class, 'getVehicleLeadCosts']);
 
     Route::get('/{id}', [TransferController::class, 'show']);
     Route::post('/{id}', [TransferController::class, 'update']);
