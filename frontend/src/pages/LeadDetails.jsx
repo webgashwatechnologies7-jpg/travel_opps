@@ -123,6 +123,19 @@ const LeadDetails = () => {
   const [whatsappAttachment, setWhatsappAttachment] = useState(null);
   const [sendingWhatsapp, setSendingWhatsapp] = useState(false);
 
+  // UI helper: when one option is confirmed, show only that option in Proposals tab
+  const visibleProposals = useMemo(() => {
+    if (!proposals || proposals.length === 0) return [];
+    const confirmed = proposals.find((p) => p.confirmed);
+    return confirmed ? proposals.filter((p) => p.confirmed) : proposals;
+  }, [proposals]);
+
+  // Whether any option is confirmed for this lead
+  const hasConfirmedProposal = useMemo(
+    () => Array.isArray(proposals) && proposals.some((p) => p.confirmed),
+    [proposals]
+  );
+
   useEffect(() => {
     fetchLeadDetails();
     fetchUsers();
@@ -3638,14 +3651,14 @@ const LeadDetails = () => {
 
                    
 
-                    {/* Proposals List – single card with all options inside */}
-                    {proposals.length === 0 ? (
+                   {/* Proposals List – single card with all options inside */}
+                    {visibleProposals.length === 0 ? (
                       <div className="text-center w-full py-12 text-gray-500 bg-gray-50 rounded-lg border border-gray-200">
                         <p className="mb-2">No proposals added yet</p>
                         <p className="text-sm">Click "Insert itinerary" to add an itinerary as a proposal</p>
                       </div>
                     ) : (() => {
-                      const first = proposals[0];
+                      const first = visibleProposals[0] || proposals[0];
                       const cardTitle = (lead?.destination || first?.itinerary_name || 'Proposals').toString().trim() || 'Proposals';
                       const cardImage = getDisplayImageUrl(first?.image) || first?.image || null;
                       const cardDestination = first?.destination || lead?.destination || '';
@@ -3694,7 +3707,7 @@ const LeadDetails = () => {
 
                               {/* Package options – professional card layout */}
                               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
-                                {proposals.map((opt) => {
+                                {visibleProposals.map((opt) => {
                                   const displayPrice = opt.price ?? opt.pricing?.finalClientPrice ?? 0;
                                   return (
                                     <div
@@ -3786,19 +3799,21 @@ const LeadDetails = () => {
                                 })}
                               </div>
 
-                              {/* Delete all proposals for this lead */}
-                              <div className="flex justify-end">
-                                <button
-                                  onClick={() => {
-                                    if (window.confirm('Remove all proposals from this lead?')) {
-                                      saveProposals([]);
-                                    }
-                                  }}
-                                  className="text-red-600 hover:text-red-700 text-sm font-medium"
-                                >
-                                  Remove all proposals
-                                </button>
-                              </div>
+                              {/* Delete all proposals for this lead (only when nothing is confirmed) */}
+                              {!hasConfirmedProposal && (
+                                <div className="flex justify-end">
+                                  <button
+                                    onClick={() => {
+                                      if (window.confirm('Remove all proposals from this lead?')) {
+                                        saveProposals([]);
+                                      }
+                                    }}
+                                    className="text-red-600 hover:text-red-700 text-sm font-medium"
+                                  >
+                                    Remove all proposals
+                                  </button>
+                                </div>
+                              )}
                             </div>
                           </div>
                         </div>
