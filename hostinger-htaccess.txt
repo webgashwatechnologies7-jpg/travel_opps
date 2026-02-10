@@ -1,7 +1,0 @@
-RewriteEngine On
-RewriteCond %{REQUEST_FILENAME} !-f
-RewriteCond %{REQUEST_FILENAME} !-d
-RewriteRule ^(.*)$ index.html [QSA,L]
-
-# API routes to backend (if backend is in subdirectory)
-RewriteRule ^api/(.*)$ backend/index.php [QSA,L]

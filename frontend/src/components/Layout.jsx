@@ -16,9 +16,6 @@ import {
   Shield,
   ChevronDown,
   ChevronRight,
-  Search,
-  Filter,
-  List,
   Grid,
   Bell,
   Settings,
@@ -242,43 +239,7 @@ const Layout = ({ children, Header,padding=0 }) => {
   ${isSidebarOpen ? 'lg:left-64' : 'lg:left-20'}`}
   style={{ backgroundColor: settings?.header_background_color || '#D8DEF5' }}
 >
-  <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 h-full">
-
-    {/* LEFT SECTION */}
-    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 flex-1">
-
-      {/* Search */}
-      <div className="relative flex-1 max-w-full sm:max-w-md">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600 h-4 w-4" />
-        <input
-          type="text"
-          placeholder="Q Search"
-          className="w-full pl-10 pr-4 py-2 bg-white border border-gray-400 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-        />
-      </div>
-
-      {/* Controls (scrollable on mobile) */}
-      <div className="flex items-center gap-2 overflow-x-auto sm:overflow-visible">
-        <button className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-400 rounded-lg text-sm hover:bg-gray-100 text-gray-700 whitespace-nowrap">
-          <Filter className="h-4 w-4" />
-          <span className="hidden sm:inline">Filter</span>
-        </button>
-
-        <button className="flex items-center gap-1 px-3 py-2 bg-white border border-gray-400 rounded-lg text-sm hover:bg-gray-100 text-gray-700 whitespace-nowrap">
-          Select
-          <ChevronDownIcon className="h-4 w-4" />
-        </button>
-
-        <div className="flex items-center bg-white border border-gray-400 rounded-lg p-1">
-          <button className="p-1.5 hover:bg-gray-100 rounded">
-            <List className="h-4 w-4 text-gray-700" />
-          </button>
-          <button className="p-1.5 hover:bg-gray-100 rounded">
-            <Grid className="h-4 w-4 text-gray-700" />
-          </button>
-        </div>
-      </div>
-    </div>
+  <div className="flex flex-col lg:flex-row lg:items-center lg:justify-end gap-3 h-full">
 
     {/* RIGHT SECTION */}
     <div className="flex flex-wrap items-center justify-between sm:justify-end gap-2">
