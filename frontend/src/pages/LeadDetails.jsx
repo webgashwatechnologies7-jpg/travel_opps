@@ -136,6 +136,24 @@ const LeadDetails = () => {
     [proposals]
   );
 
+  // Option numbers to show inside Quotation modal (after confirmation, only confirmed option)
+  const quotationOptionNumbers = useMemo(() => {
+    if (!quotationData?.hotelOptions) return [];
+    const all = Object.keys(quotationData.hotelOptions).sort(
+      (a, b) => parseInt(a, 10) - parseInt(b, 10)
+    );
+    if (!hasConfirmedProposal) return all;
+    const confirmed = getConfirmedOption();
+    const confirmedNum =
+      confirmed && confirmed.optionNumber != null
+        ? confirmed.optionNumber.toString()
+        : null;
+    if (confirmedNum && all.includes(confirmedNum)) {
+      return [confirmedNum];
+    }
+    return all;
+  }, [quotationData, hasConfirmedProposal, proposals]);
+
   useEffect(() => {
     fetchLeadDetails();
     fetchUsers();
@@ -187,6 +205,17 @@ const LeadDetails = () => {
 
     return () => clearInterval(interval);
   }, [activeTab, id]);
+
+  // When quotation modal is open, lock body scroll so only modal scrolls
+  useEffect(() => {
+    if (showQuotationModal) {
+      const original = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+      return () => {
+        document.body.style.overflow = original;
+      };
+    }
+  }, [showQuotationModal]);
 
   useEffect(() => {
     if ((activeTab === 'history' || activeTab === 'invoice') && id) {
@@ -1917,6 +1946,21 @@ const LeadDetails = () => {
         };
       }
 
+      // If there is a confirmed option, restrict selection to that option only
+      let optionNumbers = Object.keys(hotelOptions).sort(
+        (a, b) => parseInt(a, 10) - parseInt(b, 10)
+      );
+      if (hasConfirmedProposal) {
+        const confirmed = getConfirmedOption();
+        const confirmedNum =
+          confirmed && confirmed.optionNumber != null
+            ? confirmed.optionNumber.toString()
+            : null;
+        if (confirmedNum && optionNumbers.includes(confirmedNum)) {
+          optionNumbers = [confirmedNum];
+        }
+      }
+
       const builtQuotation = {
         itinerary: {
           ...itinerary,
@@ -1928,8 +1972,10 @@ const LeadDetails = () => {
       setQuotationData(builtQuotation);
 
       // Set first option as selected if available
-      const optionNumbers = Object.keys(hotelOptions).sort((a, b) => parseInt(a) - parseInt(b));
-      const selOpt = optionNumbers.length > 0 ? optionNumbers[0] : (proposal.optionNumber?.toString() || null);
+      const selOpt =
+        optionNumbers.length > 0
+          ? optionNumbers[0]
+          : proposal.optionNumber?.toString() || null;
       if (selOpt) setSelectedOption(selOpt);
 
       if (openModal) setShowQuotationModal(true);
@@ -5576,8 +5622,8 @@ const LeadDetails = () => {
 
       {/* Quotation Modal */}
       {showQuotationModal && selectedProposal && quotationData && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 overflow-y-auto py-8">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl mx-4 my-auto">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl mx-4 max-h-[90vh] overflow-hidden flex flex-col">
             {/* Modal Header */}
             <div className="flex justify-between items-center p-6 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-white">
               <h2 className="text-2xl font-bold text-gray-800">View Quotation</h2>
@@ -5653,7 +5699,7 @@ const LeadDetails = () => {
             </div>
 
             {/* Modal Body */}
-            <div className="p-6 max-h-[80vh] overflow-y-auto">
+            <div className="p-6 overflow-y-auto flex-1">
               {loadingQuotation ? (
                 <div className="flex items-center justify-center py-12">
                   <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
@@ -5661,13 +5707,13 @@ const LeadDetails = () => {
               ) : (
                 <>
                   {/* Option Selector */}
-                  {quotationData.hotelOptions && Object.keys(quotationData.hotelOptions).length > 0 && (
+                  {quotationData.hotelOptions && quotationOptionNumbers.length > 0 && (
                     <div className="mb-6">
                       <label className="block text-sm font-medium text-gray-700 mb-2">
                         Select Option:
                       </label>
                       <div className="flex gap-2 flex-wrap">
-                        {Object.keys(quotationData.hotelOptions).map(optionNum => (
+                        {quotationOptionNumbers.map((optionNum) => (
                           <button
                             key={optionNum}
                             onClick={() => setSelectedOption(optionNum)}
