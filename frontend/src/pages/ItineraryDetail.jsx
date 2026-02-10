@@ -3044,15 +3044,55 @@ itinerary.image = itinerary.image.replace('localhost', 'localhost:8000');
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Description
+                        Transfer Details
                       </label>
                       <textarea
                         value={dayDetailsForm.details}
                         onChange={(e) => setDayDetailsForm({ ...dayDetailsForm, details: e.target.value })}
                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-                        placeholder="Enter description"
+                        placeholder="Enter transfer details"
                         rows="4"
                       />
+                    </div>
+
+                    {/* Transfer Photo - same behaviour as Masters → Transfer (image) */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Transfer Photo
+                      </label>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => {
+                          const file = e.target.files[0];
+                          if (file) {
+                            setDayDetailsForm({ ...dayDetailsForm, image: file });
+                            const reader = new FileReader();
+                            reader.onloadend = () => setEventImagePreview(reader.result);
+                            reader.readAsDataURL(file);
+                          }
+                        }}
+                        className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                      />
+                      {eventImagePreview && (
+                        <div className="mt-3 relative inline-block">
+                          <img
+                            src={eventImagePreview}
+                            alt="Transfer Preview"
+                            className="w-full h-48 object-cover rounded-lg border border-gray-300"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setDayDetailsForm({ ...dayDetailsForm, image: null });
+                              setEventImagePreview(null);
+                            }}
+                            className="absolute top-2 right-2 bg-red-600 text-white p-2 rounded-full hover:bg-red-700"
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </>
                 ) : dayDetailsForm.eventType === 'transportation' ? (
