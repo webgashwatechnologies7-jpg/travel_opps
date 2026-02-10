@@ -3706,22 +3706,6 @@ const LeadDetails = () => {
                                 </p>
                               </div>
                             </div>
-                            <div className="flex flex-wrap gap-2 sm:gap-3 flex-shrink-0">
-                              <button
-                                onClick={handleSendConfirmedOptionEmail}
-                                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2 text-sm font-semibold"
-                              >
-                                <Mail className="h-4 w-4" />
-                                Share Email
-                              </button>
-                              <button
-                                onClick={handleSendConfirmedOptionWhatsApp}
-                                className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center gap-2 text-sm font-semibold"
-                              >
-                                <MessageCircle className="h-4 w-4" />
-                                Share WhatsApp
-                              </button>
-                            </div>
                           </div>
                         </div>
                       );
