@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
+import { useSettings } from '../contexts/SettingsContext';
 import { Search, Plus, Edit, X, Image as ImageIcon, Trash2, Camera, Upload } from 'lucide-react';
 import { dayItinerariesAPI, packagesAPI } from '../services/api';
 import { searchPexelsPhotos } from '../services/pexels';
 
 const DayItinerary = () => {
+  const { settings } = useSettings();
   const [dayItineraries, setDayItineraries] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -323,7 +325,7 @@ const DayItinerary = () => {
 
   return (
     <Layout>
-      <div className="p-6" style={{ backgroundColor: '#D8DEF5', minHeight: '100vh' }}>
+      <div className="p-6" style={{ backgroundColor: settings?.dashboard_background_color || '#D8DEF5', minHeight: '100vh' }}>
         {/* Header */}
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-3xl font-bold text-gray-800">Day Itinerary</h1>

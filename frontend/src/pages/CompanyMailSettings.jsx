@@ -216,7 +216,7 @@ const CompanyMailSettings = () => {
 
   return (
     <Layout>
-      <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
+      <div className="min-h-screen py-8 px-4 sm:px-6 lg:px-8">
         <div className="max-w-4xl mx-auto">
           <div className="bg-white rounded-lg shadow p-6">
             <div className="flex items-center gap-2 mb-6">

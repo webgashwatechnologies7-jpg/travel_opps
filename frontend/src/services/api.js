@@ -391,6 +391,10 @@ export const suppliersAPI = {
   update: (id, data) => api.put(`/suppliers/${id}`, data),
   delete: (id) => api.delete(`/suppliers/${id}`),
   sendEmail: (data) => api.post('/suppliers/send-email', data),
+  financialSummary: (supplierId, period = 'yearly', extraParams = {}) =>
+    api.get(`/suppliers/${supplierId}/financial-summary`, {
+      params: { period, ...extraParams },
+    }),
 };
 
 // Hotels APIs

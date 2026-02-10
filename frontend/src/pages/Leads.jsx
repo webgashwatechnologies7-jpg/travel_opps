@@ -559,7 +559,7 @@ const Leads = () => {
 
   return (
     <Layout Header={FinalHeader}>
-      <div className="p-6 mt-2 rounded-md" style={{ backgroundColor: '#fff', minHeight: 'fit-content' }}>
+      <div className="p-6 mt-2 rounded-md" style={{ minHeight: 'fit-content' }}>
         {/* Header Section */}
 
 

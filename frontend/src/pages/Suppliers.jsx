@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
-import { Search, Plus, Edit, X, Trash2 } from 'lucide-react';
+import { Search, Plus, Edit, X, Trash2, Eye, RefreshCw } from 'lucide-react';
 import { suppliersAPI } from '../services/api';
 
 const Suppliers = () => {
@@ -22,6 +22,14 @@ const Suppliers = () => {
     address: ''
   });
   const [saving, setSaving] = useState(false);
+
+  // Supplier details + financial summary modal
+  const [selectedSupplier, setSelectedSupplier] = useState(null);
+  const [detailsPeriod, setDetailsPeriod] = useState('yearly'); // 'weekly' | 'monthly' | 'yearly'
+  const [financialSummary, setFinancialSummary] = useState(null);
+  const [detailsLoading, setDetailsLoading] = useState(false);
+  const [detailsError, setDetailsError] = useState('');
+  const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
 
   useEffect(() => {
     fetchSuppliers();
@@ -192,6 +200,32 @@ const Suppliers = () => {
     return `${title} ${firstName} ${lastName}`.trim() || 'N/A';
   };
 
+  const handleOpenDetails = async (supplier, period = 'yearly') => {
+    setSelectedSupplier(supplier);
+    setDetailsPeriod(period);
+    setIsDetailsModalOpen(true);
+    await loadFinancialSummary(supplier.id, period);
+  };
+
+  const loadFinancialSummary = async (supplierId, period = detailsPeriod) => {
+    try {
+      setDetailsLoading(true);
+      setDetailsError('');
+      const res = await suppliersAPI.financialSummary(supplierId, period);
+      setFinancialSummary(res.data?.data?.financial_summary || null);
+    } catch (err) {
+      console.error('Failed to load supplier financial summary', err);
+      const msg =
+        err.response?.data?.message ||
+        err.response?.data?.error ||
+        'Failed to load supplier financial summary';
+      setDetailsError(msg);
+      setFinancialSummary(null);
+    } finally {
+      setDetailsLoading(false);
+    }
+  };
+
   // Format mobile for display
   const formatMobile = (supplier) => {
     if (supplier.mobile === 'Not Provided' || !supplier.mobile) return 'Not Provided';
@@ -298,7 +332,11 @@ const Suppliers = () => {
                   </tr>
                 ) : (
                   filteredSuppliers.map((supplier) => (
-                    <tr key={supplier.id} className="hover:bg-gray-50">
+                  <tr
+                    key={supplier.id}
+                    className="hover:bg-gray-50 cursor-pointer"
+                    onClick={() => handleOpenDetails(supplier, 'yearly')}
+                  >
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm font-medium text-gray-900">
                           {supplier.company || supplier.company_name || 'N/A'}
@@ -321,7 +359,17 @@ const Suppliers = () => {
                           {formatDate(supplier.updated_at || supplier.last_update)}
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                      <td
+                        className="px-6 py-4 whitespace-nowrap text-sm font-medium"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <button
+                          onClick={() => handleOpenDetails(supplier, 'yearly')}
+                          className="text-blue-600 hover:text-blue-900 p-2 hover:bg-blue-50 rounded mr-1"
+                          title="View details & financial summary"
+                        >
+                          <Eye className="h-5 w-5" />
+                        </button>
                         <button
                           onClick={() => handleEdit(supplier)}
                           className="text-green-600 hover:text-green-900 p-2 hover:bg-green-50 rounded"
@@ -345,7 +393,7 @@ const Suppliers = () => {
           </div>
         </div>
 
-        {/* Add Supplier Modal */}
+        {/* Add / Edit Supplier Modal */}
         {isModalOpen && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
             <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl mx-4">
@@ -514,6 +562,232 @@ const Suppliers = () => {
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        )}
+
+        {/* Supplier Details & Financial Summary Modal */}
+        {isDetailsModalOpen && selectedSupplier && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-xl shadow-2xl w-full max-w-3xl mx-4 max-h-[90vh] overflow-hidden flex flex-col">
+              {/* Header */}
+              <div className="flex justify-between items-center p-6 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-white">
+                <div>
+                  <h2 className="text-xl font-bold text-gray-800">
+                    {formatSupplierName(selectedSupplier)}
+                  </h2>
+                  <p className="text-sm text-gray-500">
+                    {selectedSupplier.company || selectedSupplier.company_name || 'Supplier'} &bull;{' '}
+                    {formatLocation(selectedSupplier)}
+                  </p>
+                </div>
+                <button
+                  onClick={() => {
+                    setIsDetailsModalOpen(false);
+                    setSelectedSupplier(null);
+                    setFinancialSummary(null);
+                    setDetailsError('');
+                  }}
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  <X className="h-6 w-6" />
+                </button>
+              </div>
+
+              {/* Body */}
+              <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                {/* Basic Info */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                    <h3 className="text-sm font-semibold text-gray-700 mb-2">Contact</h3>
+                    <p className="text-sm text-gray-800">
+                      <span className="font-medium">Name:</span>{' '}
+                      {formatSupplierName(selectedSupplier)}
+                    </p>
+                    <p className="text-sm text-gray-800 mt-1">
+                      <span className="font-medium">Email:</span>{' '}
+                      {selectedSupplier.email || 'N/A'}
+                    </p>
+                    <p className="text-sm text-gray-800 mt-1">
+                      <span className="font-medium">Mobile:</span>{' '}
+                      {formatMobile(selectedSupplier)}
+                    </p>
+                  </div>
+                  <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                    <h3 className="text-sm font-semibold text-gray-700 mb-2">Company</h3>
+                    <p className="text-sm text-gray-800">
+                      <span className="font-medium">Company:</span>{' '}
+                      {selectedSupplier.company || selectedSupplier.company_name || 'N/A'}
+                    </p>
+                    <p className="text-sm text-gray-800 mt-1">
+                      <span className="font-medium">Location:</span>{' '}
+                      {formatLocation(selectedSupplier)}
+                    </p>
+                    <p className="text-sm text-gray-800 mt-1">
+                      <span className="font-medium">Address:</span>{' '}
+                      {selectedSupplier.address || 'N/A'}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Financial Summary */}
+                <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
+                  <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
+                    <div>
+                      <h3 className="text-sm font-semibold text-gray-800">
+                        Financial Summary
+                      </h3>
+                      <p className="text-xs text-gray-500">
+                        Kitna business hua, kitna dena / lena hai
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {/* Period toggle */}
+                      <div className="inline-flex rounded-lg border border-gray-200 bg-gray-50 text-xs font-medium overflow-hidden">
+                        {[
+                          { key: 'weekly', label: 'Week' },
+                          { key: 'monthly', label: 'Month' },
+                          { key: 'yearly', label: 'Year' },
+                        ].map((item) => (
+                          <button
+                            key={item.key}
+                            type="button"
+                            onClick={() => {
+                              setDetailsPeriod(item.key);
+                              loadFinancialSummary(selectedSupplier.id, item.key);
+                            }}
+                            className={`px-3 py-1.5 border-l first:border-l-0 ${
+                              detailsPeriod === item.key
+                                ? 'bg-blue-600 text-white'
+                                : 'bg-transparent text-gray-700 hover:bg-gray-100'
+                            }`}
+                          >
+                            {item.label}
+                          </button>
+                        ))}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => loadFinancialSummary(selectedSupplier.id, detailsPeriod)}
+                        className="p-2 rounded-lg text-gray-500 hover:text-gray-700 hover:bg-gray-100"
+                        title="Refresh summary"
+                      >
+                        <RefreshCw className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="p-4">
+                    {detailsLoading && (
+                      <div className="flex items-center justify-center py-8">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
+                      </div>
+                    )}
+
+                    {!detailsLoading && detailsError && (
+                      <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded text-sm">
+                        {detailsError}
+                      </div>
+                    )}
+
+                    {!detailsLoading && !detailsError && financialSummary && (
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="bg-blue-50 border border-blue-100 rounded-lg p-4">
+                          <p className="text-xs font-semibold text-blue-700 uppercase tracking-wide">
+                            Total Business
+                          </p>
+                          <p className="mt-2 text-xl font-bold text-blue-900">
+                            ₹ {financialSummary.revenue.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                          </p>
+                          <p className="mt-1 text-xs text-blue-700">
+                            Revenue from confirmed leads
+                          </p>
+                        </div>
+                        <div className="bg-amber-50 border border-amber-100 rounded-lg p-4">
+                          <p className="text-xs font-semibold text-amber-700 uppercase tracking-wide">
+                            Cost to Supplier
+                          </p>
+                          <p className="mt-2 text-xl font-bold text-amber-900">
+                            ₹ {financialSummary.cost.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                          </p>
+                          <p className="mt-1 text-xs text-amber-700">
+                            Total supplier cost in this period
+                          </p>
+                        </div>
+                        <div className="bg-emerald-50 border border-emerald-100 rounded-lg p-4">
+                          <p className="text-xs font-semibold text-emerald-700 uppercase tracking-wide">
+                            Profit (Before Loss)
+                          </p>
+                          <p className="mt-2 text-xl font-bold text-emerald-900">
+                            ₹ {financialSummary.profit.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                          </p>
+                          <p className="mt-1 text-xs text-emerald-700">
+                            Revenue - Cost
+                          </p>
+                        </div>
+
+                        <div className="bg-red-50 border border-red-100 rounded-lg p-4">
+                          <p className="text-xs font-semibold text-red-700 uppercase tracking-wide">
+                            Loss (Cancelled)
+                          </p>
+                          <p className="mt-2 text-xl font-bold text-red-900">
+                            ₹ {financialSummary.loss.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                          </p>
+                          <p className="mt-1 text-xs text-red-700">
+                            Estimated loss from cancelled leads
+                          </p>
+                        </div>
+                        <div className="bg-sky-50 border border-sky-100 rounded-lg p-4">
+                          <p className="text-xs font-semibold text-sky-700 uppercase tracking-wide">
+                            Net Profit
+                          </p>
+                          <p className="mt-2 text-xl font-bold text-sky-900">
+                            ₹ {financialSummary.net_profit.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                          </p>
+                          <p className="mt-1 text-xs text-sky-700">
+                            Profit - Loss
+                          </p>
+                        </div>
+
+                        <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 md:col-span-3">
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                            <div>
+                              <p className="text-xs font-semibold text-orange-700 uppercase tracking-wide">
+                                Kitna Dena (Payables)
+                              </p>
+                              <p className="mt-1 text-lg font-bold text-orange-900">
+                                ₹ {financialSummary.dena.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-xs font-semibold text-emerald-700 uppercase tracking-wide">
+                                Kitna Lena (Receivables)
+                              </p>
+                              <p className="mt-1 text-lg font-bold text-emerald-900">
+                                ₹ {financialSummary.lena.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-xs font-semibold text-indigo-700 uppercase tracking-wide">
+                                Balance (Lena - Dena)
+                              </p>
+                              <p className="mt-1 text-lg font-bold text-indigo-900">
+                                ₹ {financialSummary.summary.balance.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {!detailsLoading && !detailsError && !financialSummary && (
+                      <p className="text-sm text-gray-500">
+                        No financial data available yet for this supplier.
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         )}

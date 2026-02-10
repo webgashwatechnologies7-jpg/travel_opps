@@ -101,6 +101,19 @@ class SupplierFinancialController extends Controller
                 ->get()
                 ->sum(fn ($t) => $t->amount - $t->paid_amount), 2);
 
+            // 7. COUNTS - How many times we worked with this supplier
+            $totalLeads = Lead::whereIn('id', $leadIds)->count();
+            $confirmedLeads = Lead::whereIn('id', $leadIds)->where('status', 'confirmed')->count();
+            $cancelledLeadsCount = $cancelledLeads->count();
+
+            $payableTransactionsCount = SupplierFinancialTransaction::where('supplier_id', $supplierId)
+                ->where('type', SupplierFinancialTransaction::TYPE_PAYABLE)
+                ->count();
+
+            $receivableTransactionsCount = SupplierFinancialTransaction::where('supplier_id', $supplierId)
+                ->where('type', SupplierFinancialTransaction::TYPE_RECEIVABLE)
+                ->count();
+
             return response()->json([
                 'success' => true,
                 'data' => [
@@ -109,6 +122,7 @@ class SupplierFinancialController extends Controller
                         'name' => $supplier->name,
                         'company_name' => $supplier->company_name,
                         'email' => $supplier->email,
+                        'created_at' => $supplier->created_at?->format('Y-m-d'),
                     ],
                     'period' => $period,
                     'date_range' => [
@@ -127,6 +141,13 @@ class SupplierFinancialController extends Controller
                             'kitna_dena' => $dena,
                             'kitna_lena' => $lena,
                             'balance' => round($lena - $dena, 2),
+                        ],
+                        'counts' => [
+                            'leads_total' => $totalLeads,
+                            'leads_confirmed' => $confirmedLeads,
+                            'leads_cancelled' => $cancelledLeadsCount,
+                            'transactions_payable' => $payableTransactionsCount,
+                            'transactions_receivable' => $receivableTransactionsCount,
                         ],
                     ],
                 ]

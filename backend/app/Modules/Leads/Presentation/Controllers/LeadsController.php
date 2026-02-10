@@ -37,6 +37,7 @@ class LeadsController extends Controller
     {
         try {
             $filters = [
+                'company_id' => function_exists('tenant') ? tenant('id') : $request->user()?->company_id,
                 'status' => $request->get('status'),
                 'assigned_to' => $request->get('assigned_to'),
                 'source' => $request->get('source'),

@@ -234,10 +234,10 @@ const Layout = ({ children, Header,padding=0 }) => {
   className={`header-bar fixed top-0 z-10 right-0 left-0
   px-3 sm:px-4 lg:px-6
   py-2 lg:py-3
-  h-auto lg:h-16
+  min-h-14 lg:min-h-16 lg:h-16
   transition-all duration-300
   ${isSidebarOpen ? 'lg:left-64' : 'lg:left-20'}`}
-  style={{ backgroundColor: settings?.header_background_color || '#D8DEF5' }}
+  style={{ backgroundColor: settings?.dashboard_background_color || '#D8DEF5' }}
 >
   <div className="flex flex-col lg:flex-row lg:items-center lg:justify-end gap-3 h-full">
 
@@ -308,8 +308,9 @@ const Layout = ({ children, Header,padding=0 }) => {
       )
     }
   }
+  const bgColor = settings?.dashboard_background_color || '#D8DEF5';
   return (
-    <div className="min-h-screen bg-gray-100 relative">
+    <div className="min-h-screen relative" style={{ backgroundColor: bgColor }}>
       {/* Sidebar Wrapper - Toggleable Desktop */}
       <div
         className={`sidebar-wrapper fixed inset-y-0 left-0 z-10 transition-all duration-300 hidden lg:block ${isSidebarOpen ? 'w-64' : 'w-20'}`}
@@ -360,7 +361,7 @@ const Layout = ({ children, Header,padding=0 }) => {
             </div>
 
             {/* Navigation */}
-            <nav className="flex-1 p-2 space-y-1 overflow-y-auto overflow-x-hidden">
+            <nav className="flex-1 p-2 space-y-1 overflow-y-auto overflow-x-hidden custom-scroll">
               {menuItems.filter(item => !item.adminOnly || isAdmin).map((item) => {
                 if (item.submenu) {
                   const Icon = MENU_ICON_MAP[item.icon] || FileText;
@@ -537,18 +538,19 @@ const Layout = ({ children, Header,padding=0 }) => {
         })}
       </div>
 
-      {/* Main Content */}
+      {/* Main Content - same background for full area */}
       <div
-        className={`main-content transition-all duration-300 ${isSidebarOpen ? 'lg:ml-64' : 'lg:ml-20'} ml-0 pb-20 lg:pb-0`}
+        className={`main-content transition-all duration-300 ${isSidebarOpen ? 'lg:ml-64' : 'lg:ml-20'} ml-0 pb-20 lg:pb-0 min-h-screen`}
+        style={{ backgroundColor: bgColor }}
       >
-        {/* Header Bar - Dynamic Background */}
-        <div style={{padding:`${padding}px ${padding}px 0px ${padding}px`,backgroundColor: padding > 0 && settings?.dashboard_background_color}}>
+        {/* Header Bar - same background */}
+        <div style={{ padding: `${padding}px ${padding}px 0px ${padding}px`, backgroundColor: bgColor }}>
           {Header && <Header />}
         </div>
 
         {/* Content Area */}
-        <div className="pt-16" style={{ backgroundColor: settings?.dashboard_background_color || '#D8DEF5' }}>
-          <div className="p-4 pb-0 md:p-6 md:pb-0 lg:p-8 lg:pb-0">
+        <div className="pt-14 lg:pt-16 custom-scroll" style={{ backgroundColor: bgColor }}>
+          <div className="p-4 pb-6 md:p-6 md:pb-8 lg:p-8 lg:pb-8">
             {children}
           </div>
         </div>

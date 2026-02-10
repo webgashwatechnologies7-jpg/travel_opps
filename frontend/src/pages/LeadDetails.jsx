@@ -5,6 +5,7 @@ import { leadsAPI, usersAPI, followupsAPI, dayItinerariesAPI, packagesAPI, setti
 import { searchPexelsPhotos } from '../services/pexels';
 import { getDisplayImageUrl, rewriteHtmlImageUrls, sanitizeEmailHtmlForDisplay } from '../utils/imageUrl';
 import Layout from '../components/Layout';
+import { useSettings } from '../contexts/SettingsContext';
 import { ArrowLeft, Calendar, Mail, Plus, Upload, X, Search, FileText, Printer, Send, MessageCircle, CheckCircle, CheckCircle2, Clock, Briefcase, MapPin, CalendarDays, Users, UserCheck, Leaf, Smartphone, Phone, MoreVertical, Download, Pencil, Trash2, Camera, RefreshCw, Reply, ChevronDown, Paperclip } from 'lucide-react';
 import DetailRow from '../components/Quiries/DetailRow';
 import html2pdf from 'html2pdf.js';
@@ -13,6 +14,7 @@ const LeadDetails = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
+  const { settings } = useSettings();
   const [lead, setLead] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState(() => {
@@ -3249,7 +3251,7 @@ const LeadDetails = () => {
 
   return (
     <Layout Header={() => null} padding={20}>
-      <div className="p-6 " style={{ backgroundColor: '#D8DEF5', minHeight: '100vh' }}>
+      <div className="p-6 " style={{ backgroundColor: settings?.dashboard_background_color || '#D8DEF5', minHeight: '100vh' }}>
         {/* Header */}
         <div className="mb-2 rounded-lg   bg-white p-4 ">
           <div className="flex items-center  justify-between mb-4">

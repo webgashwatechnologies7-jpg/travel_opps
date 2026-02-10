@@ -2,12 +2,13 @@
 
 namespace App\Models;
 
+use App\Traits\HasCompany;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class Destination extends Model
 {
-    use HasFactory;
+    use HasFactory, HasCompany;
 
     /**
      * The attributes that are mass assignable.
@@ -15,6 +16,7 @@ class Destination extends Model
      * @var array<int, string>
      */
     protected $fillable = [
+        'company_id',
         'name',
     ];
 

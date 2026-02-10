@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
+import { useSettings } from '../contexts/SettingsContext';
 import {
   usersAPI,
   leadsAPI,
@@ -19,6 +20,7 @@ import {
 
 const ManagementDashboard = () => {
   const navigate = useNavigate();
+  const { settings } = useSettings();
   const [loading, setLoading] = useState(true);
   const [employees, setEmployees] = useState([]);
   const [leadsByUser, setLeadsByUser] = useState({});
@@ -214,7 +216,7 @@ const ManagementDashboard = () => {
 
   return (
     <Layout>
-      <div className="p-6 md:p-8 lg:p-10" style={{ backgroundColor: '#f0f4ff', minHeight: '100vh' }}>
+      <div className="p-6 md:p-8 lg:p-10" style={{ backgroundColor: settings?.dashboard_background_color || '#D8DEF5', minHeight: '100vh' }}>
         <div className="max-w-7xl mx-auto space-y-8">
           {/* Header */}
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">

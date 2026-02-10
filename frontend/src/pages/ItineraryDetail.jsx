@@ -1240,7 +1240,7 @@ itinerary.image = itinerary.image.replace('localhost', 'localhost:8000');
   return (
     <>
     <Layout>
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen">
         {/* Header with Back Button */}
         <div className="bg-white border-b border-gray-200 px-6 py-4">
           <button
@@ -1423,6 +1423,17 @@ itinerary.image = itinerary.image.replace('localhost', 'localhost:8000');
                           {showEventTypeDropdown && (
                             <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
                               <div className="py-2">
+                                <button
+                                  onClick={() => {
+                                    setDayDetailsForm({ ...dayDetailsForm, eventType: 'day-itinerary' });
+                                    setShowEventTypeDropdown(false);
+                                    setShowDayDetailsModal(true);
+                                  }}
+                                  className="w-full px-4 py-2 text-left hover:bg-gray-50 flex items-center gap-3 text-sm text-gray-700"
+                                >
+                                  <FileText className="h-4 w-4 text-gray-500" />
+                                  <span>Day Itinerary</span>
+                                </button>
                                 <button
                                   onClick={() => {
                                     setDayDetailsForm({ ...dayDetailsForm, eventType: 'accommodation' });
@@ -2259,13 +2270,15 @@ itinerary.image = itinerary.image.replace('localhost', 'localhost:8000');
                   <h2 className="text-xl font-bold text-gray-800">
                     {dayDetailsForm.eventType === 'visa' 
                       ? `Insurance / Visa in day ${selectedDay}`
+                      : dayDetailsForm.eventType === 'day-itinerary'
+                        ? `Day Itinerary in day ${selectedDay}`
                       : dayDetailsForm.eventType 
-                        ? `${dayDetailsForm.eventType.charAt(0).toUpperCase() + dayDetailsForm.eventType.slice(1)} in day ${selectedDay}`
+                        ? `${dayDetailsForm.eventType.charAt(0).toUpperCase() + dayDetailsForm.eventType.slice(1).replace('-', ' ')} in day ${selectedDay}`
                         : `Day ${selectedDay} Details`}
                   </h2>
                   {dayDetailsForm.eventType && (
-                    <p className="text-sm text-gray-500 mt-1 capitalize">
-                      Event Type: {dayDetailsForm.eventType}
+                    <p className="text-sm text-gray-500 mt-1">
+                      Event Type: {dayDetailsForm.eventType === 'day-itinerary' ? 'Day Itinerary' : dayDetailsForm.eventType.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
                     </p>
                   )}
                 </div>
@@ -2313,9 +2326,73 @@ itinerary.image = itinerary.image.replace('localhost', 'localhost:8000');
                 </button>
               </div>
 
-              {/* Modal Body */}
+              {/* Modal Body - Same fields as Master forms (Day Itinerary, Activity, etc.) */}
               <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
-                {dayDetailsForm.eventType === 'accommodation' ? (
+                {dayDetailsForm.eventType === 'day-itinerary' ? (
+                  <>
+                    {/* Day Itinerary form - same fields as Masters → Day Itinerary */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Destination</label>
+                      <input
+                        type="text"
+                        value={dayDetailsForm.destination || ''}
+                        onChange={(e) => setDayDetailsForm({ ...dayDetailsForm, destination: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="Enter destination"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
+                      <input
+                        type="text"
+                        value={dayDetailsForm.subject || dayDetailsForm.name || ''}
+                        onChange={(e) => setDayDetailsForm({ ...dayDetailsForm, subject: e.target.value, name: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="Enter title"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Details</label>
+                      <textarea
+                        value={dayDetailsForm.details || ''}
+                        onChange={(e) => setDayDetailsForm({ ...dayDetailsForm, details: e.target.value })}
+                        rows={6}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="Enter details"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Image</label>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => {
+                          const file = e.target.files[0];
+                          if (file) {
+                            setDayDetailsForm({ ...dayDetailsForm, image: file });
+                            const reader = new FileReader();
+                            reader.onloadend = () => setEventImagePreview(reader.result);
+                            reader.readAsDataURL(file);
+                          }
+                        }}
+                        className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                      />
+                      {eventImagePreview && (
+                        <div className="mt-3 relative inline-block">
+                          <img src={eventImagePreview} alt="Preview" className="w-full h-48 object-cover rounded-lg border border-gray-300" />
+                          <button
+                            type="button"
+                            onClick={() => { setDayDetailsForm({ ...dayDetailsForm, image: null }); setEventImagePreview(null); }}
+                            className="absolute top-2 right-2 bg-red-600 text-white p-2 rounded-full hover:bg-red-700"
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </>
+                ) : dayDetailsForm.eventType === 'accommodation' ? (
                   <>
                     {/* Existing Hotel Options List - Only show when editing existing event */}
                     {dayDetailsForm.id && dayDetailsForm.hotelOptions && dayDetailsForm.hotelOptions.length > 0 && (
@@ -3627,6 +3704,12 @@ itinerary.image = itinerary.image.replace('localhost', 'localhost:8000');
                         return;
                       }
                       subject = dayDetailsForm.hotelOptions[0]?.hotelName || dayDetailsForm.destination || 'Accommodation';
+                    } else if (dayDetailsForm.eventType === 'day-itinerary') {
+                      subject = dayDetailsForm.subject || dayDetailsForm.name || '';
+                      if (!subject.trim()) {
+                        alert('Please enter title');
+                        return;
+                      }
                     } else if (['activity', 'transportation', 'flight', 'meal', 'cruise', 'leisure'].includes(dayDetailsForm.eventType)) {
                       subject = dayDetailsForm.name || dayDetailsForm.subject || '';
                       if (!subject.trim()) {

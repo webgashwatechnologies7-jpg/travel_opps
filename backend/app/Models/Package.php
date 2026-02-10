@@ -3,13 +3,14 @@
 namespace App\Models;
 
 use App\Models\User;
+use App\Traits\HasCompany;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Package extends Model
 {
-    use HasFactory;
+    use HasFactory, HasCompany;
 
     /**
      * The table associated with the model.
@@ -24,6 +25,7 @@ class Package extends Model
      * @var array<int, string>
      */
     protected $fillable = [
+        'company_id',
         'itinerary_name',
         'start_date',
         'end_date',
