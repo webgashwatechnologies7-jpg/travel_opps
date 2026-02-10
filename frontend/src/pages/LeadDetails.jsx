@@ -2781,13 +2781,22 @@ const LeadDetails = () => {
   };
 
   const handleSendMail = async (optionNum) => {
+    // Ensure we have quotation data loaded; if not, build it first
     if (!quotationData || !lead) {
-      alert('Please load quotation first');
-      return;
+      const confirmed = getConfirmedOption();
+      const baseProposal = confirmed || selectedProposal || (proposals && proposals[0]);
+      if (!baseProposal) {
+        alert('Please create at least one proposal before sending.');
+        return;
+      }
+      const built = await handleViewQuotation(baseProposal, false);
+      if (!built) {
+        alert('Failed to load quotation. Please try again.');
+        return;
+      }
     }
 
     const recipientEmail = lead?.email || '';
-    const optionNumbers = Object.keys(quotationData.hotelOptions || {}).sort((a, b) => parseInt(a) - parseInt(b));
     if (!recipientEmail) {
       alert('Lead email is required to send. Please add customer email.');
       return;
