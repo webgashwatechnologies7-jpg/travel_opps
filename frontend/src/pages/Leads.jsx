@@ -257,7 +257,12 @@ const Leads = () => {
 
   const handleStatusChange = async (leadId, status) => {
     try {
-      await leadsAPI.updateStatus(leadId, status);
+      // Only send allowed backend statuses
+      const allowedStatuses = ['proposal', 'followup', 'confirmed', 'cancelled'];
+      const normalizedStatus = status?.toLowerCase();
+      const finalStatus = allowedStatuses.includes(normalizedStatus) ? normalizedStatus : 'proposal';
+
+      await leadsAPI.updateStatus(leadId, finalStatus);
       fetchLeads();
       setShowStatusModal(false);
       setSelectedLead(null);

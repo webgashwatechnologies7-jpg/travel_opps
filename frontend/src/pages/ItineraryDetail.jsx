@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
 import { getDisplayImageUrl } from '../utils/imageUrl';
-import { packagesAPI, dayItinerariesAPI, hotelsAPI, activitiesAPI, settingsAPI, destinationsAPI, itineraryPricingAPI, transfersAPI } from '../services/api';
+import { packagesAPI, dayItinerariesAPI, hotelsAPI, activitiesAPI, settingsAPI, destinationsAPI, itineraryPricingAPI, transfersAPI, mealPlansAPI } from '../services/api';
 import { ArrowLeft, Camera, Edit, Plus, ChevronRight, FileText, Search, X, Bed, Image as ImageIcon, Car, FileText as PassportIcon, UtensilsCrossed, Plane, User, Ship, Star, Calendar, Hash, Building2 } from 'lucide-react';
 import PricingTab from '../components/PricingTab';
 import FinalTab from '../components/FinalTab';
@@ -84,6 +84,8 @@ const ItineraryDetail = () => {
   const [storedHotelsLoading, setStoredHotelsLoading] = useState(false);
   const [storedTransfers, setStoredTransfers] = useState([]);
   const [storedTransfersLoading, setStoredTransfersLoading] = useState(false);
+  const [mealPlans, setMealPlans] = useState([]);
+  const [mealPlansLoading, setMealPlansLoading] = useState(false);
   const [apiSearchForm, setApiSearchForm] = useState({
     city: '',
     checkIn: '',
@@ -650,6 +652,8 @@ itinerary.image = itinerary.image.replace('localhost', 'localhost:8000');
       }
     } else if (categoryType === 'transportation') {
       fetchTransfers();
+    } else if (categoryType === 'meal') {
+      fetchMealPlans();
     }
   }, [categoryType, dataSourceTab]);
 
@@ -716,6 +720,20 @@ itinerary.image = itinerary.image.replace('localhost', 'localhost:8000');
       setStoredTransfers([]);
     } finally {
       setStoredTransfersLoading(false);
+    }
+  };
+
+  const fetchMealPlans = async () => {
+    try {
+      setMealPlansLoading(true);
+      const response = await mealPlansAPI.list();
+      const data = response.data?.data || response.data || [];
+      setMealPlans(data);
+    } catch (err) {
+      console.error('Failed to fetch meal plans:', err);
+      setMealPlans([]);
+    } finally {
+      setMealPlansLoading(false);
     }
   };
 
@@ -1501,17 +1519,6 @@ itinerary.image = itinerary.image.replace('localhost', 'localhost:8000');
                                 </button>
                                 <button
                                   onClick={() => {
-                                    setDayDetailsForm({ ...dayDetailsForm, eventType: 'visa' });
-                                    setShowEventTypeDropdown(false);
-                                    setShowDayDetailsModal(true);
-                                  }}
-                                  className="w-full px-4 py-2 text-left hover:bg-gray-50 flex items-center gap-3 text-sm text-gray-700"
-                                >
-                                  <PassportIcon className="h-4 w-4 text-gray-500" />
-                                  <span>Visa</span>
-                                </button>
-                                <button
-                                  onClick={() => {
                                     setDayDetailsForm({ ...dayDetailsForm, eventType: 'meal' });
                                     setShowEventTypeDropdown(false);
                                     setShowDayDetailsModal(true);
@@ -1806,11 +1813,7 @@ itinerary.image = itinerary.image.replace('localhost', 'localhost:8000');
                         <option value="accommodation">Accommodation</option>
                         <option value="activity">Activity</option>
                         <option value="transportation">Transportation</option>
-                        <option value="visa">Insurance / Visa</option>
                         <option value="meal">Meal</option>
-                        <option value="flight">Flight</option>
-                        <option value="leisure">Leisure</option>
-                        <option value="cruise">Cruise</option>
                       </select>
                     </div>
 
@@ -2344,10 +2347,95 @@ itinerary.image = itinerary.image.replace('localhost', 'localhost:8000');
                         </>
                       )}
 
-                      {(categoryType === 'visa' || categoryType === 'meal' || categoryType === 'flight' || categoryType === 'leisure' || categoryType === 'cruise') && (
-                        <div className="text-center py-8 text-gray-500 text-sm">
-                          {categoryType.charAt(0).toUpperCase() + categoryType.slice(1)} items will be displayed here
-                        </div>
+                      {categoryType === 'meal' && (
+                        <>
+                          {mealPlansLoading ? (
+                            <div className="flex items-center justify-center py-8">
+                              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                            </div>
+                          ) : mealPlans.length > 0 ? (
+                            mealPlans
+                              .filter(meal => {
+                                if (!searchQuery) return true;
+                                const query = searchQuery.toLowerCase();
+                                return (meal.name || '').toLowerCase().includes(query);
+                              })
+                              .map((meal) => (
+                                <div
+                                  key={meal.id}
+                                  className="flex items-start gap-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer"
+                                  onClick={() => {
+                                    if (selectedDay) {
+                                      const eventData = {
+                                        id: Date.now(),
+                                        subject: meal.name || 'Meal',
+                                        details: '',
+                                        destination: days[selectedDay - 1]?.destination || '',
+                                        eventType: 'meal',
+                                        image: null,
+                                        type: 'Manual',
+                                        name: meal.name || '',
+                                        date: '',
+                                        startTime: '1:00 PM',
+                                        endTime: '2:00 PM',
+                                        showTime: false,
+                                        hotelOptions: [],
+                                        editingOptionIndex: null,
+                                        mealPlan: meal.name || '',
+                                      };
+                                      saveEvent(eventData);
+                                    } else {
+                                      alert('Please select a day from the left (e.g. DAY 1, DAY 2) first, then add this item.');
+                                    }
+                                  }}
+                                >
+                                  <div className="w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center border border-gray-200 flex-shrink-0">
+                                    <UtensilsCrossed className="h-6 w-6 text-gray-400" />
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <h4 className="font-semibold text-gray-900 text-sm mb-1">{meal.name || 'Meal'}</h4>
+                                    <p className="text-xs text-gray-600 line-clamp-2">
+                                      Meal Plan
+                                    </p>
+                                  </div>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      if (selectedDay) {
+                                        const eventData = {
+                                          id: Date.now(),
+                                          subject: meal.name || 'Meal',
+                                          details: '',
+                                          destination: days[selectedDay - 1]?.destination || '',
+                                          eventType: 'meal',
+                                          image: null,
+                                          type: 'Manual',
+                                          name: meal.name || '',
+                                          date: '',
+                                          startTime: '1:00 PM',
+                                          endTime: '2:00 PM',
+                                          showTime: false,
+                                          hotelOptions: [],
+                                          editingOptionIndex: null,
+                                          mealPlan: meal.name || '',
+                                        };
+                                        saveEvent(eventData);
+                                      } else {
+                                        alert('Please select a day from the left (e.g. DAY 1, DAY 2) first, then add this item.');
+                                      }
+                                    }}
+                                    className="w-8 h-8 bg-black text-white rounded-full flex items-center justify-center hover:bg-gray-800 flex-shrink-0"
+                                  >
+                                    <Plus className="h-4 w-4" />
+                                  </button>
+                                </div>
+                              ))
+                          ) : (
+                            <div className="text-center py-8 text-gray-500 text-sm">
+                              No meal plans found. Please add meal plans in Masters → Meal Plan first.
+                            </div>
+                          )}
+                        </>
                       )}
                     </div>
                   </div>
@@ -2409,10 +2497,8 @@ itinerary.image = itinerary.image.replace('localhost', 'localhost:8000');
               <div className="flex justify-between items-center p-6 border-b border-gray-200">
                 <div>
                   <h2 className="text-xl font-bold text-gray-800">
-                    {dayDetailsForm.eventType === 'visa' 
-                      ? `Insurance / Visa in day ${selectedDay}`
-                      : dayDetailsForm.eventType === 'day-itinerary'
-                        ? `Day Itinerary in day ${selectedDay}`
+                    {dayDetailsForm.eventType === 'day-itinerary'
+                      ? `Day Itinerary in day ${selectedDay}`
                       : dayDetailsForm.eventType 
                         ? `${dayDetailsForm.eventType.charAt(0).toUpperCase() + dayDetailsForm.eventType.slice(1).replace('-', ' ')} in day ${selectedDay}`
                         : `Day ${selectedDay} Details`}
@@ -3579,63 +3665,6 @@ itinerary.image = itinerary.image.replace('localhost', 'localhost:8000');
                       />
                     </div>
                   </>
-                ) : dayDetailsForm.eventType === 'visa' ? (
-                  <>
-                    {/* Visa Specific Fields */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Name
-                      </label>
-                      <input
-                        type="text"
-                        value={dayDetailsForm.name}
-                        onChange={(e) => setDayDetailsForm({ ...dayDetailsForm, name: e.target.value })}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="Enter visa/insurance name"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Destination
-                      </label>
-                      <select
-                        value={dayDetailsForm.destination}
-                        onChange={(e) => setDayDetailsForm({ ...dayDetailsForm, destination: e.target.value })}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      >
-                        <option value="">Select Destination</option>
-                        {destinations.map((dest) => (
-                          <option key={dest} value={dest}>{dest}</option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Date <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="date"
-                        value={dayDetailsForm.date}
-                        onChange={(e) => setDayDetailsForm({ ...dayDetailsForm, date: e.target.value })}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Description
-                      </label>
-                      <textarea
-                        value={dayDetailsForm.details}
-                        onChange={(e) => setDayDetailsForm({ ...dayDetailsForm, details: e.target.value })}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-                        placeholder="Enter description"
-                        rows="4"
-                      />
-                    </div>
-                  </>
                 ) : dayDetailsForm.eventType === 'leisure' ? (
                   <>
                     {/* Leisure Specific Fields */}
@@ -3891,14 +3920,12 @@ itinerary.image = itinerary.image.replace('localhost', 'localhost:8000');
                         alert('Please enter title');
                         return;
                       }
-                    } else if (['activity', 'transportation', 'flight', 'meal', 'cruise', 'leisure'].includes(dayDetailsForm.eventType)) {
+                    } else if (['activity', 'transportation', 'meal'].includes(dayDetailsForm.eventType)) {
                       subject = dayDetailsForm.name || dayDetailsForm.subject || '';
                       if (!subject.trim()) {
                         alert(`Please enter ${dayDetailsForm.eventType} name`);
                         return;
                       }
-                    } else if (dayDetailsForm.eventType === 'visa') {
-                      subject = dayDetailsForm.name || 'Insurance / Visa';
                     } else {
                       subject = dayDetailsForm.subject || '';
                       if (!subject.trim()) {
