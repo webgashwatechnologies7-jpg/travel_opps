@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
 import { getDisplayImageUrl } from '../utils/imageUrl';
-import { packagesAPI, dayItinerariesAPI, hotelsAPI, activitiesAPI, settingsAPI, destinationsAPI, itineraryPricingAPI } from '../services/api';
+import { packagesAPI, dayItinerariesAPI, hotelsAPI, activitiesAPI, settingsAPI, destinationsAPI, itineraryPricingAPI, transfersAPI } from '../services/api';
 import { ArrowLeft, Camera, Edit, Plus, ChevronRight, FileText, Search, X, Bed, Image as ImageIcon, Car, FileText as PassportIcon, UtensilsCrossed, Plane, User, Ship, Star, Calendar, Hash, Building2 } from 'lucide-react';
 import PricingTab from '../components/PricingTab';
 import FinalTab from '../components/FinalTab';
@@ -82,6 +82,8 @@ const ItineraryDetail = () => {
   const [showApiSearchModal, setShowApiSearchModal] = useState(false);
   const [storedHotels, setStoredHotels] = useState([]);
   const [storedHotelsLoading, setStoredHotelsLoading] = useState(false);
+  const [storedTransfers, setStoredTransfers] = useState([]);
+  const [storedTransfersLoading, setStoredTransfersLoading] = useState(false);
   const [apiSearchForm, setApiSearchForm] = useState({
     city: '',
     checkIn: '',
@@ -646,6 +648,8 @@ itinerary.image = itinerary.image.replace('localhost', 'localhost:8000');
           searchHotels('', destination);
         }
       }
+    } else if (categoryType === 'transportation') {
+      fetchTransfers();
     }
   }, [categoryType, dataSourceTab]);
 
@@ -684,6 +688,34 @@ itinerary.image = itinerary.image.replace('localhost', 'localhost:8000');
       console.error('Failed to fetch stored hotels:', err);
     } finally {
       setStoredHotelsLoading(false);
+    }
+  };
+
+  const fetchTransfers = async () => {
+    try {
+      setStoredTransfersLoading(true);
+      const response = await transfersAPI.list();
+      const data = response.data?.data || response.data || [];
+
+      const processed = data.map(transfer => {
+        let photo = transfer.transfer_photo || null;
+        if (photo && (photo.startsWith('/storage') || (photo.startsWith('/') && !photo.startsWith('http')))) {
+          let baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
+          baseUrl = baseUrl.replace('/api', '');
+          photo = `${baseUrl}${photo}`;
+        }
+        return {
+          ...transfer,
+          transfer_photo: photo,
+        };
+      });
+
+      setStoredTransfers(processed);
+    } catch (err) {
+      console.error('Failed to fetch transfers:', err);
+      setStoredTransfers([]);
+    } finally {
+      setStoredTransfersLoading(false);
     }
   };
 
@@ -2203,7 +2235,116 @@ itinerary.image = itinerary.image.replace('localhost', 'localhost:8000');
                         </>
                       )}
 
-                      {(categoryType === 'transportation' || categoryType === 'visa' || categoryType === 'meal' || categoryType === 'flight' || categoryType === 'leisure' || categoryType === 'cruise') && (
+                      {categoryType === 'transportation' && (
+                        <>
+                          {storedTransfersLoading ? (
+                            <div className="flex items-center justify-center py-8">
+                              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                            </div>
+                          ) : storedTransfers.length > 0 ? (
+                            storedTransfers
+                              .filter(transfer => {
+                                if (!searchQuery) return true;
+                                const query = searchQuery.toLowerCase();
+                                return (transfer.name || '').toLowerCase().includes(query) ||
+                                       (transfer.destination || '').toLowerCase().includes(query) ||
+                                       (transfer.transfer_details || '').toLowerCase().includes(query);
+                              })
+                              .map((transfer) => (
+                                <div
+                                  key={transfer.id}
+                                  className="flex items-start gap-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer"
+                                  onClick={() => {
+                                    if (selectedDay) {
+                                      const eventData = {
+                                        id: Date.now(),
+                                        subject: transfer.name || 'Transfer',
+                                        details: transfer.transfer_details || '',
+                                        destination: transfer.destination || '',
+                                        eventType: 'transportation',
+                                        image: transfer.transfer_photo || null,
+                                        type: 'Manual',
+                                        name: transfer.name || '',
+                                        date: '',
+                                        startTime: '1:00 PM',
+                                        endTime: '2:00 PM',
+                                        showTime: false,
+                                        hotelOptions: [],
+                                        editingOptionIndex: null,
+                                      };
+                                      saveEvent(eventData);
+                                    } else {
+                                      alert('Please select a day from the left (e.g. DAY 1, DAY 2) first, then add this item.');
+                                    }
+                                  }}
+                                >
+                                  <div className="w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center overflow-hidden border border-gray-200 flex-shrink-0">
+                                    {transfer.transfer_photo ? (
+                                      <img 
+                                        src={getDisplayImageUrl(transfer.transfer_photo) || transfer.transfer_photo} 
+                                        alt={transfer.name || 'Transfer'} 
+                                        className="w-full h-full object-cover"
+                                        onError={(e) => {
+                                          e.target.style.display = 'none';
+                                          const parent = e.target.parentElement;
+                                          if (parent && !parent.querySelector('.no-photo-text')) {
+                                            const span = document.createElement('span');
+                                            span.className = 'no-photo-text text-xs text-gray-400 font-medium';
+                                            span.textContent = 'NO PHOTO';
+                                            parent.appendChild(span);
+                                          }
+                                        }}
+                                      />
+                                    ) : (
+                                      <Car className="h-6 w-6 text-gray-400" />
+                                    )}
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <h4 className="font-semibold text-gray-900 text-sm mb-1">{transfer.name || 'Transfer'}</h4>
+                                    <p className="text-xs text-gray-600 line-clamp-2">
+                                      {transfer.transfer_details || transfer.destination || 'No description'}
+                                    </p>
+                                  </div>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      if (selectedDay) {
+                                        const eventData = {
+                                          id: Date.now(),
+                                          subject: transfer.name || 'Transfer',
+                                          details: transfer.transfer_details || '',
+                                          destination: transfer.destination || '',
+                                          eventType: 'transportation',
+                                          image: transfer.transfer_photo || null,
+                                          type: 'Manual',
+                                          name: transfer.name || '',
+                                          date: '',
+                                          startTime: '1:00 PM',
+                                          endTime: '2:00 PM',
+                                          showTime: false,
+                                          hotelOptions: [],
+                                          editingOptionIndex: null,
+                                        };
+                                        saveEvent(eventData);
+                                      } else {
+                                        alert('Please select a day from the left (e.g. DAY 1, DAY 2) first, then add this item.');
+                                      }
+                                    }}
+                                    className="w-8 h-8 bg-black text-white rounded-full flex items-center justify-center hover:bg-gray-800 flex-shrink-0"
+                                  >
+                                    <Plus className="h-4 w-4" />
+                                  </button>
+                                </div>
+                              ))
+                          ) : (
+                            <div className="text-center py-8 text-gray-500 text-sm">
+                              No transportation items found. Please add transfers in Masters → Transfer first.
+                            </div>
+                          )}
+                        </>
+                      )}
+
+                      {(categoryType === 'visa' || categoryType === 'meal' || categoryType === 'flight' || categoryType === 'leisure' || categoryType === 'cruise') && (
                         <div className="text-center py-8 text-gray-500 text-sm">
                           {categoryType.charAt(0).toUpperCase() + categoryType.slice(1)} items will be displayed here
                         </div>
