@@ -1853,6 +1853,9 @@ const LeadDetails = () => {
     setSelectedProposal(proposal);
     setSelectedOption(null);
 
+    // Prepare containers outside try so we can reuse in fallback
+    let hotelOptions = {};
+
     try {
       // Load itinerary data from localStorage if available
       const storedEvents = localStorage.getItem(`itinerary_${proposal.itinerary_id}_events`);
@@ -1874,7 +1877,7 @@ const LeadDetails = () => {
       }
 
       // Group hotel options by optionNumber
-      const hotelOptions = {};
+      hotelOptions = {};
       Object.keys(dayEvents).forEach(day => {
         const events = dayEvents[day] || [];
         events.forEach(event => {
@@ -1894,17 +1897,33 @@ const LeadDetails = () => {
         });
       });
 
-      // Get itinerary details
-      const itineraryResponse = await packagesAPI.get(proposal.itinerary_id);
-      const itinerary = itineraryResponse.data.data.package || {};
+      // Try to get itinerary details from backend – but fall back gracefully if missing (404)
+      let itinerary = {};
+      try {
+        if (proposal.itinerary_id) {
+          const itineraryResponse = await packagesAPI.get(proposal.itinerary_id);
+          const raw = itineraryResponse?.data?.data;
+          itinerary = (raw && raw.package) || raw || {};
+        }
+      } catch (err) {
+        console.warn('packagesAPI.get failed, using proposal data for itinerary.', err);
+        // Fallback: use proposal data only – enough for email/WhatsApp body and PDF
+        itinerary = {
+          itinerary_name: proposal.itinerary_name,
+          title: proposal.itinerary_name,
+          destinations: proposal.destination,
+          duration: proposal.duration,
+          price: proposal.price,
+        };
+      }
 
       const builtQuotation = {
         itinerary: {
           ...itinerary,
           duration: proposal.duration || itinerary.duration,
-          destinations: proposal.destination || itinerary.destinations
+          destinations: proposal.destination || itinerary.destinations,
         },
-        hotelOptions: hotelOptions
+        hotelOptions: hotelOptions,
       };
       setQuotationData(builtQuotation);
 
@@ -1917,8 +1936,21 @@ const LeadDetails = () => {
       return builtQuotation;
     } catch (err) {
       console.error('Failed to load quotation:', err);
-      alert('Failed to load quotation data');
-      return null;
+
+      // Last-resort fallback: at least return minimal quotation so email can be generated
+      const fallbackQuotation = {
+        itinerary: {
+          itinerary_name: proposal.itinerary_name,
+          title: proposal.itinerary_name,
+          destinations: proposal.destination,
+          duration: proposal.duration,
+          price: proposal.price,
+        },
+        hotelOptions: hotelOptions,
+      };
+      setQuotationData(fallbackQuotation);
+      if (openModal) setShowQuotationModal(true);
+      return fallbackQuotation;
     } finally {
       setLoadingQuotation(false);
     }
