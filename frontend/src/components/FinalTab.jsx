@@ -1,6 +1,19 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { getDisplayImageUrl } from '../utils/imageUrl';
+import { settingsAPI } from '../services/api';
 import { Building2, Star, Calendar, Hash, X, Eye, MapPin, Users, Clock, Image as ImageIcon, Car, UtensilsCrossed, Plane, User, Ship, FileText, FileText as PassportIcon, File, Download, Mail, MessageCircle, Printer } from 'lucide-react';
+
+const POLICY_KEYS = [
+  { key: 'itinerary', label: 'Day-by-Day Itinerary' },
+  { key: 'remarks', label: 'Remarks' },
+  { key: 'terms_conditions', label: 'Terms & Conditions' },
+  { key: 'confirmation_policy', label: 'Confirmation Policy' },
+  { key: 'cancellation_policy', label: 'Cancellation Policy' },
+  { key: 'amendment_policy', label: 'Amendment Policy' },
+  { key: 'thank_you_message', label: 'Thank You Message' }
+];
+// Left sidebar: only policies (no Day-by-Day); default view is still itinerary
+const POLICY_KEYS_SIDEBAR = POLICY_KEYS.filter(p => p.key !== 'itinerary');
 
 const FinalTab = ({
   itinerary,
@@ -15,19 +28,59 @@ const FinalTab = ({
   igst,
   tcs,
   discount,
-  maxHotelOptions = 4
+  maxHotelOptions = 4,
+  optionGstSettings = {}
 }) => {
   const [selectedOption, setSelectedOption] = useState(null);
   const [showFullPlanModal, setShowFullPlanModal] = useState(false);
   const [selectedOptionForPlan, setSelectedOptionForPlan] = useState(null);
+  const [sidebarSelectedOption, setSidebarSelectedOption] = useState(null); // For itinerary filter when option selected from sidebar
+  const [rightView, setRightView] = useState('itinerary'); // 'itinerary' | policy keys
+  const rightContentRef = useRef(null);
+  const [policyContent, setPolicyContent] = useState({
+    remarks: '',
+    terms_conditions: '',
+    confirmation_policy: '',
+    cancellation_policy: '',
+    amendment_policy: '',
+    thank_you_message: ''
+  });
 
-  // Collect all accommodation events with hotel options
+  useEffect(() => {
+    const getVal = (res) => (res?.data?.success && res?.data?.data?.value != null ? res.data.data.value : (res?.data?.data?.content ?? '')) || '';
+    Promise.all([
+      settingsAPI.getByKey('remarks'),
+      settingsAPI.getByKey('terms_conditions'),
+      settingsAPI.getByKey('confirmation_policy'),
+      settingsAPI.getByKey('cancellation_policy'),
+      settingsAPI.getByKey('amendment_policy'),
+      settingsAPI.getByKey('thank_you_message')
+    ]).then(([r1, r2, r3, r4, r5, r6]) => {
+      setPolicyContent({
+        remarks: getVal(r1),
+        terms_conditions: getVal(r2),
+        confirmation_policy: getVal(r3),
+        cancellation_policy: getVal(r4),
+        amendment_policy: getVal(r5),
+        thank_you_message: getVal(r6)
+      });
+    }).catch(() => {});
+  }, []);
+
+  // Smooth scroll to right content heading when a policy is selected
+  useEffect(() => {
+    if (rightView !== 'itinerary' && rightContentRef.current) {
+      rightContentRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, [rightView]);
+
+  // Collect all accommodation events with hotel options (preserve optionIdx to match PricingTab key format)
   const allOptions = [];
   Object.keys(dayEvents).forEach(day => {
     const events = dayEvents[day] || [];
     events.forEach(event => {
       if (event.eventType === 'accommodation' && event.hotelOptions && event.hotelOptions.length > 0) {
-        event.hotelOptions.forEach(option => {
+        event.hotelOptions.forEach((option, optionIdx) => {
           const optNum = option.optionNumber || 1;
           if (parseInt(optNum, 10) > maxHotelOptions) {
             return;
@@ -36,7 +89,8 @@ const FinalTab = ({
             ...option,
             day: parseInt(day),
             eventId: event.id,
-            eventSubject: event.subject
+            eventSubject: event.subject,
+            optionIdx // Matches PricingTab key: optNum-day-optionIdx
           });
         });
       }
@@ -53,24 +107,26 @@ const FinalTab = ({
     optionsByNumber[optNum].push(opt);
   });
 
-  // Calculate totals for each option
+  // Calculate totals for each option (use per-option GST from optionGstSettings)
   const optionTotals = {};
   Object.keys(optionsByNumber).forEach(optNum => {
     const options = optionsByNumber[optNum];
     let totalNet = 0;
     let totalMarkup = 0;
-    options.forEach((option, idx) => {
-      const optionKey = `${optNum}-${option.day}-${idx}`;
+    options.forEach((option) => {
+      const optionIdx = option.optionIdx ?? 0;
+      const optionKey = `${optNum}-${option.day}-${optionIdx}`;
       const pricing = pricingData[optionKey] || { net: option.price || 0, markup: 0, gross: option.price || 0 };
       totalNet += pricing.net || 0;
       totalMarkup += pricing.markup || 0;
     });
     const totalGross = totalNet + totalMarkup;
-    const cgstAmount = (totalGross * cgst) / 100;
-    const sgstAmount = (totalGross * sgst) / 100;
-    const igstAmount = (totalGross * igst) / 100;
-    const tcsAmount = (totalGross * tcs) / 100;
-    const discountAmount = (totalGross * discount) / 100;
+    const optGst = optionGstSettings[optNum] || { cgst, sgst, igst, tcs, discount };
+    const cgstAmount = (totalGross * (optGst.cgst || 0)) / 100;
+    const sgstAmount = (totalGross * (optGst.sgst || 0)) / 100;
+    const igstAmount = (totalGross * (optGst.igst || 0)) / 100;
+    const tcsAmount = (totalGross * (optGst.tcs || 0)) / 100;
+    const discountAmount = (totalGross * (optGst.discount || 0)) / 100;
     const calculatedTotal = totalGross + cgstAmount + sgstAmount + igstAmount + tcsAmount - discountAmount;
     
     // Use final client price if set, otherwise use calculated total
@@ -89,7 +145,8 @@ const FinalTab = ({
       discountAmount,
       finalTotal: calculatedTotal,
       clientPrice,
-      options: options
+      options: options,
+      gstSettings: optGst
     };
   });
 
@@ -145,6 +202,27 @@ const FinalTab = ({
   };
 
   const days = generateDays();
+
+  // Active option for itinerary filter: default to Option 1 when options exist
+  const activeOption = sidebarSelectedOption || (Object.keys(optionsByNumber).length > 0 ? Object.keys(optionsByNumber).sort((a, b) => parseInt(a) - parseInt(b))[0] : null);
+
+  // Filter day events by selected option (for accommodation: show only that option's hotels)
+  const getFilteredDayEvents = () => {
+    const filtered = {};
+    Object.keys(dayEvents).forEach(day => {
+      const events = dayEvents[day] || [];
+      filtered[day] = events.map(event => {
+        if (event.eventType === 'accommodation' && event.hotelOptions && event.hotelOptions.length > 0 && activeOption) {
+          const matchingHotels = event.hotelOptions.filter(opt => String(opt.optionNumber) === String(activeOption));
+          if (matchingHotels.length === 0) return null;
+          return { ...event, hotelOptions: matchingHotels };
+        }
+        return event;
+      }).filter(Boolean);
+    });
+    return filtered;
+  };
+  const filteredDayEvents = getFilteredDayEvents();
 
   // Handle full plan view
   const handleViewFullPlan = (optNum) => {
@@ -241,195 +319,167 @@ const FinalTab = ({
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50">
-      {/* Hero Section with Package Cover */}
-      <div className="relative w-full h-96 mb-8 overflow-hidden bg-gradient-to-r from-blue-600 to-purple-600">
+      {/* Hero Section - Destination Header */}
+      <div className="relative w-full h-72 overflow-hidden">
         {itinerary?.image && (
           <img 
             src={getDisplayImageUrl(itinerary.image) || itinerary.image} 
-            alt={itinerary.itinerary_name}
+            alt={itinerary?.itinerary_name}
             className="absolute inset-0 w-full h-full object-cover"
-            onError={(e) => {
-              e.target.style.display = 'none';
-            }}
+            onError={(e) => { e.target.style.display = 'none'; }}
           />
         )}
-        <div className="absolute inset-0 bg-black bg-opacity-40"></div>
-        <div className="absolute inset-0 flex flex-col justify-end p-8 text-white">
-          <h1 className="text-5xl font-bold mb-4 drop-shadow-lg">{itinerary?.itinerary_name || 'Itinerary'}</h1>
-          <div className="flex flex-wrap items-center gap-6 text-lg">
-            <div className="flex items-center gap-2">
-              <MapPin className="h-5 w-5" />
-              <span>{itinerary?.destinations || 'N/A'}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Calendar className="h-5 w-5" />
-              <span>{itinerary?.duration || 0} Days</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Users className="h-5 w-5" />
-              <span>Adult: {itinerary?.adult || 0} | Child: {itinerary?.child || 0}</span>
+        <div className="absolute inset-0 bg-black/30"></div>
+        <div className="absolute bottom-0 left-0 right-0 p-6">
+          <div className="max-w-7xl mx-auto">
+            <div className="bg-gray-800/90 backdrop-blur rounded-xl px-6 py-4 inline-block">
+              <h1 className="text-2xl font-bold text-white mb-1">{itinerary?.itinerary_name || 'Itinerary'}</h1>
+              <div className="flex flex-wrap items-center gap-4 text-sm text-gray-200">
+                <span className="flex items-center gap-1"><MapPin className="h-4 w-4" />{itinerary?.destinations || 'N/A'}</span>
+                <span className="flex items-center gap-1"><Calendar className="h-4 w-4" />{itinerary?.duration || 0} Days</span>
+                <span className="flex items-center gap-1"><Users className="h-4 w-4" />{itinerary?.adult || 0} Adult{itinerary?.adult !== 1 ? 's' : ''}</span>
+                <span className="flex items-center gap-1"><Building2 className="h-4 w-4" />Hotel</span>
+              </div>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-6 pb-12">
-        {/* Package Description */}
-        {packageTerms?.package_description && (
-          <div className="bg-white rounded-xl shadow-lg p-8 mb-8">
-            <h2 className="text-3xl font-bold text-gray-900 mb-4 flex items-center gap-3">
-              <FileText className="h-8 w-8 text-blue-600" />
-              Package Overview
-            </h2>
-            <div className="prose max-w-none text-gray-700 whitespace-pre-wrap leading-relaxed">
-              {packageTerms.package_description}
-            </div>
-          </div>
-        )}
-
-        {/* Options Selection */}
+      {/* Two-column layout: Sidebar Options | Itinerary */}
+      <div className="max-w-7xl mx-auto px-6 pb-12 flex flex-col lg:flex-row gap-8">
+        {/* Left Sidebar - Package Options */}
         {Object.keys(optionsByNumber).length > 0 && (
-          <div className="bg-white rounded-xl shadow-lg p-8 mb-8">
-            <h2 className="text-3xl font-bold text-gray-900 mb-6">Select Your Package Option</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="lg:w-96 flex-shrink-0">
+            <h2 className="text-xl font-bold text-gray-900 mb-4">Select Your Package Option</h2>
+            <div className="space-y-4">
               {Object.keys(optionsByNumber).sort((a, b) => parseInt(a) - parseInt(b)).map(optNum => {
                 const totals = optionTotals[optNum];
                 const options = optionsByNumber[optNum];
-                
+                const hasDiscount = (totals?.discountAmount || 0) > 0;
+                const discountPct = totals?.gstSettings?.discount || 0;
                 return (
                   <div
                     key={optNum}
-                    onClick={() => handleViewOption(optNum)}
-                    className="bg-gradient-to-br from-white to-blue-50 rounded-xl shadow-md border-2 border-transparent hover:border-blue-500 overflow-hidden transition-all cursor-pointer transform hover:scale-105"
+                    onClick={() => { setSidebarSelectedOption(optNum); setRightView('itinerary'); }}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSidebarSelectedOption(optNum); setRightView('itinerary'); } }}
+                    className={`bg-white rounded-xl shadow-md border-2 overflow-hidden transition-all cursor-pointer ${
+                      activeOption === optNum ? 'border-blue-500 ring-2 ring-blue-200' : 'border-gray-200 hover:border-blue-300'
+                    }`}
                   >
-                    {/* Option Header */}
-                    <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-5">
-                      <div className="flex items-center justify-between">
-                        <span className="px-4 py-2 bg-white text-blue-600 text-sm font-bold rounded-lg">
-                          Option {optNum}
-                        </span>
-                        <Eye className="h-5 w-5 text-white" />
-                      </div>
-                    </div>
-
-                    {/* Option Content */}
-                    <div className="p-6">
-                      <div className="mb-4">
-                        <div className="text-3xl font-bold text-gray-900 mb-1">
-                          ₹{(totals?.clientPrice || totals?.finalTotal || 0).toLocaleString('en-IN')}
-                        </div>
-                        <div className="text-sm text-gray-500">Total Price</div>
-                      </div>
-
-                      <div className="space-y-2 mb-4 pb-4 border-b border-gray-200">
-                        <div className="flex justify-between text-sm">
-                          <span className="text-gray-600">Base Price:</span>
-                          <span className="font-medium">₹{totals?.totalNet.toLocaleString('en-IN') || '0'}</span>
-                        </div>
-                        <div className="flex justify-between text-sm">
-                          <span className="text-gray-600">Taxes & Fees:</span>
-                          <span className="font-medium">
-                            ₹{((totals?.cgstAmount || 0) + (totals?.sgstAmount || 0) + (totals?.igstAmount || 0) + (totals?.tcsAmount || 0)).toLocaleString('en-IN')}
-                          </span>
-                        </div>
-                        {totals?.discountAmount > 0 && (
-                          <div className="flex justify-between text-sm text-green-600">
-                            <span>Discount:</span>
-                            <span className="font-medium">-₹{totals?.discountAmount.toLocaleString('en-IN')}</span>
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="pt-4">
-                        <div className="text-xs text-gray-500 mb-2 font-semibold">Included Hotels</div>
-                        <div className="space-y-2">
-                          {options.slice(0, 3).map((option, idx) => (
-                            <div key={idx} className="flex items-center gap-2 text-sm text-gray-700">
-                              <Building2 className="h-4 w-4 text-blue-600 flex-shrink-0" />
-                              <span className="truncate">{option.hotelName || 'Hotel'} - Day {option.day}</span>
+                    <div className="p-5">
+                      <div className="text-xs font-semibold text-blue-600 mb-2">Option {optNum}</div>
+                      <div className="flex justify-between items-start mb-2">
+                        <div>
+                          {hasDiscount && (
+                            <div className="text-sm text-gray-500 line-through mb-0.5">
+                              ₹{(totals?.totalGross || 0).toLocaleString('en-IN')}
                             </div>
-                          ))}
-                          {options.length > 3 && (
-                            <div className="text-xs text-blue-600 font-medium">+{options.length - 3} more hotels</div>
+                          )}
+                          <div className="text-2xl font-bold text-gray-900">
+                            ₹{(totals?.clientPrice || totals?.finalTotal || 0).toLocaleString('en-IN')}/-
+                          </div>
+                          <div className="text-sm text-gray-500">Total Price</div>
+                          {hasDiscount && (
+                            <div className="text-sm text-green-600 font-medium mt-1">
+                              Discount ({discountPct}%): -₹{(totals.discountAmount || 0).toLocaleString('en-IN')}
+                            </div>
                           )}
                         </div>
+                        <Eye className="h-5 w-5 text-gray-400" />
                       </div>
-
-                      <div className="mt-6 pt-4 border-t border-gray-200 space-y-2">
-                        <button 
-                          onClick={() => handleViewOption(optNum)}
-                          className="w-full px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-semibold flex items-center justify-center gap-2 transition-colors"
-                        >
-                          <Eye className="h-4 w-4" />
-                          View Full Details
-                        </button>
-                        <button 
-                          onClick={() => handleViewFullPlan(optNum)}
-                          className="w-full px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-semibold flex items-center justify-center gap-2 transition-colors"
-                        >
-                          <File className="h-4 w-4" />
-                          View Full Plan
-                        </button>
+                      <div className="space-y-2 mb-4">
+                        {options.slice(0, 3).map((opt, idx) => (
+                          <div key={idx} className="flex items-center gap-2 text-sm text-gray-700">
+                            <span className="text-blue-600">✓</span>
+                            <Building2 className="h-4 w-4 text-blue-600 flex-shrink-0" />
+                            <span className="truncate">{opt.hotelName || 'Hotel'} (Day {opt.day})</span>
+                          </div>
+                        ))}
+                        {options.some(o => o.mealPlan) && (
+                          <div className="flex items-center gap-2 text-sm text-gray-700">
+                            <span className="text-blue-600">✓</span>
+                            <UtensilsCrossed className="h-4 w-4 text-blue-600 flex-shrink-0" />
+                            <span>Meals</span>
+                          </div>
+                        )}
+                        <div className="flex items-center gap-2 text-sm text-gray-700">
+                          <span className="text-blue-600">✓</span>
+                          <ImageIcon className="h-4 w-4 text-blue-600 flex-shrink-0" />
+                          <span>Sightseeing Tours</span>
+                        </div>
                       </div>
                     </div>
                   </div>
                 );
               })}
             </div>
+
+            {/* Terms & Policies - below option cards (only policies; Day-by-Day is default view) */}
+            <div className="mt-6 pt-6 border-t border-gray-200">
+              <h3 className="text-sm font-bold text-gray-800 mb-3">Terms & Policies</h3>
+              <div className="space-y-2">
+                {POLICY_KEYS_SIDEBAR.map(({ key, label }) => (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => setRightView(key)}
+                    className={`w-full text-left px-4 py-2.5 rounded-lg text-sm font-medium border-2 transition-all ${
+                      rightView === key
+                        ? 'border-blue-500 bg-blue-50 text-blue-700'
+                        : 'border-gray-200 bg-white text-gray-700 hover:border-blue-300 hover:bg-gray-50'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
         )}
 
-        {/* Full Itinerary Days */}
-        <div className="bg-white rounded-xl shadow-lg p-8 mb-8">
-          <h2 className="text-3xl font-bold text-gray-900 mb-6 flex items-center gap-3">
-            <Calendar className="h-8 w-8 text-blue-600" />
-            Detailed Itinerary
-          </h2>
-          <div className="space-y-8">
+        {/* Right Content - Day-by-Day Itinerary (default) or selected Policy */}
+        <div className="flex-1 min-w-0">
+        <div ref={rightContentRef} className="bg-white rounded-xl shadow-lg p-8 mb-8">
+          {rightView === 'itinerary' ? (
+            <>
+              <h2 className="text-2xl font-bold text-gray-900 mb-6">Day-by-Day Itinerary</h2>
+              <div className="space-y-8">
             {days.map((day) => {
-              const events = dayEvents[day] || [];
+              const events = filteredDayEvents[day] || [];
+              const firstEventSubject = events[0]?.subject || events[0]?.eventType || '';
+              const dayTitle = firstEventSubject ? `${firstEventSubject}` : `Day ${day}`;
               return (
-                <div key={day} className="border-l-4 border-blue-500 pl-6 pb-6">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="bg-blue-600 text-white rounded-full w-12 h-12 flex items-center justify-center font-bold text-lg">
-                      {day}
-                    </div>
-                    <h3 className="text-2xl font-bold text-gray-900">Day {day}</h3>
+                <div key={day} className="border-l-2 border-gray-200 pl-6 pb-6 relative">
+                  <div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-green-500 border-2 border-white shadow"></div>
+                  <div className="flex items-center gap-3 mb-4 flex-wrap">
+                    <span className="inline-flex items-center px-4 py-1.5 bg-green-500 text-white text-sm font-bold rounded-full">
+                      Day {day}
+                    </span>
+                    <span className="text-lg font-semibold text-gray-900">{dayTitle}</span>
                   </div>
                   
                   {events.length === 0 ? (
-                    <p className="text-gray-500 italic">No events scheduled for this day</p>
+                    <p className="text-gray-500 italic ml-4">No activities added</p>
                   ) : (
-                    <div className="space-y-4 ml-16">
+                    <div className="space-y-4">
                       {events.map((event, eventIdx) => (
-                        <div key={eventIdx} className="bg-gray-50 rounded-lg p-5 hover:shadow-md transition-shadow">
-                          <div className="flex items-start gap-4">
-                            {/* Event Image */}
-                            {(event.image || (event.eventType === 'accommodation' && event.hotelOptions?.[0]?.image)) && (
-                              <div className="flex-shrink-0">
-                                <img 
-                                  src={getDisplayImageUrl(event.image || event.hotelOptions?.[0]?.image) || event.image || event.hotelOptions?.[0]?.image} 
-                                  alt={event.subject || 'Event'}
-                                  className="w-32 h-32 object-cover rounded-lg border-2 border-gray-200"
-                                  onError={(e) => {
-                                    e.target.style.display = 'none';
-                                  }}
-                                />
+                        <div key={eventIdx} className="bg-gray-50 rounded-lg p-5 hover:shadow-md transition-shadow flex items-start gap-4">
+                          <div className="flex-shrink-0 text-green-600 mt-0.5">{/* Checkmark style */}<span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-green-100">✓</span></div>
+                          <div className="flex-1 min-w-0">
+                            {(event.startTime || event.endTime) && (
+                              <div className="text-sm text-gray-500 mb-1 font-medium">
+                                <Clock className="h-4 w-4 inline mr-1" />
+                                {event.startTime || '—'} - {event.endTime || '—'}
                               </div>
                             )}
-                            
-                            <div className="flex-1">
-                              <div className="flex items-center gap-3 mb-2">
-                                <div className="text-blue-600">
-                                  {getEventIcon(event.eventType)}
-                                </div>
-                                <h4 className="text-xl font-semibold text-gray-900">
-                                  {event.subject || `${event.eventType} Event`}
-                                </h4>
-                                <span className="px-3 py-1 bg-blue-100 text-blue-700 text-xs font-medium rounded-full">
-                                  {event.eventType}
-                                </span>
-                              </div>
+                            <div className="flex items-center gap-2 mb-2">
+                              <div className="text-gray-700">{getEventIcon(event.eventType)}</div>
+                              <h4 className="text-lg font-semibold text-gray-900">
+                                {event.subject || `${event.eventType}`}
+                              </h4>
+                            </div>
                               
                               {event.details && (
                                 <p className="text-gray-700 mb-3 whitespace-pre-wrap">{event.details}</p>
@@ -486,14 +536,17 @@ const FinalTab = ({
                                   {event.destination}
                                 </div>
                               )}
-                              {event.startTime && event.endTime && (
-                                <div className="mt-2 text-sm text-gray-600">
-                                  <Clock className="h-4 w-4 inline mr-1" />
-                                  {event.startTime} - {event.endTime}
-                                </div>
-                              )}
                             </div>
-                          </div>
+                          {(event.image || (event.eventType === 'accommodation' && event.hotelOptions?.[0]?.image)) && (
+                            <div className="flex-shrink-0">
+                              <img 
+                                src={getDisplayImageUrl(event.image || event.hotelOptions?.[0]?.image) || event.image || event.hotelOptions?.[0]?.image} 
+                                alt={event.subject || 'Event'}
+                                className="w-24 h-24 object-cover rounded-lg border border-gray-200"
+                                onError={(e) => { e.target.style.display = 'none'; }}
+                              />
+                            </div>
+                          )}
                         </div>
                       ))}
                     </div>
@@ -501,10 +554,25 @@ const FinalTab = ({
                 </div>
               );
             })}
-          </div>
+              </div>
+            </>
+          ) : (
+            <>
+              <h2 className="text-2xl font-bold text-gray-900 mb-6">
+                {POLICY_KEYS.find(p => p.key === rightView)?.label || rightView}
+              </h2>
+              <div className="prose max-w-none text-gray-700 leading-relaxed bg-gray-50 p-6 rounded-lg min-h-[200px]">
+                {policyContent[rightView] ? (
+                  <div dangerouslySetInnerHTML={{ __html: policyContent[rightView] }} />
+                ) : (
+                  <p className="text-gray-500 italic">No content added for this section yet. Add it from Settings → Terms & Conditions.</p>
+                )}
+              </div>
+            </>
+          )}
         </div>
 
-        {/* Terms & Conditions */}
+        {/* Terms & Conditions (legacy package terms - kept if needed) */}
         {(packageTerms?.terms_conditions || packageTerms?.refund_policy) && (
           <div className="bg-white rounded-xl shadow-lg p-8 mb-8">
             <h2 className="text-3xl font-bold text-gray-900 mb-6">Terms & Policies</h2>
@@ -529,50 +597,7 @@ const FinalTab = ({
           </div>
         )}
 
-        {/* Grand Total Summary */}
-        {Object.keys(optionTotals).length > 0 && (
-          <div className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-xl shadow-lg p-8 text-white">
-            <h2 className="text-2xl font-bold mb-6">Pricing Summary</h2>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="bg-white/20 backdrop-blur-sm rounded-lg p-4 text-center">
-                <div className="text-sm opacity-90 mb-1">Total Options</div>
-                <div className="text-3xl font-bold">{Object.keys(optionTotals).length}</div>
-              </div>
-              <div className="bg-white/20 backdrop-blur-sm rounded-lg p-4 text-center">
-                <div className="text-sm opacity-90 mb-1">Total Base</div>
-                <div className="text-2xl font-bold">
-                  ₹{(() => {
-                    let total = 0;
-                    Object.values(optionTotals).forEach(t => total += t.totalNet);
-                    return total.toLocaleString('en-IN');
-                  })()}
-                </div>
-              </div>
-              <div className="bg-white/20 backdrop-blur-sm rounded-lg p-4 text-center">
-                <div className="text-sm opacity-90 mb-1">Total Taxes</div>
-                <div className="text-2xl font-bold">
-                  ₹{(() => {
-                    let total = 0;
-                    Object.values(optionTotals).forEach(t => {
-                      total += t.cgstAmount + t.sgstAmount + t.igstAmount + t.tcsAmount;
-                    });
-                    return total.toLocaleString('en-IN');
-                  })()}
-                </div>
-              </div>
-              <div className="bg-white/30 backdrop-blur-sm rounded-lg p-4 text-center border-2 border-white/50">
-                <div className="text-sm opacity-90 mb-1">Grand Total</div>
-                <div className="text-3xl font-bold">
-                  ₹{(() => {
-                    let total = 0;
-                    Object.values(optionTotals).forEach(t => total += (t.clientPrice || t.finalTotal));
-                    return total.toLocaleString('en-IN');
-                  })()}
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
+        </div>
       </div>
 
       {/* Option Detail Modal */}
@@ -604,33 +629,39 @@ const FinalTab = ({
               <div className="mb-6 bg-gradient-to-br from-gray-50 to-blue-50 rounded-xl p-6 border border-gray-200">
                 <h4 className="text-xl font-bold text-gray-900 mb-4">Pricing Breakdown</h4>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                  <div className="bg-white rounded-lg p-4">
-                    <div className="text-sm text-gray-600 mb-1">Base Price</div>
-                    <div className="text-xl font-bold text-gray-900">₹{selectedOption.totalNet.toLocaleString('en-IN')}</div>
-                  </div>
-                  <div className="bg-white rounded-lg p-4">
-                    <div className="text-sm text-gray-600 mb-1">Markup</div>
-                    <div className="text-xl font-bold text-gray-900">₹{selectedOption.totalMarkup.toLocaleString('en-IN')}</div>
-                  </div>
-                  <div className="bg-white rounded-lg p-4">
-                    <div className="text-sm text-gray-600 mb-1">CGST ({cgst}%)</div>
-                    <div className="text-xl font-bold text-gray-900">₹{selectedOption.cgstAmount.toLocaleString('en-IN')}</div>
-                  </div>
-                  <div className="bg-white rounded-lg p-4">
-                    <div className="text-sm text-gray-600 mb-1">SGST ({sgst}%)</div>
-                    <div className="text-xl font-bold text-gray-900">₹{selectedOption.sgstAmount.toLocaleString('en-IN')}</div>
-                  </div>
-                  <div className="bg-white rounded-lg p-4">
-                    <div className="text-sm text-gray-600 mb-1">IGST ({igst}%)</div>
-                    <div className="text-xl font-bold text-gray-900">₹{selectedOption.igstAmount.toLocaleString('en-IN')}</div>
-                  </div>
-                  <div className="bg-white rounded-lg p-4">
-                    <div className="text-sm text-gray-600 mb-1">TCS ({tcs}%)</div>
-                    <div className="text-xl font-bold text-gray-900">₹{selectedOption.tcsAmount.toLocaleString('en-IN')}</div>
-                  </div>
-                  {selectedOption.discountAmount > 0 && (
+                  {(selectedOption.totalGross || 0) > 0 && (
+                    <div className="bg-white rounded-lg p-4">
+                      <div className="text-sm text-gray-600 mb-1">Total Base</div>
+                      <div className="text-xl font-bold text-gray-900">₹{selectedOption.totalGross.toLocaleString('en-IN')}</div>
+                    </div>
+                  )}
+                  {(selectedOption.cgstAmount || 0) > 0 && (
+                    <div className="bg-white rounded-lg p-4">
+                      <div className="text-sm text-gray-600 mb-1">CGST ({(selectedOption.gstSettings?.cgst || 0)}%)</div>
+                      <div className="text-xl font-bold text-gray-900">₹{selectedOption.cgstAmount.toLocaleString('en-IN')}</div>
+                    </div>
+                  )}
+                  {(selectedOption.sgstAmount || 0) > 0 && (
+                    <div className="bg-white rounded-lg p-4">
+                      <div className="text-sm text-gray-600 mb-1">SGST ({(selectedOption.gstSettings?.sgst || 0)}%)</div>
+                      <div className="text-xl font-bold text-gray-900">₹{selectedOption.sgstAmount.toLocaleString('en-IN')}</div>
+                    </div>
+                  )}
+                  {(selectedOption.igstAmount || 0) > 0 && (
+                    <div className="bg-white rounded-lg p-4">
+                      <div className="text-sm text-gray-600 mb-1">IGST ({(selectedOption.gstSettings?.igst || 0)}%)</div>
+                      <div className="text-xl font-bold text-gray-900">₹{selectedOption.igstAmount.toLocaleString('en-IN')}</div>
+                    </div>
+                  )}
+                  {(selectedOption.tcsAmount || 0) > 0 && (
+                    <div className="bg-white rounded-lg p-4">
+                      <div className="text-sm text-gray-600 mb-1">TCS ({(selectedOption.gstSettings?.tcs || 0)}%)</div>
+                      <div className="text-xl font-bold text-gray-900">₹{selectedOption.tcsAmount.toLocaleString('en-IN')}</div>
+                    </div>
+                  )}
+                  {(selectedOption.discountAmount || 0) > 0 && (
                     <div className="bg-green-50 rounded-lg p-4 border border-green-200">
-                      <div className="text-sm text-gray-600 mb-1">Discount ({discount}%)</div>
+                      <div className="text-sm text-gray-600 mb-1">Discount ({(selectedOption.gstSettings?.discount || 0)}%)</div>
                       <div className="text-xl font-bold text-green-600">-₹{selectedOption.discountAmount.toLocaleString('en-IN')}</div>
                     </div>
                   )}
@@ -712,8 +743,9 @@ const FinalTab = ({
                                         {event.eventType === 'accommodation' && event.hotelOptions && event.hotelOptions.length > 0 && (
                                           <div className="mt-3 space-y-2">
                                             {event.hotelOptions
-                                              .filter(opt => opt.optionNumber === parseInt(selectedOption.optionNumber))
-                                              .map((hotel, hotelIdx) => {
+                                              .map((hotel, hotelIdx) => (hotel.optionNumber === parseInt(selectedOption.optionNumber) ? { hotel, hotelIdx } : null))
+                                              .filter(Boolean)
+                                              .map(({ hotel, hotelIdx }) => {
                                                 const optionKey = `${selectedOption.optionNumber}-${day}-${hotelIdx}`;
                                                 const pricing = pricingData[optionKey] || { net: hotel.price || 0, markup: 0, gross: hotel.price || 0 };
                                                 
@@ -785,8 +817,9 @@ const FinalTab = ({
               <div>
                 <h4 className="text-xl font-bold text-gray-900 mb-4">Included Hotels Summary</h4>
                 <div className="space-y-4">
-                  {selectedOption.options.map((option, idx) => {
-                    const optionKey = `${selectedOption.optionNumber}-${option.day}-${idx}`;
+                  {selectedOption.options.map((option) => {
+                    const optionIdx = option.optionIdx ?? 0;
+                    const optionKey = `${selectedOption.optionNumber}-${option.day}-${optionIdx}`;
                     const pricing = pricingData[optionKey] || { net: option.price || 0, markup: 0, gross: option.price || 0 };
                     
                     return (
@@ -1042,8 +1075,9 @@ const FinalTab = ({
                                       {event.eventType === 'accommodation' && event.hotelOptions && event.hotelOptions.length > 0 && (
                                         <div className="mt-3 space-y-2">
                                           {event.hotelOptions
-                                            .filter(opt => opt.optionNumber === parseInt(selectedOptionForPlan.optionNumber))
-                                            .map((hotel, hotelIdx) => {
+                                            .map((hotel, hotelIdx) => (hotel.optionNumber === parseInt(selectedOptionForPlan.optionNumber) ? { hotel, hotelIdx } : null))
+                                            .filter(Boolean)
+                                            .map(({ hotel, hotelIdx }) => {
                                               const optionKey = `${selectedOptionForPlan.optionNumber}-${day}-${hotelIdx}`;
                                               const pricing = pricingData[optionKey] || { net: hotel.price || 0, markup: 0, gross: hotel.price || 0 };
                                               

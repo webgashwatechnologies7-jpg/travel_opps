@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Modules\Leads\Domain\Entities\Lead;
+use App\Models\Setting;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Mail;
@@ -116,6 +117,19 @@ class VoucherController extends Controller
 
     private function buildVoucherHtml(Lead $lead): string
     {
+        $companyLogo = Setting::getValue('company_logo', '');
+        $companyName = Setting::getValue('company_name', config('app.name', 'TravelOps'));
+        $companyAddress = Setting::getValue('company_address', '');
+        $companyPhone = Setting::getValue('company_phone', '');
+        $companyEmail = Setting::getValue('company_email', config('mail.from.address', ''));
+        if ($companyLogo && !preg_match('#^https?://#i', $companyLogo)) {
+            $companyLogo = url($companyLogo);
+        }
+        $companyName = htmlspecialchars((string) $companyName, ENT_QUOTES, 'UTF-8');
+        $companyAddress = htmlspecialchars((string) $companyAddress, ENT_QUOTES, 'UTF-8');
+        $companyPhone = htmlspecialchars((string) $companyPhone, ENT_QUOTES, 'UTF-8');
+        $companyEmail = htmlspecialchars((string) $companyEmail, ENT_QUOTES, 'UTF-8');
+
         $clientName = htmlspecialchars((string) ($lead->client_name ?? 'Customer'), ENT_QUOTES, 'UTF-8');
         $destination = htmlspecialchars((string) ($lead->destination ?? ''), ENT_QUOTES, 'UTF-8');
         $phone = htmlspecialchars((string) ($lead->phone ?? ''), ENT_QUOTES, 'UTF-8');
@@ -123,6 +137,18 @@ class VoucherController extends Controller
 
         $queryId = htmlspecialchars((string) ($lead->query_id ?? $lead->id), ENT_QUOTES, 'UTF-8');
         $generatedAt = htmlspecialchars(now()->format('d-m-Y H:i'), ENT_QUOTES, 'UTF-8');
+
+        $companyHeaderHtml = '<div class="company-header">';
+        if ($companyLogo) {
+            $companyHeaderHtml .= '<img src="' . htmlspecialchars($companyLogo, ENT_QUOTES, 'UTF-8') . '" alt="' . $companyName . '" class="company-logo" />';
+        } else {
+            $companyHeaderHtml .= '<div class="company-name-only">' . $companyName . '</div>';
+        }
+        $companyHeaderHtml .= '<div class="company-details"><div class="company-name">' . $companyName . '</div>';
+        if ($companyAddress) {
+            $companyHeaderHtml .= '<div class="company-addr">' . $companyAddress . '</div>';
+        }
+        $companyHeaderHtml .= '<div class="company-contact">📞 ' . $companyPhone . ' | ✉ ' . $companyEmail . '</div></div></div>';
 
         return '<!DOCTYPE html>
 <html>
@@ -133,6 +159,12 @@ class VoucherController extends Controller
 <style>
 body{font-family:Arial, sans-serif; background:#f3f4f6; padding:20px;}
 .container{max-width:800px; margin:0 auto; background:#fff; border:1px solid #e5e7eb; border-radius:10px; overflow:hidden;}
+.company-header{background:linear-gradient(135deg,#1e40af,#2563eb); color:#fff; padding:20px 24px; display:flex; align-items:center; gap:20px; flex-wrap:wrap;}
+.company-logo{height:52px; max-width:180px; object-fit:contain;}
+.company-name-only{font-size:24px; font-weight:bold;}
+.company-details{flex:1; min-width:180px;}
+.company-name{font-size:20px; font-weight:bold; margin-bottom:6px;}
+.company-addr,.company-contact{font-size:13px; opacity:.95;}
 .header{background:linear-gradient(135deg,#2563eb,#3b82f6); color:#fff; padding:24px;}
 .header h1{margin:0; font-size:22px;}
 .meta{opacity:.9; margin-top:6px; font-size:12px;}
@@ -146,7 +178,7 @@ body{font-family:Arial, sans-serif; background:#f3f4f6; padding:20px;}
 </style>
 </head>
 <body>
-<div class="container">
+<div class="container">' . $companyHeaderHtml . '
   <div class="header">
     <h1>Travel Voucher</h1>
     <div class="meta">Query ID: ' . $queryId . ' | Generated: ' . $generatedAt . '</div>
@@ -167,7 +199,7 @@ body{font-family:Arial, sans-serif; background:#f3f4f6; padding:20px;}
     </div>
   </div>
   <div class="footer">
-    This is a printable voucher preview. For a true PDF, we can add a PDF generator library.
+    Thank you for choosing us. This voucher can be printed or saved as PDF from the browser.
   </div>
 </div>
 </body>

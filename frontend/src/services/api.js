@@ -208,6 +208,12 @@ export const vouchersAPI = {
   send: (leadId, data = {}) => api.post(`/vouchers/lead/${leadId}/send`, data),
 };
 
+// Lead Invoices (preview PDF, send by email)
+export const leadInvoicesAPI = {
+  preview: (leadId, invoiceId) => api.get(`/leads/${leadId}/invoices/${invoiceId}/preview`, { responseType: 'blob' }),
+  send: (leadId, invoiceId, data = {}) => api.post(`/leads/${leadId}/invoices/${invoiceId}/send`, data),
+};
+
 // Follow-up API (for client details)
 export const followUpAPI = {
   getClientFollowUps: (clientId) => api.get(`/clients/${clientId}/follow-ups`),

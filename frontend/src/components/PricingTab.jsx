@@ -23,7 +23,9 @@ const PricingTab = ({
   setTcs,
   discount,
   setDiscount,
-  initialOptionGstSettings = {}
+  initialOptionGstSettings = {},
+  showToastNotification,
+  onPricingSaveSuccess
 }) => {
   // Individual GST settings for each option (overrides global gst)
   const [optionGstSettings, setOptionGstSettings] = useState(initialOptionGstSettings || {});
@@ -37,18 +39,19 @@ const PricingTab = ({
       }));
     }
   }, [initialOptionGstSettings]);
-  // Collect all accommodation events with hotel options
+  // Collect all accommodation events with hotel options (preserve optionIdx for key consistency with FinalTab)
   const allOptions = [];
   Object.keys(dayEvents).forEach(day => {
     const events = dayEvents[day] || [];
     events.forEach(event => {
       if (event.eventType === 'accommodation' && event.hotelOptions && event.hotelOptions.length > 0) {
-        event.hotelOptions.forEach(option => {
+        event.hotelOptions.forEach((option, optionIdx) => {
           allOptions.push({
             ...option,
             day: parseInt(day),
             eventId: event.id,
-            eventSubject: event.subject
+            eventSubject: event.subject,
+            optionIdx
           });
         });
       }
@@ -113,14 +116,15 @@ const PricingTab = ({
     }
   }, [allOptions.length, cgst, sgst, igst, tcs, discount]);
 
-  // Calculate totals for each option using individual GST settings
+  // Calculate totals for each option (optionKey must match init: optNum-day-optionIdx)
   const optionTotals = {};
   Object.keys(optionsByNumber).forEach(optNum => {
     const options = optionsByNumber[optNum];
     let totalNet = 0;
     let totalMarkup = 0;
-    options.forEach((option, idx) => {
-      const optionKey = `${optNum}-${option.day}-${idx}`;
+    options.forEach((option) => {
+      const optionIdx = option.optionIdx ?? 0;
+      const optionKey = `${optNum}-${option.day}-${optionIdx}`;
       const pricing = pricingData[optionKey] || { net: option.price || 0, markup: 0, gross: option.price || 0 };
       totalNet += pricing.net || 0;
       totalMarkup += pricing.markup || 0;
@@ -168,8 +172,9 @@ const PricingTab = ({
     const options = optionsByNumber[optNum] || [];
     const updatedPricing = { ...pricingData };
     
-    options.forEach((option, idx) => {
-      const optionKey = `${optNum}-${option.day}-${idx}`;
+    options.forEach((option) => {
+      const optionIdx = option.optionIdx ?? 0;
+      const optionKey = `${optNum}-${option.day}-${optionIdx}`;
       const currentPricing = pricingData[optionKey] || {
         net: parseFloat(option.price) || 0,
         markup: 0,
@@ -203,8 +208,9 @@ const PricingTab = ({
     
     Object.keys(optionsByNumber).forEach(optNum => {
       const options = optionsByNumber[optNum] || [];
-      options.forEach((option, idx) => {
-        const optionKey = `${optNum}-${option.day}-${idx}`;
+      options.forEach((option) => {
+        const optionIdx = option.optionIdx ?? 0;
+        const optionKey = `${optNum}-${option.day}-${optionIdx}`;
         const currentPricing = pricingData[optionKey] || {
           net: parseFloat(option.price) || 0,
           markup: 0,
@@ -236,7 +242,7 @@ const PricingTab = ({
   // Explicitly save GST + pricing for a single option (on button click)
   const handleSaveOptionSettings = async (optNum) => {
     if (!itinerary?.id) {
-      alert('Itinerary ID not found. Please save the itinerary first.');
+      showToastNotification?.('warning', 'Cannot Save', 'Itinerary ID not found. Please save the itinerary first.');
       return;
     }
 
@@ -255,10 +261,11 @@ const PricingTab = ({
       };
 
       await itineraryPricingAPI.save(itinerary.id, payload);
-      alert(`Pricing & GST for Option ${optNum} saved to server.`);
+      onPricingSaveSuccess?.(optionGstSettings);
+      showToastNotification?.('success', 'Saved', `Pricing & GST for Option ${optNum} saved successfully.`);
     } catch (e) {
       console.error('Failed to save option settings to server', e);
-      alert('Failed to save settings to server. Please try again.');
+      showToastNotification?.('error', 'Save Failed', 'Failed to save settings to server. Please try again.');
     }
   };
 
@@ -306,7 +313,8 @@ const PricingTab = ({
 
                   <div className="space-y-2">
                     {sortedOptions.map((option, idx) => {
-                      const optionKey = `${optNum}-${option.day}-${idx}`;
+                      const optionIdx = option.optionIdx ?? 0;
+                      const optionKey = `${optNum}-${option.day}-${optionIdx}`;
                       const currentPricing = pricingData[optionKey] || {
                         net: parseFloat(option.price) || 0,
                         markup: 0,
@@ -314,7 +322,7 @@ const PricingTab = ({
                       };
 
                       return (
-                        <div key={idx} className="bg-gray-50 rounded p-2 border border-gray-200">
+                        <div key={optionKey} className="bg-gray-50 rounded p-2 border border-gray-200">
                           <div className="flex items-start justify-between gap-3">
                             <div className="flex-1">
                               <div className="text-xs text-gray-500 mb-1">Night {idx + 1} (Day {option.day})</div>

@@ -1,15 +1,19 @@
 import { useState, useEffect, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import Layout from '../components/Layout';
 import { getDisplayImageUrl } from '../utils/imageUrl';
 import { packagesAPI, dayItinerariesAPI, hotelsAPI, activitiesAPI, settingsAPI, destinationsAPI, itineraryPricingAPI, transfersAPI, mealPlansAPI } from '../services/api';
-import { ArrowLeft, Camera, Edit, Plus, ChevronRight, FileText, Search, X, Bed, Image as ImageIcon, Car, FileText as PassportIcon, UtensilsCrossed, Plane, User, Ship, Star, Calendar, Hash, Building2 } from 'lucide-react';
+import { searchPexelsPhotos } from '../services/pexels';
+import { ArrowLeft, Camera, Edit, Plus, ChevronRight, FileText, Search, X, Bed, Image as ImageIcon, Car, FileText as PassportIcon, UtensilsCrossed, Plane, User, Ship, Star, Calendar, Hash, Building2, Upload } from 'lucide-react';
 import PricingTab from '../components/PricingTab';
 import FinalTab from '../components/FinalTab';
 
 const ItineraryDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
+  const [searchParams] = useSearchParams();
+  const fromLeadId = location.state?.fromLeadId || searchParams.get('fromLead');
   const [itinerary, setItinerary] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('build');
@@ -51,12 +55,36 @@ const ItineraryDetail = () => {
     checkInTime: '2:00 PM',
     checkOut: '',
     checkOutTime: '11:00',
+    // Masters Hotel form fields (for Add Manual)
+    hotel_details: '',
+    hotel_photo: null,
+    contact_person: '',
+    email: '',
+    phone: '',
+    hotel_address: '',
+    hotel_link: '',
+    status: 'active',
+    // Activity Masters form
+    activity_details: '',
+    activity_photo: null,
+    // Transportation Masters form (transfer)
+    transfer_details: '',
+    transfer_photo: null,
     // Transportation specific
     transferType: 'Private',
     // Meal specific
     mealType: 'Breakfast'
   });
   const [eventImagePreview, setEventImagePreview] = useState(null);
+  const [hotelPhotoPreview, setHotelPhotoPreview] = useState(null);
+  const [dayItineraryImageSource, setDayItineraryImageSource] = useState('upload'); // 'upload' | 'library'
+  const [showDayItineraryImageModal, setShowDayItineraryImageModal] = useState(false);
+  const [dayItineraryLibraryPackages, setDayItineraryLibraryPackages] = useState([]);
+  const [dayItineraryLibrarySearchTerm, setDayItineraryLibrarySearchTerm] = useState('');
+  const [dayItineraryLibraryTab, setDayItineraryLibraryTab] = useState('free');
+  const [dayItineraryFreeStockPhotos, setDayItineraryFreeStockPhotos] = useState([]);
+  const [dayItineraryFreeStockLoading, setDayItineraryFreeStockLoading] = useState(false);
+  const [dayItineraryLibraryLoading, setDayItineraryLibraryLoading] = useState(false);
   const [showEventTypeDropdown, setShowEventTypeDropdown] = useState(false);
   const dropdownRef = useRef(null);
   const [dayEvents, setDayEvents] = useState({}); // Store events by day number
@@ -99,6 +127,7 @@ const ItineraryDetail = () => {
   const [hotelRooms, setHotelRooms] = useState({});
   const [roomsLoading, setRoomsLoading] = useState(false);
   const [maxHotelOptions, setMaxHotelOptions] = useState(4); // Default to 4
+  const [toastNotification, setToastNotification] = useState({ type: '', text: '', title: '', visible: false });
   const [packageTerms, setPackageTerms] = useState({
     terms_conditions: '',
     refund_policy: '',
@@ -185,50 +214,49 @@ const ItineraryDetail = () => {
     }
   }, [dayEvents]);
 
-  // Add options to proposals
+  // Add options to proposals – only options that exist in dayEvents (same as Final tab)
   const handleAddOptionsToProposals = () => {
-    // Group options by optionNumber
-    const optionsByNumber = {};
-    Object.keys(pricingData).forEach(key => {
-      const [optNum] = key.split('-');
-      if (!optionsByNumber[optNum]) {
-        optionsByNumber[optNum] = [];
-      }
-      optionsByNumber[optNum].push({ key, pricing: pricingData[key] });
+    const optionNumbersFromEvents = new Set();
+    Object.keys(dayEvents || {}).forEach(day => {
+      (dayEvents[day] || []).forEach(event => {
+        if (event.eventType === 'accommodation' && event.hotelOptions && event.hotelOptions.length > 0) {
+          event.hotelOptions.forEach((option) => {
+            const optNum = option.optionNumber ?? 1;
+            const optNumInt = parseInt(optNum, 10);
+            if (optNumInt >= 1 && optNumInt <= maxHotelOptions) optionNumbersFromEvents.add(optNumInt);
+          });
+        }
+      });
     });
+    const sortedOptionNumbers = Array.from(optionNumbersFromEvents).sort((a, b) => a - b);
 
-    if (Object.keys(optionsByNumber).length === 0) {
-      alert('No pricing data found. Please set prices for hotel options.');
+    if (sortedOptionNumbers.length === 0) {
+      alert('No hotel options found in this itinerary. Please add accommodation options first.');
       return;
     }
 
-    // Create proposals for each option
-    const proposals = Object.keys(optionsByNumber).map(optNum => {
-      const optionData = optionsByNumber[optNum];
+    const proposals = sortedOptionNumbers.map(optNum => {
       let totalGross = 0;
-      optionData.forEach(({ pricing }) => {
-        totalGross += pricing.gross || 0;
+      Object.keys(pricingData || {}).forEach(key => {
+        const [keyOpt] = key.split('-');
+        if (parseInt(keyOpt, 10) === optNum) {
+          totalGross += (pricingData[key]?.gross || 0);
+        }
       });
+      const finalPrice = finalClientPrices[String(optNum)] !== undefined && finalClientPrices[String(optNum)] !== null
+        ? parseFloat(finalClientPrices[String(optNum)]) || totalGross
+        : (finalClientPrices[optNum] !== undefined && finalClientPrices[optNum] !== null ? parseFloat(finalClientPrices[optNum]) : null) ?? totalGross;
 
-      // Calculate final price (use finalClientPrice if set, otherwise use calculated total)
-      const calculatedTotal = totalGross;
-      const finalPrice = finalClientPrices[optNum] !== undefined && finalClientPrices[optNum] !== null 
-        ? parseFloat(finalClientPrices[optNum]) || calculatedTotal
-        : calculatedTotal;
-
-      // Get hotel details for this option
       const hotelDetails = [];
-      Object.keys(dayEvents).forEach(day => {
-        const events = dayEvents[day] || [];
-        events.forEach(event => {
+      Object.keys(dayEvents || {}).forEach(day => {
+        (dayEvents[day] || []).forEach(event => {
           if (event.eventType === 'accommodation' && event.hotelOptions) {
             event.hotelOptions.forEach((option, idx) => {
-              if (option.optionNumber === parseInt(optNum)) {
-                const optionKey = `${optNum}-${day}-${idx}`;
+              if (option.optionNumber === optNum) {
                 hotelDetails.push({
                   ...option,
                   day: parseInt(day),
-                  pricing: pricingData[optionKey]
+                  pricing: pricingData[`${optNum}-${day}-${idx}`]
                 });
               }
             });
@@ -237,60 +265,63 @@ const ItineraryDetail = () => {
       });
 
       return {
-        id: Date.now() + parseInt(optNum),
-        optionNumber: parseInt(optNum),
+        id: Date.now() + optNum,
+        optionNumber: optNum,
         itinerary_id: parseInt(id),
         itinerary_name: itinerary?.itinerary_name || 'Itinerary',
         destination: itinerary?.destinations || '',
         duration: itinerary?.duration || 0,
-        price: finalPrice, // Use final client price
+        price: finalPrice,
         website_cost: finalPrice,
-        hotelDetails: hotelDetails,
-        pricing: {
-          baseMarkup,
-          extraMarkup,
-          cgst,
-          sgst,
-          igst,
-          tcs,
-          discount,
-          finalClientPrice: finalPrice
-        },
+        hotelDetails,
+        pricing: { baseMarkup, extraMarkup, cgst, sgst, igst, tcs, discount, finalClientPrice: finalPrice },
         image: itinerary?.image || null,
         inserted_at: new Date().toISOString(),
         created_at: new Date().toISOString()
       };
     });
 
-    // Store in localStorage for LeadDetails page – REPLACE so only latest 3 options (no duplicate sets)
     localStorage.setItem(`itinerary_${id}_proposals`, JSON.stringify(proposals));
-
-    alert(`Successfully saved ${proposals.length} option(s). When you add this itinerary to a Query, these 3 options with their prices will appear.`);
+    alert(`Successfully saved ${proposals.length} option(s). When you add this itinerary to a Query, all ${proposals.length} options with their prices will appear.`);
   };
 
-  // Auto-save options to itinerary_*_proposals whenever pricing/options change (so Query shows latest 3 options without clicking Add Options to Proposals)
+  // Auto-save options to itinerary_*_proposals – only options that exist in dayEvents (same as Final tab), so Query shows same count and prices as itinerary
   const syncOptionsToProposalsStorage = () => {
     if (!id || !itinerary) return;
-    const optionsByNumber = {};
-    Object.keys(pricingData || {}).forEach(key => {
-      const [optNum] = key.split('-');
-      if (!optionsByNumber[optNum]) optionsByNumber[optNum] = [];
-      optionsByNumber[optNum].push({ key, pricing: pricingData[key] });
+    // Collect distinct option numbers from dayEvents (accommodation hotelOptions), same as FinalTab – not from pricingData
+    const optionNumbersFromEvents = new Set();
+    Object.keys(dayEvents || {}).forEach(day => {
+      (dayEvents[day] || []).forEach(event => {
+        if (event.eventType === 'accommodation' && event.hotelOptions && event.hotelOptions.length > 0) {
+          event.hotelOptions.forEach((option) => {
+            const optNum = option.optionNumber ?? 1;
+            const optNumInt = parseInt(optNum, 10);
+            if (optNumInt >= 1 && optNumInt <= maxHotelOptions) optionNumbersFromEvents.add(optNumInt);
+          });
+        }
+      });
     });
-    if (Object.keys(optionsByNumber).length === 0) return;
-    const proposals = Object.keys(optionsByNumber).map(optNum => {
-      const optionData = optionsByNumber[optNum];
+    const sortedOptionNumbers = Array.from(optionNumbersFromEvents).sort((a, b) => a - b);
+    if (sortedOptionNumbers.length === 0) return;
+
+    const proposals = sortedOptionNumbers.map(optNum => {
+      const optNumStr = String(optNum);
       let totalGross = 0;
-      optionData.forEach(({ pricing }) => { totalGross += pricing.gross || 0; });
-      const finalPrice = finalClientPrices[optNum] !== undefined && finalClientPrices[optNum] !== null
-        ? parseFloat(finalClientPrices[optNum]) || totalGross
-        : totalGross;
+      Object.keys(pricingData || {}).forEach(key => {
+        const [keyOpt] = key.split('-');
+        if (parseInt(keyOpt, 10) === optNum) {
+          totalGross += (pricingData[key]?.gross || 0);
+        }
+      });
+      const finalPrice = finalClientPrices[optNumStr] !== undefined && finalClientPrices[optNumStr] !== null
+        ? parseFloat(finalClientPrices[optNumStr]) || totalGross
+        : (finalClientPrices[optNum] !== undefined && finalClientPrices[optNum] !== null ? parseFloat(finalClientPrices[optNum]) : null) ?? totalGross;
       const hotelDetails = [];
       Object.keys(dayEvents || {}).forEach(day => {
         (dayEvents[day] || []).forEach(event => {
           if (event.eventType === 'accommodation' && event.hotelOptions) {
             event.hotelOptions.forEach((option, idx) => {
-              if (option.optionNumber === parseInt(optNum)) {
+              if (option.optionNumber === optNum) {
                 hotelDetails.push({
                   ...option,
                   day: parseInt(day),
@@ -302,8 +333,8 @@ const ItineraryDetail = () => {
         });
       });
       return {
-        id: Date.now() + parseInt(optNum),
-        optionNumber: parseInt(optNum),
+        id: Date.now() + optNum,
+        optionNumber: optNum,
         itinerary_id: parseInt(id),
         itinerary_name: itinerary?.itinerary_name || 'Itinerary',
         destination: itinerary?.destinations || '',
@@ -326,7 +357,7 @@ const ItineraryDetail = () => {
 
   useEffect(() => {
     syncOptionsToProposalsStorage();
-  }, [pricingData, dayEvents, finalClientPrices, id, itinerary, baseMarkup, extraMarkup, cgst, sgst, igst, tcs, discount]);
+  }, [pricingData, dayEvents, finalClientPrices, id, itinerary, baseMarkup, extraMarkup, cgst, sgst, igst, tcs, discount, maxHotelOptions]);
 
   // Load images when modal opens
   useEffect(() => {
@@ -580,6 +611,86 @@ itinerary.image = itinerary.image.replace('localhost', 'localhost:8000');
     }
   };
 
+  // Day Itinerary image library (same as Masters → Day Itinerary)
+  const fetchDayItineraryLibraryPackages = async () => {
+    setDayItineraryLibraryLoading(true);
+    try {
+      const response = await packagesAPI.list();
+      const data = response.data.data || [];
+      const baseUrl = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api').replace('/api', '');
+      const processed = data.map((p) => {
+        if (p.image) {
+          let url = p.image;
+          if (url.startsWith('/storage') || (url.startsWith('/') && !url.startsWith('http'))) url = `${baseUrl}${url}`;
+          if (url.includes('localhost') && !url.includes(':8000')) url = url.replace('localhost', 'localhost:8000');
+          return { ...p, image: url };
+        }
+        return p;
+      });
+      setDayItineraryLibraryPackages(processed);
+    } catch (err) {
+      console.error('Failed to fetch library:', err);
+    } finally {
+      setDayItineraryLibraryLoading(false);
+    }
+  };
+
+  const fetchDayItineraryFreeStockImages = async () => {
+    const q = (dayItineraryLibrarySearchTerm || '').trim();
+    if (q.length < 2) return;
+    setDayItineraryFreeStockLoading(true);
+    try {
+      const { photos } = await searchPexelsPhotos(q, 15);
+      setDayItineraryFreeStockPhotos(photos || []);
+    } catch (e) {
+      setDayItineraryFreeStockPhotos([]);
+    } finally {
+      setDayItineraryFreeStockLoading(false);
+    }
+  };
+
+  const handleSelectDayItineraryFreeStockImage = async (imageUrl) => {
+    try {
+      const res = await fetch(imageUrl);
+      const blob = await res.blob();
+      const file = new File([blob], 'image.jpg', { type: blob.type || 'image/jpeg' });
+      const et = dayDetailsForm.eventType;
+      const updates = et === 'activity' ? { activity_photo: file } : et === 'transportation' ? { transfer_photo: file } : { image: file };
+      setDayDetailsForm(prev => ({ ...prev, ...updates }));
+      setEventImagePreview(URL.createObjectURL(file));
+      setDayItineraryImageSource('upload');
+      setShowDayItineraryImageModal(false);
+    } catch (e) {
+      alert('Failed to load image. Try another or upload from device.');
+    }
+  };
+
+  const handleSelectDayItineraryLibraryImage = (imageUrl) => {
+    setEventImagePreview(imageUrl);
+    const et = dayDetailsForm.eventType;
+    // For activity/transport: store URL string; at save we fetch and convert to File
+    const updates = et === 'activity' ? { activity_photo: imageUrl } : et === 'transportation' ? { transfer_photo: imageUrl } : { image: null };
+    setDayDetailsForm(prev => ({ ...prev, ...updates }));
+    setDayItineraryImageSource('library');
+    setShowDayItineraryImageModal(false);
+  };
+
+  useEffect(() => {
+    if (showDayItineraryImageModal && dayItineraryLibraryTab === 'your' && dayItineraryLibraryPackages.length === 0) {
+      fetchDayItineraryLibraryPackages();
+    }
+  }, [showDayItineraryImageModal, dayItineraryLibraryTab]);
+
+  const dayItineraryLibrarySearch = (dayItineraryLibrarySearchTerm || '').trim().toLowerCase();
+  const dayItineraryLibraryImages = dayItineraryLibrarySearch.length >= 2
+    ? dayItineraryLibraryPackages.filter(
+        (p) => p.image && (
+          (p.title || p.itinerary_name || '').toLowerCase().includes(dayItineraryLibrarySearch) ||
+          (p.destination || p.destinations || '').toLowerCase().includes(dayItineraryLibrarySearch)
+        )
+      )
+    : [];
+
   const fetchDestinations = async () => {
     try {
       const response = await destinationsAPI.list();
@@ -813,6 +924,12 @@ itinerary.image = itinerary.image.replace('localhost', 'localhost:8000');
       alert(`Maximum ${maxHotelOptions} hotel options allowed per day. Please remove an existing hotel first.`);
       return;
     }
+
+    // Check if same hotel already exists in another option
+    if (isHotelAlreadyInOptions(hotel)) {
+      showToastNotification('warning', 'Hotel Already Added', 'This hotel is already added in options. You cannot add the same hotel in multiple options.');
+      return;
+    }
     
     const nextOptionNumber = accommodationEvents.length + 1;
     
@@ -994,10 +1111,23 @@ itinerary.image = itinerary.image.replace('localhost', 'localhost:8000');
       checkInTime: '2:00 PM',
       checkOut: '',
       checkOutTime: '11:00',
+      hotel_details: '',
+      hotel_photo: null,
+      contact_person: '',
+      email: '',
+      phone: '',
+      hotel_address: '',
+      hotel_link: '',
+      status: 'active',
+      activity_details: '',
+      activity_photo: null,
+      transfer_details: '',
+      transfer_photo: null,
       transferType: 'Private',
       mealType: 'Breakfast'
     });
     setEventImagePreview(null);
+    setHotelPhotoPreview(null);
     setShowDayDetailsModal(false);
   };
 
@@ -1139,6 +1269,30 @@ itinerary.image = itinerary.image.replace('localhost', 'localhost:8000');
     return typeof rawId === 'number' ? rawId : (parseInt(rawId, 10) || null);
   };
 
+  const showToastNotification = (type, title, text) => {
+    setToastNotification({ type, title, text, visible: true });
+    setTimeout(() => setToastNotification(prev => ({ ...prev, visible: false })), 2500);
+    setTimeout(() => setToastNotification({ type: '', text: '', title: '', visible: false }), 3000);
+  };
+
+  // Check if hotel is already used in another option for the selected day
+  const isHotelAlreadyInOptions = (hotel, excludeEventId = null) => {
+    const currentDayEvents = dayEvents[selectedDay] || [];
+    const accommodationEvents = currentDayEvents.filter(e => e.eventType === 'accommodation' && e.id !== excludeEventId);
+    const hotelId = extractHotelId(hotel);
+    const hotelName = (hotel.hotelName || hotel.name || '').toString().trim().toLowerCase();
+    if (!hotelId && !hotelName) return false;
+    for (const ev of accommodationEvents) {
+      for (const opt of (ev.hotelOptions || [])) {
+        const optId = opt.hotel_id != null ? (typeof opt.hotel_id === 'number' ? opt.hotel_id : parseInt(opt.hotel_id, 10)) : null;
+        const optName = (opt.hotelName || '').toString().trim().toLowerCase();
+        if (hotelId && optId && hotelId === optId) return true;
+        if (hotelName && optName && hotelName === optName) return true;
+      }
+    }
+    return false;
+  };
+
   // Handle hotel selection from search
   const handleHotelSelect = (hotel) => {
     if (!selectedDay) {
@@ -1155,6 +1309,12 @@ itinerary.image = itinerary.image.replace('localhost', 'localhost:8000');
       alert(`Maximum ${maxHotelOptions} hotel options allowed per day. Please remove an existing hotel first.`);
       return;
     }
+
+    // Check if same hotel already exists in another option
+    if (isHotelAlreadyInOptions(hotel)) {
+      showToastNotification('warning', 'Hotel Already Added', 'This hotel is already added in options. You cannot add the same hotel in multiple options.');
+      return;
+    }
     
     const nextOptionNumber = accommodationEvents.length + 1;
     
@@ -1163,7 +1323,13 @@ itinerary.image = itinerary.image.replace('localhost', 'localhost:8000');
 
     // Check if accommodation modal is open
     if (dayDetailsForm.eventType === 'accommodation' && showDayDetailsModal) {
-      // Add hotel to current hotel option in the modal
+      // Add hotel to current hotel option in the modal (still check duplicate - could be adding new option)
+      if (isHotelAlreadyInOptions(hotel, dayDetailsForm.id)) {
+        showToastNotification('warning', 'Hotel Already Added', 'This hotel is already added in options. You cannot add the same hotel in multiple options.');
+        setHotelSearchResults([]);
+        setSearchQuery('');
+        return;
+      }
       setDayDetailsForm({
         ...dayDetailsForm,
         hotelName: hotel.hotelName || hotel.name,
@@ -1276,10 +1442,10 @@ itinerary.image = itinerary.image.replace('localhost', 'localhost:8000');
           <div className="text-center py-12">
             <p className="text-gray-500">Itinerary not found</p>
             <button
-              onClick={() => navigate('/itineraries')}
+              onClick={() => fromLeadId ? navigate(`/leads/${fromLeadId}`) : navigate('/itineraries')}
               className="mt-4 text-blue-600 hover:text-blue-700"
             >
-              Back to Itineraries
+              {fromLeadId ? 'Back to Query' : 'Back to Itineraries'}
             </button>
           </div>
         </div>
@@ -1289,16 +1455,45 @@ itinerary.image = itinerary.image.replace('localhost', 'localhost:8000');
 
   return (
     <>
+    {toastNotification.text && (
+      <div className="fixed bottom-6 right-6 z-[100] max-w-sm w-full">
+        <div
+          className={`px-4 py-3 rounded-lg shadow-lg text-sm transition-all duration-300 ${
+            toastNotification.type === 'warning'
+              ? 'bg-amber-50 border border-amber-200 text-gray-900'
+              : toastNotification.type === 'success'
+              ? 'bg-white border border-green-200 text-gray-900'
+              : 'bg-white border border-red-200 text-gray-900'
+          } ${toastNotification.visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'}`}
+        >
+          <div className="text-xs text-gray-500">TravelOps</div>
+          <div className="flex items-start justify-between gap-2">
+            <div>
+              <div className="font-semibold">{toastNotification.title}</div>
+              <div className="text-sm text-gray-700">{toastNotification.text}</div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setToastNotification({ type: '', text: '', title: '', visible: false })}
+              className="text-gray-400 hover:text-gray-600"
+              aria-label="Close notification"
+            >
+              ×
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
     <Layout>
       <div className="min-h-screen">
         {/* Header with Back Button */}
         <div className="bg-white border-b border-gray-200 px-6 py-4">
           <button
-            onClick={() => navigate('/itineraries')}
+            onClick={() => fromLeadId ? navigate(`/leads/${fromLeadId}`) : navigate('/itineraries')}
             className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors"
           >
             <ArrowLeft className="h-5 w-5" />
-            <span className="font-medium">Back to Itineraries</span>
+            <span className="font-medium">{fromLeadId ? 'Back to Query' : 'Back to Itineraries'}</span>
           </button>
         </div>
 
@@ -1486,7 +1681,11 @@ itinerary.image = itinerary.image.replace('localhost', 'localhost:8000');
                                 </button>
                                 <button
                                   onClick={() => {
-                                    setDayDetailsForm({ ...dayDetailsForm, eventType: 'accommodation' });
+                                    setDayDetailsForm({
+                                      ...dayDetailsForm,
+                                      eventType: 'accommodation',
+                                      destination: days[selectedDay - 1]?.destination || ''
+                                    });
                                     setShowEventTypeDropdown(false);
                                     setShowDayDetailsModal(true);
                                   }}
@@ -1498,6 +1697,7 @@ itinerary.image = itinerary.image.replace('localhost', 'localhost:8000');
                                 <button
                                   onClick={() => {
                                     setDayDetailsForm({ ...dayDetailsForm, eventType: 'activity' });
+                                    setCategoryType('activity');
                                     setShowEventTypeDropdown(false);
                                     setShowDayDetailsModal(true);
                                   }}
@@ -1509,6 +1709,7 @@ itinerary.image = itinerary.image.replace('localhost', 'localhost:8000');
                                 <button
                                   onClick={() => {
                                     setDayDetailsForm({ ...dayDetailsForm, eventType: 'transportation' });
+                                    setCategoryType('transportation');
                                     setShowEventTypeDropdown(false);
                                     setShowDayDetailsModal(true);
                                   }}
@@ -1520,6 +1721,7 @@ itinerary.image = itinerary.image.replace('localhost', 'localhost:8000');
                                 <button
                                   onClick={() => {
                                     setDayDetailsForm({ ...dayDetailsForm, eventType: 'meal' });
+                                    setCategoryType('meal');
                                     setShowEventTypeDropdown(false);
                                     setShowDayDetailsModal(true);
                                   }}
@@ -1527,39 +1729,6 @@ itinerary.image = itinerary.image.replace('localhost', 'localhost:8000');
                                 >
                                   <UtensilsCrossed className="h-4 w-4 text-gray-500" />
                                   <span>Meal</span>
-                                </button>
-                                <button
-                                  onClick={() => {
-                                    setDayDetailsForm({ ...dayDetailsForm, eventType: 'flight' });
-                                    setShowEventTypeDropdown(false);
-                                    setShowDayDetailsModal(true);
-                                  }}
-                                  className="w-full px-4 py-2 text-left hover:bg-gray-50 flex items-center gap-3 text-sm text-gray-700"
-                                >
-                                  <Plane className="h-4 w-4 text-gray-500" />
-                                  <span>Flight</span>
-                                </button>
-                                <button
-                                  onClick={() => {
-                                    setDayDetailsForm({ ...dayDetailsForm, eventType: 'leisure' });
-                                    setShowEventTypeDropdown(false);
-                                    setShowDayDetailsModal(true);
-                                  }}
-                                  className="w-full px-4 py-2 text-left hover:bg-gray-50 flex items-center gap-3 text-sm text-gray-700"
-                                >
-                                  <User className="h-4 w-4 text-gray-500" />
-                                  <span>Leisure</span>
-                                </button>
-                                <button
-                                  onClick={() => {
-                                    setDayDetailsForm({ ...dayDetailsForm, eventType: 'cruise' });
-                                    setShowEventTypeDropdown(false);
-                                    setShowDayDetailsModal(true);
-                                  }}
-                                  className="w-full px-4 py-2 text-left hover:bg-gray-50 flex items-center gap-3 text-sm text-gray-700"
-                                >
-                                  <Ship className="h-4 w-4 text-gray-500" />
-                                  <span>Cruise</span>
                                 </button>
                               </div>
                             </div>
@@ -2468,6 +2637,8 @@ itinerary.image = itinerary.image.replace('localhost', 'localhost:8000');
             discount={discount}
             setDiscount={setDiscount}
             initialOptionGstSettings={optionGstSettingsFromServer}
+            showToastNotification={showToastNotification}
+            onPricingSaveSuccess={(gst) => setOptionGstSettingsFromServer(gst || {})}
           />
         )}
 
@@ -2486,6 +2657,7 @@ itinerary.image = itinerary.image.replace('localhost', 'localhost:8000');
             tcs={tcs}
             discount={discount}
             maxHotelOptions={maxHotelOptions}
+            optionGstSettings={optionGstSettingsFromServer}
           />
         )}
 
@@ -2537,6 +2709,14 @@ itinerary.image = itinerary.image.replace('localhost', 'localhost:8000');
                       checkInTime: '2:00 PM',
                       checkOut: '',
                       checkOutTime: '11:00',
+                      hotel_details: '',
+                      hotel_photo: null,
+                      contact_person: '',
+                      email: '',
+                      phone: '',
+                      hotel_address: '',
+                      hotel_link: '',
+                      status: 'active',
                       name: '',
                       date: '',
                       startTime: '1:00 PM',
@@ -2546,6 +2726,10 @@ itinerary.image = itinerary.image.replace('localhost', 'localhost:8000');
                       mealType: 'Breakfast'
                     });
                     setEventImagePreview(null);
+                    setHotelPhotoPreview(null);
+                    setShowDayItineraryImageModal(false);
+                    setDayItineraryLibraryPackages([]);
+                    setDayItineraryFreeStockPhotos([]);
                   }}
                   className="text-gray-400 hover:text-gray-600 transition-colors"
                 >
@@ -2591,32 +2775,59 @@ itinerary.image = itinerary.image.replace('localhost', 'localhost:8000');
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Image</label>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={(e) => {
-                          const file = e.target.files[0];
-                          if (file) {
-                            setDayDetailsForm({ ...dayDetailsForm, image: file });
-                            const reader = new FileReader();
-                            reader.onloadend = () => setEventImagePreview(reader.result);
-                            reader.readAsDataURL(file);
-                          }
-                        }}
-                        className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-                      />
-                      {eventImagePreview && (
-                        <div className="mt-3 relative inline-block">
-                          <img src={eventImagePreview} alt="Preview" className="w-full h-48 object-cover rounded-lg border border-gray-300" />
+                      <div className="space-y-2">
+                        {eventImagePreview ? (
+                          <div className="relative">
+                            <img src={eventImagePreview} alt="Preview" className="w-full h-48 object-cover rounded-lg border border-gray-300" />
+                            <button
+                              type="button"
+                              onClick={() => { setDayDetailsForm({ ...dayDetailsForm, image: null }); setEventImagePreview(null); }}
+                              className="absolute top-2 right-2 bg-red-600 text-white p-2 rounded-full hover:bg-red-700"
+                            >
+                              <X className="h-4 w-4" />
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+                            <ImageIcon className="h-12 w-12 text-gray-400 mx-auto mb-2" />
+                            <p className="text-sm text-gray-600 mb-3">No image selected</p>
+                          </div>
+                        )}
+                        <div className="flex gap-2">
+                          <label className="flex-1 cursor-pointer">
+                            <input
+                              type="file"
+                              accept="image/*"
+                              onChange={(e) => {
+                                const file = e.target.files[0];
+                                if (file) {
+                                  setDayDetailsForm({ ...dayDetailsForm, image: file });
+                                  setDayItineraryImageSource('upload');
+                                  const reader = new FileReader();
+                                  reader.onloadend = () => setEventImagePreview(reader.result);
+                                  reader.readAsDataURL(file);
+                                }
+                              }}
+                              className="hidden"
+                            />
+                            <div className="flex items-center justify-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors">
+                              <Upload className="h-4 w-4" />
+                              <span className="text-sm font-medium">Upload Image</span>
+                            </div>
+                          </label>
                           <button
                             type="button"
-                            onClick={() => { setDayDetailsForm({ ...dayDetailsForm, image: null }); setEventImagePreview(null); }}
-                            className="absolute top-2 right-2 bg-red-600 text-white p-2 rounded-full hover:bg-red-700"
+                            onClick={() => {
+                              setDayItineraryImageSource('library');
+                              setShowDayItineraryImageModal(true);
+                            }}
+                            className="flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded-lg transition-colors"
                           >
-                            <X className="h-4 w-4" />
+                            <Camera className="h-4 w-4" />
+                            <span className="text-sm font-medium">Choose from Library</span>
                           </button>
                         </div>
-                      )}
+                      </div>
                     </div>
                   </>
                 ) : dayDetailsForm.eventType === 'accommodation' ? (
@@ -2689,772 +2900,361 @@ itinerary.image = itinerary.image.replace('localhost', 'localhost:8000');
                       </div>
                     )}
 
-                    {/* Add/Edit Hotel Option Form - Only show when NOT editing existing event */}
+                    {/* Add Hotel Form - Same as Masters (Add Hotel) */}
                     {!dayDetailsForm.id && (
-                      <div className="border-t border-gray-200 pt-4">
-                        <h3 className="text-lg font-semibold text-gray-800 mb-4">
-                          {dayDetailsForm.editingOptionIndex !== null ? `Edit Option ${dayDetailsForm.editingOptionIndex + 1}` : 'Add Hotel Option'}
-                        </h3>
-                      
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="border-t border-gray-200 pt-4 space-y-4">
+                        <h3 className="text-lg font-semibold text-gray-800 mb-4">Add Hotel (same as Masters)</h3>
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Destination
-                          </label>
-                          <select
-                            value={dayDetailsForm.destination}
-                            onChange={(e) => {
-                              const destination = e.target.value;
-                              setDayDetailsForm({ ...dayDetailsForm, destination });
-                              // Auto-search hotels when destination is selected
-                              if (destination) {
-                                searchHotels('', destination);
-                                setShowHotelSearch(true);
-                              }
-                            }}
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          >
-                            <option value="">Select Destination</option>
-                            {destinations.map((dest) => (
-                              <option key={dest} value={dest}>{dest}</option>
-                            ))}
-                            {days[selectedDay - 1]?.destination && !destinations.includes(days[selectedDay - 1].destination) && (
-                              <option value={days[selectedDay - 1].destination}>{days[selectedDay - 1].destination}</option>
-                            )}
-                          </select>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Hotel name *</label>
+                          <input
+                            type="text"
+                            value={dayDetailsForm.hotelName}
+                            onChange={(e) => setDayDetailsForm({ ...dayDetailsForm, hotelName: e.target.value })}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            placeholder="Enter hotel name"
+                            required
+                          />
                         </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Type
-                          </label>
-                          <select
-                            value={dayDetailsForm.type}
-                            onChange={(e) => setDayDetailsForm({ ...dayDetailsForm, type: e.target.value })}
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          >
-                            <option value="Manual">Manual</option>
-                            <option value="Automatic">Automatic</option>
-                          </select>
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-4 mt-4">
-                        <div className="relative">
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Hotel Name
-                          </label>
-                          <div className="relative">
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Category *</label>
+                            <select
+                              value={dayDetailsForm.category}
+                              onChange={(e) => setDayDetailsForm({ ...dayDetailsForm, category: e.target.value })}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              required
+                            >
+                              <option value="">Select</option>
+                              <option value="1">1 Star</option>
+                              <option value="2">2 Stars</option>
+                              <option value="3">3 Stars</option>
+                              <option value="4">4 Stars</option>
+                              <option value="5">5 Stars</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Destination *</label>
                             <input
                               type="text"
-                              value={dayDetailsForm.hotelName}
-                              onChange={(e) => {
-                                setDayDetailsForm({ ...dayDetailsForm, hotelName: e.target.value });
-                                if (e.target.value.length > 2 && dayDetailsForm.destination) {
-                                  searchHotels(e.target.value, dayDetailsForm.destination);
-                                  setShowHotelSearch(true);
-                                } else {
-                                  setHotelSearchResults([]);
-                                }
-                              }}
-                              onFocus={() => {
-                                if (dayDetailsForm.destination && hotelSearchResults.length === 0) {
-                                  searchHotels('', dayDetailsForm.destination);
-                                }
-                                setShowHotelSearch(true);
-                              }}
-                              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                              placeholder="Enter hotel name or search"
+                              value={dayDetailsForm.destination}
+                              onChange={(e) => setDayDetailsForm({ ...dayDetailsForm, destination: e.target.value })}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              placeholder="Enter destination"
+                              required
                             />
-                            {dayDetailsForm.destination && (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  searchHotels('', dayDetailsForm.destination);
-                                  setShowHotelSearch(true);
-                                }}
-                                className="absolute right-2 top-1/2 transform -translate-y-1/2 text-blue-600 hover:text-blue-700"
-                                title="Search hotels"
-                              >
-                                <Search className="h-4 w-4" />
-                              </button>
-                            )}
                           </div>
-                          {showHotelSearch && hotelSearchResults.length > 0 && (
-                            <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-                              {hotelSearchResults.map((hotel) => (
-                                <div
-                                  key={hotel.id}
-                                  onClick={() => handleHotelSelect(hotel)}
-                                  className="p-3 hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-b-0"
-                                >
-                                  <div className="font-medium text-gray-900 text-sm">{hotel.hotelName || hotel.name}</div>
-                                  {hotel.rating && (
-                                    <div className="flex items-center gap-1 mt-1">
-                                      {[...Array(Math.floor(hotel.rating))].map((_, i) => (
-                                        <Star key={i} className="h-3 w-3 fill-yellow-400 text-yellow-400" />
-                                      ))}
-                                      <span className="text-xs text-gray-500 ml-1">{hotel.rating} stars</span>
-                                    </div>
-                                  )}
-                                  {hotel.address && (
-                                    <div className="text-xs text-gray-500 mt-1">{hotel.address}</div>
-                                  )}
-                                </div>
-                              ))}
-                            </div>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Hotel Details</label>
+                          <textarea
+                            value={dayDetailsForm.hotel_details}
+                            onChange={(e) => setDayDetailsForm({ ...dayDetailsForm, hotel_details: e.target.value })}
+                            rows={4}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            placeholder="Enter hotel details"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Hotel Photo *</label>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={(e) => {
+                              const file = e.target.files[0];
+                              if (file) {
+                                setDayDetailsForm({ ...dayDetailsForm, hotel_photo: file });
+                                const reader = new FileReader();
+                                reader.onloadend = () => setHotelPhotoPreview(reader.result);
+                                reader.readAsDataURL(file);
+                              }
+                            }}
+                            className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                          />
+                          {hotelPhotoPreview && (
+                            <img src={hotelPhotoPreview} alt="Preview" className="mt-2 h-20 w-20 object-cover rounded-lg" />
                           )}
                         </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Category
-                          </label>
-                          <select
-                            value={dayDetailsForm.category}
-                            onChange={(e) => setDayDetailsForm({ ...dayDetailsForm, category: e.target.value })}
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          >
-                            <option value="1">1 Star</option>
-                            <option value="2">2 Stars</option>
-                            <option value="3">3 Stars</option>
-                            <option value="4">4 Stars</option>
-                            <option value="5">5 Stars</option>
-                          </select>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Contact Person</label>
+                            <input
+                              type="text"
+                              value={dayDetailsForm.contact_person}
+                              onChange={(e) => setDayDetailsForm({ ...dayDetailsForm, contact_person: e.target.value })}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              placeholder="Enter contact person name"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                            <input
+                              type="email"
+                              value={dayDetailsForm.email}
+                              onChange={(e) => setDayDetailsForm({ ...dayDetailsForm, email: e.target.value })}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              placeholder="Enter email"
+                            />
+                          </div>
                         </div>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-4 mt-4">
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Room Name
-                          </label>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
                           <input
-                            type="text"
-                            value={dayDetailsForm.roomName}
-                            onChange={(e) => setDayDetailsForm({ ...dayDetailsForm, roomName: e.target.value })}
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            placeholder="Enter room name"
+                            type="tel"
+                            value={dayDetailsForm.phone}
+                            onChange={(e) => setDayDetailsForm({ ...dayDetailsForm, phone: e.target.value })}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            placeholder="Enter phone number"
                           />
                         </div>
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Meal Plan
-                          </label>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Hotel Address *</label>
                           <input
                             type="text"
-                            value={dayDetailsForm.mealPlan}
-                            onChange={(e) => setDayDetailsForm({ ...dayDetailsForm, mealPlan: e.target.value })}
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            placeholder="Enter meal plan"
+                            value={dayDetailsForm.hotel_address}
+                            onChange={(e) => setDayDetailsForm({ ...dayDetailsForm, hotel_address: e.target.value })}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            placeholder="Enter hotel address"
+                            required
                           />
                         </div>
-                      </div>
-
-                      {/* Number of Rooms */}
-                      <div className="mt-4">
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Enter Number of Rooms
-                        </label>
-                        <div className="grid grid-cols-3 gap-4">
+                        <div className="grid grid-cols-2 gap-4">
                           <div>
-                            <label className="block text-xs text-gray-600 mb-1">Single</label>
-                            <input
-                              type="number"
-                              value={dayDetailsForm.single}
-                              onChange={(e) => setDayDetailsForm({ ...dayDetailsForm, single: e.target.value })}
-                              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                              placeholder="0"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-xs text-gray-600 mb-1">Double</label>
-                            <input
-                              type="number"
-                              value={dayDetailsForm.double}
-                              onChange={(e) => setDayDetailsForm({ ...dayDetailsForm, double: e.target.value })}
-                              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                              placeholder="0"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-xs text-gray-600 mb-1">Triple</label>
-                            <input
-                              type="number"
-                              value={dayDetailsForm.triple}
-                              onChange={(e) => setDayDetailsForm({ ...dayDetailsForm, triple: e.target.value })}
-                              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                              placeholder="0"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-xs text-gray-600 mb-1">Quad</label>
-                            <input
-                              type="number"
-                              value={dayDetailsForm.quad}
-                              onChange={(e) => setDayDetailsForm({ ...dayDetailsForm, quad: e.target.value })}
-                              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                              placeholder="0"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-xs text-gray-600 mb-1">CWB (Child With Bed)</label>
-                            <input
-                              type="number"
-                              value={dayDetailsForm.cwb}
-                              onChange={(e) => setDayDetailsForm({ ...dayDetailsForm, cwb: e.target.value })}
-                              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                              placeholder="0"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-xs text-gray-600 mb-1">CNB (Child No Bed)</label>
-                            <input
-                              type="number"
-                              value={dayDetailsForm.cnb}
-                              onChange={(e) => setDayDetailsForm({ ...dayDetailsForm, cnb: e.target.value })}
-                              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                              placeholder="0"
-                            />
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Check-in/Check-out */}
-                      <div className="grid grid-cols-2 gap-4 mt-4">
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Check-in <span className="text-red-500">*</span>
-                          </label>
-                          <div className="flex gap-2">
-                            <input
-                              type="date"
-                              value={dayDetailsForm.checkIn}
-                              onChange={(e) => setDayDetailsForm({ ...dayDetailsForm, checkIn: e.target.value })}
-                              className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            />
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Status *</label>
                             <select
-                              value={dayDetailsForm.checkInTime}
-                              onChange={(e) => setDayDetailsForm({ ...dayDetailsForm, checkInTime: e.target.value })}
-                              className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              value={dayDetailsForm.status}
+                              onChange={(e) => setDayDetailsForm({ ...dayDetailsForm, status: e.target.value })}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              required
                             >
-                              <option value="12:00 AM">12:00 AM</option>
-                              <option value="1:00 AM">1:00 AM</option>
-                              <option value="2:00 AM">2:00 AM</option>
-                              <option value="2:00 PM">2:00 PM</option>
-                              <option value="3:00 PM">3:00 PM</option>
-                              <option value="4:00 PM">4:00 PM</option>
+                              <option value="active">Active</option>
+                              <option value="inactive">Inactive</option>
                             </select>
                           </div>
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Check-out <span className="text-red-500">*</span>
-                          </label>
-                          <div className="flex gap-2">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Hotel Link</label>
                             <input
-                              type="date"
-                              value={dayDetailsForm.checkOut}
-                              onChange={(e) => setDayDetailsForm({ ...dayDetailsForm, checkOut: e.target.value })}
-                              className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              type="url"
+                              value={dayDetailsForm.hotel_link}
+                              onChange={(e) => setDayDetailsForm({ ...dayDetailsForm, hotel_link: e.target.value })}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              placeholder="Enter hotel website link"
                             />
-                            <select
-                              value={dayDetailsForm.checkOutTime}
-                              onChange={(e) => setDayDetailsForm({ ...dayDetailsForm, checkOutTime: e.target.value })}
-                              className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            >
-                              <option value="10:00">10:00</option>
-                              <option value="11:00">11:00</option>
-                              <option value="12:00 PM">12:00 PM</option>
-                              <option value="1:00 PM">1:00 PM</option>
-                            </select>
                           </div>
                         </div>
                       </div>
-
-                      {/* Description */}
-                      <div className="mt-4">
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Description
-                        </label>
-                        <textarea
-                          value={dayDetailsForm.details}
-                          onChange={(e) => setDayDetailsForm({ ...dayDetailsForm, details: e.target.value })}
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-                          placeholder="Enter description"
-                          rows="3"
-                        />
-                      </div>
-
-                      {/* Image Upload for Hotel Option */}
-                      <div className="mt-4">
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Hotel Image
-                        </label>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          onChange={(e) => {
-                            const file = e.target.files[0];
-                            if (file) {
-                              setDayDetailsForm({ ...dayDetailsForm, image: file });
-                              const reader = new FileReader();
-                              reader.onloadend = () => {
-                                setEventImagePreview(reader.result);
-                              };
-                              reader.readAsDataURL(file);
-                            }
-                          }}
-                          className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
-                        {eventImagePreview && (
-                          <div className="mt-3">
-                            <img 
-                              src={eventImagePreview} 
-                              alt="Preview" 
-                              className="w-32 h-32 object-cover rounded-lg border border-gray-300"
-                            />
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Add/Update Option Button */}
-                      <div className="mt-4 flex gap-2">
-                        <button
-                          onClick={() => {
-                            const currentOptions = dayDetailsForm.hotelOptions || [];
-                            
-                            // Calculate next option number for this accommodation event
-                            let nextOptionNumber;
-                            if (dayDetailsForm.editingOptionIndex !== null) {
-                              // Keep existing option number when editing
-                              nextOptionNumber = currentOptions[dayDetailsForm.editingOptionIndex]?.optionNumber || (dayDetailsForm.editingOptionIndex + 1);
-                            } else {
-                              // Calculate next option number based on existing options in this event
-                              const maxOptionNumber = currentOptions.length > 0 
-                                ? Math.max(...currentOptions.map(opt => opt.optionNumber || 0))
-                                : 0;
-                              nextOptionNumber = maxOptionNumber + 1;
-                            }
-
-                            const newOption = {
-                              hotelName: dayDetailsForm.hotelName,
-                              hotel_id: dayDetailsForm.hotel_id, // Include hotel_id for email lookup
-                              category: dayDetailsForm.category,
-                              roomName: dayDetailsForm.roomName,
-                              mealPlan: dayDetailsForm.mealPlan,
-                              single: dayDetailsForm.single,
-                              double: dayDetailsForm.double,
-                              triple: dayDetailsForm.triple,
-                              quad: dayDetailsForm.quad,
-                              cwb: dayDetailsForm.cwb,
-                              cnb: dayDetailsForm.cnb,
-                              checkIn: dayDetailsForm.checkIn,
-                              checkInTime: dayDetailsForm.checkInTime,
-                              checkOut: dayDetailsForm.checkOut,
-                              checkOutTime: dayDetailsForm.checkOutTime,
-                              destination: dayDetailsForm.destination,
-                              details: dayDetailsForm.details,
-                              image: eventImagePreview || dayDetailsForm.image,
-                              optionNumber: nextOptionNumber // Add option number
-                            };
-
-                            if (dayDetailsForm.editingOptionIndex !== null) {
-                              // Update existing option
-                              const updatedOptions = [...currentOptions];
-                              updatedOptions[dayDetailsForm.editingOptionIndex] = newOption;
-                              setDayDetailsForm({
-                                ...dayDetailsForm,
-                                hotelOptions: updatedOptions,
-                                editingOptionIndex: null,
-                                hotelName: '',
-                                hotel_id: null,
-                                category: '1',
-                                roomName: '',
-                                mealPlan: '',
-                                single: '',
-                                double: '',
-                                triple: '',
-                                quad: '',
-                                cwb: '',
-                                cnb: '',
-                                checkIn: '',
-                                checkInTime: '2:00 PM',
-                                checkOut: '',
-                                checkOutTime: '11:00',
-                                details: '',
-                                image: null
-                              });
-                              setEventImagePreview(null);
-                            } else {
-                              // Check max options limit
-                              if (currentOptions.length >= maxHotelOptions) {
-                                alert(`Maximum ${maxHotelOptions} hotel options allowed. Please remove an existing option first.`);
-                                return;
-                              }
-                              // Add new option
-                              setDayDetailsForm({
-                                ...dayDetailsForm,
-                                hotelOptions: [...currentOptions, newOption],
-                                hotelName: '',
-                                hotel_id: null,
-                                category: '1',
-                                roomName: '',
-                                mealPlan: '',
-                                single: '',
-                                double: '',
-                                triple: '',
-                                quad: '',
-                                cwb: '',
-                                cnb: '',
-                                checkIn: '',
-                                checkInTime: '2:00 PM',
-                                checkOut: '',
-                                checkOutTime: '11:00',
-                                details: '',
-                                image: null
-                              });
-                              setEventImagePreview(null);
-                            }
-                          }}
-                          className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center gap-2 text-sm font-medium"
-                        >
-                          <Plus className="h-4 w-4" />
-                          {dayDetailsForm.editingOptionIndex !== null ? 'Update Option' : 'Add Option'}
-                        </button>
-                        {dayDetailsForm.editingOptionIndex !== null && (
-                          <button
-                            onClick={() => {
-                              setDayDetailsForm({
-                                ...dayDetailsForm,
-                                editingOptionIndex: null,
-                                hotelName: '',
-                                hotel_id: null,
-                                category: '1',
-                                roomName: '',
-                                mealPlan: '',
-                                single: '',
-                                double: '',
-                                triple: '',
-                                quad: '',
-                                cwb: '',
-                                cnb: '',
-                                checkIn: '',
-                                checkInTime: '2:00 PM',
-                                checkOut: '',
-                                checkOutTime: '11:00',
-                                details: '',
-                                image: null
-                              });
-                              setEventImagePreview(null);
-                            }}
-                            className="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600 text-sm font-medium"
-                          >
-                            Cancel Edit
-                          </button>
-                        )}
-                      </div>
-                    </div>
                     )}
+
                   </>
                 ) : dayDetailsForm.eventType === 'activity' ? (
                   <>
-                    {/* Activity Specific Fields */}
-                    <div className="grid grid-cols-2 gap-4">
+                    {/* Activity form - same as Masters */}
+                    <div className="border-t border-gray-200 pt-4 space-y-4">
+                      <h3 className="text-lg font-semibold text-gray-800 mb-4">Add Activity (same as Masters)</h3>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Destination
-                        </label>
-                        <select
-                          value={dayDetailsForm.destination}
-                          onChange={(e) => setDayDetailsForm({ ...dayDetailsForm, destination: e.target.value })}
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        >
-                          <option value="">Select Destination</option>
-                          {destinations.map((dest) => (
-                            <option key={dest} value={dest}>{dest}</option>
-                          ))}
-                          {days[selectedDay - 1]?.destination && !destinations.includes(days[selectedDay - 1].destination) && (
-                            <option value={days[selectedDay - 1].destination}>{days[selectedDay - 1].destination}</option>
-                          )}
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Type
-                        </label>
-                        <select
-                          value={dayDetailsForm.type}
-                          onChange={(e) => setDayDetailsForm({ ...dayDetailsForm, type: e.target.value })}
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        >
-                          <option value="Manual">Manual</option>
-                          <option value="Automatic">Automatic</option>
-                        </select>
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Name
-                      </label>
-                      <input
-                        type="text"
-                        value={dayDetailsForm.name}
-                        onChange={(e) => setDayDetailsForm({ ...dayDetailsForm, name: e.target.value })}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="Enter activity name"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Date <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="date"
-                        value={dayDetailsForm.date}
-                        onChange={(e) => setDayDetailsForm({ ...dayDetailsForm, date: e.target.value })}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Start time
-                        </label>
-                        <select
-                          value={dayDetailsForm.startTime}
-                          onChange={(e) => setDayDetailsForm({ ...dayDetailsForm, startTime: e.target.value })}
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        >
-                          <option value="12:00 AM">12:00 AM</option>
-                          <option value="1:00 AM">1:00 AM</option>
-                          <option value="2:00 AM">2:00 AM</option>
-                          <option value="1:00 PM">1:00 PM</option>
-                          <option value="2:00 PM">2:00 PM</option>
-                          <option value="3:00 PM">3:00 PM</option>
-                          <option value="4:00 PM">4:00 PM</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          End time
-                        </label>
-                        <select
-                          value={dayDetailsForm.endTime}
-                          onChange={(e) => setDayDetailsForm({ ...dayDetailsForm, endTime: e.target.value })}
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        >
-                          <option value="12:00 AM">12:00 AM</option>
-                          <option value="1:00 AM">1:00 AM</option>
-                          <option value="2:00 AM">2:00 AM</option>
-                          <option value="1:00 PM">1:00 PM</option>
-                          <option value="2:00 PM">2:00 PM</option>
-                          <option value="3:00 PM">3:00 PM</option>
-                          <option value="4:00 PM">4:00 PM</option>
-                        </select>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center">
-                      <input
-                        type="checkbox"
-                        id="showTime"
-                        checked={dayDetailsForm.showTime}
-                        onChange={(e) => setDayDetailsForm({ ...dayDetailsForm, showTime: e.target.checked })}
-                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                      />
-                      <label htmlFor="showTime" className="ml-2 block text-sm text-gray-700">
-                        Show Time
-                      </label>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Transfer Details
-                      </label>
-                      <textarea
-                        value={dayDetailsForm.details}
-                        onChange={(e) => setDayDetailsForm({ ...dayDetailsForm, details: e.target.value })}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-                        placeholder="Enter transfer details"
-                        rows="4"
-                      />
-                    </div>
-
-                    {/* Transfer Photo - same behaviour as Masters → Transfer (image) */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Transfer Photo
-                      </label>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={(e) => {
-                          const file = e.target.files[0];
-                          if (file) {
-                            setDayDetailsForm({ ...dayDetailsForm, image: file });
-                            const reader = new FileReader();
-                            reader.onloadend = () => setEventImagePreview(reader.result);
-                            reader.readAsDataURL(file);
-                          }
-                        }}
-                        className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-                      />
-                      {eventImagePreview && (
-                        <div className="mt-3 relative inline-block">
-                          <img
-                            src={eventImagePreview}
-                            alt="Transfer Preview"
-                            className="w-full h-48 object-cover rounded-lg border border-gray-300"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setDayDetailsForm({ ...dayDetailsForm, image: null });
-                              setEventImagePreview(null);
-                            }}
-                            className="absolute top-2 right-2 bg-red-600 text-white p-2 rounded-full hover:bg-red-700"
-                          >
-                            <X className="h-4 w-4" />
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  </>
-                ) : dayDetailsForm.eventType === 'transportation' ? (
-                  <>
-                    {/* Transportation Specific Fields */}
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Destination
-                        </label>
-                        <select
-                          value={dayDetailsForm.destination}
-                          onChange={(e) => setDayDetailsForm({ ...dayDetailsForm, destination: e.target.value })}
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        >
-                          <option value="">Select Destination</option>
-                          {destinations.map((dest) => (
-                            <option key={dest} value={dest}>{dest}</option>
-                          ))}
-                          {days[selectedDay - 1]?.destination && !destinations.includes(days[selectedDay - 1].destination) && (
-                            <option value={days[selectedDay - 1].destination}>{days[selectedDay - 1].destination}</option>
-                          )}
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Transfer Type
-                        </label>
-                        <select
-                          value={dayDetailsForm.transferType}
-                          onChange={(e) => setDayDetailsForm({ ...dayDetailsForm, transferType: e.target.value })}
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        >
-                          <option value="Private">Private</option>
-                          <option value="Shared">Shared</option>
-                          <option value="SIC">SIC</option>
-                        </select>
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Date <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="date"
-                        value={dayDetailsForm.date}
-                        onChange={(e) => setDayDetailsForm({ ...dayDetailsForm, date: e.target.value })}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Type
-                        </label>
-                        <select
-                          value={dayDetailsForm.type}
-                          onChange={(e) => setDayDetailsForm({ ...dayDetailsForm, type: e.target.value })}
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        >
-                          <option value="Manual">Manual</option>
-                          <option value="Automatic">Automatic</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Name
-                        </label>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Name *</label>
                         <input
                           type="text"
                           value={dayDetailsForm.name}
                           onChange={(e) => setDayDetailsForm({ ...dayDetailsForm, name: e.target.value })}
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          placeholder="Enter activity name"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Destination</label>
+                        <select
+                          value={dayDetailsForm.destination}
+                          onChange={(e) => setDayDetailsForm({ ...dayDetailsForm, destination: e.target.value })}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                          <option value="">Select Destination</option>
+                          {destinations.map((dest) => (
+                            <option key={dest} value={dest}>{dest}</option>
+                          ))}
+                          {days[selectedDay - 1]?.destination && !destinations.includes(days[selectedDay - 1].destination) && (
+                            <option value={days[selectedDay - 1].destination}>{days[selectedDay - 1].destination}</option>
+                          )}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Activity Details</label>
+                        <textarea
+                          value={dayDetailsForm.activity_details}
+                          onChange={(e) => setDayDetailsForm({ ...dayDetailsForm, activity_details: e.target.value })}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                          placeholder="Enter activity details"
+                          rows="3"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Activity Photo</label>
+                        <div className="flex gap-2">
+                          <label className="flex-1 cursor-pointer">
+                            <input
+                              type="file"
+                              accept="image/*"
+                              onChange={(e) => {
+                                const file = e.target.files[0];
+                                if (file) {
+                                  setDayDetailsForm({ ...dayDetailsForm, activity_photo: file });
+                                  const reader = new FileReader();
+                                  reader.onloadend = () => setEventImagePreview(reader.result);
+                                  reader.readAsDataURL(file);
+                                }
+                              }}
+                              className="hidden"
+                            />
+                            <div className="flex items-center justify-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors">
+                              <Upload className="h-4 w-4" />
+                              <span className="text-sm font-medium">Upload Image</span>
+                            </div>
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() => setShowDayItineraryImageModal(true)}
+                            className="flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded-lg transition-colors"
+                          >
+                            <Camera className="h-4 w-4" />
+                            <span className="text-sm font-medium">Choose from Library</span>
+                          </button>
+                        </div>
+                        {(eventImagePreview || dayDetailsForm.activity_photo) && (
+                          <div className="mt-3 relative inline-block">
+                            <img
+                              src={eventImagePreview || (typeof dayDetailsForm.activity_photo === 'string' ? dayDetailsForm.activity_photo : '')}
+                              alt="Activity Preview"
+                              className="w-full h-48 object-cover rounded-lg border border-gray-300"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setDayDetailsForm({ ...dayDetailsForm, activity_photo: null });
+                                setEventImagePreview(null);
+                              }}
+                              className="absolute top-2 right-2 bg-red-600 text-white p-2 rounded-full hover:bg-red-700"
+                            >
+                              <X className="h-4 w-4" />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Status *</label>
+                        <select
+                          value={dayDetailsForm.status}
+                          onChange={(e) => setDayDetailsForm({ ...dayDetailsForm, status: e.target.value })}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                          <option value="active">Active</option>
+                          <option value="inactive">Inactive</option>
+                        </select>
+                      </div>
+                    </div>
+                  </>
+                ) : dayDetailsForm.eventType === 'transportation' ? (
+                  <>
+                    {/* Transportation form - same as Masters */}
+                    <div className="border-t border-gray-200 pt-4 space-y-4">
+                      <h3 className="text-lg font-semibold text-gray-800 mb-4">Add Transportation (same as Masters)</h3>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Name *</label>
+                        <input
+                          type="text"
+                          value={dayDetailsForm.name}
+                          onChange={(e) => setDayDetailsForm({ ...dayDetailsForm, name: e.target.value })}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                           placeholder="Enter transportation name"
                         />
                       </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Start time
-                        </label>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Destination</label>
                         <select
-                          value={dayDetailsForm.startTime}
-                          onChange={(e) => setDayDetailsForm({ ...dayDetailsForm, startTime: e.target.value })}
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          value={dayDetailsForm.destination}
+                          onChange={(e) => setDayDetailsForm({ ...dayDetailsForm, destination: e.target.value })}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                         >
-                          <option value="1:00 PM">1:00 PM</option>
-                          <option value="2:00 PM">2:00 PM</option>
-                          <option value="3:00 PM">3:00 PM</option>
+                          <option value="">Select Destination</option>
+                          {destinations.map((dest) => (
+                            <option key={dest} value={dest}>{dest}</option>
+                          ))}
+                          {days[selectedDay - 1]?.destination && !destinations.includes(days[selectedDay - 1].destination) && (
+                            <option value={days[selectedDay - 1].destination}>{days[selectedDay - 1].destination}</option>
+                          )}
                         </select>
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          End time
-                        </label>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Transfer Details</label>
+                        <textarea
+                          value={dayDetailsForm.transfer_details}
+                          onChange={(e) => setDayDetailsForm({ ...dayDetailsForm, transfer_details: e.target.value })}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                          placeholder="Enter transfer details"
+                          rows="3"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Transfer Photo</label>
+                        <div className="flex gap-2">
+                          <label className="flex-1 cursor-pointer">
+                            <input
+                              type="file"
+                              accept="image/*"
+                              onChange={(e) => {
+                                const file = e.target.files[0];
+                                if (file) {
+                                  setDayDetailsForm({ ...dayDetailsForm, transfer_photo: file });
+                                  const reader = new FileReader();
+                                  reader.onloadend = () => setEventImagePreview(reader.result);
+                                  reader.readAsDataURL(file);
+                                }
+                              }}
+                              className="hidden"
+                            />
+                            <div className="flex items-center justify-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors">
+                              <Upload className="h-4 w-4" />
+                              <span className="text-sm font-medium">Upload Image</span>
+                            </div>
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() => setShowDayItineraryImageModal(true)}
+                            className="flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded-lg transition-colors"
+                          >
+                            <Camera className="h-4 w-4" />
+                            <span className="text-sm font-medium">Choose from Library</span>
+                          </button>
+                        </div>
+                        {(eventImagePreview || dayDetailsForm.transfer_photo) && (
+                          <div className="mt-3 relative inline-block">
+                            <img
+                              src={eventImagePreview || (typeof dayDetailsForm.transfer_photo === 'string' ? dayDetailsForm.transfer_photo : '')}
+                              alt="Transfer Preview"
+                              className="w-full h-48 object-cover rounded-lg border border-gray-300"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setDayDetailsForm({ ...dayDetailsForm, transfer_photo: null });
+                                setEventImagePreview(null);
+                              }}
+                              className="absolute top-2 right-2 bg-red-600 text-white p-2 rounded-full hover:bg-red-700"
+                            >
+                              <X className="h-4 w-4" />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Status *</label>
                         <select
-                          value={dayDetailsForm.endTime}
-                          onChange={(e) => setDayDetailsForm({ ...dayDetailsForm, endTime: e.target.value })}
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          value={dayDetailsForm.status}
+                          onChange={(e) => setDayDetailsForm({ ...dayDetailsForm, status: e.target.value })}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                         >
-                          <option value="2:00 PM">2:00 PM</option>
-                          <option value="3:00 PM">3:00 PM</option>
-                          <option value="4:00 PM">4:00 PM</option>
+                          <option value="active">Active</option>
+                          <option value="inactive">Inactive</option>
                         </select>
                       </div>
-                    </div>
-
-                    <div className="flex items-center">
-                      <input
-                        type="checkbox"
-                        id="showTimeTransport"
-                        checked={dayDetailsForm.showTime}
-                        onChange={(e) => setDayDetailsForm({ ...dayDetailsForm, showTime: e.target.checked })}
-                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                      />
-                      <label htmlFor="showTimeTransport" className="ml-2 block text-sm text-gray-700">
-                        Show Time
-                      </label>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Description
-                      </label>
-                      <textarea
-                        value={dayDetailsForm.details}
-                        onChange={(e) => setDayDetailsForm({ ...dayDetailsForm, details: e.target.value })}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-                        placeholder="Enter description"
-                        rows="4"
-                      />
                     </div>
                   </>
                 ) : dayDetailsForm.eventType === 'flight' ? (
@@ -3562,107 +3362,30 @@ itinerary.image = itinerary.image.replace('localhost', 'localhost:8000');
                   </>
                 ) : dayDetailsForm.eventType === 'meal' ? (
                   <>
-                    {/* Meal Specific Fields */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Name
-                      </label>
-                      <input
-                        type="text"
-                        value={dayDetailsForm.name}
-                        onChange={(e) => setDayDetailsForm({ ...dayDetailsForm, name: e.target.value })}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="Enter meal name"
-                      />
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
+                    {/* Meal form - same as Masters */}
+                    <div className="border-t border-gray-200 pt-4 space-y-4">
+                      <h3 className="text-lg font-semibold text-gray-800 mb-4">Add Meal Plan (same as Masters)</h3>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Destination
-                        </label>
-                        <select
-                          value={dayDetailsForm.destination}
-                          onChange={(e) => setDayDetailsForm({ ...dayDetailsForm, destination: e.target.value })}
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        >
-                          <option value="">Select Destination</option>
-                          {destinations.map((dest) => (
-                            <option key={dest} value={dest}>{dest}</option>
-                          ))}
-                        </select>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Name *</label>
+                        <input
+                          type="text"
+                          value={dayDetailsForm.name}
+                          onChange={(e) => setDayDetailsForm({ ...dayDetailsForm, name: e.target.value })}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          placeholder="Enter meal plan name (e.g. Breakfast, Lunch, Dinner)"
+                        />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Meal Type
-                        </label>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Status *</label>
                         <select
-                          value={dayDetailsForm.mealType}
-                          onChange={(e) => setDayDetailsForm({ ...dayDetailsForm, mealType: e.target.value })}
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          value={dayDetailsForm.status}
+                          onChange={(e) => setDayDetailsForm({ ...dayDetailsForm, status: e.target.value })}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                         >
-                          <option value="Breakfast">Breakfast</option>
-                          <option value="Lunch">Lunch</option>
-                          <option value="Dinner">Dinner</option>
-                          <option value="Snacks">Snacks</option>
+                          <option value="active">Active</option>
+                          <option value="inactive">Inactive</option>
                         </select>
                       </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Date <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="date"
-                        value={dayDetailsForm.date}
-                        onChange={(e) => setDayDetailsForm({ ...dayDetailsForm, date: e.target.value })}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Start time
-                        </label>
-                        <select
-                          value={dayDetailsForm.startTime}
-                          onChange={(e) => setDayDetailsForm({ ...dayDetailsForm, startTime: e.target.value })}
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        >
-                          <option value="1:00 PM">1:00 PM</option>
-                          <option value="2:00 PM">2:00 PM</option>
-                          <option value="3:00 PM">3:00 PM</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          End time
-                        </label>
-                        <select
-                          value={dayDetailsForm.endTime}
-                          onChange={(e) => setDayDetailsForm({ ...dayDetailsForm, endTime: e.target.value })}
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        >
-                          <option value="2:00 PM">2:00 PM</option>
-                          <option value="3:00 PM">3:00 PM</option>
-                          <option value="4:00 PM">4:00 PM</option>
-                        </select>
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Description
-                      </label>
-                      <textarea
-                        value={dayDetailsForm.details}
-                        onChange={(e) => setDayDetailsForm({ ...dayDetailsForm, details: e.target.value })}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-                        placeholder="Enter description"
-                        rows="4"
-                      />
                     </div>
                   </>
                 ) : dayDetailsForm.eventType === 'leisure' ? (
@@ -3895,10 +3618,23 @@ itinerary.image = itinerary.image.replace('localhost', 'localhost:8000');
                       checkInTime: '2:00 PM',
                       checkOut: '',
                       checkOutTime: '11:00',
+                      hotel_details: '',
+                      hotel_photo: null,
+                      contact_person: '',
+                      email: '',
+                      phone: '',
+                      hotel_address: '',
+                      hotel_link: '',
+                      status: 'active',
+                      activity_details: '',
+                      activity_photo: null,
+                      transfer_details: '',
+                      transfer_photo: null,
                       transferType: 'Private',
                       mealType: 'Breakfast'
                     });
                     setEventImagePreview(null);
+                    setHotelPhotoPreview(null);
                   }}
                   className="px-4 py-2 text-gray-700 hover:text-gray-900 mr-3"
                 >
@@ -3909,11 +3645,15 @@ itinerary.image = itinerary.image.replace('localhost', 'localhost:8000');
                     // Generate subject based on event type
                     let subject = '';
                     if (dayDetailsForm.eventType === 'accommodation') {
-                      if (!dayDetailsForm.hotelOptions || dayDetailsForm.hotelOptions.length === 0) {
-                        alert('Please add at least one hotel option');
+                      const hasHotelOptions = dayDetailsForm.hotelOptions && dayDetailsForm.hotelOptions.length > 0;
+                      const hasMastersFormData = dayDetailsForm.hotelName?.trim() && dayDetailsForm.hotel_address?.trim();
+                      if (!hasHotelOptions && !hasMastersFormData) {
+                        alert('Please fill hotel name and hotel address (or add hotel option)');
                         return;
                       }
-                      subject = dayDetailsForm.hotelOptions[0]?.hotelName || dayDetailsForm.destination || 'Accommodation';
+                      subject = hasHotelOptions
+                        ? dayDetailsForm.hotelOptions[0]?.hotelName || dayDetailsForm.destination || 'Accommodation'
+                        : dayDetailsForm.hotelName;
                     } else if (dayDetailsForm.eventType === 'day-itinerary') {
                       subject = dayDetailsForm.subject || dayDetailsForm.name || '';
                       if (!subject.trim()) {
@@ -3935,6 +3675,78 @@ itinerary.image = itinerary.image.replace('localhost', 'localhost:8000');
                     }
 
                     let imageData = eventImagePreview || dayDetailsForm.image;
+
+                    // For accommodation with Masters form: save to Hotels API first so it appears in side search
+                    if (dayDetailsForm.eventType === 'accommodation') {
+                      const hasHotelOptions = dayDetailsForm.hotelOptions && dayDetailsForm.hotelOptions.length > 0;
+                      const hasMastersFormData = dayDetailsForm.hotelName?.trim() && dayDetailsForm.hotel_address?.trim();
+                      if (!hasHotelOptions && hasMastersFormData) {
+                        try {
+                          const hotelData = new FormData();
+                          hotelData.append('name', dayDetailsForm.hotelName);
+                          hotelData.append('category', String(parseInt(dayDetailsForm.category, 10) || 1));
+                          hotelData.append('destination', dayDetailsForm.destination || '');
+                          hotelData.append('hotel_details', dayDetailsForm.hotel_details || '');
+                          if (dayDetailsForm.hotel_photo) {
+                            hotelData.append('hotel_photo', dayDetailsForm.hotel_photo);
+                          }
+                          hotelData.append('contact_person', dayDetailsForm.contact_person || '');
+                          hotelData.append('email', dayDetailsForm.email || '');
+                          hotelData.append('phone', dayDetailsForm.phone || '');
+                          hotelData.append('hotel_address', dayDetailsForm.hotel_address);
+                          hotelData.append('hotel_link', dayDetailsForm.hotel_link || '');
+                          hotelData.append('status', dayDetailsForm.status || 'active');
+                          const createRes = await hotelsAPI.create(hotelData);
+                          const created = createRes?.data?.data || createRes?.data;
+                          if (created) {
+                            let imgUrl = created.hotel_photo || created.image;
+                            if (imgUrl && (imgUrl.startsWith('/storage') || (imgUrl.startsWith('/') && !imgUrl.startsWith('http')))) {
+                              const baseUrl = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api').replace('/api', '');
+                              imgUrl = `${baseUrl}${imgUrl}`;
+                            }
+                            const accommodationEvents = (dayEvents[selectedDay] || []).filter(e => e.eventType === 'accommodation');
+                            const nextOptionNumber = accommodationEvents.length + 1;
+                            const eventData = {
+                              id: Date.now(),
+                              subject: created.name || dayDetailsForm.hotelName,
+                              details: dayDetailsForm.hotel_details || '',
+                              destination: created.destination || dayDetailsForm.destination,
+                              eventType: 'accommodation',
+                              image: imgUrl,
+                              type: 'Manual',
+                              name: created.name || dayDetailsForm.hotelName,
+                              hotelOptions: [{
+                                hotelName: created.name || dayDetailsForm.hotelName,
+                                hotel_id: created.id,
+                                category: (created.category || dayDetailsForm.category || '1').toString(),
+                                image: imgUrl,
+                                roomName: '',
+                                mealPlan: '',
+                                single: '',
+                                double: '',
+                                triple: '',
+                                quad: '',
+                                cwb: '',
+                                cnb: '',
+                                checkIn: '',
+                                checkInTime: '2:00 PM',
+                                checkOut: '',
+                                checkOutTime: '11:00',
+                                optionNumber: nextOptionNumber,
+                                destination: created.destination || dayDetailsForm.destination,
+                                details: dayDetailsForm.hotel_details || ''
+                              }]
+                            };
+                            saveEvent(eventData);
+                            await fetchStoredHotels();
+                          }
+                        } catch (err) {
+                          console.error('Failed to save hotel to Masters:', err);
+                          alert(err?.response?.data?.message || 'Failed to save hotel. Please try again.');
+                        }
+                        return;
+                      }
+                    }
 
                     // Helper function to create event data
                     const createEventData = (image) => {
@@ -3973,7 +3785,188 @@ itinerary.image = itinerary.image.replace('localhost', 'localhost:8000');
                       return baseData;
                     };
 
-                    // Convert File to base64 if it's a File object
+                    // For day-itinerary: save to Masters first so it shows in search/dropdown
+                    if (dayDetailsForm.eventType === 'day-itinerary') {
+                      try {
+                        const submitData = new FormData();
+                        submitData.append('destination', dayDetailsForm.destination || '');
+                        submitData.append('title', subject);
+                        submitData.append('details', dayDetailsForm.details || '');
+                        submitData.append('status', 'active');
+                        if (dayDetailsForm.image instanceof File) {
+                          submitData.append('image', dayDetailsForm.image);
+                        } else if (eventImagePreview && typeof eventImagePreview === 'string' && eventImagePreview.startsWith('http')) {
+                          const res = await fetch(eventImagePreview);
+                          const blob = await res.blob();
+                          const file = new File([blob], 'day-itinerary-image.jpg', { type: blob.type || 'image/jpeg' });
+                          submitData.append('image', file);
+                        }
+                        const createRes = await dayItinerariesAPI.create(submitData);
+                        const created = createRes?.data?.data || createRes?.data;
+                        if (created) {
+                          let imgUrl = created.image;
+                          if (imgUrl && (imgUrl.startsWith('/storage') || (imgUrl.startsWith('/') && !imgUrl.startsWith('http')))) {
+                            const baseUrl = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api').replace('/api', '');
+                            imgUrl = `${baseUrl}${imgUrl}`;
+                          }
+                          if (imgUrl && imgUrl.includes('localhost') && !imgUrl.includes(':8000')) {
+                            imgUrl = imgUrl.replace('localhost', 'localhost:8000');
+                          }
+                          saveEvent({
+                            id: created.id,
+                            subject: created.title || subject,
+                            details: created.details || dayDetailsForm.details,
+                            destination: created.destination || dayDetailsForm.destination,
+                            eventType: 'day-itinerary',
+                            image: imgUrl || imageData,
+                            type: 'Manual',
+                            name: created.title || subject
+                          });
+                          await fetchDayItineraries();
+                        } else {
+                          if (dayDetailsForm.image instanceof File) {
+                            const reader = new FileReader();
+                            reader.onloadend = () => saveEvent(createEventData(reader.result));
+                            reader.readAsDataURL(dayDetailsForm.image);
+                          } else {
+                            saveEvent(createEventData(imageData));
+                          }
+                        }
+                      } catch (err) {
+                        console.error('Failed to save day itinerary to Masters:', err);
+                        alert(err?.response?.data?.message || 'Failed to save to Masters. Please try again.');
+                      }
+                      return;
+                    }
+
+                    // For activity: save to Masters first so it shows in search/dropdown
+                    if (dayDetailsForm.eventType === 'activity') {
+                      try {
+                        const activityData = new FormData();
+                        activityData.append('name', dayDetailsForm.name || '');
+                        activityData.append('destination', dayDetailsForm.destination || '');
+                        activityData.append('activity_details', dayDetailsForm.activity_details || '');
+                        if (dayDetailsForm.activity_photo instanceof File) {
+                          activityData.append('activity_photo', dayDetailsForm.activity_photo);
+                        } else {
+                          const photoUrl = typeof dayDetailsForm.activity_photo === 'string' ? dayDetailsForm.activity_photo : eventImagePreview;
+                          if (photoUrl && typeof photoUrl === 'string') {
+                            const url = photoUrl.startsWith('http') ? photoUrl : `${(import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api').replace('/api', '')}${photoUrl}`;
+                            const res = await fetch(url);
+                            const blob = await res.blob();
+                            const file = new File([blob], 'activity-image.jpg', { type: blob.type || 'image/jpeg' });
+                            activityData.append('activity_photo', file);
+                          }
+                        }
+                        activityData.append('status', dayDetailsForm.status || 'active');
+                        const createRes = await activitiesAPI.create(activityData);
+                        const created = createRes?.data?.data || createRes?.data;
+                        if (created) {
+                          let imgUrl = created.activity_photo || created.image;
+                          if (imgUrl && (imgUrl.startsWith('/storage') || (imgUrl.startsWith('/') && !imgUrl.startsWith('http')))) {
+                            const baseUrl = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api').replace('/api', '');
+                            imgUrl = `${baseUrl}${imgUrl}`;
+                          }
+                          if (imgUrl && imgUrl.includes('localhost') && !imgUrl.includes(':8000')) {
+                            imgUrl = imgUrl.replace('localhost', 'localhost:8000');
+                          }
+                          saveEvent({
+                            id: Date.now(),
+                            subject: created.name || dayDetailsForm.name,
+                            details: created.activity_details || dayDetailsForm.activity_details,
+                            destination: created.destination || dayDetailsForm.destination,
+                            eventType: 'activity',
+                            image: imgUrl || eventImagePreview,
+                            type: 'Manual',
+                            name: created.name || dayDetailsForm.name
+                          });
+                          await fetchActivities();
+                        }
+                      } catch (err) {
+                        console.error('Failed to save activity to Masters:', err);
+                        alert(err?.response?.data?.message || 'Failed to save activity. Please try again.');
+                      }
+                      return;
+                    }
+
+                    // For transportation: save to Masters first so it shows in search/dropdown
+                    if (dayDetailsForm.eventType === 'transportation') {
+                      try {
+                        const transferData = new FormData();
+                        transferData.append('name', dayDetailsForm.name || '');
+                        transferData.append('destination', dayDetailsForm.destination || '');
+                        transferData.append('transfer_details', dayDetailsForm.transfer_details || '');
+                        if (dayDetailsForm.transfer_photo instanceof File) {
+                          transferData.append('transfer_photo', dayDetailsForm.transfer_photo);
+                        } else {
+                          const photoUrl = typeof dayDetailsForm.transfer_photo === 'string' ? dayDetailsForm.transfer_photo : eventImagePreview;
+                          if (photoUrl && typeof photoUrl === 'string') {
+                            const url = photoUrl.startsWith('http') ? photoUrl : `${(import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api').replace('/api', '')}${photoUrl}`;
+                            const res = await fetch(url);
+                            const blob = await res.blob();
+                            const file = new File([blob], 'transfer-image.jpg', { type: blob.type || 'image/jpeg' });
+                            transferData.append('transfer_photo', file);
+                          }
+                        }
+                        transferData.append('status', dayDetailsForm.status || 'active');
+                        const createRes = await transfersAPI.create(transferData);
+                        const created = createRes?.data?.data || createRes?.data;
+                        if (created) {
+                          let imgUrl = created.transfer_photo || created.image;
+                          if (imgUrl && (imgUrl.startsWith('/storage') || (imgUrl.startsWith('/') && !imgUrl.startsWith('http')))) {
+                            const baseUrl = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api').replace('/api', '');
+                            imgUrl = `${baseUrl}${imgUrl}`;
+                          }
+                          if (imgUrl && imgUrl.includes('localhost') && !imgUrl.includes(':8000')) {
+                            imgUrl = imgUrl.replace('localhost', 'localhost:8000');
+                          }
+                          saveEvent({
+                            id: Date.now(),
+                            subject: created.name || dayDetailsForm.name,
+                            details: created.transfer_details || dayDetailsForm.transfer_details,
+                            destination: created.destination || dayDetailsForm.destination,
+                            eventType: 'transportation',
+                            image: imgUrl || eventImagePreview,
+                            type: 'Manual',
+                            name: created.name || dayDetailsForm.name
+                          });
+                          await fetchTransfers();
+                        }
+                      } catch (err) {
+                        console.error('Failed to save transportation to Masters:', err);
+                        alert(err?.response?.data?.message || 'Failed to save transportation. Please try again.');
+                      }
+                      return;
+                    }
+
+                    // For meal: save to Masters first so it shows in search/dropdown
+                    if (dayDetailsForm.eventType === 'meal') {
+                      try {
+                        const mealData = { name: dayDetailsForm.name || '', status: dayDetailsForm.status || 'active' };
+                        const createRes = await mealPlansAPI.create(mealData);
+                        const created = createRes?.data?.data || createRes?.data;
+                        if (created) {
+                          saveEvent({
+                            id: Date.now(),
+                            subject: created.name || dayDetailsForm.name,
+                            details: '',
+                            destination: dayDetailsForm.destination || '',
+                            eventType: 'meal',
+                            image: null,
+                            type: 'Manual',
+                            name: created.name || dayDetailsForm.name,
+                            mealType: created.name || dayDetailsForm.name
+                          });
+                          await fetchMealPlans();
+                        }
+                      } catch (err) {
+                        console.error('Failed to save meal plan to Masters:', err);
+                        alert(err?.response?.data?.message || 'Failed to save meal plan. Please try again.');
+                      }
+                      return;
+                    }
+
+                    // Convert File to base64 if it's a File object (for other event types)
                     if (dayDetailsForm.image instanceof File) {
                       const reader = new FileReader();
                       reader.onloadend = () => {
@@ -3988,6 +3981,132 @@ itinerary.image = itinerary.image.replace('localhost', 'localhost:8000');
                 >
                   Save
                 </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Day Itinerary Image Library Modal (Choose from Library - same as Masters) */}
+        {showDayItineraryImageModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60]">
+            <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl mx-4 max-h-[90vh] overflow-hidden flex flex-col">
+              <div className="flex justify-between items-center p-4 border-b border-gray-200">
+                <h2 className="text-xl font-bold text-gray-800">Choose Image</h2>
+                <button
+                  onClick={() => {
+                    setShowDayItineraryImageModal(false);
+                    setDayItineraryLibraryPackages([]);
+                    setDayItineraryFreeStockPhotos([]);
+                  }}
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  <X className="h-6 w-6" />
+                </button>
+              </div>
+              <div className="flex border-b border-gray-200">
+                <button
+                  type="button"
+                  onClick={() => setDayItineraryLibraryTab('free')}
+                  className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${dayItineraryLibraryTab === 'free' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+                >
+                  Free stock images
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDayItineraryLibraryTab('your')}
+                  className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${dayItineraryLibraryTab === 'your' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+                >
+                  Your itineraries
+                </button>
+              </div>
+              <div className="p-4 border-b border-gray-200">
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                    <input
+                      type="text"
+                      value={dayItineraryLibrarySearchTerm}
+                      onChange={(e) => setDayItineraryLibrarySearchTerm(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && (dayItineraryLibraryTab === 'free' ? fetchDayItineraryFreeStockImages() : null)}
+                      placeholder={dayItineraryLibraryTab === 'free' ? 'Search e.g. Shimla, Kufri...' : 'Search your itineraries e.g. Shimla'}
+                      className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  {dayItineraryLibraryTab === 'free' && (
+                    <button
+                      type="button"
+                      onClick={fetchDayItineraryFreeStockImages}
+                      disabled={(dayItineraryLibrarySearchTerm || '').trim().length < 2 || dayItineraryFreeStockLoading}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Search
+                    </button>
+                  )}
+                </div>
+                <p className="text-xs text-gray-500 mt-2">
+                  {dayItineraryLibraryTab === 'free' ? 'Free images from Pexels. Type location (Shimla, Kufri) and click Search.' : 'Images from itineraries you already added.'}
+                </p>
+              </div>
+              <div className="flex-1 overflow-y-auto p-6">
+                {dayItineraryLibraryTab === 'free' ? (
+                  dayItineraryFreeStockLoading ? (
+                    <div className="flex items-center justify-center h-64">
+                      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+                    </div>
+                  ) : (dayItineraryLibrarySearchTerm || '').trim().length < 2 ? (
+                    <div className="text-center py-12 text-gray-500">
+                      <p>Type a location (e.g. Shimla, Kufri) and click Search to get free images.</p>
+                    </div>
+                  ) : dayItineraryFreeStockPhotos.length === 0 ? (
+                    <div className="text-center py-12 text-gray-500">
+                      <p>No images found. Try another search or add VITE_PEXELS_API_KEY in .env (pexels.com/api).</p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-3 gap-4">
+                      {dayItineraryFreeStockPhotos.map((p) => (
+                        <div
+                          key={p.id}
+                          onClick={() => handleSelectDayItineraryFreeStockImage(p.url)}
+                          className="relative aspect-video cursor-pointer group overflow-hidden rounded-lg border-2 border-gray-200 hover:border-blue-500 transition-colors"
+                        >
+                          <img src={p.thumb || p.url} alt={p.alt || ''} className="w-full h-full object-cover" />
+                          <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-opacity flex items-center justify-center">
+                            <span className="text-white opacity-0 group-hover:opacity-100 font-medium">Select</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )
+                ) : (
+                  dayItineraryLibraryLoading ? (
+                    <div className="flex items-center justify-center h-64">
+                      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+                    </div>
+                  ) : dayItineraryLibrarySearch.length < 2 ? (
+                    <div className="text-center py-12 text-gray-500">
+                      <p>Type at least 2 characters to see images from your itineraries.</p>
+                    </div>
+                  ) : dayItineraryLibraryImages.length === 0 ? (
+                    <div className="text-center py-12 text-gray-500">
+                      <p>No images for &quot;{dayItineraryLibrarySearchTerm}&quot;. Use &quot;Free stock images&quot; tab to search Kufri, Shimla, etc.</p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-3 gap-4">
+                      {dayItineraryLibraryImages.map((p) => (
+                        <div
+                          key={p.id}
+                          onClick={() => handleSelectDayItineraryLibraryImage(p.image)}
+                          className="relative aspect-video cursor-pointer group overflow-hidden rounded-lg border-2 border-gray-200 hover:border-blue-500 transition-colors"
+                        >
+                          <img src={p.image} alt={p.itinerary_name || p.title || 'Select'} className="w-full h-full object-cover" />
+                          <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-opacity flex items-center justify-center">
+                            <span className="text-white opacity-0 group-hover:opacity-100 font-medium">Select</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )
+                )}
               </div>
             </div>
           </div>

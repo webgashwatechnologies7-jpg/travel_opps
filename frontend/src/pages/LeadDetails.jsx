@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { leadsAPI, usersAPI, followupsAPI, dayItinerariesAPI, packagesAPI, settingsAPI, suppliersAPI, hotelsAPI, paymentsAPI, googleMailAPI, whatsappAPI, queryDetailAPI, vouchersAPI } from '../services/api';
+import { leadsAPI, usersAPI, followupsAPI, dayItinerariesAPI, packagesAPI, settingsAPI, suppliersAPI, hotelsAPI, paymentsAPI, googleMailAPI, whatsappAPI, queryDetailAPI, vouchersAPI, itineraryPricingAPI, leadInvoicesAPI } from '../services/api';
 import { searchPexelsPhotos } from '../services/pexels';
 import { getDisplayImageUrl, rewriteHtmlImageUrls, sanitizeEmailHtmlForDisplay } from '../utils/imageUrl';
 import Layout from '../components/Layout';
@@ -31,16 +31,19 @@ const LeadDetails = () => {
   const [showItineraryModal, setShowItineraryModal] = useState(false);
   const [showInsertItineraryModal, setShowInsertItineraryModal] = useState(false);
   const [sendDropdownOptId, setSendDropdownOptId] = useState(null);
+  const [sendAllDropdownOpen, setSendAllDropdownOpen] = useState(false);
   const [sendingOptionChannel, setSendingOptionChannel] = useState(null);
   const [dayItineraries, setDayItineraries] = useState([]);
   const [loadingItineraries, setLoadingItineraries] = useState(false);
   const [itinerarySearchTerm, setItinerarySearchTerm] = useState('');
   const [proposals, setProposals] = useState([]);
+  const [maxHotelOptions, setMaxHotelOptions] = useState(4);
   const [showQuotationModal, setShowQuotationModal] = useState(false);
   const [selectedProposal, setSelectedProposal] = useState(null);
   const [selectedOption, setSelectedOption] = useState(null);
   const [quotationData, setQuotationData] = useState(null);
   const [loadingQuotation, setLoadingQuotation] = useState(false);
+  const [refreshingProposalPrices, setRefreshingProposalPrices] = useState(false);
   const [itineraryFormData, setItineraryFormData] = useState({
     itinerary_name: '',
     duration: '1',
@@ -100,6 +103,9 @@ const LeadDetails = () => {
   const [voucherActionLoading, setVoucherActionLoading] = useState(null); // 'preview' | 'download' | 'send'
   const [showVoucherPopup, setShowVoucherPopup] = useState(false);
   const [voucherPopupHtml, setVoucherPopupHtml] = useState('');
+  const [showInvoicePreview, setShowInvoicePreview] = useState(false);
+  const [invoicePreviewHtml, setInvoicePreviewHtml] = useState('');
+  const [invoiceActionLoading, setInvoiceActionLoading] = useState(null); // 'preview' | 'download' | 'send' | invoiceId
 
   // Email states
   const [leadEmails, setLeadEmails] = useState([]);
@@ -157,7 +163,7 @@ const LeadDetails = () => {
   useEffect(() => {
     fetchLeadDetails();
     fetchUsers();
-    loadProposals();
+    fetchMaxHotelOptions();
     fetchSuppliers();
     fetchCompanySettings();
   }, [id]);
@@ -177,6 +183,14 @@ const LeadDetails = () => {
       return () => document.removeEventListener('click', closeDropdown);
     }
   }, [sendDropdownOptId]);
+
+  useEffect(() => {
+    const close = () => setSendAllDropdownOpen(false);
+    if (sendAllDropdownOpen) {
+      document.addEventListener('click', close);
+      return () => document.removeEventListener('click', close);
+    }
+  }, [sendAllDropdownOpen]);
 
   // Outgoing numbers for calls tab (no-op if not used; implement with callsAPI.getMappings() if needed)
   const fetchOutgoingNumbers = async () => {
@@ -222,6 +236,15 @@ const LeadDetails = () => {
       fetchQueryDetail();
     }
   }, [activeTab, id]);
+
+  const fetchMaxHotelOptions = async () => {
+    try {
+      const response = await settingsAPI.getMaxHotelOptions();
+      if (response.data?.success && response.data?.data?.max_hotel_options != null) {
+        setMaxHotelOptions(response.data.data.max_hotel_options);
+      }
+    } catch (_) {}
+  };
 
   // Fetch company settings (use /settings not /admin/settings to avoid 500 tenant error)
   const fetchCompanySettings = async () => {
@@ -404,55 +427,98 @@ const LeadDetails = () => {
     setVehiclesFromProposals(transportList);
   }, [proposals]);
 
-  // Load proposals from localStorage – refresh from itinerary's latest options so 3 options show after update
-  const loadProposals = () => {
-    try {
-      const storedProposals = localStorage.getItem(`lead_${id}_proposals`);
-      let list = storedProposals ? JSON.parse(storedProposals) : [];
-      if (list.length === 0) {
-        setProposals([]);
-        return;
-      }
-      const byItineraryId = {};
-      list.forEach((p) => {
-        const tid = p.itinerary_id;
-        if (tid) {
-          if (!byItineraryId[tid]) byItineraryId[tid] = [];
-          byItineraryId[tid].push(p);
-        }
-      });
-      const result = [];
-      const processedItineraryIds = new Set();
-      list.forEach((p) => {
-        const tid = p.itinerary_id;
-        if (!tid) {
-          result.push(p);
+  // Helper: get final price from API response object (handles "1"/1 keys)
+  const getPriceFromFinalPrices = (fp, optNum) => {
+    if (!fp || typeof fp !== 'object') return null;
+    const v = fp[String(optNum)] ?? fp[optNum] ?? fp[Number(optNum)];
+    if (v === undefined || v === null || v === '') return null;
+    const num = Number(v);
+    return Number.isNaN(num) || num < 0 ? null : num;
+  };
+
+  // Load proposals from localStorage, then overlay prices from API (server) so Query always shows saved final client prices
+  useEffect(() => {
+    if (!id) return;
+    let cancelled = false;
+    const run = async () => {
+      try {
+        const storedProposals = localStorage.getItem(`lead_${id}_proposals`);
+        let list = storedProposals ? JSON.parse(storedProposals) : [];
+        if (list.length === 0) {
+          setProposals([]);
           return;
         }
-        if (processedItineraryIds.has(tid)) return;
-        processedItineraryIds.add(tid);
-        const fromStorage = localStorage.getItem(`itinerary_${tid}_proposals`);
-        const latestOptions = fromStorage ? JSON.parse(fromStorage) : [];
-        if (Array.isArray(latestOptions) && latestOptions.length > 0) {
-          const existing = byItineraryId[tid] || [];
-          const confirmedOptionNum = existing.find((x) => x.confirmed)?.optionNumber;
-          latestOptions.forEach((opt, i) => {
-            result.push({
-              ...opt,
-              id: opt.id || Date.now() + i + tid,
-              confirmed: confirmedOptionNum != null && opt.optionNumber === confirmedOptionNum
+        const byItineraryId = {};
+        list.forEach((p) => {
+          const tid = p.itinerary_id;
+          if (tid) {
+            if (!byItineraryId[tid]) byItineraryId[tid] = [];
+            byItineraryId[tid].push(p);
+          }
+        });
+        const result = [];
+        const processedItineraryIds = new Set();
+        list.forEach((p) => {
+          const tid = p.itinerary_id;
+          if (!tid) {
+            result.push(p);
+            return;
+          }
+          if (processedItineraryIds.has(tid)) return;
+          processedItineraryIds.add(tid);
+          const fromStorage = localStorage.getItem(`itinerary_${tid}_proposals`);
+          const latestOptions = fromStorage ? JSON.parse(fromStorage) : [];
+          if (Array.isArray(latestOptions) && latestOptions.length > 0) {
+            const existing = byItineraryId[tid] || [];
+            const confirmedOptionNum = existing.find((x) => x.confirmed)?.optionNumber;
+            const filtered = latestOptions;
+            filtered.forEach((opt, i) => {
+              result.push({
+                ...opt,
+                id: opt.id || Date.now() + i + tid,
+                price: opt.price ?? opt.pricing?.finalClientPrice ?? 0,
+                pricing: { ...(opt.pricing || {}), finalClientPrice: opt.price ?? opt.pricing?.finalClientPrice ?? 0 },
+                confirmed: confirmedOptionNum != null && opt.optionNumber === confirmedOptionNum
+              });
             });
-          });
-        } else {
-          (byItineraryId[tid] || []).forEach((x) => result.push(x));
-        }
-      });
-      setProposals(result);
-    } catch (err) {
-      console.error('Failed to load proposals:', err);
-      setProposals([]);
-    }
-  };
+          } else {
+            (byItineraryId[tid] || []).forEach((x) => result.push(x));
+          }
+        });
+        setProposals(result);
+
+        // Overlay final client prices from API so Query always shows server-saved prices (no localStorage dependency)
+        const itineraryIds = [...new Set(result.map((r) => r.itinerary_id).filter(Boolean))];
+        const priceMapByItinerary = {};
+        await Promise.all(
+          itineraryIds.map(async (tid) => {
+            try {
+              const res = await itineraryPricingAPI.get(tid);
+              if (cancelled) return;
+              const data = res?.data?.data;
+              const fp = data?.final_client_prices;
+              if (fp && typeof fp === 'object' && !Array.isArray(fp)) priceMapByItinerary[tid] = fp;
+            } catch (_) {}
+          })
+        );
+        if (cancelled) return;
+        const updated = result.map((opt) => {
+          const tid = opt.itinerary_id;
+          const fp = priceMapByItinerary[tid];
+          const optNum = opt.optionNumber != null ? opt.optionNumber : 1;
+          const apiPrice = getPriceFromFinalPrices(fp, optNum);
+          const price = apiPrice !== null ? apiPrice : (opt.price ?? 0);
+          return { ...opt, price, pricing: { ...(opt.pricing || {}), finalClientPrice: price } };
+        });
+        setProposals(updated);
+      } catch (err) {
+        console.error('Failed to load proposals:', err);
+        setProposals([]);
+      }
+    };
+    run();
+    return () => { cancelled = true; };
+  }, [id, maxHotelOptions, activeTab]);
 
   // Save proposals to localStorage
   const saveProposals = (newProposals) => {
@@ -461,6 +527,53 @@ const LeadDetails = () => {
       setProposals(newProposals);
     } catch (err) {
       console.error('Failed to save proposals:', err);
+    }
+  };
+
+  // Refresh proposal prices from server (database) – use after saving prices on Itinerary Pricing tab
+  const refreshProposalPricesFromServer = async () => {
+    if (!proposals.length) return;
+    setRefreshingProposalPrices(true);
+    try {
+      const itineraryIds = [...new Set(proposals.map((r) => r.itinerary_id).filter(Boolean))];
+      const priceMapByItinerary = {};
+      for (const tid of itineraryIds) {
+        try {
+          const res = await itineraryPricingAPI.get(tid);
+          const data = res?.data?.data;
+          const fp = data?.final_client_prices;
+          if (fp && typeof fp === 'object' && !Array.isArray(fp)) priceMapByItinerary[tid] = fp;
+        } catch (e) {
+          console.warn('Pricing API failed for itinerary', tid, e?.response?.status, e?.message);
+        }
+      }
+      let anyUpdated = false;
+      const updated = proposals.map((opt) => {
+        const tid = opt.itinerary_id;
+        const fp = priceMapByItinerary[tid];
+        const optNum = opt.optionNumber != null ? opt.optionNumber : 1;
+        const apiPrice = getPriceFromFinalPrices(fp, optNum);
+        if (apiPrice !== null) {
+          anyUpdated = true;
+          return { ...opt, price: apiPrice, pricing: { ...(opt.pricing || {}), finalClientPrice: apiPrice } };
+        }
+        return opt;
+      });
+      setProposals(updated);
+      saveProposals(updated);
+      if (anyUpdated) {
+        alert('Prices refreshed from server. Ab jo amount Itinerary Pricing tab par save hai wahi dikh raha hoga.');
+      } else {
+        alert(
+          'Database mein is itinerary ke liye koi Final Client Price save nahi mila.\n\n' +
+          'Steps:\n1. Itinerary (Shimla) open karein\n2. Pricing tab pe jao\n3. Option 1 & 2 ke "Final Client Price" mein amount daalo (e.g. 3510, 4050)\n4. Har option ke paas wala Save button dabayein\n5. Phir yahan wapas "Refresh prices from server" dabayein'
+        );
+      }
+    } catch (err) {
+      console.error('Failed to refresh prices:', err);
+      alert('Server se prices load nahi ho paaye. Check karein: backend chal raha hai aur login ho. Phir try karein.');
+    } finally {
+      setRefreshingProposalPrices(false);
     }
   };
 
@@ -549,16 +662,34 @@ const LeadDetails = () => {
     if (!id) return;
     setVoucherActionLoading('download');
     try {
-      const res = await vouchersAPI.download(id);
+      const res = await vouchersAPI.preview(id);
       const blob = res.data;
-      const link = document.createElement('a');
-      link.href = URL.createObjectURL(blob);
-      link.download = `voucher-lead-${id}-${new Date().toISOString().slice(0, 10)}.html`;
-      link.click();
-      URL.revokeObjectURL(link.href);
+      const html = await blob.text();
+      const baseUrl = window.location.origin + (import.meta.env.BASE_URL || '/');
+      const iframe = document.createElement('iframe');
+      iframe.setAttribute('style', 'position:absolute;left:-9999px;width:794px;min-height:1123px;border:none;');
+      document.body.appendChild(iframe);
+      const doc = iframe.contentDocument || iframe.contentWindow?.document;
+      if (!doc) {
+        document.body.removeChild(iframe);
+        throw new Error('Could not get iframe document');
+      }
+      doc.open();
+      doc.write(html.replace(/<head>/i, `<head><base href="${baseUrl}">`));
+      doc.close();
+      await new Promise(r => setTimeout(r, 500));
+      await html2pdf().set({
+        margin: [10, 10, 10, 10],
+        filename: `Voucher_Query-${formatLeadId(id)}_${new Date().toISOString().split('T')[0]}.pdf`,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true, logging: false },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+      }).from(doc.body).save();
+      document.body.removeChild(iframe);
+      alert('Voucher PDF downloaded. Mail wala voucher bhi ab company logo aur details ke sath bhejega.');
     } catch (err) {
       console.error('Voucher download failed:', err);
-      alert('Voucher download fail. Please try again.');
+      alert('Voucher PDF download fail. Please try again.');
     } finally {
       setVoucherActionLoading(null);
     }
@@ -578,6 +709,77 @@ const LeadDetails = () => {
       alert('Voucher send failed. Please check client email.');
     } finally {
       setVoucherActionLoading(null);
+    }
+  };
+
+  const handleInvoicePreview = async (invoiceId) => {
+    if (!id) return;
+    setInvoiceActionLoading('preview');
+    try {
+      const res = await leadInvoicesAPI.preview(id, invoiceId);
+      const html = await res.data.text();
+      setInvoicePreviewHtml(html);
+      setShowInvoicePreview(true);
+    } catch (err) {
+      console.error('Invoice preview failed:', err);
+      alert('Invoice preview could not be loaded.');
+    } finally {
+      setInvoiceActionLoading(null);
+    }
+  };
+
+  const handleInvoiceDownload = async (invoiceId) => {
+    if (!id) return;
+    setInvoiceActionLoading('download');
+    try {
+      const res = await leadInvoicesAPI.preview(id, invoiceId);
+      const html = await res.data.text();
+      const baseUrl = window.location.origin + (import.meta.env.BASE_URL || '/');
+      const iframe = document.createElement('iframe');
+      iframe.setAttribute('style', 'position:absolute;left:-9999px;width:794px;min-height:1123px;border:none;');
+      document.body.appendChild(iframe);
+      const doc = iframe.contentDocument || iframe.contentWindow?.document;
+      if (!doc) {
+        document.body.removeChild(iframe);
+        throw new Error('Could not get iframe document');
+      }
+      doc.open();
+      doc.write(html.replace(/<head>/i, `<head><base href="${baseUrl}">`));
+      doc.close();
+      await new Promise(r => setTimeout(r, 500));
+      const inv = queryDetailInvoices.find((i) => i.id === invoiceId);
+      const invNum = inv?.invoice_number || invoiceId;
+      await html2pdf().set({
+        margin: [10, 10, 10, 10],
+        filename: `Invoice_${invNum}_${new Date().toISOString().split('T')[0]}.pdf`,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true, logging: false },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+      }).from(doc.body).save();
+      document.body.removeChild(iframe);
+      alert('Invoice PDF downloaded.');
+    } catch (err) {
+      console.error('Invoice download failed:', err);
+      alert('Invoice PDF download failed.');
+    } finally {
+      setInvoiceActionLoading(null);
+    }
+  };
+
+  const handleInvoiceSend = async (invoiceId) => {
+    if (!id) return;
+    const toEmail = lead?.email || '';
+    const email = window.prompt('Send invoice to email:', toEmail || '');
+    if (email === null) return;
+    setInvoiceActionLoading('send');
+    try {
+      await leadInvoicesAPI.send(id, invoiceId, { to_email: email || toEmail, subject: `Invoice ${queryDetailInvoices.find((i) => i.id === invoiceId)?.invoice_number || invoiceId}` });
+      alert('Invoice sent by email successfully.');
+    } catch (err) {
+      console.error('Invoice send failed:', err);
+      alert('Invoice send failed. Please check client email.');
+    } finally {
+      setInvoiceActionLoading(null);
     }
   };
 
@@ -1618,7 +1820,9 @@ const LeadDetails = () => {
       if (stored) {
         const parsed = JSON.parse(stored);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          optionsToAdd = parsed.map((opt, idx) => {
+          // Add all options from itinerary (no limit) so query shows same options and prices as itinerary
+          const filtered = parsed;
+          optionsToAdd = filtered.map((opt, idx) => {
             const optNum = opt.optionNumber != null ? opt.optionNumber : idx + 1;
             const latestPrice = finalClientPricesMap[String(optNum)] ?? finalClientPricesMap[optNum];
             const price = latestPrice !== undefined && latestPrice !== null && latestPrice !== ''
@@ -2071,12 +2275,12 @@ const LeadDetails = () => {
       .join('');
   };
 
-  // Generate Policy Section HTML
+  // Generate Policy Section HTML (supports plain text and HTML from rich editor)
   const generatePolicySection = (title, text, styles = {}) => {
     if (!text) return '';
-
-    const formattedText = formatTextForHTML(text);
-    const isList = formattedText.includes('<li>');
+    const isHtml = typeof text === 'string' && text.trim().match(/^<[a-z]/i);
+    const formattedText = isHtml ? text : formatTextForHTML(text);
+    const isList = !isHtml && formattedText.includes('<li>');
 
     return `
       <div style="background: ${styles.termsBg || '#f8f9fa'}; padding: 20px; border-radius: ${styles.borderRadius || '10px'}; margin-top: 20px; border: ${styles.termsBorder || '1px solid #e5e7eb'}; box-shadow: ${styles.termsShadow || '0 3px 10px rgba(0,0,0,0.1)'};">
@@ -2621,28 +2825,163 @@ const LeadDetails = () => {
     }
   };
 
+  // optionPriceMap: { '1': { final, original?, discountPct?, discountAmount? }, '2': { ... } } for PDF price breakdown
+  const generatePdfFullHtml = async (qData, optionPriceMap = null) => {
+    if (!qData || !lead) return '';
+    let pdfCompanySettings = companySettings || null;
+    try {
+      const res = await settingsAPI.getAll();
+      if (res?.data?.success && res?.data?.data) {
+        const raw = res.data.data;
+        pdfCompanySettings = Array.isArray(raw) ? raw.reduce((acc, s) => ({ ...acc, [s.key]: s.value }), {}) : raw;
+      }
+    } catch (_) {}
+    const allPolicies = await getAllPolicies();
+    const itinerary = qData.itinerary || {};
+    const allOptions = Object.keys(qData.hotelOptions || {}).sort((a, b) => parseInt(a) - parseInt(b));
+    const assignedUser = users.find(u => u.id === lead.assigned_to);
+    const logoUrl = pdfCompanySettings?.company_logo ? getDisplayImageUrl(pdfCompanySettings.company_logo) : null;
+    const companyName = pdfCompanySettings?.company_name || 'TravelOps';
+    const companyAddress = pdfCompanySettings?.company_address || 'Delhi, India';
+    const companyPhone = pdfCompanySettings?.company_phone || '+91-9871023004';
+    const companyEmail = pdfCompanySettings?.company_email || 'info@travelops.com';
+
+    let html = `
+    <div style="font-family:Arial,sans-serif;line-height:1.6;color:#333;margin:0;padding:0;">
+      <!-- PDF Header: Logo + Company Name + Details -->
+      <div style="background:linear-gradient(135deg,#1e40af 0%,#2563eb 100%);color:#fff;padding:24px 30px;display:flex;align-items:center;gap:20px;flex-wrap:wrap;">
+        ${logoUrl ? `<img src="${logoUrl}" alt="${companyName}" style="height:56px;max-width:180px;object-fit:contain;" />` : `<div style="font-size:28px;font-weight:bold;">${companyName}</div>`}
+        <div style="flex:1;min-width:200px;">
+          <div style="font-size:22px;font-weight:bold;margin-bottom:6px;">${companyName}</div>
+          <div style="font-size:13px;opacity:0.95;">${companyAddress}</div>
+          <div style="font-size:13px;opacity:0.95;">📞 ${companyPhone} | ✉ ${companyEmail}</div>
+        </div>
+      </div>
+
+      <div style="padding:30px;max-width:800px;margin:0 auto;">
+        <h2 style="color:#1e40af;font-size:24px;margin-bottom:20px;">Travel Quotation - ${itinerary.itinerary_name || 'Itinerary'}</h2>
+
+        <!-- Query Information (A to Z query details) -->
+        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:20px;margin-bottom:24px;">
+          <h3 style="margin:0 0 16px 0;font-size:18px;color:#1e293b;">Query Information</h3>
+          <table style="width:100%;border-collapse:collapse;font-size:14px;">
+            <tr><td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;font-weight:600;color:#475569;width:140px;">Destination</td><td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;">${lead.destination || 'N/A'}</td></tr>
+            <tr><td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;font-weight:600;color:#475569;">From Date</td><td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;">${lead.travel_start_date ? formatDate(lead.travel_start_date) : 'N/A'}</td></tr>
+            <tr><td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;font-weight:600;color:#475569;">To Date</td><td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;">${lead.travel_end_date ? formatDate(lead.travel_end_date) : (lead.travel_start_date ? formatDate(lead.travel_start_date) : 'N/A')}</td></tr>
+            <tr><td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;font-weight:600;color:#475569;">Travel Month</td><td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;">${lead.travel_start_date ? getTravelMonth(lead.travel_start_date) : 'N/A'}</td></tr>
+            <tr><td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;font-weight:600;color:#475569;">Lead Source</td><td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;">${lead.source || 'N/A'}</td></tr>
+            <tr><td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;font-weight:600;color:#475569;">Services</td><td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;">${lead.service || 'Activities only'}</td></tr>
+            <tr><td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;font-weight:600;color:#475569;">Pax</td><td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;">Adult: ${lead.adult ?? 1}, Child: ${lead.child ?? 0}, Infant: ${lead.infant ?? 0}</td></tr>
+            <tr><td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;font-weight:600;color:#475569;">Assign To</td><td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;">${assignedUser?.name || 'N/A'}</td></tr>
+            ${lead.remark ? `<tr><td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;font-weight:600;color:#475569;">Description</td><td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;">${lead.remark}</td></tr>` : ''}
+          </table>
+        </div>
+
+        <!-- Quote summary -->
+        <div style="background:#f1f5f9;padding:16px;border-radius:8px;margin-bottom:24px;">
+          <table style="width:100%;border-collapse:collapse;font-size:14px;">
+            <tr><td style="padding:6px 0;font-weight:600;color:#475569;">Query ID</td><td style="padding:6px 0;">${formatLeadId(lead.id)}</td></tr>
+            <tr><td style="padding:6px 0;font-weight:600;color:#475569;">Destination</td><td style="padding:6px 0;">${itinerary.destinations || 'N/A'}</td></tr>
+            <tr><td style="padding:6px 0;font-weight:600;color:#475569;">Duration</td><td style="padding:6px 0;">${itinerary.duration || 0} Nights / ${(itinerary.duration || 0) + 1} Days</td></tr>
+            <tr><td style="padding:6px 0;font-weight:600;color:#475569;">Adults / Children</td><td style="padding:6px 0;">${lead.adult ?? 1} / ${lead.child ?? 0}</td></tr>
+          </table>
+        </div>
+        ${itinerary.image ? `<img src="${getDisplayImageUrl(itinerary.image) || itinerary.image}" alt="${itinerary.itinerary_name}" style="width:100%;max-width:600px;height:240px;object-fit:cover;border-radius:10px;margin:0 auto 24px;display:block;" />` : ''}
+    `;
+
+    allOptions.forEach(optNum => {
+      const hotels = qData.hotelOptions[optNum] || [];
+      const priceInfo = optionPriceMap && optionPriceMap[String(optNum)] ? optionPriceMap[String(optNum)] : null;
+      const finalPrice = priceInfo?.final != null ? Number(priceInfo.final) : hotels.reduce((sum, h) => sum + (parseFloat(h.price) || 0), 0);
+      const originalPrice = priceInfo?.original != null ? Number(priceInfo.original) : null;
+      const discountPct = priceInfo?.discountPct != null ? Number(priceInfo.discountPct) : 0;
+      const discountAmount = priceInfo?.discountAmount != null ? Number(priceInfo.discountAmount) : (originalPrice != null && originalPrice > finalPrice ? originalPrice - finalPrice : 0);
+      const showBreakdown = originalPrice != null && originalPrice > finalPrice && (discountPct > 0 || discountAmount > 0);
+
+      html += `
+        <div style="border:2px solid #2563eb;border-radius:10px;padding:24px;margin:24px 0;background:#fff;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
+          <div style="background:#2563eb;color:#fff;padding:12px 16px;border-radius:8px;margin-bottom:16px;">
+            <h2 style="margin:0;font-size:20px;">Option ${optNum}</h2>
+          </div>
+          ${showBreakdown ? `
+          <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px;margin-bottom:16px;">
+            ${originalPrice != null && originalPrice > finalPrice ? `<div style="font-size:14px;color:#64748b;text-decoration:line-through;margin-bottom:4px;">₹${originalPrice.toLocaleString('en-IN')}</div>` : ''}
+            <div style="font-size:22px;font-weight:bold;color:#1e293b;">₹${finalPrice.toLocaleString('en-IN')}/-</div>
+            <div style="font-size:13px;color:#64748b;margin-top:4px;">Total Price</div>
+            ${(discountPct > 0 || discountAmount > 0) ? `<div style="font-size:14px;color:#16a34a;font-weight:600;margin-top:6px;">Discount ${discountPct ? `(${discountPct}%)` : ''}: -₹${(discountAmount || 0).toLocaleString('en-IN')}</div>` : ''}
+          </div>
+          ` : ''}
+          <h4 style="color:#1e40af;margin-bottom:12px;">Hotels Included</h4>
+      `;
+      hotels.forEach((hotel) => {
+        html += `
+          <div style="background:#f0f9ff;padding:16px;border-radius:8px;margin:12px 0;border-left:4px solid #2563eb;">
+            ${hotel.image ? `<img src="${getDisplayImageUrl(hotel.image) || hotel.image}" alt="${hotel.hotelName}" style="width:100px;height:100px;object-fit:cover;border-radius:8px;float:left;margin-right:16px;" />` : ''}
+            <div style="margin-left:${hotel.image ? '116px' : '0'};">
+              <h4 style="margin:0 0 8px 0;color:#1e40af;">Day ${hotel.day}: ${hotel.hotelName || 'Hotel'}</h4>
+              <p style="margin:4px 0;font-size:14px;"><strong>Category:</strong> ${hotel.category ? hotel.category + ' Star' : 'N/A'} | <strong>Room:</strong> ${hotel.roomName || 'N/A'} | <strong>Meal:</strong> ${hotel.mealPlan || 'N/A'}</p>
+              ${hotel.checkIn ? `<p style="margin:4px 0;font-size:13px;">Check-in: ${hotel.checkIn} ${hotel.checkInTime || ''} | Check-out: ${hotel.checkOut || ''} ${hotel.checkOutTime || ''}</p>` : ''}
+              ${hotel.price ? `<p style="margin:4px 0;font-size:13px;"><strong>Price:</strong> ₹${parseFloat(hotel.price).toLocaleString('en-IN')}</p>` : ''}
+            </div>
+            <div style="clear:both;"></div>
+          </div>
+        `;
+      });
+      html += `
+          <div style="background:#dc2626;color:#fff;padding:16px;text-align:center;border-radius:8px;margin-top:16px;font-size:20px;font-weight:bold;">
+            Total Package Price: ₹${finalPrice.toLocaleString('en-IN')}
+          </div>
+        </div>
+      `;
+    });
+
+    html += generateAllPoliciesSection(allPolicies, {
+      termsBg: '#f8f9fa',
+      borderRadius: '10px',
+      termsBorder: '2px solid #2563eb',
+      termsShadow: '0 5px 15px rgba(0,0,0,0.1)',
+      termsTitleColor: '#1e40af',
+      termsTitleSize: '18px',
+      termsTextSize: '14px'
+    });
+    if (allPolicies.thankYouMessage) {
+      html += `<div style="background:#f8f9fa;padding:20px;border-radius:10px;margin-top:20px;border:2px solid #2563eb;"><div style="color:#555;line-height:1.8;font-size:14px;">${formatTextForHTML(allPolicies.thankYouMessage)}</div></div>`;
+    }
+    html += `
+        <div style="background:#1e293b;color:#fff;padding:20px;text-align:center;margin-top:30px;border-radius:0 0 10px 10px;">
+          <p style="margin:0;">${companyName}</p>
+          <p style="margin:8px 0 0 0;font-size:14px;opacity:0.9;">${companyAddress} | 📞 ${companyPhone} | ✉ ${companyEmail}</p>
+        </div>
+      </div>
+    </div>
+    `;
+    return html;
+  };
+
   // Generate professional email content with all options using selected template
-  const generateEmailContent = async () => {
-    if (!quotationData || !selectedProposal) return '';
+  // When overrideQuotationData is passed (e.g. for PDF), use it so PDF is not blank due to async state
+  const generateEmailContent = async (overrideQuotationData = null) => {
+    const qData = overrideQuotationData || quotationData;
+    if (!qData) return '';
 
     const templateId = await getSelectedTemplate();
     const allPolicies = await getAllPolicies();
-    const itinerary = quotationData.itinerary;
-    const allOptions = Object.keys(quotationData.hotelOptions).sort((a, b) => parseInt(a) - parseInt(b));
+    const itinerary = qData.itinerary;
+    const allOptions = Object.keys(qData.hotelOptions || {}).sort((a, b) => parseInt(a) - parseInt(b));
 
     // Use special templates
     if (templateId === 'template-2') {
-      return generate3DPremiumEmailTemplate(itinerary, allOptions, quotationData.hotelOptions, allPolicies);
+      return generate3DPremiumEmailTemplate(itinerary, allOptions, qData.hotelOptions, allPolicies);
     } else if (templateId === 'template-3') {
-      return generate3DFloatingEmailTemplate(itinerary, allOptions, quotationData.hotelOptions, allPolicies);
+      return generate3DFloatingEmailTemplate(itinerary, allOptions, qData.hotelOptions, allPolicies);
     } else if (templateId === 'template-4') {
-      return generate3DLayeredEmailTemplate(itinerary, allOptions, quotationData.hotelOptions, allPolicies);
+      return generate3DLayeredEmailTemplate(itinerary, allOptions, qData.hotelOptions, allPolicies);
     } else if (templateId === 'template-5') {
-      return generateAdventureEmailTemplate(itinerary, allOptions, quotationData.hotelOptions, allPolicies);
+      return generateAdventureEmailTemplate(itinerary, allOptions, qData.hotelOptions, allPolicies);
     } else if (templateId === 'template-6') {
-      return generateBeachEmailTemplate(itinerary, allOptions, quotationData.hotelOptions, allPolicies);
+      return generateBeachEmailTemplate(itinerary, allOptions, qData.hotelOptions, allPolicies);
     } else if (templateId === 'template-7') {
-      return generateElegantEmailTemplate(itinerary, allOptions, quotationData.hotelOptions, allPolicies);
+      return generateElegantEmailTemplate(itinerary, allOptions, qData.hotelOptions, allPolicies);
     }
 
     // Template styles based on template ID
@@ -2710,9 +3049,9 @@ const LeadDetails = () => {
             </div>
     `;
 
-    // Add all options
+    // Add all options (dono options ke details PDF mein)
     allOptions.forEach(optNum => {
-      const hotels = quotationData.hotelOptions[optNum] || [];
+      const hotels = qData.hotelOptions[optNum] || [];
       const totalPrice = hotels.reduce((sum, h) => sum + (parseFloat(h.price) || 0), 0);
 
       htmlContent += `
@@ -2780,9 +3119,9 @@ const LeadDetails = () => {
     return htmlContent;
   };
 
-  const handleSendMail = async (optionNum) => {
-    // Ensure we have quotation data loaded; if not, build it first
-    if (!quotationData || !lead) {
+  const handleSendMail = async (optionNum, quotationDataOverride = null) => {
+    let dataForSend = quotationDataOverride || quotationData;
+    if (!dataForSend || !lead) {
       const confirmed = getConfirmedOption();
       const baseProposal = confirmed || selectedProposal || (proposals && proposals[0]);
       if (!baseProposal) {
@@ -2794,7 +3133,9 @@ const LeadDetails = () => {
         alert('Failed to load quotation. Please try again.');
         return;
       }
+      dataForSend = quotationDataOverride || built;
     }
+    if (!dataForSend) return;
 
     const recipientEmail = lead?.email || '';
     if (!recipientEmail) {
@@ -2802,8 +3143,8 @@ const LeadDetails = () => {
       return;
     }
 
-    const subject = `Travel Quotation - ${quotationData.itinerary.itinerary_name || 'Itinerary'} - ${formatLeadId(lead.id)}`;
-    const emailContent = await generateEmailContent();
+    const subject = `Travel Quotation - ${dataForSend.itinerary?.itinerary_name || 'Itinerary'} - ${formatLeadId(lead.id)}`;
+    const emailContent = await generateEmailContent(dataForSend);
 
     try {
       if (user?.google_token) {
@@ -2898,66 +3239,130 @@ const LeadDetails = () => {
     }
   };
 
-  const handleDownloadSingleOptionPdf = async (optionNum) => {
-    if (!quotationData || !optionNum) {
-      alert('Please select an option first.');
+  // quotationDataOverride: pass when downloading so PDF is not blank. Renders in iframe so content is not blank.
+  // itineraryIdForPricing: when set, fetches final_client_prices + option_gst_settings so PDF shows correct Total Price and discount breakdown (not ₹0).
+  // PDF includes: company header (logo/name/details), query info, both options A–Z with full price details, all terms & policies.
+  const handleDownloadSingleOptionPdf = async (optionNum, quotationDataOverride = null, itineraryIdForPricing = null) => {
+    const qData = quotationDataOverride || quotationData;
+    if (!qData) {
+      alert('Quotation data not loaded. Please open View Quotation first or try again.');
       return;
     }
 
+    let optionPriceMap = null;
+    if (itineraryIdForPricing) {
+      try {
+        const res = await itineraryPricingAPI.get(itineraryIdForPricing);
+        const data = res?.data?.data;
+        const fp = data?.final_client_prices;
+        const ogst = data?.option_gst_settings || {};
+        if (fp && typeof fp === 'object' && !Array.isArray(fp)) {
+          optionPriceMap = {};
+          Object.keys(fp).forEach((key) => {
+            const finalVal = parseFloat(fp[key]);
+            if (Number.isNaN(finalVal)) return;
+            const discountPct = parseFloat(ogst[key]?.discount) || 0;
+            let original = finalVal;
+            let discountAmount = 0;
+            if (discountPct > 0 && discountPct < 100) {
+              original = Math.round(finalVal / (1 - discountPct / 100));
+              discountAmount = original - finalVal;
+            }
+            optionPriceMap[key] = { final: finalVal, original, discountPct, discountAmount };
+          });
+        }
+      } catch (_) {}
+    }
+
+    // Fallback: use prices from proposal cards (same as Query page shows) when API has no saved pricing
+    const tid = itineraryIdForPricing;
+    if ((!optionPriceMap || Object.keys(optionPriceMap).length === 0) && tid && proposals?.length) {
+      optionPriceMap = {};
+      proposals.filter((p) => p.itinerary_id === tid).forEach((p) => {
+        const optNum = String(p.optionNumber ?? 1);
+        const price = parseFloat(p.price);
+        if (!Number.isNaN(price) && price > 0) {
+          optionPriceMap[optNum] = { final: price };
+        }
+      });
+      if (Object.keys(optionPriceMap).length === 0) optionPriceMap = null;
+    }
+
     try {
-      const fullHtml = await generateEmailContent();
-      let emailContent = extractBodyContent(fullHtml);
+      const fullHtml = await generatePdfFullHtml(qData, optionPriceMap);
+      if (!fullHtml || fullHtml.trim() === '') {
+        alert('Could not generate PDF content. Please try View Quotation first, then Download PDF.');
+        return;
+      }
+      let emailContent = fullHtml;
 
-      const tempDiv = document.createElement('div');
-      tempDiv.innerHTML = emailContent;
-      tempDiv.style.position = 'absolute';
-      tempDiv.style.left = '-9999px';
-      tempDiv.style.width = '210mm'; // A4 width
-      tempDiv.style.backgroundColor = '#ffffff';
-      document.body.appendChild(tempDiv);
+      const baseUrl = window.location.origin + (import.meta.env.BASE_URL || '/');
+      const iframe = document.createElement('iframe');
+      iframe.setAttribute('style', 'position:absolute;left:-9999px;width:794px;min-height:1123px;border:none;');
+      document.body.appendChild(iframe);
+      const doc = iframe.contentDocument || iframe.contentWindow?.document;
+      if (!doc) {
+        document.body.removeChild(iframe);
+        throw new Error('Could not get iframe document');
+      }
+      doc.open();
+      doc.write(`
+<!DOCTYPE html>
+<html><head>
+<meta charset="utf-8">
+<base href="${baseUrl}">
+<style>body{margin:0;padding:0;background:#fff;color:#000;font-family:Arial,sans-serif;} img{max-width:100%;height:auto;}</style>
+</head><body>
+${emailContent}
+</body></html>
+      `);
+      doc.close();
 
+      await new Promise(r => setTimeout(r, 600));
+
+      const itineraryName = (qData.itinerary?.itinerary_name || 'Itinerary').replace(/\s+/g, '_');
       const opt = {
         margin: [10, 10, 10, 10],
-        filename: `Travel_Quotation_Option_${optionNum}_${quotationData?.itinerary?.itinerary_name || 'Itinerary'}_${formatLeadId(lead?.id)}_${new Date().toISOString().split('T')[0]}.pdf`,
+        filename: `Travel_Quotation_${itineraryName}_${formatLeadId(lead?.id)}_${new Date().toISOString().split('T')[0]}.pdf`,
         image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { 
+        html2canvas: {
           scale: 2,
           useCORS: true,
           logging: false,
-          letterRendering: true
+          letterRendering: true,
+          allowTaint: true
         },
-        jsPDF: { 
-          unit: 'mm', 
-          format: 'a4', 
-          orientation: 'portrait',
-          compress: true
-        },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait', compress: true },
         pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
       };
 
-      await html2pdf().set(opt).from(tempDiv).save();
-      document.body.removeChild(tempDiv);
-      alert(`PDF downloaded successfully for Option ${optionNum}!`);
+      await html2pdf().set(opt).from(doc.body).save();
+      document.body.removeChild(iframe);
+      const hasPrices = optionPriceMap && Object.values(optionPriceMap).some((v) => v && (v.final > 0 || v.original > 0));
+      alert(hasPrices
+        ? 'PDF downloaded! Query details, dono options, aur Terms & Policies sab include hain.'
+        : 'PDF downloaded! Agar Total Price abhi bhi ₹0 dikhe to: Itinerary open karein → Pricing tab → har option ka Final Client Price daal kar Save karein, phir yahan "Refresh prices from server" dabayein, uske baad dubara PDF download karein.');
     } catch (error) {
       console.error('Error generating PDF:', error);
       alert('Failed to generate PDF. Please try the Print option instead.');
     }
   };
 
-  const handleSendWhatsApp = async (optionNum) => {
-    if (!quotationData || !lead) {
+  const handleSendWhatsApp = async (optionNum, quotationDataOverride = null) => {
+    const qData = quotationDataOverride || quotationData;
+    if (!qData || !lead) {
       alert('Please load quotation first');
       return;
     }
 
     // Build WhatsApp message from quotation (all options)
-    let message = `*Travel Quotation - ${quotationData.itinerary.itinerary_name || 'Itinerary'}*\n\n`;
+    let message = `*Travel Quotation - ${qData.itinerary?.itinerary_name || 'Itinerary'}*\n\n`;
     message += `Query ID: ${formatLeadId(lead.id)}\n`;
-    message += `Destination: ${quotationData.itinerary.destinations || 'N/A'}\n`;
-    message += `Duration: ${quotationData.itinerary.duration || 0} Days\n\n`;
-    const allOptions = Object.keys(quotationData.hotelOptions || {}).sort((a, b) => parseInt(a) - parseInt(b));
+    message += `Destination: ${qData.itinerary?.destinations || 'N/A'}\n`;
+    message += `Duration: ${qData.itinerary?.duration || 0} Days\n\n`;
+    const allOptions = Object.keys(qData.hotelOptions || {}).sort((a, b) => parseInt(a) - parseInt(b));
     allOptions.forEach(optNum => {
-      const hotels = quotationData.hotelOptions[optNum] || [];
+      const hotels = qData.hotelOptions[optNum] || [];
       const totalPrice = hotels.reduce((sum, h) => sum + (parseFloat(h.price) || 0), 0);
       message += `*Option ${optNum}*\n`;
       hotels.forEach(hotel => {
@@ -3024,22 +3429,87 @@ const LeadDetails = () => {
     }
   };
 
-  // Download PDF directly from card - loads quotation if needed
+  // Download PDF directly from card - loads quotation and passes data so PDF is not blank; PDF includes all options
   const handleDownloadPdfFromCard = async (opt) => {
     try {
       const qData = quotationData && selectedProposal?.id === opt.id
         ? quotationData
         : await handleViewQuotation(opt, false);
-      if (!qData) return;
+      if (!qData) {
+        alert('Could not load quotation. Please try again.');
+        return;
+      }
       setQuotationData(qData);
       setSelectedProposal(opt);
       const optNum = opt.optionNumber?.toString() || Object.keys(qData.hotelOptions || {})[0];
       setSelectedOption(optNum);
-      await new Promise(r => setTimeout(r, 50));
-      await handleDownloadSingleOptionPdf(optNum);
+      await handleDownloadSingleOptionPdf(optNum, qData, opt.itinerary_id || null);
     } catch (err) {
       console.error('PDF download failed:', err);
       alert('Failed to download PDF. ' + (err.message || ''));
+    }
+  };
+
+  // Download PDF with both options – single button above cards (black box area)
+  const handleDownloadAllOptionsPdf = async () => {
+    const first = visibleProposals[0];
+    if (!first) {
+      alert('Koi proposal nahi hai. Pehle itinerary add karein.');
+      return;
+    }
+    try {
+      const qData = quotationData && selectedProposal?.itinerary_id === first.itinerary_id
+        ? quotationData
+        : await handleViewQuotation(first, false);
+      if (!qData) {
+        alert('Could not load quotation. Please try again.');
+        return;
+      }
+      setQuotationData(qData);
+      setSelectedProposal(first);
+      const optNum = Object.keys(qData.hotelOptions || {})[0] || 1;
+      setSelectedOption(optNum);
+      await handleDownloadSingleOptionPdf(optNum, qData, first.itinerary_id || null);
+    } catch (err) {
+      console.error('Download PDF failed:', err);
+      alert('PDF download nahi ho paya. ' + (err?.message || ''));
+    }
+  };
+
+  // Send both options via Email / WhatsApp – single button above cards
+  const handleSendAllOptions = async (channel) => {
+    setSendAllDropdownOpen(false);
+    const first = visibleProposals[0];
+    if (!first) {
+      alert('Koi proposal nahi hai. Pehle itinerary add karein.');
+      return;
+    }
+    if ((channel === 'email' || channel === 'both') && !lead?.email) {
+      alert('Customer email required. Lead mein email add karein.');
+      return;
+    }
+    if ((channel === 'whatsapp' || channel === 'both') && !lead?.phone) {
+      alert('Customer phone required for WhatsApp. Lead mein phone add karein.');
+      return;
+    }
+    setSendingOptionChannel(channel);
+    try {
+      const qData = quotationData && selectedProposal?.itinerary_id === first.itinerary_id
+        ? quotationData
+        : await handleViewQuotation(first, false);
+      if (!qData) return;
+      setQuotationData(qData);
+      setSelectedProposal(first);
+      const optNum = Object.keys(qData.hotelOptions || {})[0] || 1;
+      setSelectedOption(optNum);
+      await new Promise(r => setTimeout(r, 100));
+      if (channel === 'email' || channel === 'both') await handleSendMail(optNum, qData);
+      if (channel === 'whatsapp' || channel === 'both') await handleSendWhatsApp(optNum, qData);
+    } catch (err) {
+      console.error('Send failed:', err);
+      alert('Send nahi ho paya. ' + (err?.message || ''));
+    } finally {
+      setSendingOptionChannel(null);
     }
   };
 
@@ -3351,13 +3821,13 @@ const LeadDetails = () => {
 
   return (
     <Layout Header={() => null} padding={20}>
-      <div className="p-6 " style={{ backgroundColor: settings?.dashboard_background_color || '#D8DEF5', minHeight: '100vh' }}>
+      <div className="p-4 sm:p-6" style={{ backgroundColor: settings?.dashboard_background_color || '#D8DEF5', minHeight: '100vh' }}>
         {/* Header */}
-        <div className="mb-2 rounded-lg   bg-white p-4 ">
-          <div className="flex items-center  justify-between mb-4">
-            <div className="flex flex-col  items-start gap-2">
+        <div className="mb-2 rounded-lg bg-white p-4 sm:p-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+            <div className="flex flex-col items-start gap-2 min-w-0">
 
-              <div className="flex  items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <button
                   onClick={() => navigate('/leads')}
                   className="text-gray-700 hover:text-gray-900"
@@ -3381,9 +3851,9 @@ const LeadDetails = () => {
         </div>
 
         {/* Main Content */}
-        <div className="grid grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
           {/* Left Column */}
-          <div className="col-span-1 p-6 shadow rounded-lg bg-white space-y-6">
+          <div className="lg:col-span-1 p-4 sm:p-6 shadow rounded-lg bg-white space-y-6">
             {/* Query Information */}
             <div className="  ">
               <h2 className="text-xl font-[700] text-gray-800 mb-4">Query Information</h2>
@@ -3490,9 +3960,9 @@ const LeadDetails = () => {
                 Related Customer
               </h2>
 
-              <div className="flex items-center justify-between gap-6">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 sm:gap-6">
                 {/* LEFT INFO */}
-                <div className="flex-1">
+                <div className="flex-1 min-w-0">
                   <div className="text-sm text-gray-500 mb-1">
                     {lead.client_title ? `${lead.client_title} ` : 'Mr. '}
                     {lead.client_name}
@@ -3509,11 +3979,11 @@ const LeadDetails = () => {
                   </div>
                 </div>
 
-                {/* DIVIDER */}
-                <div className="h-16 w-px bg-gray-300"></div>
+                {/* DIVIDER - hidden on mobile */}
+                <div className="hidden sm:block h-16 w-px bg-gray-300 flex-shrink-0"></div>
 
                 {/* RIGHT ACTIONS */}
-                <div className="flex flex-col gap-3 min-w-[200px]">
+                <div className="flex flex-col sm:flex-row lg:flex-col gap-3 min-w-0 sm:min-w-[180px] shrink-0">
                   <a
                     href={lead.phone ? `tel:${lead.phone}` : '#'}
                     className="flex items-center justify-center gap-2 bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium py-2 px-4 rounded-full transition"
@@ -3609,7 +4079,7 @@ const LeadDetails = () => {
 
                         {/* NOTE INPUT */}
                         {showNoteInput && (
-                          <div className="w-[420px] bottom-0 z-10 absolute">
+                          <div className="w-full max-w-[420px] bottom-0 z-10 absolute">
                             <textarea
                               value={noteText}
                               onChange={(e) => setNoteText(e.target.value)}
@@ -3654,7 +4124,7 @@ const LeadDetails = () => {
           </div>
 
           {/* Right Column */}
-          <div className="col-span-2   p-4 bg-white rounded-lg">
+          <div className="lg:col-span-2 p-4 sm:p-6 bg-white rounded-lg min-w-0">
             {/* Tabs */}
             <div className="bg-white  rounded-lg ">
 
@@ -3742,9 +4212,9 @@ const LeadDetails = () => {
                               className="relative h-60 w-full overflow-hidden rounded-t-xl cursor-pointer"
                               onClick={() => {
                                 if (first?.itinerary_id) {
-                                  navigate(`/itineraries/${first.itinerary_id}`);
+                                  navigate(`/itineraries/${first.itinerary_id}?fromLead=${id}`, { state: { fromLeadId: id } });
                                 } else if (proposals[0]?.itinerary_id) {
-                                  navigate(`/itineraries/${proposals[0].itinerary_id}`);
+                                  navigate(`/itineraries/${proposals[0].itinerary_id}?fromLead=${id}`, { state: { fromLeadId: id } });
                                 } else {
                                   alert('Itinerary ID not found for this proposal.');
                                 }
@@ -3767,12 +4237,64 @@ const LeadDetails = () => {
 
                             {/* Single card body – all options inside */}
                             <div className="p-5">
-                              <div className="text-lg text-blue-500 font-medium mb-2">
-                                Pax: <span className="font-semibold">{lead?.adult ?? 1}</span> Adult(s) – <span className="font-semibold">{lead?.child ?? 0}</span> Child(s)
-                              </div>
-                              <div className="text-sm text-gray-700 mb-1">
-                                <strong>Date:</strong> {lead?.travel_start_date ? formatDateForDisplay(lead.travel_start_date) : 'N/A'} &nbsp;
-                                <strong>Till:</strong> {lead?.travel_end_date ? formatDateForDisplay(lead.travel_end_date) : 'N/A'}
+                              <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                                <div>
+                                  <div className="text-lg text-blue-500 font-medium">
+                                    Pax: <span className="font-semibold">{lead?.adult ?? 1}</span> Adult(s) – <span className="font-semibold">{lead?.child ?? 0}</span> Child(s)
+                                  </div>
+                                  <div className="text-sm text-gray-700 mt-0.5">
+                                    <strong>Date:</strong> {lead?.travel_start_date ? formatDateForDisplay(lead.travel_start_date) : 'N/A'} &nbsp;
+                                    <strong>Till:</strong> {lead?.travel_end_date ? formatDateForDisplay(lead.travel_end_date) : 'N/A'}
+                                  </div>
+                                </div>
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={refreshProposalPricesFromServer}
+                                    disabled={refreshingProposalPrices || !proposals.some((p) => p.itinerary_id)}
+                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 rounded-lg border border-blue-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                    title="Load latest prices from server"
+                                  >
+                                    <RefreshCw className={`h-4 w-4 ${refreshingProposalPrices ? 'animate-spin' : ''}`} />
+                                    {refreshingProposalPrices ? 'Refreshing…' : 'Refresh prices'}
+                                  </button>
+                                  <div className="relative" onClick={(e) => e.stopPropagation()}>
+                                    <button
+                                      type="button"
+                                      onClick={() => setSendAllDropdownOpen(!sendAllDropdownOpen)}
+                                      disabled={sendingOptionChannel || !visibleProposals.length}
+                                      className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-semibold text-white bg-green-600 hover:bg-green-700 rounded-lg border border-green-700 transition-colors disabled:opacity-50"
+                                      title="Dono options ek saath Email / WhatsApp pe bhejen"
+                                    >
+                                      <Send className="h-4 w-4" />
+                                      {sendingOptionChannel ? 'Sending…' : 'Send'}
+                                      <ChevronDown className="h-4 w-4" />
+                                    </button>
+                                    {sendAllDropdownOpen && (
+                                      <div className="absolute top-full right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-20 py-1 min-w-[180px]">
+                                        <button type="button" onClick={() => handleSendAllOptions('email')} className="w-full text-left px-3 py-2 hover:bg-gray-100 flex items-center gap-2 text-sm">
+                                          <Mail className="h-4 w-4 text-blue-600" /> Email (dono options)
+                                        </button>
+                                        <button type="button" onClick={() => handleSendAllOptions('whatsapp')} className="w-full text-left px-3 py-2 hover:bg-gray-100 flex items-center gap-2 text-sm">
+                                          <MessageCircle className="h-4 w-4 text-green-600" /> WhatsApp (dono options)
+                                        </button>
+                                        <button type="button" onClick={() => handleSendAllOptions('both')} className="w-full text-left px-3 py-2 hover:bg-gray-100 flex items-center gap-2 text-sm">
+                                          <Send className="h-4 w-4" /> Dono pe bhejo (Email + WhatsApp)
+                                        </button>
+                                      </div>
+                                    )}
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={handleDownloadAllOptionsPdf}
+                                    disabled={!visibleProposals.length}
+                                    className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-semibold text-white bg-purple-600 hover:bg-purple-700 rounded-lg border border-purple-700 transition-colors disabled:opacity-50"
+                                    title="Dono options ka ek PDF download karein"
+                                  >
+                                    <Download className="h-4 w-4" />
+                                    Download PDF
+                                  </button>
+                                </div>
                               </div>
                               <hr className="my-4" />
 
@@ -3814,39 +4336,6 @@ const LeadDetails = () => {
                                               Make Confirm
                                             </button>
                                           )}
-                                          <div className="relative">
-                                            <button
-                                              type="button"
-                                              onClick={(e) => { e.stopPropagation(); setSendDropdownOptId(sendDropdownOptId === opt.id ? null : opt.id); }}
-                                              disabled={sendingOptionChannel}
-                                              className="w-full bg-green-600 hover:bg-green-700 text-white text-sm font-semibold px-3 py-2 rounded-lg transition-colors flex items-center justify-center gap-1"
-                                            >
-                                              <Send className="h-4 w-4" />
-                                              {sendingOptionChannel ? 'Sending…' : 'Send'}
-                                              <ChevronDown className="h-4 w-4" />
-                                            </button>
-                                            {sendDropdownOptId === opt.id && (
-                                              <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10 py-1">
-                                                <button type="button" onClick={(e) => { e.stopPropagation(); handleSendOptionFromCard(opt, 'email'); }} className="w-full text-left px-3 py-2 hover:bg-gray-100 flex items-center gap-2 text-sm">
-                                                  <Mail className="h-4 w-4 text-blue-600" /> Email pe bhejo
-                                                </button>
-                                                <button type="button" onClick={(e) => { e.stopPropagation(); handleSendOptionFromCard(opt, 'whatsapp'); }} className="w-full text-left px-3 py-2 hover:bg-gray-100 flex items-center gap-2 text-sm">
-                                                  <MessageCircle className="h-4 w-4 text-green-600" /> WhatsApp pe bhejo
-                                                </button>
-                                                <button type="button" onClick={(e) => { e.stopPropagation(); handleSendOptionFromCard(opt, 'both'); }} className="w-full text-left px-3 py-2 hover:bg-gray-100 flex items-center gap-2 text-sm">
-                                                  <Send className="h-4 w-4" /> Dono pe bhejo (Email + WhatsApp)
-                                                </button>
-                                              </div>
-                                            )}
-                                          </div>
-                                          <button
-                                            type="button"
-                                            onClick={(e) => { e.stopPropagation(); handleDownloadPdfFromCard(opt); }}
-                                            className="w-full bg-purple-600 hover:bg-purple-700 text-white text-sm font-semibold px-3 py-2 rounded-lg transition-colors flex items-center justify-center gap-1"
-                                          >
-                                            <Download className="h-4 w-4" />
-                                            Download PDF
-                                          </button>
                                           <button
                                             type="button"
                                             onClick={(e) => { e.stopPropagation(); handleViewQuotation(opt); }}
@@ -3857,7 +4346,7 @@ const LeadDetails = () => {
                                           {opt.itinerary_id && (
                                             <button
                                               type="button"
-                                              onClick={(e) => { e.stopPropagation(); navigate(`/itineraries/${opt.itinerary_id}`); }}
+                                              onClick={(e) => { e.stopPropagation(); navigate(`/itineraries/${opt.itinerary_id}?fromLead=${id}`, { state: { fromLeadId: id } }); }}
                                               className="w-full text-gray-600 hover:text-gray-800 hover:bg-gray-100 text-sm font-medium px-3 py-2 rounded-lg border border-gray-300 transition-colors"
                                             >
                                               Edit
@@ -4734,6 +5223,7 @@ const LeadDetails = () => {
                                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Amount</th>
                                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
                                 <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Created</th>
+                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
                               </tr>
                             </thead>
                             <tbody>
@@ -4745,6 +5235,13 @@ const LeadDetails = () => {
                                   <td className="px-4 py-2 text-sm text-gray-900">₹{Number(inv.total_amount).toLocaleString('en-IN')}</td>
                                   <td className="px-4 py-2"><span className={`text-xs px-2 py-1 rounded ${inv.status === 'paid' ? 'bg-green-100 text-green-800' : inv.status === 'sent' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-700'}`}>{inv.status}</span></td>
                                   <td className="px-4 py-2 text-sm text-gray-500">{inv.created_at ? new Date(inv.created_at).toLocaleDateString('en-IN') : '—'}</td>
+                                  <td className="px-4 py-2">
+                                    <div className="flex flex-wrap gap-1">
+                                      <button type="button" onClick={() => handleInvoicePreview(inv.id)} disabled={!!invoiceActionLoading} className="px-2 py-1 text-xs bg-gray-100 text-gray-800 rounded hover:bg-gray-200 disabled:opacity-50">Preview</button>
+                                      <button type="button" onClick={() => handleInvoiceDownload(inv.id)} disabled={!!invoiceActionLoading} className="px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50">Download PDF</button>
+                                      <button type="button" onClick={() => handleInvoiceSend(inv.id)} disabled={!!invoiceActionLoading} className="px-2 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50">Send by Email</button>
+                                    </div>
+                                  </td>
                                 </tr>
                               ))}
                             </tbody>
@@ -4987,6 +5484,23 @@ const LeadDetails = () => {
             </div>
             <div className="overflow-auto flex-1 p-4 min-h-0">
               <iframe title="Voucher preview" srcDoc={voucherPopupHtml} className="w-full border border-gray-200 rounded-lg bg-white" style={{ minHeight: '60vh' }} />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Invoice Preview Popup */}
+      {showInvoicePreview && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 overflow-y-auto py-8" onClick={() => setShowInvoicePreview(false)}>
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-3xl mx-4 my-auto max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+            <div className="flex justify-between items-center p-4 border-b border-gray-200 shrink-0">
+              <h2 className="text-lg font-bold text-gray-800">Invoice Preview</h2>
+              <button type="button" onClick={() => setShowInvoicePreview(false)} className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="overflow-auto flex-1 p-4 min-h-0">
+              <iframe title="Invoice preview" srcDoc={invoicePreviewHtml} className="w-full border border-gray-200 rounded-lg bg-white" style={{ minHeight: '60vh' }} />
             </div>
           </div>
         </div>
@@ -5652,9 +6166,9 @@ const LeadDetails = () => {
                       Send All Options
                     </button>
                     <button
-                      onClick={() => handleDownloadSingleOptionPdf(selectedOption)}
+                      onClick={() => handleDownloadSingleOptionPdf(selectedOption, quotationData)}
                       className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 text-sm font-medium"
-                      title="Download PDF (Current Option)"
+                      title="Download PDF (all options)"
                     >
                       <Download className="h-4 w-4" />
                       Download PDF

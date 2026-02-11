@@ -6,6 +6,7 @@ use App\Modules\Leads\Presentation\Controllers\LeadsController;
 use App\Modules\Calls\Presentation\Controllers\CallController;
 use App\Http\Controllers\LeadEmailController;
 use App\Http\Controllers\LeadConfirmOptionController;
+use App\Http\Controllers\LeadInvoiceController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -22,6 +23,8 @@ Route::middleware('auth:sanctum')->prefix('leads')->group(function () {
 
     Route::get('/', [LeadsController::class, 'index']);
     Route::post('/', [LeadsController::class, 'store']);
+    Route::get('/{leadId}/invoices/{invoiceId}/preview', [LeadInvoiceController::class, 'preview']);
+    Route::post('/{leadId}/invoices/{invoiceId}/send', [LeadInvoiceController::class, 'send']);
     Route::get('/{id}', [LeadsController::class, 'show']);
     Route::post('/{id}/confirm-option', LeadConfirmOptionController::class);
     Route::get('/{id}/calls', [CallController::class, 'leadHistory']);

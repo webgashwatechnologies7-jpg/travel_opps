@@ -1,7 +1,116 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Layout from '../components/Layout';
 import { FileText, Save, AlertCircle, FileCheck, XCircle, Calendar, Heart, Bold, Italic, Underline, List, AlignLeft, AlignCenter, AlignRight, AlignJustify } from 'lucide-react';
 import { settingsAPI } from '../services/api';
+
+// PolicySection must be outside TermsConditions so it is not recreated on every keystroke (which was causing focus loss after one word)
+const COLOR_CONFIG = {
+  remarks: { headerBg: 'bg-orange-50', headerText: 'text-orange-700', iconBg: 'bg-orange-100', iconColor: 'text-orange-600', border: 'border-orange-200', dotBg: 'bg-orange-500' },
+  terms: { headerBg: 'bg-blue-50', headerText: 'text-blue-700', iconBg: 'bg-blue-100', iconColor: 'text-blue-600', border: 'border-blue-200', dotBg: 'bg-blue-500' },
+  confirmation: { headerBg: 'bg-green-50', headerText: 'text-green-700', iconBg: 'bg-green-100', iconColor: 'text-green-600', border: 'border-green-200', dotBg: 'bg-green-500' },
+  cancellation: { headerBg: 'bg-red-50', headerText: 'text-red-700', iconBg: 'bg-red-100', iconColor: 'text-red-600', border: 'border-red-200', dotBg: 'bg-red-500' },
+  amendment: { headerBg: 'bg-purple-50', headerText: 'text-purple-700', iconBg: 'bg-purple-100', iconColor: 'text-purple-600', border: 'border-purple-200', dotBg: 'bg-purple-500' },
+  thankyou: { headerBg: 'bg-pink-50', headerText: 'text-pink-700', iconBg: 'bg-pink-100', iconColor: 'text-pink-600', border: 'border-pink-200', dotBg: 'bg-pink-500' }
+};
+
+function PolicySection({ title, value, onChange, placeholder, description, icon: Icon, color }) {
+  const config = COLOR_CONFIG[color] || COLOR_CONFIG.terms;
+  const editRef = useRef(null);
+  const lastValueRef = useRef(undefined);
+
+  useEffect(() => {
+    const v = value ?? '';
+    if (editRef.current && (lastValueRef.current === undefined || v !== lastValueRef.current)) {
+      editRef.current.innerHTML = v;
+      lastValueRef.current = v;
+    }
+  }, [value]);
+
+  const handleInput = () => {
+    if (!editRef.current) return;
+    const html = editRef.current.innerHTML;
+    lastValueRef.current = html;
+    onChange(html);
+  };
+
+  const applyFormat = (cmd, value = null) => (e) => {
+    e.preventDefault();
+    editRef.current?.focus();
+    document.execCommand(cmd, false, value);
+    handleInput();
+  };
+
+  const blockFormat = (e) => {
+    e.preventDefault();
+    const block = e.target.value;
+    if (block && editRef.current) {
+      editRef.current.focus();
+      document.execCommand('formatBlock', false, block === 'Normal' ? 'p' : block);
+      handleInput();
+    }
+  };
+
+  return (
+    <div className={`bg-white rounded-xl shadow-lg border-2 ${config.border} overflow-hidden mb-6 transition-all hover:shadow-xl`}>
+      <div className={`${config.headerBg} px-6 py-4 border-b-2 ${config.border}`}>
+        <div className="flex items-center gap-3">
+          {Icon && (
+            <div className={`p-2.5 rounded-lg ${config.iconBg}`}>
+              <Icon className={`h-5 w-5 ${config.iconColor}`} />
+            </div>
+          )}
+          <h2 className={`text-xl font-bold ${config.headerText}`}>{title}</h2>
+        </div>
+      </div>
+      <div className="p-6">
+        <div className="mb-4 flex flex-wrap items-center gap-2 p-3 bg-gradient-to-r from-gray-50 to-gray-100 rounded-lg border border-gray-200">
+          <select className="px-3 py-1.5 text-sm border border-gray-300 rounded-md bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium" aria-label="Paragraph format" onChange={blockFormat}>
+            <option value="p">Normal</option>
+            <option value="h1">Heading 1</option>
+            <option value="h2">Heading 2</option>
+            <option value="h3">Heading 3</option>
+          </select>
+          <div className="h-6 w-px bg-gray-300" aria-hidden />
+          <div className="flex gap-1">
+            <button type="button" className="p-1.5 hover:bg-white rounded border border-gray-300 hover:border-gray-400 transition-colors" title="Bold" onMouseDown={applyFormat('bold')}><Bold className="h-4 w-4 text-gray-700" /></button>
+            <button type="button" className="p-1.5 hover:bg-white rounded border border-gray-300 hover:border-gray-400 transition-colors" title="Italic" onMouseDown={applyFormat('italic')}><Italic className="h-4 w-4 text-gray-700" /></button>
+            <button type="button" className="p-1.5 hover:bg-white rounded border border-gray-300 hover:border-gray-400 transition-colors" title="Underline" onMouseDown={applyFormat('underline')}><Underline className="h-4 w-4 text-gray-700" /></button>
+          </div>
+          <div className="h-6 w-px bg-gray-300" aria-hidden />
+          <div className="flex gap-1">
+            <button type="button" className="p-1.5 hover:bg-white rounded border border-gray-300 hover:border-gray-400 transition-colors" title="Align Left" onMouseDown={applyFormat('justifyLeft')}><AlignLeft className="h-4 w-4 text-gray-700" /></button>
+            <button type="button" className="p-1.5 hover:bg-white rounded border border-gray-300 hover:border-gray-400 transition-colors" title="Align Center" onMouseDown={applyFormat('justifyCenter')}><AlignCenter className="h-4 w-4 text-gray-700" /></button>
+            <button type="button" className="p-1.5 hover:bg-white rounded border border-gray-300 hover:border-gray-400 transition-colors" title="Align Right" onMouseDown={applyFormat('justifyRight')}><AlignRight className="h-4 w-4 text-gray-700" /></button>
+            <button type="button" className="p-1.5 hover:bg-white rounded border border-gray-300 hover:border-gray-400 transition-colors" title="Justify" onMouseDown={applyFormat('justifyFull')}><AlignJustify className="h-4 w-4 text-gray-700" /></button>
+          </div>
+          <div className="h-6 w-px bg-gray-300" aria-hidden />
+          <div className="flex gap-1">
+            <button type="button" className="p-1.5 hover:bg-white rounded border border-gray-300 hover:border-gray-400 transition-colors" title="Bullet List" onMouseDown={applyFormat('insertUnorderedList')}><List className="h-4 w-4 text-gray-700" /></button>
+            <button type="button" className="px-2 py-1.5 text-sm hover:bg-white rounded border border-gray-300 hover:border-gray-400 transition-colors font-medium" title="Numbered List" onMouseDown={applyFormat('insertOrderedList')}>1.</button>
+          </div>
+        </div>
+        <div
+          ref={editRef}
+          contentEditable
+          suppressContentEditableWarning
+          onInput={handleInput}
+          data-placeholder={placeholder}
+          className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 min-h-[200px] font-sans text-gray-700 resize-y overflow-auto empty:before:content-[attr(data-placeholder)] empty:before:text-gray-400"
+          style={{ pointerEvents: 'auto', userSelect: 'text' }}
+          aria-label={title}
+        />
+        {description && (
+          <div className="mt-3 flex items-start gap-2">
+            <div className="mt-0.5">
+              <div className={`w-1.5 h-1.5 rounded-full ${config.dotBg} opacity-60`} />
+            </div>
+            <p className="text-xs text-gray-600 leading-relaxed">{description}</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 const TermsConditions = () => {
   const [remarks, setRemarks] = useState('');
@@ -33,26 +142,20 @@ const TermsConditions = () => {
         settingsAPI.getByKey('thank_you_message')
       ]);
 
-      if (remarksRes.data.success && remarksRes.data.data) {
-        setRemarks(remarksRes.data.data.value || '');
-      }
-      if (termsRes.data.success && termsRes.data.data) {
-        setTermsConditions(termsRes.data.data.value || '');
-      }
-      if (confirmationRes.data.success && confirmationRes.data.data) {
-        setConfirmationPolicy(confirmationRes.data.data.value || '');
-      }
-      if (cancellationRes.data.success && cancellationRes.data.data) {
-        setCancellationPolicy(cancellationRes.data.data.value || '');
-      }
-      if (amendmentRes.data.success && amendmentRes.data.data) {
-        setAmendmentPolicy(amendmentRes.data.data.value || '');
-      }
-      if (thankYouRes.data.success && thankYouRes.data.data) {
-        setThankYouMessage(thankYouRes.data.data.value || '');
-      }
+      const getValue = (res) => {
+        if (!res?.data?.success || !res?.data?.data) return '';
+        const d = res.data.data;
+        return (d.value != null ? String(d.value) : (d.content != null ? String(d.content) : ''));
+      };
+      setRemarks(getValue(remarksRes));
+      setTermsConditions(getValue(termsRes));
+      setConfirmationPolicy(getValue(confirmationRes));
+      setCancellationPolicy(getValue(cancellationRes));
+      setAmendmentPolicy(getValue(amendmentRes));
+      setThankYouMessage(getValue(thankYouRes));
     } catch (err) {
       console.error('Failed to fetch policies:', err);
+      setMessage({ type: 'error', text: 'Could not load policies. You can still type and save.' });
     } finally {
       setLoading(false);
     }
@@ -110,149 +213,6 @@ const TermsConditions = () => {
     } finally {
       setSaving(false);
     }
-  };
-
-  const PolicySection = ({ title, value, onChange, placeholder, description, icon: Icon, color }) => {
-    const colorConfig = {
-      remarks: {
-        headerBg: 'bg-orange-50',
-        headerText: 'text-orange-700',
-        iconBg: 'bg-orange-100',
-        iconColor: 'text-orange-600',
-        border: 'border-orange-200',
-        dotBg: 'bg-orange-500'
-      },
-      terms: {
-        headerBg: 'bg-blue-50',
-        headerText: 'text-blue-700',
-        iconBg: 'bg-blue-100',
-        iconColor: 'text-blue-600',
-        border: 'border-blue-200',
-        dotBg: 'bg-blue-500'
-      },
-      confirmation: {
-        headerBg: 'bg-green-50',
-        headerText: 'text-green-700',
-        iconBg: 'bg-green-100',
-        iconColor: 'text-green-600',
-        border: 'border-green-200',
-        dotBg: 'bg-green-500'
-      },
-      cancellation: {
-        headerBg: 'bg-red-50',
-        headerText: 'text-red-700',
-        iconBg: 'bg-red-100',
-        iconColor: 'text-red-600',
-        border: 'border-red-200',
-        dotBg: 'bg-red-500'
-      },
-      amendment: {
-        headerBg: 'bg-purple-50',
-        headerText: 'text-purple-700',
-        iconBg: 'bg-purple-100',
-        iconColor: 'text-purple-600',
-        border: 'border-purple-200',
-        dotBg: 'bg-purple-500'
-      },
-      thankyou: {
-        headerBg: 'bg-pink-50',
-        headerText: 'text-pink-700',
-        iconBg: 'bg-pink-100',
-        iconColor: 'text-pink-600',
-        border: 'border-pink-200',
-        dotBg: 'bg-pink-500'
-      }
-    };
-    
-    const config = colorConfig[color] || colorConfig.terms;
-    
-    return (
-      <div className={`bg-white rounded-xl shadow-lg border-2 ${config.border} overflow-hidden mb-6 transition-all hover:shadow-xl`}>
-        {/* Header */}
-        <div className={`${config.headerBg} px-6 py-4 border-b-2 ${config.border}`}>
-          <div className="flex items-center gap-3">
-            {Icon && (
-              <div className={`p-2.5 rounded-lg ${config.iconBg}`}>
-                <Icon className={`h-5 w-5 ${config.iconColor}`} />
-              </div>
-            )}
-            <h2 className={`text-xl font-bold ${config.headerText}`}>{title}</h2>
-          </div>
-        </div>
-        
-        {/* Content */}
-        <div className="p-6">
-          {/* Enhanced Text Editor Toolbar */}
-          <div className="mb-4 flex flex-wrap items-center gap-2 p-3 bg-gradient-to-r from-gray-50 to-gray-100 rounded-lg border border-gray-200">
-            <select className="px-3 py-1.5 text-sm border border-gray-300 rounded-md bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium">
-              <option>Normal</option>
-              <option>Heading 1</option>
-              <option>Heading 2</option>
-              <option>Heading 3</option>
-            </select>
-            
-            <div className="h-6 w-px bg-gray-300"></div>
-            
-            <div className="flex gap-1">
-              <button className="p-1.5 hover:bg-white rounded border border-gray-300 hover:border-gray-400 transition-colors" title="Bold">
-                <Bold className="h-4 w-4 text-gray-700" />
-              </button>
-              <button className="p-1.5 hover:bg-white rounded border border-gray-300 hover:border-gray-400 transition-colors" title="Italic">
-                <Italic className="h-4 w-4 text-gray-700" />
-              </button>
-              <button className="p-1.5 hover:bg-white rounded border border-gray-300 hover:border-gray-400 transition-colors" title="Underline">
-                <Underline className="h-4 w-4 text-gray-700" />
-              </button>
-            </div>
-            
-            <div className="h-6 w-px bg-gray-300"></div>
-            
-            <div className="flex gap-1">
-              <button className="p-1.5 hover:bg-white rounded border border-gray-300 hover:border-gray-400 transition-colors" title="Align Left">
-                <AlignLeft className="h-4 w-4 text-gray-700" />
-              </button>
-              <button className="p-1.5 hover:bg-white rounded border border-gray-300 hover:border-gray-400 transition-colors" title="Align Center">
-                <AlignCenter className="h-4 w-4 text-gray-700" />
-              </button>
-              <button className="p-1.5 hover:bg-white rounded border border-gray-300 hover:border-gray-400 transition-colors" title="Align Right">
-                <AlignRight className="h-4 w-4 text-gray-700" />
-              </button>
-              <button className="p-1.5 hover:bg-white rounded border border-gray-300 hover:border-gray-400 transition-colors" title="Justify">
-                <AlignJustify className="h-4 w-4 text-gray-700" />
-              </button>
-            </div>
-            
-            <div className="h-6 w-px bg-gray-300"></div>
-            
-            <div className="flex gap-1">
-              <button className="p-1.5 hover:bg-white rounded border border-gray-300 hover:border-gray-400 transition-colors" title="Bullet List">
-                <List className="h-4 w-4 text-gray-700" />
-              </button>
-              <button className="px-2 py-1.5 text-sm hover:bg-white rounded border border-gray-300 hover:border-gray-400 transition-colors font-medium" title="Numbered List">
-                1.
-              </button>
-            </div>
-          </div>
-          
-          <textarea
-            value={value}
-            onChange={(e) => onChange(e.target.value)}
-            className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none transition-all font-sans text-gray-700"
-            rows="10"
-            placeholder={placeholder}
-          />
-          
-          {description && (
-            <div className="mt-3 flex items-start gap-2">
-              <div className="mt-0.5">
-                <div className={`w-1.5 h-1.5 rounded-full ${config.dotBg} opacity-60`}></div>
-              </div>
-              <p className="text-xs text-gray-600 leading-relaxed">{description}</p>
-            </div>
-          )}
-        </div>
-      </div>
-    );
   };
 
   if (loading) {
