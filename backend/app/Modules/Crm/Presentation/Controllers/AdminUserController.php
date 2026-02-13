@@ -112,7 +112,10 @@ class AdminUserController extends Controller
     public function index(Request $request): JsonResponse
     {
         try {
+            $companyId = $request->user()->company_id;
+
             $users = User::with('roles')
+                ->where('company_id', $companyId)
                 ->select('id', 'name', 'email', 'phone', 'is_active', 'created_at', 'updated_at')
                 ->get()
                 ->map(function ($user) {
@@ -266,7 +269,7 @@ class AdminUserController extends Controller
             }
             if ($request->has('is_active')) {
                 $updateData['is_active'] = $request->boolean('is_active');
-                
+
                 // Revoke all tokens if user is being deactivated
                 if (!$request->boolean('is_active')) {
                     $user->tokens()->delete();
@@ -415,8 +418,8 @@ class AdminUserController extends Controller
                 $user->tokens()->delete();
             }
 
-            $statusMessage = $newStatus 
-                ? 'User activated successfully. User can now access the system.' 
+            $statusMessage = $newStatus
+                ? 'User activated successfully. User can now access the system.'
                 : 'User deactivated successfully. All user sessions have been revoked.';
 
             return response()->json([

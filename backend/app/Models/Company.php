@@ -25,6 +25,7 @@ class Company extends Model
         'phone',
         'address',
         'logo',
+        'favicon',
         'status',
         'subscription_plan_id',
         'subscription_start_date',
@@ -120,8 +121,8 @@ class Company extends Model
         if (!$this->subscription_end_date) {
             return false;
         }
-        return $this->subscription_end_date->isFuture() && 
-               $this->subscription_end_date->diffInDays(now()) <= 7;
+        return $this->subscription_end_date->isFuture() &&
+            $this->subscription_end_date->diffInDays(now()) <= 7;
     }
 
     /**

@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Lead;
+use App\Modules\Leads\Domain\Entities\Lead;
 use App\Models\Quotation;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Response;
@@ -31,7 +31,7 @@ class QuotationController extends Controller
 
             $companyId = $request->user()->company_id;
 
-            $query = Quotation::with(['lead:id,client_name,phone,email,company_id', 'creator:id,name,email'])
+            $query = Quotation::with(['lead.company', 'lead:id,client_name,phone,email,company_id', 'creator:id,name,email'])
                 ->whereHas('lead', function ($q) use ($companyId) {
                     $q->where('company_id', $companyId);
                 })
@@ -78,7 +78,7 @@ class QuotationController extends Controller
                 'lead_id' => 'required|integer|exists:leads,id',
                 'title' => 'required|string|max:255',
                 'description' => 'nullable|string',
-                'travel_start_date' => 'required|date|after_or_equal:today',
+                'travel_start_date' => 'required|date',
                 'travel_end_date' => 'required|date|after_or_equal:travel_start_date',
                 'adults' => 'required|integer|min:1',
                 'children' => 'nullable|integer|min:0',
@@ -87,7 +87,7 @@ class QuotationController extends Controller
                 'tax_amount' => 'nullable|numeric|min:0',
                 'discount_amount' => 'nullable|numeric|min:0',
                 'currency' => 'nullable|string|max:3',
-                'valid_until' => 'nullable|date|after:today',
+                'valid_until' => 'nullable|date',
                 'template' => 'nullable|in:default,premium,budget',
                 'itinerary' => 'nullable|array',
                 'inclusions' => 'nullable|array',
@@ -146,7 +146,7 @@ class QuotationController extends Controller
                 'terms_conditions' => $request->input('terms_conditions'),
             ]);
 
-            $quotation->load(['lead:id,client_name,phone,email,company_id', 'creator:id,name,email']);
+            $quotation->load(['lead.company', 'lead:id,client_name,phone,email,company_id', 'creator:id,name,email']);
 
             return response()->json([
                 'success' => true,
@@ -169,7 +169,7 @@ class QuotationController extends Controller
         try {
             $companyId = $request->user()->company_id;
 
-            $quotation = Quotation::with(['lead:id,client_name,phone,email,company_id', 'creator:id,name,email'])
+            $quotation = Quotation::with(['lead.company', 'lead:id,client_name,phone,email,company_id', 'creator:id,name,email'])
                 ->whereHas('lead', function ($q) use ($companyId) {
                     $q->where('company_id', $companyId);
                 })
@@ -261,7 +261,7 @@ class QuotationController extends Controller
             }
 
             $quotation->save();
-            $quotation->load(['lead:id,client_name,phone,email,company_id', 'creator:id,name,email']);
+            $quotation->load(['lead.company', 'lead:id,client_name,phone,email,company_id', 'creator:id,name,email']);
 
             return response()->json([
                 'success' => true,
@@ -366,11 +366,11 @@ class QuotationController extends Controller
         }
     }
 
-    public function preview(Request $request, int $id): Response
+    public function preview(Request $request, int $id)
     {
         $companyId = $request->user()->company_id;
 
-        $quotation = Quotation::with(['lead:id,client_name,email,phone,company_id', 'creator:id,name,email'])
+        $quotation = Quotation::with(['lead.company', 'lead:id,client_name,email,phone,company_id', 'creator:id,name,email'])
             ->whereHas('lead', function ($q) use ($companyId) {
                 $q->where('company_id', $companyId);
             })
@@ -390,11 +390,11 @@ class QuotationController extends Controller
         ]);
     }
 
-    public function download(Request $request, int $id): Response
+    public function download(Request $request, int $id)
     {
         $companyId = $request->user()->company_id;
 
-        $quotation = Quotation::with(['lead:id,client_name,email,phone,company_id', 'creator:id,name,email'])
+        $quotation = Quotation::with(['lead.company', 'lead:id,client_name,email,phone,company_id', 'creator:id,name,email'])
             ->whereHas('lead', function ($q) use ($companyId) {
                 $q->where('company_id', $companyId);
             })
@@ -407,14 +407,32 @@ class QuotationController extends Controller
             ], 404);
         }
 
-        $html = $this->buildQuotationHtml($quotation);
+        $companyId = $quotation->lead->company_id;
 
-        $fileName = 'quotation-' . $quotation->quotation_number . '-' . now()->format('YmdHis') . '.html';
-        $path = "quotations/{$companyId}/{$fileName}";
+        // Fetch all active master points for this company
+        $masterPolicies = \App\Models\MasterPoint::where(function ($q) use ($companyId) {
+            $q->where('company_id', $companyId)
+                ->orWhereNull('company_id');
+        })
+            ->where('is_active', true)
+            ->orderBy('sort_order')
+            ->get()
+            ->groupBy('type');
 
-        Storage::disk('public')->put($path, $html);
+        // Use DomPDF to generate PDF
+        // Need to ensure Barryvdh\DomPDF\Facade\Pdf is imported or used as \Pdf
+        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('pdf.quotation', compact('quotation', 'masterPolicies'));
 
-        return response()->download(Storage::disk('public')->path($path), $fileName);
+        // Enable remote images
+        $pdf->setOption(['isRemoteEnabled' => true]);
+
+        // Optional: Set paper size
+        $pdf->setPaper('a4', 'portrait');
+
+        $fileName = 'quotation-' . $quotation->quotation_number . '.pdf';
+
+        // return $pdf->download($fileName);
+        return $pdf->stream($fileName);
     }
 
     private function formatQuotation(Quotation $q): array
@@ -458,151 +476,32 @@ class QuotationController extends Controller
         ];
     }
 
-    private function buildQuotationHtml(Quotation $q): string
+    public function publicPreview($id)
     {
-        $clientName = htmlspecialchars((string) ($q->lead->client_name ?? 'Customer'), ENT_QUOTES, 'UTF-8');
-        $title = htmlspecialchars((string) ($q->title ?? 'Travel Quotation'), ENT_QUOTES, 'UTF-8');
-        $description = htmlspecialchars((string) ($q->description ?? ''), ENT_QUOTES, 'UTF-8');
-        $quotationNumber = htmlspecialchars((string) $q->quotation_number, ENT_QUOTES, 'UTF-8');
-        $validUntil = $q->valid_until ? $q->valid_until->format('d-m-Y') : '';
-        $currency = htmlspecialchars((string) $q->currency, ENT_QUOTES, 'UTF-8');
-        $totalPrice = number_format($q->total_price, 2);
-        $template = htmlspecialchars((string) $q->template, ENT_QUOTES, 'UTF-8');
-        $generatedAt = now()->format('d-m-Y H:i');
+        // Fetch quotation without scope for public preview (DEV ONLY)
+        $quotation = Quotation::with(['lead.company', 'lead:id,client_name,email,phone,company_id', 'creator:id,name,email'])->find($id);
 
-        $theme = match ($q->template) {
-            'premium' => 'linear-gradient(135deg,#f59e0b,#f97316)',
-            'budget' => 'linear-gradient(135deg,#10b981,#059669)',
-            default => 'linear-gradient(135deg,#2563eb,#3b82f6)',
-        };
-
-        $itineraryHtml = '';
-        if ($q->itinerary && is_array($q->itinerary)) {
-            foreach ($q->itinerary as $day) {
-                $dayTitle = htmlspecialchars((string) ($day['title'] ?? ''), ENT_QUOTES, 'UTF-8');
-                $dayDesc = htmlspecialchars((string) ($day['description'] ?? ''), ENT_QUOTES, 'UTF-8');
-                $itineraryHtml .= "
-                <tr>
-                    <td style='padding:12px;border-bottom:1px solid #e5e7eb;vertical-align:top'>
-                        <strong>Day {$day['day'] ?? ''}</strong><br>
-                        <span style='color:#6b7280'>{$dayTitle}</span>
-                    </td>
-                    <td style='padding:12px;border-bottom:1px solid #e5e7eb'>{$dayDesc}</td>
-                </tr>";
-            }
+        if (!$quotation) {
+            abort(404, 'Quotation not found');
         }
 
-        $inclusionsHtml = '';
-        if ($q->inclusions && is_array($q->inclusions)) {
-            foreach ($q->inclusions as $inc) {
-                $inclusionsHtml .= '<li>' . htmlspecialchars((string) $inc, ENT_QUOTES, 'UTF-8') . '</li>';
-            }
-        }
+        return view('pdf.quotation', compact('quotation'));
+    }
 
-        $exclusionsHtml = '';
-        if ($q->exclusions && is_array($q->exclusions)) {
-            foreach ($q->exclusions as $exc) {
-                $exclusionsHtml .= '<li>' . htmlspecialchars((string) $exc, ENT_QUOTES, 'UTF-8') . '</li>';
-            }
-        }
+    private function buildQuotationHtml(Quotation $quotation): string
+    {
+        $companyId = $quotation->lead->company_id;
 
-        return "<!DOCTYPE html>
-<html>
-<head>
-<meta charset='utf-8' />
-<meta name='viewport' content='width=device-width, initial-scale=1' />
-<title>Quotation {$quotationNumber}</title>
-<style>
-body{font-family:Arial, sans-serif; background:#f9fafb; padding:20px;}
-.container{max-width:900px; margin:0 auto; background:#fff; border:1px solid #e5e7eb; border-radius:12px; overflow:hidden;}
-.header{background:{$theme}; color:#fff; padding:32px;}
-.header h1{margin:0; font-size:26px;}
-.header p{margin:8px 0 0 0; opacity:.9;}
-.section{padding:24px 32px;}
-.meta{display:flex; gap:24px; flex-wrap:wrap;}
-.meta-item{flex:1; min-width:200px; background:#f9fafb; padding:16px; border-radius:8px;}
-.meta-item h3{margin:0 0 8px 0; font-size:14px; color:#374151;}
-.meta-item p{margin:0; font-size:16px; font-weight:600;}
-.table{width:100%; border-collapse:collapse; margin:16px 0;}
-.table th{background:#f3f4f6; padding:12px; text-align:left; font-weight:600;}
-.table td{padding:12px; border-bottom:1px solid #e5e7eb;}
-.price-summary{background:#f0f9ff; border:1px solid #0ea5e9; border-radius:8px; padding:16px; margin:16px 0;}
-.price-row{display:flex; justify-content:space-between; margin:4px 0;}
-.price-row.total{font-size:18px; font-weight:700; color:#1e40af; border-top:1px solid #0ea5e9; padding-top:8px; margin-top:8px;}
-.footer{padding:20px 32px; background:#f9fafb; border-top:1px solid #e5e7eb; font-size:12px; color:#6b7280;}
-</style>
-</head>
-<body>
-<div class='container'>
-  <div class='header'>
-    <h1>Travel Quotation</h1>
-    <p>Quotation #{$quotationNumber} | Valid until: {$validUntil} | Generated: {$generatedAt}</p>
-  </div>
-  <div class='section'>
-    <h2>Client Details</h2>
-    <div class='meta'>
-      <div class='meta-item'>
-        <h3>Client Name</h3>
-        <p>{$clientName}</p>
-      </div>
-      <div class='meta-item'>
-        <h3>Travel Dates</h3>
-        <p>{$q->travel_start_date?->format('d-m-Y')} to {$q->travel_end_date?->format('d-m-Y')}</p>
-      </div>
-      <div class='meta-item'>
-        <h3>Guests</h3>
-        <p>{$q->adults} Adults" . ($q->children ? ", {$q->children} Children" : "") . ($q->infants ? ", {$q->infants} Infants" : "") . "</p>
-      </div>
-    </div>
-    <h3 style='margin:24px 0 12px 0'>{$title}</h3>
-    <p style='color:#6b7280;'>{$description}</p>
-  </div>
-  <div class='section'>
-    <h2>Itinerary</h2>
-    <table class='table'>
-      <thead>
-        <tr>
-          <th style='width:30%'>Day</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-        {$itineraryHtml}
-      </tbody>
-    </table>
-  </div>
-  <div class='section'>
-    <h2>Inclusions & Exclusions</h2>
-    <div style='display:grid; grid-template-columns:1fr 1fr; gap:24px;'>
-      <div>
-        <h4>Inclusions</h4>
-        <ul style='padding-left:20px; margin:8px 0;'>
-          {$inclusionsHtml}
-        </ul>
-      </div>
-      <div>
-        <h4>Exclusions</h4>
-        <ul style='padding-left:20px; margin:8px 0;'>
-          {$exclusionsHtml}
-        </ul>
-      </div>
-    </div>
-  </div>
-  <div class='section'>
-    <h2>Price Summary</h2>
-    <div class='price-summary'>
-      <div class='price-row'><span>Base Price:</span><span>{$currency} {$q->base_price}</span></div>
-      <div class='price-row'><span>Tax:</span><span>{$currency} {$q->tax_amount}</span></div>
-      <div class='price-row'><span>Discount:</span><span>-{$currency} {$q->discount_amount}</span></div>
-      <div class='price-row total'><span>Total Price:</span><span>{$currency} {$totalPrice}</span></div>
-    </div>
-  </div>
-  <div class='footer'>
-    <p>This quotation is valid until {$validUntil}. Subject to availability at the time of booking.</p>
-    <p>Template: {$template} | Powered by TRAVELOPS CRM</p>
-  </div>
-</div>
-</body>
-</html>";
+        // Fetch all active master points for this company
+        $masterPolicies = \App\Models\MasterPoint::where(function ($q) use ($companyId) {
+            $q->where('company_id', $companyId)
+                ->orWhereNull('company_id');
+        })
+            ->where('is_active', true)
+            ->orderBy('sort_order')
+            ->get()
+            ->groupBy('type');
+
+        return view('pdf.quotation', compact('quotation', 'masterPolicies'))->render();
     }
 }

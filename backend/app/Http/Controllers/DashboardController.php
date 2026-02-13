@@ -3,10 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
-use App\Models\Lead;
+use App\Modules\Leads\Domain\Entities\Lead;
 use App\Models\Company;
-use App\Modules\Leads\Domain\Entities\EmailCampaign;
-use App\Modules\Leads\Domain\Entities\SmsCampaign;
+use App\Models\EmailCampaign;
+use App\Models\SmsCampaign;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -33,10 +33,10 @@ class DashboardController extends Controller
                 'this_month_leads' => Lead::where('company_id', $companyId)
                     ->whereMonth('created_at', date('Y-m'))
                     ->count(),
-                'total_campaigns' => EmailCampaign::where('company_id', $companyId)->count() + 
-                                     SmsCampaign::where('company_id', $companyId)->count(),
-                'active_campaigns' => EmailCampaign::where('company_id', $companyId)->where('status', 'active')->count() + 
-                                       SmsCampaign::where('company_id', $companyId)->where('status', 'active')->count(),
+                'total_campaigns' => EmailCampaign::where('company_id', $companyId)->count() +
+                    SmsCampaign::where('company_id', $companyId)->count(),
+                'active_campaigns' => EmailCampaign::where('company_id', $companyId)->where('status', 'active')->count() +
+                    SmsCampaign::where('company_id', $companyId)->where('status', 'active')->count(),
                 'total_users' => User::where('company_id', $companyId)->count(),
                 'active_users' => User::where('company_id', $companyId)->where('is_active', true)->count(),
                 'revenue_this_month' => $this->getMonthlyRevenue($companyId),

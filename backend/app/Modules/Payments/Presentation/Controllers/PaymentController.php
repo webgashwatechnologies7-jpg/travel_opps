@@ -4,6 +4,7 @@ namespace App\Modules\Payments\Presentation\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Models\QueryHistoryLog;
+use App\Models\LeadInvoice;
 use App\Modules\Payments\Domain\Entities\Payment;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -85,6 +86,43 @@ class PaymentController extends Controller
                     'status' => $payment->status,
                 ],
             ]);
+
+            // Auto-create invoice if payment was made
+            if ($paidAmount > 0) {
+                // Get latest invoice to copy details (option_number, itinerary_name)
+                $latestInvoice = LeadInvoice::where('lead_id', $payment->lead_id)
+                    ->orderBy('created_at', 'desc')
+                    ->first();
+
+                $newInvoice = LeadInvoice::create([
+                    'lead_id' => $payment->lead_id,
+                    'option_number' => $latestInvoice ? $latestInvoice->option_number : 1,
+                    'total_amount' => $paidAmount,
+                    'currency' => $latestInvoice ? $latestInvoice->currency : 'INR',
+                    'itinerary_name' => $latestInvoice ? $latestInvoice->itinerary_name : 'Travel Payment',
+                    'invoice_number' => LeadInvoice::generateInvoiceNumber(),
+                    'status' => 'paid',
+                    'metadata' => [
+                        'payment_id' => $payment->id,
+                        'source' => 'auto_payment',
+                        'auto_created_at' => now()->toIso8601String(),
+                    ],
+                    'created_by' => $request->user()->id,
+                ]);
+
+                QueryHistoryLog::logActivity([
+                    'lead_id' => $payment->lead_id,
+                    'activity_type' => 'invoice_created',
+                    'activity_description' => "Invoice {$newInvoice->invoice_number} automatically created for payment of ₹" . number_format($paidAmount, 2),
+                    'module' => 'invoice',
+                    'record_id' => $newInvoice->id,
+                    'metadata' => [
+                        'invoice_number' => $newInvoice->invoice_number,
+                        'payment_id' => $payment->id,
+                        'amount' => $paidAmount,
+                    ],
+                ]);
+            }
 
             return response()->json([
                 'success' => true,
@@ -281,6 +319,17 @@ class PaymentController extends Controller
                 ->orderBy('created_at', 'desc')
                 ->get();
 
+            $latestInvoice = LeadInvoice::where('lead_id', $leadId)
+                ->orderBy('created_at', 'desc')
+                ->first();
+
+            $totalDealAmount = 0;
+            if ($payments->isNotEmpty()) {
+                $totalDealAmount = (float) $payments->first()->amount;
+            } elseif ($latestInvoice) {
+                $totalDealAmount = (float) $latestInvoice->total_amount;
+            }
+
             return response()->json([
                 'success' => true,
                 'message' => 'Payments retrieved successfully',
@@ -305,11 +354,9 @@ class PaymentController extends Controller
                         ];
                     }),
                     'summary' => [
-                        'total_amount' => $payments->sum('amount'),
+                        'total_amount' => $totalDealAmount,
                         'total_paid' => $payments->sum('paid_amount'),
-                        'total_due' => $payments->sum(function ($payment) {
-                            return $payment->amount - $payment->paid_amount;
-                        }),
+                        'total_due' => max(0, $totalDealAmount - $payments->sum('paid_amount')),
                     ],
                 ],
             ], 200);

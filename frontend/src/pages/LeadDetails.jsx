@@ -1,12 +1,13 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import { toast } from 'react-toastify';
 import { useAuth } from '../contexts/AuthContext';
-import { leadsAPI, usersAPI, followupsAPI, dayItinerariesAPI, packagesAPI, settingsAPI, suppliersAPI, hotelsAPI, paymentsAPI, googleMailAPI, whatsappAPI, queryDetailAPI, vouchersAPI, itineraryPricingAPI, leadInvoicesAPI } from '../services/api';
+import { leadsAPI, usersAPI, followupsAPI, dayItinerariesAPI, packagesAPI, settingsAPI, suppliersAPI, hotelsAPI, paymentsAPI, googleMailAPI, whatsappAPI, queryDetailAPI, vouchersAPI, itineraryPricingAPI, leadInvoicesAPI, quotationsAPI } from '../services/api';
 import { searchPexelsPhotos } from '../services/pexels';
 import { getDisplayImageUrl, rewriteHtmlImageUrls, sanitizeEmailHtmlForDisplay } from '../utils/imageUrl';
 import Layout from '../components/Layout';
 import { useSettings } from '../contexts/SettingsContext';
-import { ArrowLeft, Calendar, Mail, Plus, Upload, X, Search, FileText, Printer, Send, MessageCircle, CheckCircle, CheckCircle2, Clock, Briefcase, MapPin, CalendarDays, Users, UserCheck, Leaf, Smartphone, Phone, MoreVertical, Download, Pencil, Trash2, Camera, RefreshCw, Reply, ChevronDown, Paperclip } from 'lucide-react';
+import { ArrowLeft, Calendar, Mail, Plus, Upload, X, Search, FileText, Printer, Send, MessageCircle, CheckCircle, CheckCircle2, Clock, Briefcase, MapPin, CalendarDays, Users, UserCheck, Leaf, Smartphone, Phone, MoreVertical, Download, Pencil, Trash2, Camera, RefreshCw, Reply, ChevronDown, Paperclip, Eye, Info } from 'lucide-react';
 import DetailRow from '../components/Quiries/DetailRow';
 import html2pdf from 'html2pdf.js';
 const LeadDetails = () => {
@@ -128,6 +129,9 @@ const LeadDetails = () => {
   const [whatsappInput, setWhatsappInput] = useState('');
   const [whatsappAttachment, setWhatsappAttachment] = useState(null);
   const [sendingWhatsapp, setSendingWhatsapp] = useState(false);
+  const [showPaxModal, setShowPaxModal] = useState(false);
+  const [paxTempList, setPaxTempList] = useState([]);
+  const [savingPax, setSavingPax] = useState(false);
 
   // UI helper: when one option is confirmed, show only that option in Proposals tab
   const visibleProposals = useMemo(() => {
@@ -136,7 +140,15 @@ const LeadDetails = () => {
     return confirmed ? proposals.filter((p) => p.confirmed) : proposals;
   }, [proposals]);
 
-  // Whether any option is confirmed for this lead
+  const showToastNotification = (type, title, text) => {
+    toast[type || 'info'](
+      <div>
+        <div className="font-bold">{title}</div>
+        <div className="text-sm">{text}</div>
+      </div>
+    );
+  };
+
   const hasConfirmedProposal = useMemo(
     () => Array.isArray(proposals) && proposals.some((p) => p.confirmed),
     [proposals]
@@ -149,7 +161,7 @@ const LeadDetails = () => {
       (a, b) => parseInt(a, 10) - parseInt(b, 10)
     );
     if (!hasConfirmedProposal) return all;
-    const confirmed = getConfirmedOption();
+    const confirmed = proposals?.find(p => p.confirmed === true);
     const confirmedNum =
       confirmed && confirmed.optionNumber != null
         ? confirmed.optionNumber.toString()
@@ -167,6 +179,24 @@ const LeadDetails = () => {
     fetchSuppliers();
     fetchCompanySettings();
   }, [id]);
+
+  // Mark 'new' leads as 'proposal' (or viewed) when opened to remove the "New" badge
+  useEffect(() => {
+    if (lead?.status === 'new' && lead?.id) {
+      const markAsRead = async () => {
+        try {
+          // Changing status from 'new' to 'proposal' is a safe default to indicate it's been viewed/processed
+          // This removes the "New" badge in LeadCard
+          await leadsAPI.updateStatus(lead.id, 'proposal');
+          // Refresh local lead data to reflect status change
+          fetchLeadDetails();
+        } catch (e) {
+          console.error("Failed to update lead status on view", e);
+        }
+      };
+      markAsRead();
+    }
+  }, [lead?.id, lead?.status]);
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
@@ -243,7 +273,7 @@ const LeadDetails = () => {
       if (response.data?.success && response.data?.data?.max_hotel_options != null) {
         setMaxHotelOptions(response.data.data.max_hotel_options);
       }
-    } catch (_) {}
+    } catch (_) { }
   };
 
   // Fetch company settings (use /settings not /admin/settings to avoid 500 tenant error)
@@ -265,7 +295,7 @@ const LeadDetails = () => {
   // Update subject when lead or confirmed proposal changes
   useEffect(() => {
     if (lead) {
-      const confirmedOption = getConfirmedOption();
+      const confirmedOption = proposals?.find(p => p.confirmed === true);
       const queryId = lead.query_id || lead.id || id;
       const destination = lead.destination || 'Destination';
       const subject = `Travel Enquiry for ${destination} from (Query Id- ${queryId})`;
@@ -319,7 +349,7 @@ const LeadDetails = () => {
               });
             });
           });
-        } catch (_) {}
+        } catch (_) { }
       });
 
       const seen = new Set();
@@ -335,49 +365,49 @@ const LeadDetails = () => {
         return;
       }
       try {
-        const hotelPromises = uniqueRaw.map(async (hotel, index) => {
+        // Optimization: Fetch unique hotel IDs first to avoid redundant API calls (429 Too Many Requests)
+        const uniqueHotelIds = [...new Set(uniqueRaw.map(h => h.hotel_id).filter(Boolean))];
+        const hotelDataMap = {};
+
+        await Promise.all(uniqueHotelIds.map(async (hid) => {
+          try {
+            const res = await hotelsAPI.get(hid);
+            if (res?.data?.data) {
+              hotelDataMap[hid] = res.data.data;
+            }
+          } catch (e) {
+            console.warn(`Failed to fetch hotel ${hid}`, e);
+          }
+        }));
+
+        const hotelsData = uniqueRaw.map((hotel, index) => {
           const hotelId = hotel.hotel_id;
           const hotelName = hotel.hotelName || 'Hotel';
           const roomType = hotel.roomName || '';
           const mealPlan = hotel.mealPlan || '';
           const day = hotel.day;
           const price = hotel.price || '';
-          if (hotelId) {
-            try {
-              const response = await hotelsAPI.get(hotelId);
-              const hotelData = response.data.data;
-              return {
-                id: `hotel_${hotelId}_${day}_${index}`,
-                hotel_id: hotelId,
-                company_name: hotelData.name || hotelName,
-                name: hotelData.contact_person || '',
-                email: hotelData.email || '',
-                type: 'hotel',
-                hotel_name: hotelData.name || hotelName,
-                room_type: roomType,
-                meal_plan: mealPlan,
-                price,
-                day
-              };
-            } catch {
-              return {
-                id: `hotel_${hotelId}_${day}_${index}`,
-                hotel_id: hotelId,
-                company_name: hotelName,
-                name: '',
-                email: '',
-                type: 'hotel',
-                hotel_name: hotelName,
-                room_type: roomType,
-                meal_plan: mealPlan,
-                price,
-                day
-              };
-            }
+
+          if (hotelId && hotelDataMap[hotelId]) {
+            const hotelData = hotelDataMap[hotelId];
+            return {
+              id: `hotel_${hotelId}_${day}_${index}`,
+              hotel_id: hotelId,
+              company_name: hotelData.name || hotelName,
+              name: hotelData.contact_person || '',
+              email: hotelData.email || '',
+              type: 'hotel',
+              hotel_name: hotelData.name || hotelName,
+              room_type: roomType,
+              meal_plan: mealPlan,
+              price,
+              day
+            };
           }
+
           return {
             id: `hotel_${hotelName}_${day}_${index}_${Date.now()}`,
-            hotel_id: null,
+            hotel_id: hotelId || null,
             company_name: hotelName,
             name: '',
             email: '',
@@ -389,7 +419,7 @@ const LeadDetails = () => {
             day
           };
         });
-        const hotelsData = await Promise.all(hotelPromises);
+
         const validHotels = hotelsData.filter((h) => h.company_name && h.company_name !== 'Hotel');
         validHotels.sort((a, b) => {
           if (a.email && !b.email) return -1;
@@ -498,7 +528,7 @@ const LeadDetails = () => {
               const data = res?.data?.data;
               const fp = data?.final_client_prices;
               if (fp && typeof fp === 'object' && !Array.isArray(fp)) priceMapByItinerary[tid] = fp;
-            } catch (_) {}
+            } catch (_) { }
           })
         );
         if (cancelled) return;
@@ -562,16 +592,13 @@ const LeadDetails = () => {
       setProposals(updated);
       saveProposals(updated);
       if (anyUpdated) {
-        alert('Prices refreshed from server. Ab jo amount Itinerary Pricing tab par save hai wahi dikh raha hoga.');
+        showToastNotification('success', 'Prices Refreshed', 'Database se naye prices load ho gaye hain.');
       } else {
-        alert(
-          'Database mein is itinerary ke liye koi Final Client Price save nahi mila.\n\n' +
-          'Steps:\n1. Itinerary (Shimla) open karein\n2. Pricing tab pe jao\n3. Option 1 & 2 ke "Final Client Price" mein amount daalo (e.g. 3510, 4050)\n4. Har option ke paas wala Save button dabayein\n5. Phir yahan wapas "Refresh prices from server" dabayein'
-        );
+        showToastNotification('warning', 'Prices Not Found', 'Database mein is itinerary ke liye koi Final Client Price save nahi mila. Please check the itinerary pricing tab.');
       }
     } catch (err) {
       console.error('Failed to refresh prices:', err);
-      alert('Server se prices load nahi ho paaye. Check karein: backend chal raha hai aur login ho. Phir try karein.');
+      showToastNotification('error', 'Update Failed', 'Server se prices load nahi ho paaye.');
     } finally {
       setRefreshingProposalPrices(false);
     }
@@ -606,19 +633,19 @@ const LeadDetails = () => {
         if (quotationDataForSend && (lead?.email || lead?.phone)) {
           await autoSendConfirmedToClient(quotationDataForSend, confirmedProposal);
         } else if (!quotationDataForSend) {
-          alert('Option confirmed! Quotation could not be loaded. Please share via Email or WhatsApp manually.');
+          showToastNotification('warning', 'Quotation Missing', 'Option confirmed! Quotation could not be loaded. Please share via Email or WhatsApp manually.');
         } else {
-          alert('Option confirmed! Client email/phone is missing — add it in Mails or WhatsApp tabs and send manually.');
+          showToastNotification('warning', 'Client Details Missing', 'Option confirmed! Client email/phone is missing — add it in Mails or WhatsApp tabs and send manually.');
         }
       } catch (err) {
         console.error('Failed to load quotation or auto-send:', err);
-        alert('Option confirmed! Email/WhatsApp auto-send failed. Please share via Email or WhatsApp manually.');
+        showToastNotification('error', 'Auto-send Failed', 'Option confirmed! Email/WhatsApp auto-send failed. Please share via Email or WhatsApp manually.');
       }
 
       fetchPayments();
       if (activeTab === 'history' || activeTab === 'invoice') fetchQueryDetail();
     } else {
-      alert('Option confirmed successfully! You can now share the final itinerary.');
+      showToastNotification('success', 'Confirmed', 'Option confirmed successfully! You can now share the final itinerary.');
     }
   };
 
@@ -652,7 +679,7 @@ const LeadDetails = () => {
       setShowVoucherPopup(true);
     } catch (err) {
       console.error('Voucher preview failed:', err);
-      alert('Voucher preview could not be loaded. Please try again.');
+      showToastNotification('error', 'Preview Failed', 'Voucher preview could not be loaded. Please try again.');
     } finally {
       setVoucherActionLoading(null);
     }
@@ -662,34 +689,19 @@ const LeadDetails = () => {
     if (!id) return;
     setVoucherActionLoading('download');
     try {
-      const res = await vouchersAPI.preview(id);
-      const blob = res.data;
-      const html = await blob.text();
-      const baseUrl = window.location.origin + (import.meta.env.BASE_URL || '/');
-      const iframe = document.createElement('iframe');
-      iframe.setAttribute('style', 'position:absolute;left:-9999px;width:794px;min-height:1123px;border:none;');
-      document.body.appendChild(iframe);
-      const doc = iframe.contentDocument || iframe.contentWindow?.document;
-      if (!doc) {
-        document.body.removeChild(iframe);
-        throw new Error('Could not get iframe document');
-      }
-      doc.open();
-      doc.write(html.replace(/<head>/i, `<head><base href="${baseUrl}">`));
-      doc.close();
-      await new Promise(r => setTimeout(r, 500));
-      await html2pdf().set({
-        margin: [10, 10, 10, 10],
-        filename: `Voucher_Query-${formatLeadId(id)}_${new Date().toISOString().split('T')[0]}.pdf`,
-        image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true, logging: false },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-      }).from(doc.body).save();
-      document.body.removeChild(iframe);
-      alert('Voucher PDF downloaded. Mail wala voucher bhi ab company logo aur details ke sath bhejega.');
+      const res = await vouchersAPI.download(id);
+      const url = window.URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `Voucher_Query-${formatLeadId(id)}_${new Date().toISOString().split('T')[0]}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      showToastNotification('success', 'PDF Downloaded', 'Voucher PDF downloaded successfully.');
     } catch (err) {
       console.error('Voucher download failed:', err);
-      alert('Voucher PDF download fail. Please try again.');
+      showToastNotification('error', 'Download Failed', 'Voucher PDF download failed. Please try again.');
     } finally {
       setVoucherActionLoading(null);
     }
@@ -703,10 +715,10 @@ const LeadDetails = () => {
     setVoucherActionLoading('send');
     try {
       await vouchersAPI.send(id, { to_email: email || toEmail, subject: 'Travel Voucher' });
-      alert('Voucher email sent successfully.');
+      showToastNotification('success', 'Sent', 'Voucher email sent successfully.');
     } catch (err) {
       console.error('Voucher send failed:', err);
-      alert('Voucher send failed. Please check client email.');
+      showToastNotification('error', 'Send Failed', 'Voucher send failed. Please check client email.');
     } finally {
       setVoucherActionLoading(null);
     }
@@ -722,7 +734,7 @@ const LeadDetails = () => {
       setShowInvoicePreview(true);
     } catch (err) {
       console.error('Invoice preview failed:', err);
-      alert('Invoice preview could not be loaded.');
+      showToastNotification('error', 'Preview Failed', 'Invoice preview could not be loaded.');
     } finally {
       setInvoiceActionLoading(null);
     }
@@ -732,35 +744,21 @@ const LeadDetails = () => {
     if (!id) return;
     setInvoiceActionLoading('download');
     try {
-      const res = await leadInvoicesAPI.preview(id, invoiceId);
-      const html = await res.data.text();
-      const baseUrl = window.location.origin + (import.meta.env.BASE_URL || '/');
-      const iframe = document.createElement('iframe');
-      iframe.setAttribute('style', 'position:absolute;left:-9999px;width:794px;min-height:1123px;border:none;');
-      document.body.appendChild(iframe);
-      const doc = iframe.contentDocument || iframe.contentWindow?.document;
-      if (!doc) {
-        document.body.removeChild(iframe);
-        throw new Error('Could not get iframe document');
-      }
-      doc.open();
-      doc.write(html.replace(/<head>/i, `<head><base href="${baseUrl}">`));
-      doc.close();
-      await new Promise(r => setTimeout(r, 500));
+      const res = await leadInvoicesAPI.download(id, invoiceId);
+      const url = window.URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }));
+      const link = document.createElement('a');
+      link.href = url;
       const inv = queryDetailInvoices.find((i) => i.id === invoiceId);
       const invNum = inv?.invoice_number || invoiceId;
-      await html2pdf().set({
-        margin: [10, 10, 10, 10],
-        filename: `Invoice_${invNum}_${new Date().toISOString().split('T')[0]}.pdf`,
-        image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true, logging: false },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-      }).from(doc.body).save();
-      document.body.removeChild(iframe);
-      alert('Invoice PDF downloaded.');
+      link.setAttribute('download', `Invoice_${invNum}_${new Date().toISOString().split('T')[0]}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      showToastNotification('success', 'PDF Downloaded', 'Invoice PDF downloaded successfully.');
     } catch (err) {
       console.error('Invoice download failed:', err);
-      alert('Invoice PDF download failed.');
+      showToastNotification('error', 'Download Failed', 'Invoice PDF download failed.');
     } finally {
       setInvoiceActionLoading(null);
     }
@@ -774,10 +772,10 @@ const LeadDetails = () => {
     setInvoiceActionLoading('send');
     try {
       await leadInvoicesAPI.send(id, invoiceId, { to_email: email || toEmail, subject: `Invoice ${queryDetailInvoices.find((i) => i.id === invoiceId)?.invoice_number || invoiceId}` });
-      alert('Invoice sent by email successfully.');
+      showToastNotification('success', 'Sent', 'Invoice sent by email successfully.');
     } catch (err) {
       console.error('Invoice send failed:', err);
-      alert('Invoice send failed. Please check client email.');
+      showToastNotification('error', 'Send Failed', 'Invoice send failed. Please check client email.');
     } finally {
       setInvoiceActionLoading(null);
     }
@@ -800,13 +798,15 @@ const LeadDetails = () => {
     let paySummary = { total_amount: 0, total_paid: 0, total_due: 0 };
     try {
       const payRes = await paymentsAPI.getByLead(id);
-      const payList = payRes?.data?.data?.payments || payRes?.data?.payments || [];
-      if (Array.isArray(payList) && payList.length) {
-        paySummary.total_amount = payList.reduce((s, p) => s + (parseFloat(p.amount) || 0), 0);
-        paySummary.total_paid = payList.reduce((s, p) => s + (parseFloat(p.paid_amount) || 0), 0);
-        paySummary.total_due = paySummary.total_amount - paySummary.total_paid;
+      const summary = payRes?.data?.data?.summary;
+      if (summary) {
+        paySummary = {
+          total_amount: parseFloat(summary.total_amount) || 0,
+          total_paid: parseFloat(summary.total_paid) || 0,
+          total_due: parseFloat(summary.total_due) || 0,
+        };
       }
-    } catch (_) {}
+    } catch (_) { }
 
     const paymentText = paySummary.total_amount > 0
       ? `\n\nPayment Summary:\nTotal: ₹${paySummary.total_amount.toLocaleString('en-IN')}\nPaid: ₹${paySummary.total_paid.toLocaleString('en-IN')}\nDue: ₹${paySummary.total_due.toLocaleString('en-IN')}`
@@ -855,12 +855,12 @@ const LeadDetails = () => {
         fetchWhatsAppMessages();
       }
       if (toEmail || lead.phone) {
-        alert('Final itinerary and payment summary have been sent to the client via Email and WhatsApp. You can see them in the Mails and WhatsApp tabs.');
+        showToastNotification('success', 'Confirmed Shared', 'Final itinerary and payment summary have been sent to the client via Email and WhatsApp. You can see them in the Mails and WhatsApp tabs.');
       }
     } catch (err) {
       console.error('Auto-send failed:', err);
       const msg = err.response?.data?.message || err.response?.data?.error || err.message || 'Unknown error';
-      alert('Mail could not be sent.\n\nIssue: ' + msg);
+      showToastNotification('error', 'Mail Failed', 'Mail could not be sent. Issue: ' + msg);
     }
   };
 
@@ -909,7 +909,7 @@ const LeadDetails = () => {
       setLead(null);
       setFollowups([]);
       setNotes([]);
-      alert('Failed to load lead details. Please check the console or try again.');
+      showToastNotification('error', 'Fetch Failed', 'Failed to load lead details. Please check the console or try again.');
     } finally {
       setLoading(false);
     }
@@ -954,7 +954,7 @@ const LeadDetails = () => {
     e.preventDefault();
     const toEmail = emailFormData.to_email || lead?.email;
     if (!toEmail || !emailFormData.subject || !emailFormData.body) {
-      alert('Please fill in all required fields');
+      showToastNotification('warning', 'Missing Fields', 'Please fill in all required fields');
       return;
     }
 
@@ -973,20 +973,16 @@ const LeadDetails = () => {
         const sendFn = emailAttachment ? () => googleMailAPI.sendMailWithAttachment({ ...emailData, attachment: emailAttachment }) : () => googleMailAPI.sendMail(emailData);
         const response = await sendFn();
         if (response.data?.success || response.data?.message) {
-          alert('Email sent successfully via Gmail!');
+          showToastNotification('success', 'Email Sent!', 'Email sent successfully via Gmail!');
           setShowComposeModal(false);
           setReplyThreadId(null);
-          setEmailFormData({
-            to_email: lead?.email || '',
-            cc_email: '',
-            subject: '',
-            body: ''
-          });
+          // ... (rest of state reset)
+          setEmailFormData({ to_email: lead?.email || '', cc_email: '', subject: '', body: '' });
           setEmailAttachment(null);
           fetchGmailEmails();
         } else {
           const msg = response.data?.message || response.data?.error || 'Unknown error';
-          alert('Mail could not be sent.\n\nIssue: ' + msg);
+          showToastNotification('error', 'Mail Error', 'Mail could not be sent. Issue: ' + msg);
         }
       } else {
         // Fallback to existing system email (local mailer)
@@ -1000,25 +996,20 @@ const LeadDetails = () => {
 
         const response = await leadsAPI.sendEmail(id, emailData);
         if (response.data.success) {
-          alert('Email sent successfully!');
+          showToastNotification('success', 'Email Sent!', 'Email sent successfully!');
           setShowComposeModal(false);
-          setEmailFormData({
-            to_email: lead?.email || '',
-            cc_email: '',
-            subject: '',
-            body: ''
-          });
+          setEmailFormData({ to_email: lead?.email || '', cc_email: '', subject: '', body: '' });
           setEmailAttachment(null);
           fetchLeadEmails();
         } else {
           const msg = response.data?.message || response.data?.error || 'Unknown error';
-          alert('Mail could not be sent.\n\nIssue: ' + msg);
+          showToastNotification('error', 'Mail Error', 'Mail could not be sent. Issue: ' + msg);
         }
       }
     } catch (err) {
       console.error('Failed to send email:', err);
       const msg = err.response?.data?.message || err.response?.data?.error || err.message || 'Unknown error';
-      alert('Mail could not be sent.\n\nIssue: ' + msg);
+      showToastNotification('error', 'Mail Failed', 'Mail could not be sent. Issue: ' + msg);
     } finally {
       setSendingClientEmail(false);
     }
@@ -1043,16 +1034,16 @@ const LeadDetails = () => {
   // Sync Gmail inbox so received/reply emails show in CRM
   const handleSyncInbox = async () => {
     if (!user?.google_token) {
-      alert('Connect Gmail in Settings (Accounts → Gmail / Email Integration) so received and reply emails can appear here.');
+      showToastNotification('warning', 'Gmail Not Connected', 'Connect Gmail in Settings to see received and reply emails here.');
       return;
     }
     setSyncingInbox(true);
     try {
       await googleMailAPI.syncInbox();
       await fetchGmailEmails();
-      alert('Inbox synced. Received and reply emails will appear in Gmail Conversations below.');
+      showToastNotification('success', 'Inbox Synced', 'Received and reply emails will appear below.');
     } catch (err) {
-      alert('Sync failed. Make sure Gmail is connected in Settings.');
+      showToastNotification('error', 'Sync Failed', 'Make sure Gmail is connected in Settings.');
     } finally {
       setSyncingInbox(false);
     }
@@ -1077,7 +1068,7 @@ const LeadDetails = () => {
     try {
       await googleMailAPI.markEmailsRead(tid ? { thread_id: tid } : { email_ids: ids });
       setGmailEmails(prev => prev.map(e => (ids.includes(e.id) ? { ...e, is_read: true } : e)));
-    } catch (_) {}
+    } catch (_) { }
     const sorted = [...thread].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
     const lastMsg = sorted[sorted.length - 1];
     const replyToEmail = lastMsg.direction === 'inbound' ? lastMsg.from_email : lastMsg.to_email;
@@ -1116,7 +1107,7 @@ const LeadDetails = () => {
     e.preventDefault();
 
     if (!paymentFormData.amount || parseFloat(paymentFormData.amount) <= 0) {
-      alert('Please enter a valid amount');
+      showToastNotification('warning', 'Invalid Amount', 'Please enter a valid amount');
       return;
     }
 
@@ -1124,7 +1115,7 @@ const LeadDetails = () => {
     const paidAmount = parseFloat(paymentFormData.paid_amount || 0);
 
     if (paidAmount > amount) {
-      alert('Paid amount cannot exceed total amount');
+      showToastNotification('warning', 'Amount Exceeded', 'Paid amount cannot exceed total amount');
       return;
     }
 
@@ -1138,19 +1129,20 @@ const LeadDetails = () => {
       });
 
       if (response.data.success) {
-        alert('Payment added successfully!');
+        showToastNotification('success', 'Payment Added', 'Payment added successfully!');
         setShowPaymentModal(false);
         setPaymentFormData({ amount: '', paid_amount: '', due_date: '' });
         await fetchPayments();
+        await fetchQueryDetail();
       } else {
-        alert(response.data.message || 'Failed to add payment');
+        showToastNotification('error', 'Failed', response.data.message || 'Failed to add payment');
       }
     } catch (err) {
       console.error('Failed to add payment:', err);
       const errorMsg = err.response?.data?.message || err.response?.data?.errors
         ? Object.values(err.response.data.errors).flat().join(', ')
         : 'Failed to add payment';
-      alert(errorMsg);
+      showToastNotification('error', 'Error', errorMsg);
     } finally {
       setAddingPayment(false);
     }
@@ -1197,7 +1189,7 @@ const LeadDetails = () => {
   const handleSendWhatsAppFromTab = async () => {
     if (!id || (!whatsappInput.trim() && !whatsappAttachment)) return;
     if (!lead?.phone) {
-      alert('Lead has no phone number. Please add phone to send WhatsApp.');
+      showToastNotification('warning', 'Missing Phone', 'Lead has no phone number. Please add phone to send WhatsApp.');
       return;
     }
     setSendingWhatsapp(true);
@@ -1209,7 +1201,7 @@ const LeadDetails = () => {
           setWhatsappAttachment(null);
           await fetchWhatsAppMessages();
         } else {
-          alert(res?.data?.message || 'Failed to send');
+          showToastNotification('error', 'Send Failed', res?.data?.message || 'Failed to send');
         }
       } else {
         const res = await whatsappAPI.send(id, whatsappInput.trim());
@@ -1217,11 +1209,11 @@ const LeadDetails = () => {
           setWhatsappInput('');
           await fetchWhatsAppMessages();
         } else {
-          alert(res?.data?.message || 'Failed to send');
+          showToastNotification('error', 'Send Failed', res?.data?.message || 'Failed to send');
         }
       }
     } catch (err) {
-      alert(err?.response?.data?.message || 'Failed to send WhatsApp message');
+      showToastNotification('error', 'Error', err?.response?.data?.message || 'Failed to send WhatsApp message');
     } finally {
       setSendingWhatsapp(false);
     }
@@ -1236,7 +1228,7 @@ const LeadDetails = () => {
 
   // Generate email body with enquiry details
   const generateEmailBody = () => {
-    const confirmedOption = getConfirmedOption();
+    const confirmedOption = proposals?.find(p => p.confirmed === true);
     if (!confirmedOption || !lead) return 'Dear Sir,\nKindly provide the best rates for below enquiry at the earliest';
 
     let body = 'Dear Sir,\nKindly provide the best rates for below enquiry at the earliest\n\n';
@@ -1352,12 +1344,12 @@ const LeadDetails = () => {
     const hasRecipients = selectedSuppliers.length > 0 || selectedHotelEmailsList.length > 0 || selectedVehicleEmailsList.length > 0;
 
     if (!hasRecipients) {
-      alert('Please select at least one supplier, hotel or vehicle (with email)');
+      showToastNotification('warning', 'No Recipient', 'Please select at least one supplier, hotel or vehicle (with email)');
       return;
     }
 
     if (!supplierEmailForm.subject.trim()) {
-      alert('Please enter a subject');
+      showToastNotification('warning', 'Missing Subject', 'Please enter a subject');
       return;
     }
 
@@ -1400,7 +1392,7 @@ const LeadDetails = () => {
       }
 
       if (selectedSuppliers.length === 0 && allRecipientEmails.length === 0) {
-        alert('Please select at least one supplier, hotel or vehicle with valid email address');
+        showToastNotification('warning', 'Selection Required', 'Please select at least one supplier, hotel or vehicle with valid email address');
         setSendingEmail(false);
         return;
       }
@@ -1432,7 +1424,7 @@ const LeadDetails = () => {
           message += `\n\nNote: ${hotelsWithoutEmail.length} hotel(s) were skipped due to missing email addresses.`;
         }
 
-        alert(message);
+        showToastNotification(failedCount > 0 ? 'warning' : 'success', 'Mail Sent Status', message);
 
         // Reset form only if at least some emails were sent
         if (sentCount > 0) {
@@ -1451,7 +1443,7 @@ const LeadDetails = () => {
       } else {
         const errorMsg = response.data.message || 'Failed to send email';
         const errors = response.data.data?.errors || [];
-        alert(`${errorMsg}${errors.length > 0 ? '\n\nErrors:\n' + errors.join('\n') : ''}`);
+        showToastNotification('error', 'Send Failed', `${errorMsg}${errors.length > 0 ? ': ' + errors.join(', ') : ''}`);
       }
     } catch (err) {
       console.error('Failed to send email:', err);
@@ -1467,18 +1459,81 @@ const LeadDetails = () => {
         }
       }
       if (errorDetails && !errors.length) {
-        alertMsg += `\n\nDetails: ${errorDetails}`;
+        alertMsg += ` Details: ${errorDetails}`;
       }
 
-      alert(alertMsg);
+      showToastNotification('error', 'Send Failed', alertMsg);
     } finally {
       setSendingEmail(false);
     }
   };
 
+  const handlePaxModalOpen = () => {
+    let currentPax = lead?.pax_details || [];
+    if (!Array.isArray(currentPax)) currentPax = [];
+
+    // Calculate total needed
+    const totalAdults = lead?.adult || 0;
+    const totalChildren = lead?.child || 0;
+    const totalInfants = lead?.infant || 0;
+    const totalPax = totalAdults + totalChildren + totalInfants;
+
+    // Create a new list based on total pax count
+    const newList = [];
+
+    // Fill with existing data or create new slots
+    for (let i = 0; i < totalPax; i++) {
+      if (currentPax[i]) {
+        newList.push({ ...currentPax[i] });
+      } else {
+        // New slot
+        // If it's the first slot, pre-fill with lead contact info if available
+        if (i === 0) {
+          newList.push({
+            name: lead?.client_name || '',
+            phone: lead?.phone || '',
+            email: lead?.email || '',
+            age: '',
+            gender: 'Adult' // Default to Adult 
+          });
+        } else {
+          newList.push({ name: '', phone: '', email: '', age: '', gender: 'Adult' });
+        }
+      }
+    }
+
+    setPaxTempList(newList);
+    setShowPaxModal(true);
+  };
+
+  const handlePaxChange = (index, field, value) => {
+    const updated = [...paxTempList];
+    if (!updated[index]) updated[index] = {};
+    updated[index][field] = value;
+    setPaxTempList(updated);
+  };
+
+  // Removed handleAddPaxRow and handleRemovePaxRow as we are enforcing the count based on lead data
+
+
+  const handleSavePaxDetails = async () => {
+    setSavingPax(true);
+    try {
+      await leadsAPI.update(id, { pax_details: paxTempList });
+      showToastNotification('success', 'Saved', 'Passenger details updated successfully');
+      setShowPaxModal(false);
+      fetchLeadDetails();
+    } catch (err) {
+      console.error('Failed to save pax details:', err);
+      showToastNotification('error', 'Error', 'Failed to save passenger details');
+    } finally {
+      setSavingPax(false);
+    }
+  };
+
   const handleAddNote = async () => {
     if (!noteText.trim()) {
-      alert('Please enter a note');
+      showToastNotification('warning', 'Empty Note', 'Please enter a note');
       return;
     }
 
@@ -1492,12 +1547,14 @@ const LeadDetails = () => {
 
       if (editingNoteId) {
         await followupsAPI.update(editingNoteId, payload);
+        showToastNotification('success', 'Note Updated', 'Note has been updated successfully');
       } else {
         // Create note-only (no reminder) so it appears in Notes section, not Followups
         await followupsAPI.create({
           lead_id: parseInt(id),
           ...payload,
         });
+        showToastNotification('success', 'Note Added', 'Note has been added successfully');
       }
 
       // Refresh lead details to get updated notes
@@ -1507,7 +1564,7 @@ const LeadDetails = () => {
       setEditingNoteId(null);
     } catch (err) {
       console.error('Failed to add note:', err);
-      alert(err.response?.data?.message || 'Failed to add note');
+      showToastNotification('error', 'Error', err.response?.data?.message || 'Failed to add note');
     } finally {
       setAddingNote(false);
     }
@@ -1517,10 +1574,11 @@ const LeadDetails = () => {
     if (!window.confirm('Delete this item?')) return;
     try {
       await followupsAPI.delete(followupId);
+      showToastNotification('success', 'Deleted', 'Follow-up or Note deleted successfully');
       await fetchLeadDetails();
     } catch (err) {
       console.error('Failed to delete:', err);
-      alert(err.response?.data?.message || 'Failed to delete');
+      showToastNotification('error', 'Delete Failed', err.response?.data?.message || 'Failed to delete');
     }
   };
 
@@ -1593,13 +1651,13 @@ const LeadDetails = () => {
     e.preventDefault();
 
     if (!followupFormData.reminder_date) {
-      alert('Please select a reminder date');
+      showToastNotification('warning', 'Missing Date', 'Please select a reminder date');
       return;
     }
 
     // Only create followup if Set Reminder is Yes
     if (followupFormData.set_reminder !== 'Yes') {
-      alert('Please enable reminder to create follow-up');
+      showToastNotification('warning', 'Reminder Disabled', 'Please enable reminder to create follow-up');
       return;
     }
 
@@ -1629,8 +1687,10 @@ const LeadDetails = () => {
 
       if (editingFollowupId) {
         await followupsAPI.update(editingFollowupId, payload);
+        showToastNotification('success', 'Follow-up Updated', 'Follow-up has been updated successfully');
       } else {
         await followupsAPI.create(payload);
+        showToastNotification('success', 'Follow-up Added', 'Follow-up has been added successfully');
       }
 
       // Refresh lead details to get updated followups
@@ -1644,14 +1704,14 @@ const LeadDetails = () => {
       });
       setShowFollowupModal(false);
       setEditingFollowupId(null);
-      alert('Follow-up added successfully!');
+      showToastNotification('success', 'Follow-up Added', 'Follow-up added successfully!');
     } catch (err) {
       console.error('Failed to add followup:', err);
       const errorMsg = err.response?.data?.message ||
         (err.response?.data?.errors ? Object.values(err.response.data.errors).flat().join(', ') : null) ||
         err.response?.data?.error ||
         'Failed to add follow-up. Please check all fields and try again.';
-      alert(errorMsg);
+      showToastNotification('error', 'Error', errorMsg);
     } finally {
       setAddingFollowup(false);
     }
@@ -1716,7 +1776,7 @@ const LeadDetails = () => {
       setItineraryImagePreview(URL.createObjectURL(file));
       setShowItineraryLibraryModal(false);
     } catch (e) {
-      alert('Failed to load image. Try another or upload from device.');
+      showToastNotification('error', 'Load Failed', 'Failed to load image. Try another or upload from device.');
     }
   };
 
@@ -1751,11 +1811,11 @@ const LeadDetails = () => {
   const itineraryLibrarySearch = (itineraryLibrarySearchTerm || '').trim().toLowerCase();
   const itineraryLibraryImages = itineraryLibrarySearch.length >= 2
     ? itineraryLibraryPackages.filter(
-        (p) => p.image && (
-          (p.title || p.itinerary_name || '').toLowerCase().includes(itineraryLibrarySearch) ||
-          (p.destination || p.destinations || '').toLowerCase().includes(itineraryLibrarySearch)
-        )
+      (p) => p.image && (
+        (p.title || p.itinerary_name || '').toLowerCase().includes(itineraryLibrarySearch) ||
+        (p.destination || p.destinations || '').toLowerCase().includes(itineraryLibrarySearch)
       )
+    )
     : [];
 
   const handleInsertItinerary = async () => {
@@ -1785,7 +1845,7 @@ const LeadDetails = () => {
       setDayItineraries(processedData);
     } catch (err) {
       console.error('Failed to fetch itineraries:', err);
-      alert('Failed to load itineraries');
+      showToastNotification('error', 'Fetch Failed', 'Failed to load itineraries');
     } finally {
       setLoadingItineraries(false);
     }
@@ -1815,7 +1875,7 @@ const LeadDetails = () => {
       try {
         const fp = localStorage.getItem(finalPricesKey);
         if (fp) finalClientPricesMap = JSON.parse(fp);
-      } catch (_) {}
+      } catch (_) { }
 
       if (stored) {
         const parsed = JSON.parse(stored);
@@ -1854,7 +1914,7 @@ const LeadDetails = () => {
       saveProposals(updatedProposals);
       setShowInsertItineraryModal(false);
       setItinerarySearchTerm('');
-      alert(`${optionsToAdd.length} option(s) of "${itineraryName}" have been added to proposals.`);
+      showToastNotification('success', 'Itinerary Added', `${optionsToAdd.length} option(s) of "${itineraryName}" have been added to proposals.`);
       return;
     }
 
@@ -1870,7 +1930,7 @@ const LeadDetails = () => {
 
     setShowInsertItineraryModal(false);
     setItinerarySearchTerm('');
-    alert(`Itinerary "${itineraryName}" has been added to proposals.`);
+    showToastNotification('success', 'Itinerary Added', `Itinerary "${itineraryName}" has been added to proposals.`);
   };
 
   // Trip days from From Date & To Date (inclusive) – e.g. 30 Jan to 1 Feb = 3 days / 2 nights
@@ -1921,7 +1981,7 @@ const LeadDetails = () => {
   const handleItinerarySave = async (e) => {
     e.preventDefault();
     if (!itineraryFormData.itinerary_name?.trim()) {
-      alert('Please enter Itinerary Name.');
+      showToastNotification('warning', 'Missing Name', 'Please enter Itinerary Name.');
       return;
     }
     setSavingItinerary(true);
@@ -1957,14 +2017,14 @@ const LeadDetails = () => {
         }
         handleSelectItinerary(created);
       } else {
-        alert('Itinerary created successfully. You can add it to this query via "Insert itinerary".');
+        showToastNotification('success', 'Created', 'Itinerary created successfully. You can add it to this query via "Insert itinerary".');
       }
     } catch (err) {
       console.error('Failed to create itinerary:', err);
       const msg = err.response?.data?.message || err.response?.data?.errors
         ? Object.values(err.response.data.errors || {}).flat().join(', ')
         : 'Failed to create itinerary. Please try again.';
-      alert(msg);
+      showToastNotification('error', 'Error', msg);
     } finally {
       setSavingItinerary(false);
     }
@@ -2170,6 +2230,7 @@ const LeadDetails = () => {
           ...itinerary,
           duration: proposal.duration || itinerary.duration,
           destinations: proposal.destination || itinerary.destinations,
+          day_events: dayEvents, // Include full day-by-day details
         },
         hotelOptions: hotelOptions,
       };
@@ -2545,7 +2606,7 @@ const LeadDetails = () => {
         <div style="position: relative;">
           <div style="background: rgba(255,255,255,0.95); padding: 30px; border-radius: 20px; text-align: center; box-shadow: 0 25px 60px rgba(0,0,0,0.4); position: relative; z-index: 2; margin-top: 30px;">
             <p style="margin: 5px 0; font-size: 18px; font-weight: bold; color: #0f2027;">Thank you for choosing TravelOps!</p>
-            <p style="margin: 10px 0 5px 0; color: #666;">📞 +91-9871023004 | 🌐 www.travelops.com</p>
+            <p style="margin: 8px 0 0 0;font-size:14px;opacity:0.9;">Delhi, India | 📞 +91-9871023004 | ✉ info@travelops.com</p>
           </div>
         </div>
       </div>
@@ -2826,7 +2887,8 @@ const LeadDetails = () => {
   };
 
   // optionPriceMap: { '1': { final, original?, discountPct?, discountAmount? }, '2': { ... } } for PDF price breakdown
-  const generatePdfFullHtml = async (qData, optionPriceMap = null) => {
+  // optionNumForPriority: when provided (or when an option is confirmed), restrict PDF to that single option
+  const generatePdfFullHtml = async (qData, optionPriceMap = null, optionNumForPriority = null) => {
     if (!qData || !lead) return '';
     let pdfCompanySettings = companySettings || null;
     try {
@@ -2835,10 +2897,10 @@ const LeadDetails = () => {
         const raw = res.data.data;
         pdfCompanySettings = Array.isArray(raw) ? raw.reduce((acc, s) => ({ ...acc, [s.key]: s.value }), {}) : raw;
       }
-    } catch (_) {}
+    } catch (_) { }
     const allPolicies = await getAllPolicies();
     const itinerary = qData.itinerary || {};
-    const allOptions = Object.keys(qData.hotelOptions || {}).sort((a, b) => parseInt(a) - parseInt(b));
+    const allOptionsRaw = Object.keys(qData.hotelOptions || {}).sort((a, b) => parseInt(a) - parseInt(b));
     const assignedUser = users.find(u => u.id === lead.assigned_to);
     const logoUrl = pdfCompanySettings?.company_logo ? getDisplayImageUrl(pdfCompanySettings.company_logo) : null;
     const companyName = pdfCompanySettings?.company_name || 'TravelOps';
@@ -2889,7 +2951,28 @@ const LeadDetails = () => {
         ${itinerary.image ? `<img src="${getDisplayImageUrl(itinerary.image) || itinerary.image}" alt="${itinerary.itinerary_name}" style="width:100%;max-width:600px;height:240px;object-fit:cover;border-radius:10px;margin:0 auto 24px;display:block;" />` : ''}
     `;
 
-    allOptions.forEach(optNum => {
+    // Decide which option numbers to include:
+    // - If any option is confirmed, always include only the confirmed option
+    // - Else if a specific optionNumForPriority is provided, include only that option (if present)
+    // - Else include all options
+    let optionNumbers = allOptionsRaw;
+    if (hasConfirmedProposal) {
+      const confirmed = getConfirmedOption();
+      const confirmedNum =
+        confirmed && confirmed.optionNumber != null
+          ? confirmed.optionNumber.toString()
+          : null;
+      if (confirmedNum && optionNumbers.includes(confirmedNum)) {
+        optionNumbers = [confirmedNum];
+      }
+    } else if (optionNumForPriority != null) {
+      const optKey = optionNumForPriority.toString();
+      if (optionNumbers.includes(optKey)) {
+        optionNumbers = [optKey];
+      }
+    }
+
+    optionNumbers.forEach(optNum => {
       const hotels = qData.hotelOptions[optNum] || [];
       const priceInfo = optionPriceMap && optionPriceMap[String(optNum)] ? optionPriceMap[String(optNum)] : null;
       const finalPrice = priceInfo?.final != null ? Number(priceInfo.final) : hotels.reduce((sum, h) => sum + (parseFloat(h.price) || 0), 0);
@@ -2935,7 +3018,8 @@ const LeadDetails = () => {
       `;
     });
 
-    html += generateAllPoliciesSection(allPolicies, {
+    html += `
+        ${generateAllPoliciesSection(allPolicies, {
       termsBg: '#f8f9fa',
       borderRadius: '10px',
       termsBorder: '2px solid #2563eb',
@@ -2943,11 +3027,8 @@ const LeadDetails = () => {
       termsTitleColor: '#1e40af',
       termsTitleSize: '18px',
       termsTextSize: '14px'
-    });
-    if (allPolicies.thankYouMessage) {
-      html += `<div style="background:#f8f9fa;padding:20px;border-radius:10px;margin-top:20px;border:2px solid #2563eb;"><div style="color:#555;line-height:1.8;font-size:14px;">${formatTextForHTML(allPolicies.thankYouMessage)}</div></div>`;
-    }
-    html += `
+    })}
+    ${allPolicies.thankYouMessage ? `<div style="background:#f8f9fa;padding:20px;border-radius:10px;margin-top:20px;border:2px solid #2563eb;"><div style="color:#555;line-height:1.8;font-size:14px;">${formatTextForHTML(allPolicies.thankYouMessage)}</div></div>` : ''}
         <div style="background:#1e293b;color:#fff;padding:20px;text-align:center;margin-top:30px;border-radius:0 0 10px 10px;">
           <p style="margin:0;">${companyName}</p>
           <p style="margin:8px 0 0 0;font-size:14px;opacity:0.9;">${companyAddress} | 📞 ${companyPhone} | ✉ ${companyEmail}</p>
@@ -2958,16 +3039,39 @@ const LeadDetails = () => {
     return html;
   };
 
-  // Generate professional email content with all options using selected template
-  // When overrideQuotationData is passed (e.g. for PDF), use it so PDF is not blank due to async state
-  const generateEmailContent = async (overrideQuotationData = null) => {
+  // Generate professional email content.
+  // By default, when an option is confirmed, only that option is included in the email.
+  // When overrideQuotationData is passed (e.g. for PDF), use it so email is not blank due to async state.
+  // optionNumForPriority: when provided (and no option is confirmed), restrict to that single option if present.
+  const generateEmailContent = async (overrideQuotationData = null, optionNumForPriority = null) => {
     const qData = overrideQuotationData || quotationData;
     if (!qData) return '';
 
     const templateId = await getSelectedTemplate();
     const allPolicies = await getAllPolicies();
     const itinerary = qData.itinerary;
-    const allOptions = Object.keys(qData.hotelOptions || {}).sort((a, b) => parseInt(a) - parseInt(b));
+    const allOptionsRaw = Object.keys(qData.hotelOptions || {}).sort((a, b) => parseInt(a) - parseInt(b));
+
+    // Decide which option numbers to include:
+    // - If any option is confirmed, always include only the confirmed option
+    // - Else if a specific optionNumForPriority is provided, include only that option (if present)
+    // - Else include all options
+    let allOptions = allOptionsRaw;
+    if (hasConfirmedProposal) {
+      const confirmed = getConfirmedOption();
+      const confirmedNum =
+        confirmed && confirmed.optionNumber != null
+          ? confirmed.optionNumber.toString()
+          : null;
+      if (confirmedNum && allOptions.includes(confirmedNum)) {
+        allOptions = [confirmedNum];
+      }
+    } else if (optionNumForPriority != null) {
+      const optKey = optionNumForPriority.toString();
+      if (allOptions.includes(optKey)) {
+        allOptions = [optKey];
+      }
+    }
 
     // Use special templates
     if (templateId === 'template-2') {
@@ -3125,12 +3229,12 @@ const LeadDetails = () => {
       const confirmed = getConfirmedOption();
       const baseProposal = confirmed || selectedProposal || (proposals && proposals[0]);
       if (!baseProposal) {
-        alert('Please create at least one proposal before sending.');
+        showToastNotification('warning', 'No Proposal', 'Please create at least one proposal before sending.');
         return;
       }
       const built = await handleViewQuotation(baseProposal, false);
       if (!built) {
-        alert('Failed to load quotation. Please try again.');
+        showToastNotification('error', 'Quotation Error', 'Failed to load quotation. Please try again.');
         return;
       }
       dataForSend = quotationDataOverride || built;
@@ -3139,12 +3243,12 @@ const LeadDetails = () => {
 
     const recipientEmail = lead?.email || '';
     if (!recipientEmail) {
-      alert('Lead email is required to send. Please add customer email.');
+      showToastNotification('warning', 'Email Required', 'Lead email is required to send. Please add customer email.');
       return;
     }
 
     const subject = `Travel Quotation - ${dataForSend.itinerary?.itinerary_name || 'Itinerary'} - ${formatLeadId(lead.id)}`;
-    const emailContent = await generateEmailContent(dataForSend);
+    const emailContent = await generateEmailContent(dataForSend, optionNum);
 
     try {
       if (user?.google_token) {
@@ -3156,7 +3260,7 @@ const LeadDetails = () => {
           lead_id: id,
         });
         fetchGmailEmails();
-        
+
         // Update lead status to PROPOSAL if not already
         if (lead.status !== 'proposal') {
           try {
@@ -3167,8 +3271,8 @@ const LeadDetails = () => {
             // Don't show error to user as email was sent successfully
           }
         }
-        
-        alert('Email sent successfully via Gmail! Lead status updated to PROPOSAL.');
+
+        showToastNotification('success', 'Email Sent!', 'Email sent successfully via Gmail! Lead status updated to PROPOSAL.');
         await fetchGmailEmails();
         return;
       }
@@ -3181,7 +3285,7 @@ const LeadDetails = () => {
 
       if (response.data.success) {
         fetchLeadEmails();
-        
+
         // Update lead status to PROPOSAL if not already
         if (lead.status !== 'proposal') {
           try {
@@ -3192,16 +3296,16 @@ const LeadDetails = () => {
             // Don't show error to user as email was sent successfully
           }
         }
-        
-        alert('Email sent successfully! Lead status updated to PROPOSAL.');
+
+        showToastNotification('success', 'Email Sent!', 'Email sent successfully! Lead status updated to PROPOSAL.');
       } else {
         const msg = response.data?.message || response.data?.error || 'Unknown error';
-        alert('Mail could not be sent.\n\nIssue: ' + msg);
+        showToastNotification('error', 'Mail Error', 'Mail could not be sent. Issue: ' + msg);
       }
     } catch (error) {
       console.error('Error sending email:', error);
       const msg = error.response?.data?.message || error.response?.data?.error || error.message || 'Unknown error';
-      alert('Mail could not be sent.\n\nIssue: ' + msg);
+      showToastNotification('error', 'Mail Failed', 'Mail could not be sent. Issue: ' + msg);
     }
   };
 
@@ -3242,10 +3346,12 @@ const LeadDetails = () => {
   // quotationDataOverride: pass when downloading so PDF is not blank. Renders in iframe so content is not blank.
   // itineraryIdForPricing: when set, fetches final_client_prices + option_gst_settings so PDF shows correct Total Price and discount breakdown (not ₹0).
   // PDF includes: company header (logo/name/details), query info, both options A–Z with full price details, all terms & policies.
+  // quotationDataOverride: pass when downloading so PDF is not blank.
+  // itineraryIdForPricing: when set, fetches final_client_prices + option_gst_settings so PDF shows correct Total Price.
   const handleDownloadSingleOptionPdf = async (optionNum, quotationDataOverride = null, itineraryIdForPricing = null) => {
     const qData = quotationDataOverride || quotationData;
     if (!qData) {
-      alert('Quotation data not loaded. Please open View Quotation first or try again.');
+      showToastNotification('warning', 'Quotation Failed', 'Quotation data not loaded. Please open View Quotation first or try again.');
       return;
     }
 
@@ -3271,10 +3377,10 @@ const LeadDetails = () => {
             optionPriceMap[key] = { final: finalVal, original, discountPct, discountAmount };
           });
         }
-      } catch (_) {}
+      } catch (_) { }
     }
 
-    // Fallback: use prices from proposal cards (same as Query page shows) when API has no saved pricing
+    // Fallback: use prices from proposal cards
     const tid = itineraryIdForPricing;
     if ((!optionPriceMap || Object.keys(optionPriceMap).length === 0) && tid && proposals?.length) {
       optionPriceMap = {};
@@ -3288,80 +3394,113 @@ const LeadDetails = () => {
       if (Object.keys(optionPriceMap).length === 0) optionPriceMap = null;
     }
 
+    // Calculate base price for the main quotation record (e.g. from Option 1 or requested option)
+    let basePrice = 0;
+    const targetOption = optionNum ? String(optionNum) : (Object.keys(optionPriceMap || {})[0] || '1');
+    if (optionPriceMap && optionPriceMap[targetOption]) {
+      basePrice = optionPriceMap[targetOption].final || 0;
+    } else if (qData.hotelOptions && qData.hotelOptions[targetOption]) {
+      // Sum of hotel prices if no global price map
+      basePrice = qData.hotelOptions[targetOption].reduce((sum, h) => sum + (parseFloat(h.price) || 0), 0);
+    }
+
     try {
-      const fullHtml = await generatePdfFullHtml(qData, optionPriceMap);
-      if (!fullHtml || fullHtml.trim() === '') {
-        alert('Could not generate PDF content. Please try View Quotation first, then Download PDF.');
-        return;
-      }
-      let emailContent = fullHtml;
+      showToastNotification('info', 'Generating PDF', 'Backend is generating PDF...');
 
-      const baseUrl = window.location.origin + (import.meta.env.BASE_URL || '/');
-      const iframe = document.createElement('iframe');
-      iframe.setAttribute('style', 'position:absolute;left:-9999px;width:794px;min-height:1123px;border:none;');
-      document.body.appendChild(iframe);
-      const doc = iframe.contentDocument || iframe.contentWindow?.document;
-      if (!doc) {
-        document.body.removeChild(iframe);
-        throw new Error('Could not get iframe document');
-      }
-      doc.open();
-      doc.write(`
-<!DOCTYPE html>
-<html><head>
-<meta charset="utf-8">
-<base href="${baseUrl}">
-<style>body{margin:0;padding:0;background:#fff;color:#000;font-family:Arial,sans-serif;} img{max-width:100%;height:auto;}</style>
-</head><body>
-${emailContent}
-</body></html>
-      `);
-      doc.close();
-
-      await new Promise(r => setTimeout(r, 600));
-
-      const itineraryName = (qData.itinerary?.itinerary_name || 'Itinerary').replace(/\s+/g, '_');
-      const opt = {
-        margin: [10, 10, 10, 10],
-        filename: `Travel_Quotation_${itineraryName}_${formatLeadId(lead?.id)}_${new Date().toISOString().split('T')[0]}.pdf`,
-        image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: {
-          scale: 2,
-          useCORS: true,
-          logging: false,
-          letterRendering: true,
-          allowTaint: true
+      // Prepare data for Backend Quotation Store
+      const payload = {
+        lead_id: lead.id,
+        title: qData.itinerary?.itinerary_name || 'Travel Quotation',
+        description: `Generated for ${lead.client_name} - ${qData.itinerary?.itinerary_name}`,
+        travel_start_date: lead.travel_start_date || new Date().toISOString().split('T')[0], // Fallback to today if null
+        travel_end_date: lead.travel_end_date || new Date().toISOString().split('T')[0],
+        adults: parseInt(lead.adult || 1),
+        children: parseInt(lead.child || 0),
+        infants: parseInt(lead.infant || 0),
+        base_price: basePrice,
+        currency: 'INR',
+        valid_until: null, // Optional
+        template: 'default',
+        itinerary: qData.itinerary, // Full object
+        // Add options data specially so blade can use it
+        custom_fields: {
+          hotel_options: qData.hotelOptions,
+          display_option: optionNum, // Single option vs All
+          policies: qData.policies // Send all policies (Remarks, Cancellation, etc.)
         },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait', compress: true },
-        pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
+        inclusions: qData.policies?.inclusions || [],
+        exclusions: qData.policies?.exclusions || [],
+        pricing_breakdown: optionPriceMap,
+        terms_conditions: qData.policies?.terms || ''
       };
 
-      await html2pdf().set(opt).from(doc.body).save();
-      document.body.removeChild(iframe);
-      const hasPrices = optionPriceMap && Object.values(optionPriceMap).some((v) => v && (v.final > 0 || v.original > 0));
-      alert(hasPrices
-        ? 'PDF downloaded! Query details, dono options, aur Terms & Policies sab include hain.'
-        : 'PDF downloaded! Agar Total Price abhi bhi ₹0 dikhe to: Itinerary open karein → Pricing tab → har option ka Final Client Price daal kar Save karein, phir yahan "Refresh prices from server" dabayein, uske baad dubara PDF download karein.');
+      // 1. Create Quotation in Database
+      const createRes = await quotationsAPI.create(payload);
+      if (!createRes.data.success) {
+        throw new Error(createRes.data.message || 'Failed to create quotation record');
+      }
+      const quotationId = createRes.data.data.quotation.id;
+      console.log('Quotation Created ID:', quotationId);
+
+      // 2. Download the PDF
+      const downloadRes = await quotationsAPI.download(quotationId);
+
+      // Handle File Download
+      const blob = new Blob([downloadRes.data], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      const fileName = `Quotation_${quotationId}_${lead.client_name.replace(/\s+/g, '_')}.pdf`;
+      link.setAttribute('download', fileName);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+
+      showToastNotification('success', 'PDF Downloaded', 'PDF served from Backend (Blade Template).');
+
     } catch (error) {
-      console.error('Error generating PDF:', error);
-      alert('Failed to generate PDF. Please try the Print option instead.');
+      console.error('Error generating PDF via Backend:', error);
+      showToastNotification('error', 'Download Failed', error.response?.data?.message || error.message || 'Backend error');
     }
   };
 
   const handleSendWhatsApp = async (optionNum, quotationDataOverride = null) => {
     const qData = quotationDataOverride || quotationData;
     if (!qData || !lead) {
-      alert('Please load quotation first');
+      showToastNotification('warning', 'Quotation Needed', 'Please load quotation first');
       return;
     }
 
-    // Build WhatsApp message from quotation (all options)
+    // Build WhatsApp message from quotation
     let message = `*Travel Quotation - ${qData.itinerary?.itinerary_name || 'Itinerary'}*\n\n`;
     message += `Query ID: ${formatLeadId(lead.id)}\n`;
     message += `Destination: ${qData.itinerary?.destinations || 'N/A'}\n`;
     message += `Duration: ${qData.itinerary?.duration || 0} Days\n\n`;
-    const allOptions = Object.keys(qData.hotelOptions || {}).sort((a, b) => parseInt(a) - parseInt(b));
-    allOptions.forEach(optNum => {
+    const allOptionsRaw = Object.keys(qData.hotelOptions || {}).sort((a, b) => parseInt(a) - parseInt(b));
+
+    // Decide which option numbers to include:
+    // - If any option is confirmed, always include only the confirmed option
+    // - Else if a specific optionNum is provided, include only that option (if present)
+    // - Else include all options
+    let optionNumbers = allOptionsRaw;
+    if (hasConfirmedProposal) {
+      const confirmed = getConfirmedOption();
+      const confirmedNum =
+        confirmed && confirmed.optionNumber != null
+          ? confirmed.optionNumber.toString()
+          : null;
+      if (confirmedNum && optionNumbers.includes(confirmedNum)) {
+        optionNumbers = [confirmedNum];
+      }
+    } else if (optionNum != null) {
+      const optKey = optionNum.toString();
+      if (optionNumbers.includes(optKey)) {
+        optionNumbers = [optKey];
+      }
+    }
+
+    optionNumbers.forEach(optNum => {
       const hotels = qData.hotelOptions[optNum] || [];
       const totalPrice = hotels.reduce((sum, h) => sum + (parseFloat(h.price) || 0), 0);
       message += `*Option ${optNum}*\n`;
@@ -3377,7 +3516,7 @@ ${emailContent}
       const response = await whatsappAPI.send(id, message);
       if (response.data.success) {
         fetchWhatsAppMessages();
-        
+
         if (lead.status !== 'proposal') {
           try {
             await leadsAPI.updateStatus(id, { status: 'proposal' });
@@ -3386,14 +3525,14 @@ ${emailContent}
             console.error('Failed to update lead status:', statusError);
           }
         }
-        
-        alert('WhatsApp message sent successfully! Lead status updated to PROPOSAL.');
+
+        showToastNotification('success', 'WhatsApp Sent!', 'WhatsApp message sent successfully! Lead status updated to PROPOSAL.');
       } else {
-        alert(response.data.message || 'Failed to send WhatsApp message');
+        showToastNotification('error', 'WhatsApp Error', response.data.message || 'Failed to send WhatsApp message');
       }
     } catch (error) {
       console.error('Error sending WhatsApp:', error);
-      alert(error.response?.data?.message || 'Failed to send WhatsApp message');
+      showToastNotification('error', 'WhatsApp Failed', error.response?.data?.message || 'Failed to send WhatsApp message');
     }
   };
 
@@ -3401,11 +3540,11 @@ ${emailContent}
   const handleSendOptionFromCard = async (opt, channel) => {
     setSendDropdownOptId(null);
     if (!lead?.email && (channel === 'email' || channel === 'both')) {
-      alert('Customer email is required. Please add email to the lead.');
+      showToastNotification('warning', 'Email Required', 'Customer email is required. Please add email to the lead.');
       return;
     }
     if (!lead?.phone && (channel === 'whatsapp' || channel === 'both')) {
-      alert('Customer phone is required for WhatsApp. Please add phone to the lead.');
+      showToastNotification('warning', 'Phone Required', 'Customer phone is required for WhatsApp. Please add phone to the lead.');
       return;
     }
     setSendingOptionChannel(channel);
@@ -3423,7 +3562,7 @@ ${emailContent}
       if (channel === 'whatsapp' || channel === 'both') await handleSendWhatsApp(optNum);
     } catch (err) {
       console.error('Send from card failed:', err);
-      alert('Failed to send. ' + (err.message || ''));
+      showToastNotification('error', 'Send Failed', 'Failed to send. ' + (err.message || ''));
     } finally {
       setSendingOptionChannel(null);
     }
@@ -3436,7 +3575,7 @@ ${emailContent}
         ? quotationData
         : await handleViewQuotation(opt, false);
       if (!qData) {
-        alert('Could not load quotation. Please try again.');
+        showToastNotification('error', 'Quotation Error', 'Could not load quotation. Please try again.');
         return;
       }
       setQuotationData(qData);
@@ -3446,7 +3585,7 @@ ${emailContent}
       await handleDownloadSingleOptionPdf(optNum, qData, opt.itinerary_id || null);
     } catch (err) {
       console.error('PDF download failed:', err);
-      alert('Failed to download PDF. ' + (err.message || ''));
+      showToastNotification('error', 'Download Failed', 'Failed to download PDF. ' + (err.message || ''));
     }
   };
 
@@ -3454,7 +3593,7 @@ ${emailContent}
   const handleDownloadAllOptionsPdf = async () => {
     const first = visibleProposals[0];
     if (!first) {
-      alert('Koi proposal nahi hai. Pehle itinerary add karein.');
+      showToastNotification('warning', 'No Proposal', 'Koi proposal nahi hai. Pehle itinerary add karein.');
       return;
     }
     try {
@@ -3462,17 +3601,22 @@ ${emailContent}
         ? quotationData
         : await handleViewQuotation(first, false);
       if (!qData) {
-        alert('Could not load quotation. Please try again.');
+        showToastNotification('error', 'Quotation Failed', 'Could not load quotation. Please try again.');
         return;
       }
       setQuotationData(qData);
       setSelectedProposal(first);
       const optNum = Object.keys(qData.hotelOptions || {})[0] || 1;
       setSelectedOption(optNum);
-      await handleDownloadSingleOptionPdf(optNum, qData, first.itinerary_id || null);
+
+      // Check if there's a confirmed option
+      const confirmedProposal = proposals?.find(p => p.confirmed === true);
+      const optionToDownload = confirmedProposal?.optionNumber ?? null;
+
+      await handleDownloadSingleOptionPdf(optionToDownload, qData, first.itinerary_id || null);
     } catch (err) {
       console.error('Download PDF failed:', err);
-      alert('PDF download nahi ho paya. ' + (err?.message || ''));
+      showToastNotification('error', 'Download Failed', 'PDF download nahi ho paya. ' + (err?.message || ''));
     }
   };
 
@@ -3481,15 +3625,15 @@ ${emailContent}
     setSendAllDropdownOpen(false);
     const first = visibleProposals[0];
     if (!first) {
-      alert('Koi proposal nahi hai. Pehle itinerary add karein.');
+      showToastNotification('warning', 'No Proposal', 'Koi proposal nahi hai. Pehle itinerary add karein.');
       return;
     }
     if ((channel === 'email' || channel === 'both') && !lead?.email) {
-      alert('Customer email required. Lead mein email add karein.');
+      showToastNotification('warning', 'Email Required', 'Customer email required. Lead mein email add karein.');
       return;
     }
     if ((channel === 'whatsapp' || channel === 'both') && !lead?.phone) {
-      alert('Customer phone required for WhatsApp. Lead mein phone add karein.');
+      showToastNotification('warning', 'Phone Required', 'Customer phone required for WhatsApp. Lead mein phone add karein.');
       return;
     }
     setSendingOptionChannel(channel);
@@ -3502,12 +3646,17 @@ ${emailContent}
       setSelectedProposal(first);
       const optNum = Object.keys(qData.hotelOptions || {})[0] || 1;
       setSelectedOption(optNum);
+
+      // Check if there's a confirmed option
+      const confirmedProposal = proposals?.find(p => p.confirmed === true);
+      const optionToSend = confirmedProposal?.optionNumber ?? optNum;
+
       await new Promise(r => setTimeout(r, 100));
-      if (channel === 'email' || channel === 'both') await handleSendMail(optNum, qData);
-      if (channel === 'whatsapp' || channel === 'both') await handleSendWhatsApp(optNum, qData);
+      if (channel === 'email' || channel === 'both') await handleSendMail(optionToSend, qData);
+      if (channel === 'whatsapp' || channel === 'both') await handleSendWhatsApp(optionToSend, qData);
     } catch (err) {
       console.error('Send failed:', err);
-      alert('Send nahi ho paya. ' + (err?.message || ''));
+      showToastNotification('error', 'Send Failed', 'Send nahi ho paya. ' + (err?.message || ''));
     } finally {
       setSendingOptionChannel(null);
     }
@@ -3515,7 +3664,7 @@ ${emailContent}
 
   const handleSendAllFromGroup = async (group, channel) => {
     if (!group?.options?.length) {
-      alert('No options found for this itinerary.');
+      showToastNotification('warning', 'No Options', 'No options found for this itinerary.');
       return;
     }
 
@@ -3550,7 +3699,7 @@ ${emailContent}
       const whatsappUrl = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
       window.open(whatsappUrl, '_blank');
     } else {
-      alert('Phone number not available for this lead.');
+      showToastNotification('warning', 'Phone Missing', 'Phone number not available for this lead.');
     }
   };
 
@@ -3694,12 +3843,12 @@ ${emailContent}
   const handleSendConfirmedOptionEmail = async () => {
     const confirmedOption = getConfirmedOption();
     if (!confirmedOption) {
-      alert('Please confirm an option first');
+      showToastNotification('warning', 'No Confirmation', 'Please confirm an option first');
       return;
     }
 
     if (!lead || !lead.email) {
-      alert('Client email not available');
+      showToastNotification('warning', 'Email Missing', 'Client email not available');
       return;
     }
 
@@ -3726,8 +3875,8 @@ ${emailContent}
 
     navigator.clipboard.writeText(emailContent).then(() => {
       const mailtoLink = `mailto:${lead.email}?subject=${subject}&body=${encodeURIComponent('Please find your confirmed travel itinerary attached.')}`;
+      showToastNotification('success', 'Copied!', 'Confirmed itinerary email content copied to clipboard!');
       window.open(mailtoLink);
-      alert('Confirmed itinerary email content copied to clipboard! Paste it in your email client.');
     }).catch(() => {
       window.location.href = `mailto:${lead.email}?subject=${subject}&body=${encodeURIComponent('Please find your confirmed travel itinerary attached.')}`;
     });
@@ -3737,12 +3886,12 @@ ${emailContent}
   const handleSendConfirmedOptionWhatsApp = async () => {
     const confirmedOption = getConfirmedOption();
     if (!confirmedOption) {
-      alert('Please confirm an option first');
+      showToastNotification('warning', 'No Confirmation', 'Please confirm an option first');
       return;
     }
 
     if (!lead || !lead.phone) {
-      alert('Client phone number not available');
+      showToastNotification('warning', 'Phone Missing', 'Client phone number not available');
       return;
     }
 
@@ -3782,7 +3931,7 @@ ${emailContent}
       fetchLeadDetails();
     } catch (err) {
       console.error('Failed to update status:', err);
-      alert('Failed to update status');
+      showToastNotification('error', 'Update Failed', 'Failed to update status');
     }
   };
 
@@ -3954,7 +4103,46 @@ ${emailContent}
             </div>
 
             {/* Related Customer */}
-          
+
+            <div className="bg-white rounded-xl shadow-sm border p-5 mb-6">
+              <div className="flex justify-between items-center mb-3">
+                <h2 className="text-lg font-semibold text-gray-800">
+                  Travellers (Pax)
+                </h2>
+                <button
+                  onClick={handlePaxModalOpen}
+                  className="text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center gap-1"
+                >
+                  <Pencil className="w-3 h-3" /> Edit
+                </button>
+              </div>
+
+              {lead?.pax_details && Array.isArray(lead.pax_details) && lead.pax_details.length > 0 ? (
+                <div className="space-y-3">
+                  {lead.pax_details.map((pax, idx) => (
+                    <div key={idx} className="flex flex-col sm:flex-row sm:justify-between sm:items-center text-sm border-b border-gray-100 last:border-0 pb-2 last:pb-0 gap-1">
+                      <div>
+                        <span className="font-medium text-gray-700 block">{pax.name || `Person ${idx + 1}`}</span>
+                        <div className="text-xs text-gray-500 flex gap-2">
+                          {pax.phone && <span className="flex items-center gap-1"><Smartphone className="w-3 h-3" />{pax.phone}</span>}
+                          {pax.email && <span className="flex items-center gap-1"><Mail className="w-3 h-3" />{pax.email}</span>}
+                        </div>
+                      </div>
+                      <div className="flex gap-3 text-gray-500">
+                        <span>{pax.gender || '-'}</span>
+                        {pax.age && <span>{pax.age} yrs</span>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-sm text-gray-500 italic">
+                  No traveller details added.
+                </div>
+              )}
+            </div>
+
+            {/* Related Customer */}
             <div className="bg-white rounded-xl shadow-sm border p-5">
               <h2 className="text-lg font-semibold text-gray-800 mb-3">
                 Related Customer
@@ -3964,7 +4152,7 @@ ${emailContent}
                 {/* LEFT INFO */}
                 <div className="flex-1 min-w-0">
                   <div className="text-sm text-gray-500 mb-1">
-                    {lead.client_title ? `${lead.client_title} ` : 'Mr. '}
+                    {lead.client_title ? `${lead.client_title} ` : ''}
                     {lead.client_name}
                   </div>
 
@@ -4004,123 +4192,123 @@ ${emailContent}
             </div>
 
             {/* Notes */}
-              <div className={` rounded-[28px] relative border-2 border-gray-200 p-5 ${showNoteInput  ? 'bg-gray-400' :'bg-white'}`}>
-                    {/* TITLE */}
-                    <h2 className="text-lg font-semibold text-black mb-6">
-                      Related Company
-                    </h2>
+            <div className={` rounded-[28px] relative border-2 border-gray-200 p-5 ${showNoteInput ? 'bg-gray-400' : 'bg-white'}`}>
+              {/* TITLE */}
+              <h2 className="text-lg font-semibold text-black mb-6">
+                Related Company
+              </h2>
 
-                    <div className="flex justify-between items-start">
-                      {/* LEFT SIDE */}
-                      <div className="space-y-6">
-                        {/* COMPANY NAME */}
-                        <div className="text-sm font-medium text-black">
-                          {lead.company_name || 'Triplive b2b'}
-                        </div>
+              <div className="flex justify-between items-start">
+                {/* LEFT SIDE */}
+                <div className="space-y-6">
+                  {/* COMPANY NAME */}
+                  <div className="text-sm font-medium text-black">
+                    {lead.company_name || 'Triplive b2b'}
+                  </div>
 
-                        {/* NOTES LABEL + ADD BUTTON - at top */}
-                        <div className="flex items-center gap-4">
-                          <span className="text-sm text-black">Notes :</span>
+                  {/* NOTES LABEL + ADD BUTTON - at top */}
+                  <div className="flex items-center gap-4">
+                    <span className="text-sm text-black">Notes :</span>
 
-                          {!showNoteInput && (
-                            <button
-                              onClick={() => setShowNoteInput(true)}
-                              className="flex items-center gap-2 bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-full text-sm font-medium transition"
-                            >
-                              <Plus className="w-5 h-5" />
-                              Add Note
-                            </button>
-                          )}
-                        </div>
+                    {!showNoteInput && (
+                      <button
+                        onClick={() => setShowNoteInput(true)}
+                        className="flex items-center gap-2 bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-full text-sm font-medium transition"
+                      >
+                        <Plus className="w-5 h-5" />
+                        Add Note
+                      </button>
+                    )}
+                  </div>
 
-                        {/* NOTES LIST */}
-                        {notes.length > 0 && (
-                          <div className="space-y-3 mt-3">
-                            {notes
-                              .slice()
-                              .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-                              .map((note) => (
-                                <div
-                                  key={note.id}
-                                  className="bg-gray-50 border border-gray-200 rounded-lg p-3 text-sm"
+                  {/* NOTES LIST */}
+                  {notes.length > 0 && (
+                    <div className="space-y-3 mt-3">
+                      {notes
+                        .slice()
+                        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+                        .map((note) => (
+                          <div
+                            key={note.id}
+                            className="bg-gray-50 border border-gray-200 rounded-lg p-3 text-sm"
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <p className="text-gray-800 whitespace-pre-wrap flex-1">{note.content}</p>
+                              <div className="flex items-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setEditingNoteId(note.id);
+                                    setNoteText(note.content || '');
+                                    setShowNoteInput(true);
+                                  }}
+                                  className="text-gray-500 hover:text-gray-800"
+                                  title="Edit"
                                 >
-                                  <div className="flex items-start justify-between gap-3">
-                                    <p className="text-gray-800 whitespace-pre-wrap flex-1">{note.content}</p>
-                                    <div className="flex items-center gap-2">
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          setEditingNoteId(note.id);
-                                          setNoteText(note.content || '');
-                                          setShowNoteInput(true);
-                                        }}
-                                        className="text-gray-500 hover:text-gray-800"
-                                        title="Edit"
-                                      >
-                                        <Pencil className="h-4 w-4" />
-                                      </button>
-                                      <button
-                                        type="button"
-                                        onClick={() => handleDeleteFollowup(note.id)}
-                                        className="text-red-500 hover:text-red-700"
-                                        title="Delete"
-                                      >
-                                        <Trash2 className="h-4 w-4" />
-                                      </button>
-                                    </div>
-                                  </div>
-                                  <p className="text-gray-500 text-xs mt-2">
-                                    {note.created_by} • {note.created_at ? new Date(note.created_at).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''}
-                                  </p>
-                                </div>
-                              ))}
-                          </div>
-                        )}
-
-                        {/* NOTE INPUT */}
-                        {showNoteInput && (
-                          <div className="w-full max-w-[420px] bottom-0 z-10 absolute">
-                            <textarea
-                              value={noteText}
-                              onChange={(e) => setNoteText(e.target.value)}
-                              placeholder="Type Note Here"
-                              rows={3}
-                              className="w-full border border-gray-300 rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            />
-
-                            <div className="flex justify-end gap-3 mt-3">
-                              <button
-                                onClick={() => {
-                                  setShowNoteInput(false);
-                                  setNoteText('');
-                                  setEditingNoteId(null);
-                                }}
-                                className="text-gray-600 hover:text-gray-800 text-sm"
-                              >
-                                Cancel
-                              </button>
-
-                              <button
-                                onClick={handleAddNote}
-                                disabled={addingNote}
-                                className="bg-blue-500 hover:bg-blue-600 text-white px-5 py-1.5 rounded-full text-sm font-medium disabled:opacity-50"
-                              >
-                                {addingNote ? 'Saving...' : (editingNoteId ? 'Update Note' : 'Add Note')}
-                              </button>
+                                  <Pencil className="h-4 w-4" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteFollowup(note.id)}
+                                  className="text-red-500 hover:text-red-700"
+                                  title="Delete"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </button>
+                              </div>
                             </div>
+                            <p className="text-gray-500 text-xs mt-2">
+                              {note.created_by} • {note.created_at ? new Date(note.created_at).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''}
+                            </p>
                           </div>
-                        )}
-                      </div>
+                        ))}
+                    </div>
+                  )}
 
-                      {/* RIGHT SIDE */}
-                      <div className="text-right space-y-8">
-                        {/* NOTES STATUS */}
-                        <div className="text-sm text-gray-400 font-light">
-                          {notes.length === 0 ? 'No Notes Yet..' : `${notes.length} Notes`}
-                        </div>
+                  {/* NOTE INPUT */}
+                  {showNoteInput && (
+                    <div className="w-full max-w-[420px] bottom-0 z-10 absolute">
+                      <textarea
+                        value={noteText}
+                        onChange={(e) => setNoteText(e.target.value)}
+                        placeholder="Type Note Here"
+                        rows={3}
+                        className="w-full border border-gray-300 rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+
+                      <div className="flex justify-end gap-3 mt-3">
+                        <button
+                          onClick={() => {
+                            setShowNoteInput(false);
+                            setNoteText('');
+                            setEditingNoteId(null);
+                          }}
+                          className="text-gray-600 hover:text-gray-800 text-sm"
+                        >
+                          Cancel
+                        </button>
+
+                        <button
+                          onClick={handleAddNote}
+                          disabled={addingNote}
+                          className="bg-blue-500 hover:bg-blue-600 text-white px-5 py-1.5 rounded-full text-sm font-medium disabled:opacity-50"
+                        >
+                          {addingNote ? 'Saving...' : (editingNoteId ? 'Update Note' : 'Add Note')}
+                        </button>
                       </div>
                     </div>
+                  )}
                 </div>
+
+                {/* RIGHT SIDE */}
+                <div className="text-right space-y-8">
+                  {/* NOTES STATUS */}
+                  <div className="text-sm text-gray-400 font-light">
+                    {notes.length === 0 ? 'No Notes Yet..' : `${notes.length} Notes`}
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
 
           {/* Right Column */}
@@ -4142,11 +4330,11 @@ ${emailContent}
                     { key: 'invoice', label: 'Invoice' },
                     { key: 'billing', label: 'Billing' },
                     { key: 'history', label: 'History' }
-                  ].map(({ key, label },index) => (
+                  ].map(({ key, label }, index) => (
                     <button
                       key={key}
                       onClick={() => setActiveTab(key)}
-                      className={`px-4  py-3 ${index==0  ?  "border-l rounded-l-full " : index == 10 ? " border-r rounded-r-full":null}  border-l-0 border   text-sm font-medium whitespace-nowrap ${activeTab === key
+                      className={`px-4  py-3 ${index == 0 ? "border-l rounded-l-full " : index == 10 ? " border-r rounded-r-full" : null}  border-l-0 border   text-sm font-medium whitespace-nowrap ${activeTab === key
                         ? 'bg-[#333] text-white'
                         : 'text-gray-600 bg-white hover:text-gray-900'
                         }`}
@@ -4190,9 +4378,9 @@ ${emailContent}
                       );
                     })()}
 
-                   
 
-                   {/* Proposals List – single card with all options inside */}
+
+                    {/* Proposals List – single card with all options inside */}
                     {visibleProposals.length === 0 ? (
                       <div className="text-center w-full py-12 text-gray-500 bg-gray-50 rounded-lg border border-gray-200">
                         <p className="mb-2">No proposals added yet</p>
@@ -4216,7 +4404,7 @@ ${emailContent}
                                 } else if (proposals[0]?.itinerary_id) {
                                   navigate(`/itineraries/${proposals[0].itinerary_id}?fromLead=${id}`, { state: { fromLeadId: id } });
                                 } else {
-                                  alert('Itinerary ID not found for this proposal.');
+                                  showToastNotification('error', 'Error', 'Itinerary ID not found for this proposal.');
                                 }
                               }}
                             >
@@ -4319,6 +4507,29 @@ ${emailContent}
                                       {/* Card body */}
                                       <div className="p-4">
                                         <div className="mb-4">
+                                          {/* Breakdown: Base + Tax - Discount */}
+                                          {opt.pricing && (opt.pricing.totalGross > 0 || opt.pricing.totalTax > 0) && (
+                                            <div className="mb-2 space-y-1 bg-gray-50 p-2 rounded text-xs">
+                                              {opt.pricing.totalGross > 0 && (
+                                                <div className="flex justify-between text-gray-600">
+                                                  <span>Base Price:</span>
+                                                  <span>₹{Math.round(opt.pricing.totalGross).toLocaleString('en-IN')}</span>
+                                                </div>
+                                              )}
+                                              {(opt.pricing.totalTax > 0) && (
+                                                <div className="flex justify-between text-gray-600">
+                                                  <span>Taxes (GST/TCS):</span>
+                                                  <span>+ ₹{Math.round(opt.pricing.totalTax).toLocaleString('en-IN')}</span>
+                                                </div>
+                                              )}
+                                              {(opt.pricing.discountAmount > 0) && (
+                                                <div className="flex justify-between text-green-600 font-medium">
+                                                  <span>Discount ({opt.pricing.discount}%):</span>
+                                                  <span>- ₹{Math.round(opt.pricing.discountAmount).toLocaleString('en-IN')}</span>
+                                                </div>
+                                              )}
+                                            </div>
+                                          )}
                                           <p className="text-xs text-gray-500 uppercase tracking-wide font-medium mb-0.5">Total Price</p>
                                           <p className="text-2xl font-bold text-gray-900">₹{Number(displayPrice).toLocaleString('en-IN')}</p>
                                         </div>
@@ -4398,1074 +4609,1140 @@ ${emailContent}
                       </button>
                     </div>
                   </div>
-                ):
-                activeTab === 'mails' ? (
-                  <div className="space-y-4">
-                    {/* Header with Compose, Sync Inbox, and Customer Email */}
-                    <div className="flex flex-wrap items-center gap-4 mb-6">
-                      <button
-                        onClick={openComposeModal}
-                        className="bg-blue-600 text-white px-5 py-2.5 rounded-lg hover:bg-blue-700 flex items-center gap-2 font-medium shadow-md"
-                      >
-                        <Mail className="h-5 w-5" />
-                        Compose
-                      </button>
-                      {user?.google_token && (
+                ) :
+                  activeTab === 'mails' ? (
+                    <div className="space-y-4">
+                      {/* Header with Compose, Sync Inbox, and Customer Email */}
+                      <div className="flex flex-wrap items-center gap-4 mb-6">
                         <button
-                          type="button"
-                          onClick={handleSyncInbox}
-                          disabled={syncingInbox}
-                          className="bg-gray-100 text-gray-700 px-4 py-2.5 rounded-lg hover:bg-gray-200 flex items-center gap-2 font-medium border border-gray-300 disabled:opacity-60"
+                          onClick={openComposeModal}
+                          className="bg-blue-600 text-white px-5 py-2.5 rounded-lg hover:bg-blue-700 flex items-center gap-2 font-medium shadow-md"
                         >
-                          {syncingInbox ? (
-                            <span className="animate-spin rounded-full h-4 w-4 border-2 border-gray-500 border-t-transparent" />
-                          ) : (
-                            <RefreshCw className="h-4 w-4" />
-                          )}
-                          {syncingInbox ? 'Syncing...' : 'Sync inbox'}
+                          <Mail className="h-5 w-5" />
+                          Compose
                         </button>
+                        {user?.google_token && (
+                          <button
+                            type="button"
+                            onClick={handleSyncInbox}
+                            disabled={syncingInbox}
+                            className="bg-gray-100 text-gray-700 px-4 py-2.5 rounded-lg hover:bg-gray-200 flex items-center gap-2 font-medium border border-gray-300 disabled:opacity-60"
+                          >
+                            {syncingInbox ? (
+                              <span className="animate-spin rounded-full h-4 w-4 border-2 border-gray-500 border-t-transparent" />
+                            ) : (
+                              <RefreshCw className="h-4 w-4" />
+                            )}
+                            {syncingInbox ? 'Syncing...' : 'Sync inbox'}
+                          </button>
+                        )}
+                        {lead?.email && (
+                          <div className="flex items-center gap-2 px-4 py-2.5 bg-gray-100 rounded-lg border border-gray-200">
+                            <span className="text-gray-500 text-sm">ℹ</span>
+                            <span className="text-gray-700 font-medium">{lead.email}</span>
+                          </div>
+                        )}
+                      </div>
+                      {user?.google_token && (
+                        <p className="text-sm text-gray-600 mb-2">
+                          Received and reply emails appear in &quot;Gmail Conversations&quot; when you connect Gmail in Settings and use &quot;Sync inbox&quot; (or they sync automatically every 5 minutes).
+                        </p>
                       )}
-                      {lead?.email && (
-                        <div className="flex items-center gap-2 px-4 py-2.5 bg-gray-100 rounded-lg border border-gray-200">
-                          <span className="text-gray-500 text-sm">ℹ</span>
-                          <span className="text-gray-700 font-medium">{lead.email}</span>
+
+                      {/* Emails List */}
+                      {loadingEmails || loadingGmail ? (
+                        <div className="flex items-center justify-center py-12">
+                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                        </div>
+                      ) : (leadEmails.length === 0 && gmailEmails.length === 0) ? (
+                        <div className="text-center py-12 text-gray-500 bg-gray-50 rounded-lg border border-gray-200">
+                          <Mail className="h-12 w-12 mx-auto text-gray-300 mb-3" />
+                          <p>No mails yet</p>
+                          <p className="text-sm mt-1">Click "Compose" to send your first email to the client</p>
+                        </div>
+                      ) : (
+                        <div className="space-y-6">
+                          {/* Gmail Conversations Section */}
+                          {gmailEmails.length > 0 && (
+                            <div className="space-y-4">
+                              <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-2">
+                                <div className="h-2 w-2 rounded-full bg-red-500"></div>
+                                Gmail Conversations
+                              </h3>
+                              <div className="space-y-3">
+                                {/* Group by thread_id, sort latest first */}
+                                {Object.values(gmailEmails.reduce((acc, email) => {
+                                  const tid = email.thread_id || `single-${email.id}`;
+                                  if (!acc[tid]) acc[tid] = [];
+                                  acc[tid].push(email);
+                                  return acc;
+                                }, {}))
+                                  .map(t => t.sort((a, b) => new Date(b.created_at) - new Date(a.created_at)))
+                                  .sort((a, b) => new Date((b[0]?.created_at) || 0) - new Date((a[0]?.created_at) || 0))
+                                  .map((thread, threadIdx) => {
+                                    const sorted = [...thread].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+                                    const latestEmail = thread[0];
+                                    const hasUnread = thread.some(e => e.direction === 'inbound' && !e.is_read);
+
+                                    return (
+                                      <div key={latestEmail.thread_id || latestEmail.id} className={`bg-white border rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow ${hasUnread ? 'border-blue-300 ring-1 ring-blue-100' : 'border-gray-200'}`}>
+                                        <div className="p-4 bg-gray-50 border-b border-gray-200 flex justify-between items-center">
+                                          <div className="flex items-center gap-3">
+                                            <div className="bg-red-100 p-2 rounded-lg">
+                                              <Mail className="h-4 w-4 text-red-600" />
+                                            </div>
+                                            <div>
+                                              <p className={`${hasUnread ? 'font-bold text-gray-900' : 'font-semibold text-gray-800'}`}>{latestEmail.subject}</p>
+                                              <p className="text-xs text-gray-500">
+                                                {thread.length} message{thread.length > 1 ? 's' : ''} • Last message {new Date(latestEmail.created_at).toLocaleString()}
+                                                {hasUnread && <span className="ml-2 px-1.5 py-0.5 rounded bg-blue-200 text-blue-800">Unread</span>}
+                                              </p>
+                                            </div>
+                                          </div>
+                                          <button
+                                            type="button"
+                                            onClick={() => openReplyModal(thread)}
+                                            className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+                                          >
+                                            <Reply className="h-4 w-4" />
+                                            Reply
+                                          </button>
+                                        </div>
+                                        <div className="divide-y divide-gray-100 max-h-80 overflow-y-auto">
+                                          {sorted.map((email) => (
+                                            <div key={email.id} className={`p-4 ${email.direction === 'inbound' ? 'bg-white' : 'bg-blue-50/50'}`}>
+                                              <div className="flex justify-between items-start mb-2 flex-wrap gap-1">
+                                                <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${email.direction === 'inbound' ? 'bg-gray-100 text-gray-600' : 'bg-blue-100 text-blue-600'}`}>
+                                                  {email.direction === 'inbound' ? 'Received' : 'Sent'}
+                                                </span>
+                                                <span className="flex items-center gap-2">
+                                                  {email.direction === 'outbound' && email.opened_at && (
+                                                    <span className="text-xs px-2 py-0.5 rounded bg-green-100 text-green-700" title={`Opened ${new Date(email.opened_at).toLocaleString()}`}>
+                                                      Opened
+                                                    </span>
+                                                  )}
+                                                  <span className="text-xs text-gray-400">
+                                                    {new Date(email.created_at).toLocaleString()}
+                                                  </span>
+                                                </span>
+                                              </div>
+                                              <div
+                                                className="text-sm text-gray-800 prose prose-sm max-w-none break-words"
+                                                dangerouslySetInnerHTML={{
+                                                  __html: (() => {
+                                                    const raw = email.body || '—';
+                                                    const isHtml = /<[a-z][\s\S]*>/i.test(raw);
+                                                    const processed = isHtml ? rewriteHtmlImageUrls(sanitizeEmailHtmlForDisplay(raw)) : raw.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br/>');
+                                                    return processed;
+                                                  })()
+                                                }}
+                                              />
+                                            </div>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* System Emails Section */}
+                          {leadEmails.length > 0 && (
+                            <div className="space-y-4 pt-4 border-t border-gray-200">
+                              <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-2">
+                                <FileText className="h-4 w-4" />
+                                System Logged Emails
+                              </h3>
+                              <div className="space-y-3">
+                                {leadEmails.map((email) => (
+                                  <div
+                                    key={email.id}
+                                    className="flex items-start gap-4 p-4 bg-white border border-gray-200 rounded-lg hover:shadow-md transition-shadow"
+                                  >
+                                    <div className="flex-shrink-0 w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
+                                      <Send className="h-4 w-4 text-blue-600" />
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                      <div className="flex items-center gap-2 mb-1">
+                                        <span className="font-medium text-gray-800 truncate">{email.to_email}</span>
+                                        {email.status === 'failed' && (
+                                          <span className="px-2 py-0.5 bg-red-100 text-red-700 text-xs rounded">Failed</span>
+                                        )}
+                                      </div>
+                                      <p className="text-blue-600 font-medium truncate">{email.subject}</p>
+                                      <div className="text-sm text-gray-500 truncate mt-1" dangerouslySetInnerHTML={{ __html: rewriteHtmlImageUrls(sanitizeEmailHtmlForDisplay(email.body || '')) }}></div>
+                                    </div>
+                                    <div className="flex-shrink-0 text-right">
+                                      <p className="text-sm text-gray-500">
+                                        {new Date(email.created_at).toLocaleDateString('en-IN')}
+                                      </p>
+                                      <p className="text-xs text-gray-400 mt-1">
+                                        by {email.user?.name || 'System'}
+                                      </p>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
-                    {user?.google_token && (
-                      <p className="text-sm text-gray-600 mb-2">
-                        Received and reply emails appear in &quot;Gmail Conversations&quot; when you connect Gmail in Settings and use &quot;Sync inbox&quot; (or they sync automatically every 5 minutes).
-                      </p>
-                    )}
-
-                    {/* Emails List */}
-                    {loadingEmails || loadingGmail ? (
-                      <div className="flex items-center justify-center py-12">
-                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                  )
+                    : activeTab === 'whatsapp' ? (
+                      <div className="flex flex-col h-full">
+                        <div className="flex items-center justify-between mb-4">
+                          <p className="text-sm text-gray-600">Send and receive WhatsApp messages for this lead. Connect WhatsApp in Settings if messages do not send.</p>
+                          <button
+                            type="button"
+                            onClick={fetchWhatsAppMessages}
+                            className="flex items-center gap-2 px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 text-sm"
+                          >
+                            <RefreshCw className="h-4 w-4" />
+                            Refresh
+                          </button>
+                        </div>
+                        <div className="flex-1 overflow-y-auto bg-gray-50 rounded-lg border border-gray-200 p-4 min-h-[280px] max-h-[400px] space-y-3">
+                          {whatsappMessages.length === 0 ? (
+                            <div className="text-center py-12 text-gray-500">
+                              No WhatsApp messages yet. Type below and click Send.
+                            </div>
+                          ) : (
+                            whatsappMessages.map((msg, idx) => (
+                              <div
+                                key={msg.id || idx}
+                                className={`flex ${msg.direction === 'inbound' ? 'justify-start' : 'justify-end'}`}
+                              >
+                                <div
+                                  className={`max-w-[80%] rounded-lg px-4 py-2 ${msg.direction === 'inbound'
+                                    ? 'bg-white border border-gray-200 text-gray-800'
+                                    : 'bg-green-600 text-white'
+                                    }`}
+                                >
+                                  {msg.media_url && (
+                                    <div className="mb-2">
+                                      {msg.media_type === 'image' ? (
+                                        <img src={msg.media_url} alt="Shared" className="rounded max-w-full max-h-48" />
+                                      ) : (
+                                        <a href={msg.media_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-sm underline">
+                                          <FileText className="h-4 w-4" />
+                                          {msg.media_type || 'Document'}
+                                        </a>
+                                      )}
+                                    </div>
+                                  )}
+                                  {(msg.message || msg.body || msg.text) && (
+                                    <div className="text-sm whitespace-pre-wrap">{msg.message || msg.body || msg.text}</div>
+                                  )}
+                                  <div className={`text-xs mt-1 ${msg.direction === 'inbound' ? 'text-gray-500' : 'text-green-100'}`}>
+                                    {new Date(msg.created_at || msg.sent_at).toLocaleString()}
+                                    {msg.direction === 'inbound' && ' · Received'}
+                                  </div>
+                                </div>
+                              </div>
+                            ))
+                          )}
+                        </div>
+                        <div className="mt-4 p-4 bg-white rounded-lg border border-gray-200">
+                          <div className="flex gap-2 items-end">
+                            <input
+                              type="file"
+                              id="whatsapp-file"
+                              className="hidden"
+                              accept="image/*,.pdf,.doc,.docx"
+                              onChange={(e) => setWhatsappAttachment(e.target.files?.[0] || null)}
+                            />
+                            <label
+                              htmlFor="whatsapp-file"
+                              className="p-2 border border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50"
+                              title="Attach file"
+                            >
+                              <Paperclip className="h-5 w-5 text-gray-600" />
+                            </label>
+                            <textarea
+                              value={whatsappInput}
+                              onChange={(e) => setWhatsappInput(e.target.value)}
+                              onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), handleSendWhatsAppFromTab())}
+                              placeholder="Type a message..."
+                              className="flex-1 px-3 py-2 border border-gray-300 rounded-lg resize-none min-h-[40px] max-h-[120px]"
+                              rows={2}
+                              disabled={sendingWhatsapp || !lead?.phone}
+                            />
+                            <button
+                              type="button"
+                              onClick={handleSendWhatsAppFromTab}
+                              disabled={sendingWhatsapp || (!whatsappInput.trim() && !whatsappAttachment) || !lead?.phone}
+                              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                            >
+                              {sendingWhatsapp ? (
+                                <>Sending...</>
+                              ) : (
+                                <>
+                                  <Send className="h-4 w-4" />
+                                  Send
+                                </>
+                              )}
+                            </button>
+                          </div>
+                          {whatsappAttachment && (
+                            <p className="text-xs text-gray-500 mt-2">
+                              File: {whatsappAttachment.name}
+                              <button type="button" onClick={() => setWhatsappAttachment(null)} className="ml-2 text-red-600 hover:underline">Remove</button>
+                            </p>
+                          )}
+                        </div>
                       </div>
-                    ) : (leadEmails.length === 0 && gmailEmails.length === 0) ? (
-                      <div className="text-center py-12 text-gray-500 bg-gray-50 rounded-lg border border-gray-200">
-                        <Mail className="h-12 w-12 mx-auto text-gray-300 mb-3" />
-                        <p>No mails yet</p>
-                        <p className="text-sm mt-1">Click "Compose" to send your first email to the client</p>
-                      </div>
-                    ) : (
-                      <div className="space-y-6">
-                        {/* Gmail Conversations Section */}
-                        {gmailEmails.length > 0 && (
-                          <div className="space-y-4">
-                            <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-2">
-                              <div className="h-2 w-2 rounded-full bg-red-500"></div>
-                              Gmail Conversations
-                            </h3>
-                            <div className="space-y-3">
-                              {/* Group by thread_id, sort latest first */}
-                              {Object.values(gmailEmails.reduce((acc, email) => {
-                                const tid = email.thread_id || `single-${email.id}`;
-                                if (!acc[tid]) acc[tid] = [];
-                                acc[tid].push(email);
-                                return acc;
-                              }, {}))
-                                .map(t => t.sort((a, b) => new Date(b.created_at) - new Date(a.created_at)))
-                                .sort((a, b) => new Date((b[0]?.created_at) || 0) - new Date((a[0]?.created_at) || 0))
-                                .map((thread, threadIdx) => {
-                                const sorted = [...thread].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
-                                const latestEmail = thread[0];
-                                const hasUnread = thread.some(e => e.direction === 'inbound' && !e.is_read);
+                    )
+                      : activeTab === 'followups' ? (
+                        <div>
+                          {/* Header with Add Button */}
+                          <div className="flex justify-between items-center mb-4">
+                            <h3 className="text-lg font-semibold text-gray-800">Followup's / Task</h3>
+                            <button
+                              onClick={() => {
+                                setEditingFollowupId(null);
+                                const today = new Date();
+                                const dd = String(today.getDate()).padStart(2, '0');
+                                const mm = String(today.getMonth() + 1).padStart(2, '0');
+                                const yyyy = today.getFullYear();
+                                const formattedDate = `${dd}-${mm}-${yyyy}`;
 
-                                return (
-                                  <div key={latestEmail.thread_id || latestEmail.id} className={`bg-white border rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow ${hasUnread ? 'border-blue-300 ring-1 ring-blue-100' : 'border-gray-200'}`}>
-                                    <div className="p-4 bg-gray-50 border-b border-gray-200 flex justify-between items-center">
-                                      <div className="flex items-center gap-3">
-                                        <div className="bg-red-100 p-2 rounded-lg">
-                                          <Mail className="h-4 w-4 text-red-600" />
+                                setFollowupFormData({
+                                  type: 'Task',
+                                  description: '',
+                                  reminder_date: formattedDate,
+                                  reminder_time: '1:00 PM',
+                                  set_reminder: 'Yes'
+                                });
+                                setShowFollowupModal(true);
+                              }}
+                              className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                            >
+                              <Plus className="h-4 w-4" />
+                              + Add Task
+                            </button>
+                          </div>
+
+                          {/* Followups List */}
+                          {followups.length === 0 ? (
+                            <div className="text-center py-12 text-gray-500">
+                              No Task
+                            </div>
+                          ) : (
+                            <div className="space-y-4">
+                              {followups
+                                .sort((a, b) => {
+                                  // Sort by reminder_date and reminder_time
+                                  const dateA = new Date(`${a.reminder_date} ${a.reminder_time || '00:00:00'}`);
+                                  const dateB = new Date(`${b.reminder_date} ${b.reminder_time || '00:00:00'}`);
+                                  return dateA - dateB;
+                                })
+                                .map((followup) => {
+                                  const reminderDate = new Date(`${followup.reminder_date} ${followup.reminder_time || '00:00:00'}`);
+                                  const isOverdue = reminderDate < new Date() && !followup.is_completed;
+                                  const isToday = reminderDate.toDateString() === new Date().toDateString() && !followup.is_completed;
+
+                                  return (
+                                    <div
+                                      key={followup.id}
+                                      className={`border rounded-lg p-4 ${followup.is_completed
+                                        ? 'bg-gray-50 border-gray-200'
+                                        : isOverdue
+                                          ? 'bg-red-50 border-red-200'
+                                          : isToday
+                                            ? 'bg-yellow-50 border-yellow-200'
+                                            : 'bg-white border-gray-200'
+                                        }`}
+                                    >
+                                      <div className="flex items-start justify-between">
+                                        <div className="flex-1">
+                                          <div className="flex items-center gap-3 mb-2">
+                                            <Calendar className={`h-5 w-5 ${followup.is_completed
+                                              ? 'text-gray-400'
+                                              : isOverdue
+                                                ? 'text-red-500'
+                                                : isToday
+                                                  ? 'text-yellow-600'
+                                                  : 'text-blue-500'
+                                              }`} />
+                                            <div>
+                                              <div className="flex items-center gap-2">
+                                                <span className="font-semibold text-gray-800">
+                                                  {new Date(followup.reminder_date).toLocaleDateString('en-IN', {
+                                                    day: '2-digit',
+                                                    month: 'short',
+                                                    year: 'numeric'
+                                                  })}
+                                                </span>
+                                                {followup.reminder_time && (
+                                                  <>
+                                                    <span className="text-gray-400">•</span>
+                                                    <div className="flex items-center gap-1 text-gray-600">
+                                                      <Clock className="h-4 w-4" />
+                                                      <span>
+                                                        {convertTo12Hour(followup.reminder_time)}
+                                                      </span>
+                                                    </div>
+                                                  </>
+                                                )}
+                                              </div>
+                                              {(followup.remark || followup.description) && (
+                                                <p className="text-gray-700 mt-2">{followup.remark || followup.description}</p>
+                                              )}
+                                              <div className="mt-2 flex items-center gap-2 text-sm text-gray-500">
+                                                <span>Created by: {followup.user?.name || 'Unknown'}</span>
+                                                <span>•</span>
+                                                <span>
+                                                  {new Date(followup.created_at).toLocaleDateString('en-IN', {
+                                                    day: '2-digit',
+                                                    month: 'short',
+                                                    year: 'numeric',
+                                                    hour: '2-digit',
+                                                    minute: '2-digit'
+                                                  })}
+                                                </span>
+                                              </div>
+                                            </div>
+                                          </div>
                                         </div>
-                                        <div>
-                                          <p className={`${hasUnread ? 'font-bold text-gray-900' : 'font-semibold text-gray-800'}`}>{latestEmail.subject}</p>
-                                          <p className="text-xs text-gray-500">
-                                            {thread.length} message{thread.length > 1 ? 's' : ''} • Last message {new Date(latestEmail.created_at).toLocaleString()}
-                                            {hasUnread && <span className="ml-2 px-1.5 py-0.5 rounded bg-blue-200 text-blue-800">Unread</span>}
+                                        <div className="flex items-center gap-2 ml-4">
+                                          {isOverdue && !followup.is_completed && (
+                                            <span className="px-2 py-1 bg-red-100 text-red-700 text-xs font-semibold rounded">
+                                              Overdue
+                                            </span>
+                                          )}
+                                          {isToday && !followup.is_completed && (
+                                            <span className="px-2 py-1 bg-yellow-100 text-yellow-700 text-xs font-semibold rounded">
+                                              Today
+                                            </span>
+                                          )}
+                                          {!followup.is_completed && (
+                                            <>
+                                              <button
+                                                type="button"
+                                                onClick={() => {
+                                                  // Backend may return ISO date with time; normalize to YYYY-MM-DD first
+                                                  const rawDate = followup.reminder_date ? String(followup.reminder_date).slice(0, 10) : '';
+                                                  const parts = rawDate.split('-'); // YYYY-MM-DD
+                                                  const ddmmyyyy = parts.length === 3 ? `${parts[2]}-${parts[1]}-${parts[0]}` : '';
+                                                  setEditingFollowupId(followup.id);
+                                                  setFollowupFormData({
+                                                    type: 'Task',
+                                                    description: followup.remark || '',
+                                                    reminder_date: ddmmyyyy,
+                                                    reminder_time: followup.reminder_time ? convertTo12Hour(followup.reminder_time) : '1:00 PM',
+                                                    set_reminder: 'Yes',
+                                                  });
+                                                  setShowFollowupModal(true);
+                                                }}
+                                                className="px-2 py-1 bg-gray-100 text-gray-700 text-xs font-semibold rounded hover:bg-gray-200"
+                                                title="Edit"
+                                              >
+                                                <Pencil className="h-3.5 w-3.5" />
+                                              </button>
+                                              <button
+                                                type="button"
+                                                onClick={() => handleDeleteFollowup(followup.id)}
+                                                className="px-2 py-1 bg-red-100 text-red-700 text-xs font-semibold rounded hover:bg-red-200"
+                                                title="Delete"
+                                              >
+                                                <Trash2 className="h-3.5 w-3.5" />
+                                              </button>
+                                            </>
+                                          )}
+                                          {followup.is_completed ? (
+                                            <span className="px-2 py-1 bg-green-100 text-green-700 text-xs font-semibold rounded flex items-center gap-1">
+                                              <CheckCircle className="h-3 w-3" />
+                                              Completed
+                                            </span>
+                                          ) : (
+                                            <button
+                                              onClick={async () => {
+                                                try {
+                                                  await followupsAPI.complete(followup.id);
+                                                  await fetchLeadDetails();
+                                                } catch (err) {
+                                                  console.error('Failed to complete followup:', err);
+                                                  showToastNotification('error', 'Error', err.response?.data?.message || 'Failed to mark as completed');
+                                                }
+                                              }}
+                                              className="px-3 py-1 bg-green-600 text-white text-xs font-semibold rounded hover:bg-green-700 transition-colors"
+                                            >
+                                              Mark Complete
+                                            </button>
+                                          )}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                            </div>
+                          )}
+                        </div>
+                      )
+                        : activeTab === 'suppComm' ? (
+                          <div className="grid grid-cols-3 gap-6">
+                            {/* Left Panel - Email Form */}
+                            <div className="col-span-2">
+                              <h3 className="text-lg font-semibold text-gray-800 mb-4">Supplier Communication</h3>
+
+                              {/* Subject */}
+                              <div className="mb-4">
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                  Subject
+                                </label>
+                                <input
+                                  type="text"
+                                  value={supplierEmailForm.subject}
+                                  onChange={(e) => setSupplierEmailForm({ ...supplierEmailForm, subject: e.target.value })}
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                  placeholder="Enter subject"
+                                />
+                              </div>
+
+                              {/* CC Email */}
+                              <div className="mb-4">
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                  CC Email
+                                </label>
+                                <input
+                                  type="email"
+                                  value={supplierEmailForm.cc_email}
+                                  onChange={(e) => setSupplierEmailForm({ ...supplierEmailForm, cc_email: e.target.value })}
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                  placeholder="Enter CC email (optional)"
+                                />
+                              </div>
+
+                              {/* Email Body */}
+                              <div className="mb-4">
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                  Email Body
+                                </label>
+                                <textarea
+                                  value={supplierEmailForm.body}
+                                  onChange={(e) => setSupplierEmailForm({ ...supplierEmailForm, body: e.target.value })}
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                  rows="12"
+                                  placeholder="Enter email body..."
+                                />
+                              </div>
+
+                              {/* Enquiry Details Table */}
+                              {lead && (
+                                <div className="mb-4 border border-gray-200 rounded-lg p-4 bg-gray-50">
+                                  <h4 className="font-semibold text-gray-800 mb-3">Enquiry Detail</h4>
+                                  <table className="w-full text-sm">
+                                    <tbody>
+                                      <tr className="border-b border-gray-200">
+                                        <td className="py-2 font-medium text-gray-700">Customer Name</td>
+                                        <td className="py-2 text-gray-600">
+                                          {lead.client_title || 'Mr.'} {lead.client_name}
+                                        </td>
+                                        <td className="py-2 font-medium text-gray-700">Enquiry ID</td>
+                                        <td className="py-2 text-gray-600">{lead.query_id || lead.id || id}</td>
+                                        <td className="py-2 font-medium text-gray-700">Enquiry For</td>
+                                        <td className="py-2 text-gray-600">
+                                          {getConfirmedOption()?.itinerary_name || 'Full package'}
+                                        </td>
+                                      </tr>
+                                      <tr>
+                                        <td className="py-2 font-medium text-gray-700">Check-In</td>
+                                        <td className="py-2 text-gray-600">
+                                          {lead.travel_start_date ? formatDateForDisplay(lead.travel_start_date) : 'N/A'}
+                                        </td>
+                                        <td className="py-2 font-medium text-gray-700">Check-Out</td>
+                                        <td className="py-2 text-gray-600">
+                                          {lead.travel_end_date ? formatDateForDisplay(lead.travel_end_date) : 'N/A'}
+                                        </td>
+                                        <td className="py-2 font-medium text-gray-700">Nights</td>
+                                        <td className="py-2 text-gray-600">
+                                          {lead.travel_start_date && lead.travel_end_date ?
+                                            Math.ceil(Math.abs(new Date(lead.travel_end_date) - new Date(lead.travel_start_date)) / (1000 * 60 * 60 * 24)) : 'N/A'}
+                                        </td>
+                                      </tr>
+                                    </tbody>
+                                  </table>
+
+                                  {/* Hotel Details */}
+                                  {getConfirmedOption()?.hotels && getConfirmedOption().hotels.length > 0 && (
+                                    <div className="mt-4">
+                                      <h5 className="font-semibold text-gray-800 mb-2">Hotel Requirements:</h5>
+                                      <div className="space-y-2">
+                                        {getConfirmedOption().hotels.map((hotel, index) => (
+                                          <div key={index} className="bg-white p-2 rounded border border-gray-200">
+                                            <div className="text-sm">
+                                              <span className="font-medium">{hotel.hotel_name || 'Hotel'}</span>
+                                              {hotel.room_type && <span> - {hotel.room_type}</span>}
+                                              {hotel.meal_plan && <span> - {hotel.meal_plan}</span>}
+                                              {hotel.price && <span className="text-blue-600 ml-2">₹{hotel.price}</span>}
+                                            </div>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+
+                              {/* Send Button */}
+                              <button
+                                onClick={handleSendSupplierEmail}
+                                disabled={sendingEmail || (
+                                  selectedSuppliers.length === 0 &&
+                                  selectedHotels.length === 0 &&
+                                  (selectedVehicles.length === 0 || !vehiclesFromProposals.some(v => selectedVehicles.includes(v.id) && v.email && v.email.trim()))
+                                )}
+                                className="w-full bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 font-semibold"
+                              >
+                                <Send className="h-5 w-5" />
+                                {sendingEmail ? 'Sending...' : `Send Mail To Selected (${selectedSuppliers.length} Suppliers${selectedHotels.length > 0 ? `, ${selectedHotels.length} Hotels` : ''}${selectedVehicles.length > 0 ? `, ${selectedVehicles.length} Vehicles` : ''})`}
+                              </button>
+                            </div>
+
+                            {/* Right Panel - Supplier Selection */}
+                            <div className="col-span-1 border-l border-gray-200 pl-6">
+                              <div className="mb-4">
+                                <label className="flex items-center gap-2 cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={selectAllSuppliers}
+                                    onChange={(e) => handleSelectAllSuppliers(e.target.checked)}
+                                    className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                  />
+                                  <span className="font-semibold text-gray-800">Select Supplier</span>
+                                </label>
+                              </div>
+
+                              <div className="max-h-[300px] overflow-y-auto space-y-3 mb-6 pb-4 border-b border-gray-200">
+                                {suppliers.length === 0 ? (
+                                  <div className="text-gray-500 text-sm">No suppliers available</div>
+                                ) : (
+                                  suppliers.map((supplier) => (
+                                    <div key={supplier.id} className="flex items-start gap-2">
+                                      <input
+                                        type="checkbox"
+                                        checked={selectedSuppliers.includes(supplier.id)}
+                                        onChange={() => handleSelectSupplier(supplier.id)}
+                                        className="mt-1 w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                      />
+                                      <div className="flex-1">
+                                        <div className="font-medium text-gray-800 text-sm">
+                                          {supplier.company_name || supplier.company}
+                                        </div>
+                                        <div className="text-xs text-gray-600">
+                                          {supplier.title || ''} {supplier.name || `${supplier.first_name || ''} ${supplier.last_name || ''}`.trim()}
+                                        </div>
+                                        <div className="text-xs text-gray-500">
+                                          {supplier.email || 'No email'}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  ))
+                                )}
+                              </div>
+
+                              {/* Hotels (from itinerary) - all proposals */}
+                              {hotelsFromConfirmedOption.length > 0 && (
+                                <>
+                                  <div className="mb-4">
+                                    <label className="flex items-center gap-2 cursor-pointer">
+                                      <input
+                                        type="checkbox"
+                                        checked={selectAllHotels}
+                                        onChange={(e) => handleSelectAllHotels(e.target.checked)}
+                                        className="w-4 h-4 text-green-600 border-gray-300 rounded focus:ring-green-500"
+                                      />
+                                      <span className="font-semibold text-gray-800">Hotels (from itinerary)</span>
+                                    </label>
+                                  </div>
+
+                                  <div className="max-h-[280px] overflow-y-auto space-y-3 mb-6 pb-4 border-b border-gray-200">
+                                    {hotelsFromConfirmedOption.map((hotel) => (
+                                      <div key={hotel.id} className="flex items-start gap-2 bg-green-50 p-2 rounded border border-green-200">
+                                        <input
+                                          type="checkbox"
+                                          checked={selectedHotels.includes(hotel.id)}
+                                          onChange={() => handleSelectHotel(hotel.id)}
+                                          className="mt-1 w-4 h-4 text-green-600 border-gray-300 rounded focus:ring-green-500"
+                                        />
+                                        <div className="flex-1">
+                                          <div className="font-medium text-gray-800 text-sm">
+                                            {hotel.company_name || hotel.hotel_name}
+                                          </div>
+                                          {hotel.room_type && (
+                                            <div className="text-xs text-gray-600">
+                                              Room: {hotel.room_type} {hotel.meal_plan && `| Meal: ${hotel.meal_plan}`}
+                                            </div>
+                                          )}
+                                          {hotel.day && (
+                                            <div className="text-xs text-gray-500">
+                                              Day {hotel.day}
+                                            </div>
+                                          )}
+                                          <div className={`text-xs mt-1 ${hotel.email ? 'text-gray-500' : 'text-orange-600 font-medium'}`}>
+                                            {hotel.email || '⚠ No email - Please add email in hotel master'}
+                                          </div>
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </>
+                              )}
+
+                              {/* Vehicles (from itinerary) - all proposals */}
+                              {vehiclesFromProposals.length > 0 && (
+                                <>
+                                  <div className="mb-4">
+                                    <label className="flex items-center gap-2 cursor-pointer">
+                                      <input
+                                        type="checkbox"
+                                        checked={selectAllVehicles}
+                                        onChange={(e) => handleSelectAllVehicles(e.target.checked)}
+                                        className="w-4 h-4 text-amber-600 border-gray-300 rounded focus:ring-amber-500"
+                                      />
+                                      <span className="font-semibold text-gray-800">Vehicles (from itinerary)</span>
+                                    </label>
+                                  </div>
+
+                                  <div className="max-h-[280px] overflow-y-auto space-y-3">
+                                    {vehiclesFromProposals.map((vehicle) => (
+                                      <div key={vehicle.id} className="flex items-start gap-2 bg-amber-50 p-2 rounded border border-amber-200">
+                                        <input
+                                          type="checkbox"
+                                          checked={selectedVehicles.includes(vehicle.id)}
+                                          onChange={() => handleSelectVehicle(vehicle.id)}
+                                          disabled={!vehicle.email || !vehicle.email.trim()}
+                                          className="mt-1 w-4 h-4 text-amber-600 border-gray-300 rounded focus:ring-amber-500 disabled:opacity-50"
+                                        />
+                                        <div className="flex-1">
+                                          <div className="font-medium text-gray-800 text-sm">
+                                            {vehicle.name}
+                                          </div>
+                                          {vehicle.details && (
+                                            <div className="text-xs text-gray-600">
+                                              {vehicle.details}
+                                            </div>
+                                          )}
+                                          {vehicle.day && (
+                                            <div className="text-xs text-gray-500">
+                                              Day {vehicle.day}
+                                            </div>
+                                          )}
+                                          <div className={`text-xs mt-1 ${vehicle.email ? 'text-gray-500' : 'text-amber-600 font-medium'}`}>
+                                            {vehicle.email || '— No email (add in Transfer master to send)'}
+                                          </div>
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        ) :
+                          activeTab === 'postSales' ? (
+                            <div className="space-y-6">
+                              <div className="bg-white border border-gray-200 rounded-lg p-6">
+                                <h3 className="text-lg font-semibold text-gray-800 mb-4">Post Sales</h3>
+                                <div className="text-center py-8 text-gray-500">
+                                  <p>Post sales management coming soon</p>
+                                  <p className="text-sm mt-2">Track and manage post-sale activities here</p>
+                                </div>
+                              </div>
+                            </div>
+                          ) :
+                            activeTab === 'voucher' ? (
+                              <div className="space-y-6">
+                                <div className="bg-white border border-gray-200 rounded-lg p-6">
+                                  <h3 className="text-lg font-semibold text-gray-800 mb-4">Vouchers</h3>
+                                  {(() => {
+                                    const confirmedOption = getConfirmedOption();
+                                    const itineraryName = confirmedOption?.itinerary_name || quotationData?.itinerary?.itinerary_name || '—';
+
+                                    return (
+                                      <div className="overflow-x-auto">
+                                        <table className="w-full">
+                                          <thead className="bg-gray-50 border-b border-gray-200">
+                                            <tr>
+                                              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Option</th>
+                                              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Itinerary</th>
+                                              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                                              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Created</th>
+                                              <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
+                                            </tr>
+                                          </thead>
+                                          <tbody className="divide-y divide-gray-100">
+                                            <tr className="hover:bg-gray-50 transition-colors">
+                                              <td className="px-4 py-3 text-sm text-gray-900 font-medium">
+                                                Option {confirmedOption?.optionNumber || '1'}
+                                              </td>
+                                              <td className="px-4 py-3 text-sm text-gray-600">
+                                                {itineraryName}
+                                              </td>
+                                              <td className="px-4 py-3">
+                                                <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${confirmedOption ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                                                  {confirmedOption ? 'Confirmed' : 'Draft'}
+                                                </span>
+                                              </td>
+                                              <td className="px-4 py-3 text-sm text-gray-500">
+                                                {lead?.created_at ? new Date(lead.created_at).toLocaleDateString('en-IN') : '—'}
+                                              </td>
+                                              <td className="px-4 py-3 text-right">
+                                                <div className="flex items-center justify-end gap-1">
+                                                  <button
+                                                    type="button"
+                                                    onClick={handleVoucherPreview}
+                                                    disabled={!!voucherActionLoading}
+                                                    title="Preview"
+                                                    className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-full transition-all disabled:opacity-50"
+                                                  >
+                                                    {voucherActionLoading === 'preview' ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Eye className="h-4 w-4" />}
+                                                  </button>
+                                                  <button
+                                                    type="button"
+                                                    onClick={handleVoucherDownload}
+                                                    disabled={!!voucherActionLoading}
+                                                    title="Download PDF"
+                                                    className="p-2 text-blue-600 hover:bg-blue-50 rounded-full transition-all disabled:opacity-50"
+                                                  >
+                                                    {voucherActionLoading === 'download' ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                                                  </button>
+                                                  <button
+                                                    type="button"
+                                                    onClick={handleVoucherSend}
+                                                    disabled={!!voucherActionLoading}
+                                                    title="Send by Email"
+                                                    className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-full transition-all disabled:opacity-50"
+                                                  >
+                                                    {voucherActionLoading === 'send' ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                                                  </button>
+                                                </div>
+                                              </td>
+                                            </tr>
+                                          </tbody>
+                                        </table>
+
+                                        {!confirmedOption && (
+                                          <div className="mt-4 p-3 bg-blue-50 border border-blue-100 rounded-lg">
+                                            <p className="text-xs text-blue-700">
+                                              <strong>Tip:</strong> Go to the <strong>Proposals</strong> tab and <strong>Confirm</strong> an option to finalize this voucher.
+                                            </p>
+                                          </div>
+                                        )}
+                                      </div>
+                                    );
+                                  })()}
+                                </div>
+                              </div>
+                            ) :
+                              activeTab === 'docs' ? (
+                                <div className="space-y-6">
+                                  <div className="bg-white border border-gray-200 rounded-lg p-6">
+                                    <h3 className="text-lg font-semibold text-gray-800 mb-4">Documents</h3>
+                                    <div className="flex justify-end mb-4">
+                                      <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+                                        <Upload className="h-4 w-4" />
+                                        Upload Document
+                                      </button>
+                                    </div>
+                                    <div className="text-center py-8 text-gray-500">
+                                      <p>No documents uploaded</p>
+                                      <p className="text-sm mt-2">Upload passports, tickets, confirmations and other documents here</p>
+                                    </div>
+                                  </div>
+                                </div>
+                              ) :
+                                activeTab === 'invoice' ? (
+                                  <div className="space-y-6">
+                                    <div className="bg-white border border-gray-200 rounded-lg p-6">
+                                      <h3 className="text-lg font-semibold text-gray-800 mb-4">Invoices</h3>
+                                      <p className="text-sm text-gray-500 mb-4">Confirming an option automatically creates an invoice.</p>
+                                      {loadingHistory ? (
+                                        <div className="text-center py-8 text-gray-500">Loading...</div>
+                                      ) : queryDetailInvoices.length === 0 ? (
+                                        <div className="text-center py-8 text-gray-500">
+                                          <p>No invoices yet</p>
+                                          <p className="text-sm mt-2">Confirm an option — invoice will be auto-created based on it</p>
+                                        </div>
+                                      ) : (
+                                        <div className="overflow-x-auto">
+                                          <table className="min-w-full divide-y divide-gray-200">
+                                            <thead>
+                                              <tr>
+                                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Invoice No.</th>
+                                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Option</th>
+                                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Itinerary</th>
+                                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Amount</th>
+                                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Created</th>
+                                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                                              </tr>
+                                            </thead>
+                                            <tbody>
+                                              {queryDetailInvoices.map((inv) => (
+                                                <tr key={inv.id} className="hover:bg-gray-50">
+                                                  <td className="px-4 py-2 text-sm font-medium text-gray-900">{inv.invoice_number}</td>
+                                                  <td className="px-4 py-2 text-sm text-gray-600">Option {inv.option_number}</td>
+                                                  <td className="px-4 py-2 text-sm text-gray-600">{inv.itinerary_name || '—'}</td>
+                                                  <td className="px-4 py-2 text-sm text-gray-900">₹{Number(inv.total_amount).toLocaleString('en-IN')}</td>
+                                                  <td className="px-4 py-2"><span className={`text-xs px-2 py-1 rounded ${inv.status === 'paid' ? 'bg-green-100 text-green-800' : inv.status === 'sent' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-700'}`}>{inv.status}</span></td>
+                                                  <td className="px-4 py-2 text-sm text-gray-500">{inv.created_at ? new Date(inv.created_at).toLocaleDateString('en-IN') : '—'}</td>
+                                                  <td className="px-4 py-2 text-right">
+                                                    <div className="flex items-center justify-end gap-1">
+                                                      <button
+                                                        type="button"
+                                                        onClick={() => handleInvoicePreview(inv.id)}
+                                                        disabled={!!invoiceActionLoading}
+                                                        title="Preview"
+                                                        className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-full transition-all disabled:opacity-50"
+                                                      >
+                                                        {invoiceActionLoading === 'preview' ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Eye className="h-4 w-4" />}
+                                                      </button>
+                                                      <button
+                                                        type="button"
+                                                        onClick={() => handleInvoiceDownload(inv.id)}
+                                                        disabled={!!invoiceActionLoading}
+                                                        title="Download PDF"
+                                                        className="p-2 text-blue-600 hover:bg-blue-50 rounded-full transition-all disabled:opacity-50"
+                                                      >
+                                                        {invoiceActionLoading === 'download' ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                                                      </button>
+                                                      <button
+                                                        type="button"
+                                                        onClick={() => handleInvoiceSend(inv.id)}
+                                                        disabled={!!invoiceActionLoading}
+                                                        title="Send by Email"
+                                                        className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-full transition-all disabled:opacity-50"
+                                                      >
+                                                        {invoiceActionLoading === 'send' ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                                                      </button>
+                                                    </div>
+                                                  </td>
+                                                </tr>
+                                              ))}
+                                            </tbody>
+                                          </table>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                ) :
+                                  activeTab === 'billing' ? (
+                                    <div className="space-y-6">
+                                      {/* Package Details Section */}
+                                      {(() => {
+                                        const confirmedOption = getConfirmedOption();
+                                        const confirmedOptionNum = confirmedOption?.optionNumber;
+                                        const hotels = quotationData?.hotelOptions?.[confirmedOptionNum?.toString()] || [];
+                                        const packagePrice = confirmedOption?.price || hotels.reduce((sum, h) => sum + (parseFloat(h.price) || 0), 0);
+
+                                        return confirmedOption ? (
+                                          <div className="bg-white border border-gray-200 rounded-lg p-6">
+                                            <h3 className="text-lg font-semibold text-gray-800 mb-4">Final Package Details</h3>
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                              <div>
+                                                <p className="text-sm text-gray-600">Option Number</p>
+                                                <p className="text-base font-medium text-gray-900">Option {confirmedOptionNum}</p>
+                                              </div>
+                                              {quotationData?.itinerary && (
+                                                <>
+                                                  <div>
+                                                    <p className="text-sm text-gray-600">Destination</p>
+                                                    <p className="text-base font-medium text-gray-900">{quotationData.itinerary.destinations || 'N/A'}</p>
+                                                  </div>
+                                                  <div>
+                                                    <p className="text-sm text-gray-600">Duration</p>
+                                                    <p className="text-base font-medium text-gray-900">{quotationData.itinerary.duration || 0} Nights</p>
+                                                  </div>
+                                                  {lead?.travel_start_date && (
+                                                    <div>
+                                                      <p className="text-sm text-gray-600">Travel Dates</p>
+                                                      <p className="text-base font-medium text-gray-900">
+                                                        {formatDateForDisplay(lead.travel_start_date)} - {lead.travel_end_date ? formatDateForDisplay(lead.travel_end_date) : 'N/A'}
+                                                      </p>
+                                                    </div>
+                                                  )}
+                                                </>
+                                              )}
+                                              <div>
+                                                <p className="text-sm text-gray-600">Total Package Price</p>
+                                                <p className="text-xl font-bold text-green-600">₹{packagePrice.toLocaleString('en-IN')}</p>
+                                              </div>
+                                            </div>
+                                            {hotels.length > 0 && (
+                                              <div className="mt-4 pt-4 border-t border-gray-200">
+                                                <p className="text-sm font-medium text-gray-700 mb-2">Hotels Included:</p>
+                                                <div className="space-y-2">
+                                                  {hotels.map((hotel, idx) => (
+                                                    <div key={idx} className="bg-gray-50 p-3 rounded">
+                                                      <p className="text-sm font-medium text-gray-900">
+                                                        Day {hotel.day}: {hotel.hotelName || 'Hotel'}
+                                                      </p>
+                                                      <p className="text-xs text-gray-600">
+                                                        {hotel.roomName || 'N/A'} | {hotel.mealPlan || 'N/A'} | ₹{parseFloat(hotel.price || 0).toLocaleString('en-IN')}
+                                                      </p>
+                                                    </div>
+                                                  ))}
+                                                </div>
+                                              </div>
+                                            )}
+                                          </div>
+                                        ) : (
+                                          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                                            <p className="text-sm text-yellow-800">
+                                              ⚠️ No confirmed package found. Please confirm an option in the Proposals tab first.
+                                            </p>
+                                          </div>
+                                        );
+                                      })()}
+
+                                      {/* Payment Summary */}
+                                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                                          <p className="text-sm text-blue-600 font-medium">Total Amount</p>
+                                          <p className="text-2xl font-bold text-blue-700">
+                                            ₹{paymentSummary.total_amount.toLocaleString('en-IN')}
+                                          </p>
+                                        </div>
+                                        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                                          <p className="text-sm text-green-600 font-medium">Paid Amount</p>
+                                          <p className="text-2xl font-bold text-green-700">
+                                            ₹{paymentSummary.total_paid.toLocaleString('en-IN')}
+                                          </p>
+                                        </div>
+                                        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                                          <p className="text-sm text-red-600 font-medium">Due Amount</p>
+                                          <p className="text-2xl font-bold text-red-700">
+                                            ₹{paymentSummary.total_due.toLocaleString('en-IN')}
                                           </p>
                                         </div>
                                       </div>
-                                      <button
-                                        type="button"
-                                        onClick={() => openReplyModal(thread)}
-                                        className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
-                                      >
-                                        <Reply className="h-4 w-4" />
-                                        Reply
-                                      </button>
-                                    </div>
-                                    <div className="divide-y divide-gray-100 max-h-80 overflow-y-auto">
-                                      {sorted.map((email) => (
-                                        <div key={email.id} className={`p-4 ${email.direction === 'inbound' ? 'bg-white' : 'bg-blue-50/50'}`}>
-                                          <div className="flex justify-between items-start mb-2 flex-wrap gap-1">
-                                            <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${email.direction === 'inbound' ? 'bg-gray-100 text-gray-600' : 'bg-blue-100 text-blue-600'}`}>
-                                              {email.direction === 'inbound' ? 'Received' : 'Sent'}
-                                            </span>
-                                            <span className="flex items-center gap-2">
-                                              {email.direction === 'outbound' && email.opened_at && (
-                                                <span className="text-xs px-2 py-0.5 rounded bg-green-100 text-green-700" title={`Opened ${new Date(email.opened_at).toLocaleString()}`}>
-                                                  Opened
-                                                </span>
-                                              )}
-                                              <span className="text-xs text-gray-400">
-                                                {new Date(email.created_at).toLocaleString()}
-                                              </span>
-                                            </span>
+
+                                      {/* Add Payment Button */}
+                                      <div className="flex justify-end">
+                                        <button
+                                          onClick={() => {
+                                            const confirmedOption = getConfirmedOption();
+                                            const confirmedOptionNum = confirmedOption?.optionNumber;
+                                            const hotels = quotationData?.hotelOptions?.[confirmedOptionNum?.toString()] || [];
+                                            const packagePrice = confirmedOption?.price || hotels.reduce((sum, h) => sum + (parseFloat(h.price) || 0), 0);
+
+                                            setPaymentFormData({
+                                              amount: packagePrice > 0 ? packagePrice.toString() : '',
+                                              paid_amount: '',
+                                              due_date: ''
+                                            });
+                                            setShowPaymentModal(true);
+                                          }}
+                                          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                                        >
+                                          <Plus className="h-4 w-4" />
+                                          Add Payment
+                                        </button>
+                                      </div>
+
+                                      {/* Payment History */}
+                                      <div className="bg-white border border-gray-200 rounded-lg">
+                                        <div className="p-4 border-b border-gray-200">
+                                          <h3 className="text-lg font-semibold text-gray-800">Payment History</h3>
+                                        </div>
+                                        {loadingPayments ? (
+                                          <div className="p-8 text-center text-gray-500">Loading payments...</div>
+                                        ) : payments.length === 0 ? (
+                                          <div className="p-8 text-center text-gray-500">No payments recorded yet</div>
+                                        ) : (
+                                          <div className="overflow-x-auto">
+                                            <table className="w-full">
+                                              <thead className="bg-gray-50">
+                                                <tr>
+                                                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Date</th>
+                                                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Total Amount</th>
+                                                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Paid Amount</th>
+                                                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Due Amount</th>
+                                                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Due Date</th>
+                                                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Status</th>
+                                                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Added By</th>
+                                                </tr>
+                                              </thead>
+                                              <tbody className="divide-y divide-gray-200">
+                                                {payments.map((payment) => (
+                                                  <tr key={payment.id} className="hover:bg-gray-50">
+                                                    <td className="px-4 py-3 text-sm text-gray-900">
+                                                      {payment.created_at ? formatDateForDisplay(payment.created_at) : 'N/A'}
+                                                    </td>
+                                                    <td className="px-4 py-3 text-sm font-medium text-gray-900">
+                                                      ₹{parseFloat(payment.amount).toLocaleString('en-IN')}
+                                                    </td>
+                                                    <td className="px-4 py-3 text-sm text-green-600 font-medium">
+                                                      ₹{parseFloat(payment.paid_amount).toLocaleString('en-IN')}
+                                                    </td>
+                                                    <td className="px-4 py-3 text-sm text-red-600 font-medium">
+                                                      ₹{parseFloat(payment.due_amount || (payment.amount - payment.paid_amount)).toLocaleString('en-IN')}
+                                                    </td>
+                                                    <td className="px-4 py-3 text-sm text-gray-600">
+                                                      {payment.due_date ? formatDateForDisplay(payment.due_date) : 'N/A'}
+                                                    </td>
+                                                    <td className="px-4 py-3">
+                                                      <span className={`px-2 py-1 text-xs font-medium rounded-full ${payment.status === 'paid'
+                                                        ? 'bg-green-100 text-green-800'
+                                                        : payment.status === 'partial'
+                                                          ? 'bg-yellow-100 text-yellow-800'
+                                                          : 'bg-red-100 text-red-800'
+                                                        }`}>
+                                                        {payment.status === 'paid' ? 'Paid' : payment.status === 'partial' ? 'Partial' : 'Pending'}
+                                                      </span>
+                                                    </td>
+                                                    <td className="px-4 py-3 text-sm text-gray-600">
+                                                      {payment.creator?.name || 'N/A'}
+                                                    </td>
+                                                  </tr>
+                                                ))}
+                                              </tbody>
+                                            </table>
                                           </div>
-                                          <div
-                                            className="text-sm text-gray-800 prose prose-sm max-w-none break-words"
-                                            dangerouslySetInnerHTML={{
-                                              __html: (() => {
-                                                const raw = email.body || '—';
-                                                const isHtml = /<[a-z][\s\S]*>/i.test(raw);
-                                                const processed = isHtml ? rewriteHtmlImageUrls(sanitizeEmailHtmlForDisplay(raw)) : raw.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br/>');
-                                                return processed;
-                                              })()
-                                            }}
-                                          />
-                                        </div>
-                                      ))}
-                                    </div>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        )}
-
-                        {/* System Emails Section */}
-                        {leadEmails.length > 0 && (
-                          <div className="space-y-4 pt-4 border-t border-gray-200">
-                            <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-2">
-                              <FileText className="h-4 w-4" />
-                              System Logged Emails
-                            </h3>
-                            <div className="space-y-3">
-                              {leadEmails.map((email) => (
-                                <div
-                                  key={email.id}
-                                  className="flex items-start gap-4 p-4 bg-white border border-gray-200 rounded-lg hover:shadow-md transition-shadow"
-                                >
-                                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
-                                    <Send className="h-4 w-4 text-blue-600" />
-                                  </div>
-                                  <div className="flex-1 min-w-0">
-                                    <div className="flex items-center gap-2 mb-1">
-                                      <span className="font-medium text-gray-800 truncate">{email.to_email}</span>
-                                      {email.status === 'failed' && (
-                                        <span className="px-2 py-0.5 bg-red-100 text-red-700 text-xs rounded">Failed</span>
-                                      )}
-                                    </div>
-                                    <p className="text-blue-600 font-medium truncate">{email.subject}</p>
-                                    <div className="text-sm text-gray-500 truncate mt-1" dangerouslySetInnerHTML={{ __html: rewriteHtmlImageUrls(sanitizeEmailHtmlForDisplay(email.body || '')) }}></div>
-                                  </div>
-                                  <div className="flex-shrink-0 text-right">
-                                    <p className="text-sm text-gray-500">
-                                      {new Date(email.created_at).toLocaleDateString('en-IN')}
-                                    </p>
-                                    <p className="text-xs text-gray-400 mt-1">
-                                      by {email.user?.name || 'System'}
-                                    </p>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                )
-                : activeTab === 'whatsapp' ? (
-                  <div className="flex flex-col h-full">
-                    <div className="flex items-center justify-between mb-4">
-                      <p className="text-sm text-gray-600">Send and receive WhatsApp messages for this lead. Connect WhatsApp in Settings if messages do not send.</p>
-                      <button
-                        type="button"
-                        onClick={fetchWhatsAppMessages}
-                        className="flex items-center gap-2 px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 text-sm"
-                      >
-                        <RefreshCw className="h-4 w-4" />
-                        Refresh
-                      </button>
-                    </div>
-                    <div className="flex-1 overflow-y-auto bg-gray-50 rounded-lg border border-gray-200 p-4 min-h-[280px] max-h-[400px] space-y-3">
-                      {whatsappMessages.length === 0 ? (
-                        <div className="text-center py-12 text-gray-500">
-                          No WhatsApp messages yet. Type below and click Send.
-                        </div>
-                      ) : (
-                        whatsappMessages.map((msg, idx) => (
-                          <div
-                            key={msg.id || idx}
-                            className={`flex ${msg.direction === 'inbound' ? 'justify-start' : 'justify-end'}`}
-                          >
-                            <div
-                              className={`max-w-[80%] rounded-lg px-4 py-2 ${
-                                msg.direction === 'inbound'
-                                  ? 'bg-white border border-gray-200 text-gray-800'
-                                  : 'bg-green-600 text-white'
-                              }`}
-                            >
-                              {msg.media_url && (
-                                <div className="mb-2">
-                                  {msg.media_type === 'image' ? (
-                                    <img src={msg.media_url} alt="Shared" className="rounded max-w-full max-h-48" />
-                                  ) : (
-                                    <a href={msg.media_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-sm underline">
-                                      <FileText className="h-4 w-4" />
-                                      {msg.media_type || 'Document'}
-                                    </a>
-                                  )}
-                                </div>
-                              )}
-                              {(msg.message || msg.body || msg.text) && (
-                                <div className="text-sm whitespace-pre-wrap">{msg.message || msg.body || msg.text}</div>
-                              )}
-                              <div className={`text-xs mt-1 ${msg.direction === 'inbound' ? 'text-gray-500' : 'text-green-100'}`}>
-                                {new Date(msg.created_at || msg.sent_at).toLocaleString()}
-                                {msg.direction === 'inbound' && ' · Received'}
-                              </div>
-                            </div>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                    <div className="mt-4 p-4 bg-white rounded-lg border border-gray-200">
-                      <div className="flex gap-2 items-end">
-                        <input
-                          type="file"
-                          id="whatsapp-file"
-                          className="hidden"
-                          accept="image/*,.pdf,.doc,.docx"
-                          onChange={(e) => setWhatsappAttachment(e.target.files?.[0] || null)}
-                        />
-                        <label
-                          htmlFor="whatsapp-file"
-                          className="p-2 border border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50"
-                          title="Attach file"
-                        >
-                          <Paperclip className="h-5 w-5 text-gray-600" />
-                        </label>
-                        <textarea
-                          value={whatsappInput}
-                          onChange={(e) => setWhatsappInput(e.target.value)}
-                          onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), handleSendWhatsAppFromTab())}
-                          placeholder="Type a message..."
-                          className="flex-1 px-3 py-2 border border-gray-300 rounded-lg resize-none min-h-[40px] max-h-[120px]"
-                          rows={2}
-                          disabled={sendingWhatsapp || !lead?.phone}
-                        />
-                        <button
-                          type="button"
-                          onClick={handleSendWhatsAppFromTab}
-                          disabled={sendingWhatsapp || (!whatsappInput.trim() && !whatsappAttachment) || !lead?.phone}
-                          className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                        >
-                          {sendingWhatsapp ? (
-                            <>Sending...</>
-                          ) : (
-                            <>
-                              <Send className="h-4 w-4" />
-                              Send
-                            </>
-                          )}
-                        </button>
-                      </div>
-                      {whatsappAttachment && (
-                        <p className="text-xs text-gray-500 mt-2">
-                          File: {whatsappAttachment.name}
-                          <button type="button" onClick={() => setWhatsappAttachment(null)} className="ml-2 text-red-600 hover:underline">Remove</button>
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                )
-                : activeTab === 'followups' ? (
-                  <div>
-                    {/* Header with Add Button */}
-                    <div className="flex justify-between items-center mb-4">
-                      <h3 className="text-lg font-semibold text-gray-800">Followup's / Task</h3>
-                      <button
-                        onClick={() => {
-                          setEditingFollowupId(null);
-                          const today = new Date();
-                          const dd = String(today.getDate()).padStart(2, '0');
-                          const mm = String(today.getMonth() + 1).padStart(2, '0');
-                          const yyyy = today.getFullYear();
-                          const formattedDate = `${dd}-${mm}-${yyyy}`;
-
-                          setFollowupFormData({
-                            type: 'Task',
-                            description: '',
-                            reminder_date: formattedDate,
-                            reminder_time: '1:00 PM',
-                            set_reminder: 'Yes'
-                          });
-                          setShowFollowupModal(true);
-                        }}
-                        className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-                      >
-                        <Plus className="h-4 w-4" />
-                        + Add Task
-                      </button>
-                    </div>
-
-                    {/* Followups List */}
-                    {followups.length === 0 ? (
-                      <div className="text-center py-12 text-gray-500">
-                        No Task
-                      </div>
-                    ) : (
-                      <div className="space-y-4">
-                        {followups
-                          .sort((a, b) => {
-                            // Sort by reminder_date and reminder_time
-                            const dateA = new Date(`${a.reminder_date} ${a.reminder_time || '00:00:00'}`);
-                            const dateB = new Date(`${b.reminder_date} ${b.reminder_time || '00:00:00'}`);
-                            return dateA - dateB;
-                          })
-                          .map((followup) => {
-                            const reminderDate = new Date(`${followup.reminder_date} ${followup.reminder_time || '00:00:00'}`);
-                            const isOverdue = reminderDate < new Date() && !followup.is_completed;
-                            const isToday = reminderDate.toDateString() === new Date().toDateString() && !followup.is_completed;
-
-                            return (
-                              <div
-                                key={followup.id}
-                                className={`border rounded-lg p-4 ${followup.is_completed
-                                  ? 'bg-gray-50 border-gray-200'
-                                  : isOverdue
-                                    ? 'bg-red-50 border-red-200'
-                                    : isToday
-                                      ? 'bg-yellow-50 border-yellow-200'
-                                      : 'bg-white border-gray-200'
-                                  }`}
-                              >
-                                <div className="flex items-start justify-between">
-                                  <div className="flex-1">
-                                    <div className="flex items-center gap-3 mb-2">
-                                      <Calendar className={`h-5 w-5 ${followup.is_completed
-                                        ? 'text-gray-400'
-                                        : isOverdue
-                                          ? 'text-red-500'
-                                          : isToday
-                                            ? 'text-yellow-600'
-                                            : 'text-blue-500'
-                                        }`} />
-                                      <div>
-                                        <div className="flex items-center gap-2">
-                                          <span className="font-semibold text-gray-800">
-                                            {new Date(followup.reminder_date).toLocaleDateString('en-IN', {
-                                              day: '2-digit',
-                                              month: 'short',
-                                              year: 'numeric'
-                                            })}
-                                          </span>
-                                          {followup.reminder_time && (
-                                            <>
-                                              <span className="text-gray-400">•</span>
-                                              <div className="flex items-center gap-1 text-gray-600">
-                                                <Clock className="h-4 w-4" />
-                                                <span>
-                                                  {convertTo12Hour(followup.reminder_time)}
-                                                </span>
-                                              </div>
-                                            </>
-                                          )}
-                                        </div>
-                                        {(followup.remark || followup.description) && (
-                                          <p className="text-gray-700 mt-2">{followup.remark || followup.description}</p>
                                         )}
-                                        <div className="mt-2 flex items-center gap-2 text-sm text-gray-500">
-                                          <span>Created by: {followup.user?.name || 'Unknown'}</span>
-                                          <span>•</span>
-                                          <span>
-                                            {new Date(followup.created_at).toLocaleDateString('en-IN', {
-                                              day: '2-digit',
-                                              month: 'short',
-                                              year: 'numeric',
-                                              hour: '2-digit',
-                                              minute: '2-digit'
-                                            })}
-                                          </span>
-                                        </div>
                                       </div>
                                     </div>
-                                  </div>
-                                  <div className="flex items-center gap-2 ml-4">
-                                    {isOverdue && !followup.is_completed && (
-                                      <span className="px-2 py-1 bg-red-100 text-red-700 text-xs font-semibold rounded">
-                                        Overdue
-                                      </span>
+                                  ) :
+                                    activeTab === 'history' && (
+                                      <div className="max-w-3xl">
+                                        <h3 className="text-lg font-semibold text-gray-800 mb-4">Query History</h3>
+                                        <p className="text-sm text-gray-500 mb-4">All activity for this query — payments, followups, calls, confirmations — is shown here.</p>
+                                        {loadingHistory ? (
+                                          <div className="text-center py-8 text-gray-500">Loading...</div>
+                                        ) : activityTimeline.length === 0 ? (
+                                          <div className="text-center py-12 text-gray-500">No history yet</div>
+                                        ) : (
+                                          <div className="space-y-0 border-l-2 border-gray-200 pl-6 ml-2">
+                                            {activityTimeline.map((item, idx) => (
+                                              <div key={idx} className="relative pb-6 last:pb-0">
+                                                <span className="absolute -left-[29px] top-1 w-3 h-3 rounded-full bg-gray-300 border-2 border-white" />
+                                                <div className="bg-gray-50 rounded-lg p-3 border border-gray-100">
+                                                  <div className="flex items-center gap-2 flex-wrap">
+                                                    <span className={`text-xs font-medium px-2 py-0.5 rounded ${item.type === 'payment' ? 'bg-green-100 text-green-800' :
+                                                      item.type === 'followup' ? 'bg-blue-100 text-blue-800' :
+                                                        item.type === 'call' ? 'bg-purple-100 text-purple-800' :
+                                                          'bg-gray-200 text-gray-700'
+                                                      }`}>
+                                                      {item.title}
+                                                    </span>
+                                                    {item.user?.name && (
+                                                      <span className="text-xs text-gray-500">by {item.user.name}</span>
+                                                    )}
+                                                    <span className="text-xs text-gray-400 ml-auto">
+                                                      {item.created_at ? new Date(item.created_at).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' }) : ''}
+                                                    </span>
+                                                  </div>
+                                                  <p className="text-sm text-gray-700 mt-1">{item.description}</p>
+                                                </div>
+                                              </div>
+                                            ))}
+                                          </div>
+                                        )}
+                                      </div>
                                     )}
-                                    {isToday && !followup.is_completed && (
-                                      <span className="px-2 py-1 bg-yellow-100 text-yellow-700 text-xs font-semibold rounded">
-                                        Today
-                                      </span>
-                                    )}
-                                    {!followup.is_completed && (
-                                      <>
-                                        <button
-                                          type="button"
-                                          onClick={() => {
-                                            // Backend may return ISO date with time; normalize to YYYY-MM-DD first
-                                            const rawDate = followup.reminder_date ? String(followup.reminder_date).slice(0, 10) : '';
-                                            const parts = rawDate.split('-'); // YYYY-MM-DD
-                                            const ddmmyyyy = parts.length === 3 ? `${parts[2]}-${parts[1]}-${parts[0]}` : '';
-                                            setEditingFollowupId(followup.id);
-                                            setFollowupFormData({
-                                              type: 'Task',
-                                              description: followup.remark || '',
-                                              reminder_date: ddmmyyyy,
-                                              reminder_time: followup.reminder_time ? convertTo12Hour(followup.reminder_time) : '1:00 PM',
-                                              set_reminder: 'Yes',
-                                            });
-                                            setShowFollowupModal(true);
-                                          }}
-                                          className="px-2 py-1 bg-gray-100 text-gray-700 text-xs font-semibold rounded hover:bg-gray-200"
-                                          title="Edit"
-                                        >
-                                          <Pencil className="h-3.5 w-3.5" />
-                                        </button>
-                                        <button
-                                          type="button"
-                                          onClick={() => handleDeleteFollowup(followup.id)}
-                                          className="px-2 py-1 bg-red-100 text-red-700 text-xs font-semibold rounded hover:bg-red-200"
-                                          title="Delete"
-                                        >
-                                          <Trash2 className="h-3.5 w-3.5" />
-                                        </button>
-                                      </>
-                                    )}
-                                    {followup.is_completed ? (
-                                      <span className="px-2 py-1 bg-green-100 text-green-700 text-xs font-semibold rounded flex items-center gap-1">
-                                        <CheckCircle className="h-3 w-3" />
-                                        Completed
-                                      </span>
-                                    ) : (
-                                      <button
-                                        onClick={async () => {
-                                          try {
-                                            await followupsAPI.complete(followup.id);
-                                            await fetchLeadDetails();
-                                          } catch (err) {
-                                            console.error('Failed to complete followup:', err);
-                                            alert(err.response?.data?.message || 'Failed to mark as completed');
-                                          }
-                                        }}
-                                        className="px-3 py-1 bg-green-600 text-white text-xs font-semibold rounded hover:bg-green-700 transition-colors"
-                                      >
-                                        Mark Complete
-                                      </button>
-                                    )}
-                                  </div>
-                                </div>
-                              </div>
-                            );
-                          })}
-                      </div>
-                    )}
-                  </div>
-                )
-                : activeTab === 'suppComm' ? (
-                  <div className="grid grid-cols-3 gap-6">
-                    {/* Left Panel - Email Form */}
-                    <div className="col-span-2">
-                      <h3 className="text-lg font-semibold text-gray-800 mb-4">Supplier Communication</h3>
-
-                      {/* Subject */}
-                      <div className="mb-4">
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Subject
-                        </label>
-                        <input
-                          type="text"
-                          value={supplierEmailForm.subject}
-                          onChange={(e) => setSupplierEmailForm({ ...supplierEmailForm, subject: e.target.value })}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          placeholder="Enter subject"
-                        />
-                      </div>
-
-                      {/* CC Email */}
-                      <div className="mb-4">
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          CC Email
-                        </label>
-                        <input
-                          type="email"
-                          value={supplierEmailForm.cc_email}
-                          onChange={(e) => setSupplierEmailForm({ ...supplierEmailForm, cc_email: e.target.value })}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          placeholder="Enter CC email (optional)"
-                        />
-                      </div>
-
-                      {/* Email Body */}
-                      <div className="mb-4">
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Email Body
-                        </label>
-                        <textarea
-                          value={supplierEmailForm.body}
-                          onChange={(e) => setSupplierEmailForm({ ...supplierEmailForm, body: e.target.value })}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          rows="12"
-                          placeholder="Enter email body..."
-                        />
-                      </div>
-
-                      {/* Enquiry Details Table */}
-                      {lead && (
-                        <div className="mb-4 border border-gray-200 rounded-lg p-4 bg-gray-50">
-                          <h4 className="font-semibold text-gray-800 mb-3">Enquiry Detail</h4>
-                          <table className="w-full text-sm">
-                            <tbody>
-                              <tr className="border-b border-gray-200">
-                                <td className="py-2 font-medium text-gray-700">Customer Name</td>
-                                <td className="py-2 text-gray-600">
-                                  {lead.client_title || 'Mr.'} {lead.client_name}
-                                </td>
-                                <td className="py-2 font-medium text-gray-700">Enquiry ID</td>
-                                <td className="py-2 text-gray-600">{lead.query_id || lead.id || id}</td>
-                                <td className="py-2 font-medium text-gray-700">Enquiry For</td>
-                                <td className="py-2 text-gray-600">
-                                  {getConfirmedOption()?.itinerary_name || 'Full package'}
-                                </td>
-                              </tr>
-                              <tr>
-                                <td className="py-2 font-medium text-gray-700">Check-In</td>
-                                <td className="py-2 text-gray-600">
-                                  {lead.travel_start_date ? formatDateForDisplay(lead.travel_start_date) : 'N/A'}
-                                </td>
-                                <td className="py-2 font-medium text-gray-700">Check-Out</td>
-                                <td className="py-2 text-gray-600">
-                                  {lead.travel_end_date ? formatDateForDisplay(lead.travel_end_date) : 'N/A'}
-                                </td>
-                                <td className="py-2 font-medium text-gray-700">Nights</td>
-                                <td className="py-2 text-gray-600">
-                                  {lead.travel_start_date && lead.travel_end_date ?
-                                    Math.ceil(Math.abs(new Date(lead.travel_end_date) - new Date(lead.travel_start_date)) / (1000 * 60 * 60 * 24)) : 'N/A'}
-                                </td>
-                              </tr>
-                            </tbody>
-                          </table>
-
-                          {/* Hotel Details */}
-                          {getConfirmedOption()?.hotels && getConfirmedOption().hotels.length > 0 && (
-                            <div className="mt-4">
-                              <h5 className="font-semibold text-gray-800 mb-2">Hotel Requirements:</h5>
-                              <div className="space-y-2">
-                                {getConfirmedOption().hotels.map((hotel, index) => (
-                                  <div key={index} className="bg-white p-2 rounded border border-gray-200">
-                                    <div className="text-sm">
-                                      <span className="font-medium">{hotel.hotel_name || 'Hotel'}</span>
-                                      {hotel.room_type && <span> - {hotel.room_type}</span>}
-                                      {hotel.meal_plan && <span> - {hotel.meal_plan}</span>}
-                                      {hotel.price && <span className="text-blue-600 ml-2">₹{hotel.price}</span>}
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      )}
-
-                      {/* Send Button */}
-                      <button
-                        onClick={handleSendSupplierEmail}
-                        disabled={sendingEmail || (
-                          selectedSuppliers.length === 0 &&
-                          selectedHotels.length === 0 &&
-                          (selectedVehicles.length === 0 || !vehiclesFromProposals.some(v => selectedVehicles.includes(v.id) && v.email && v.email.trim()))
-                        )}
-                        className="w-full bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 font-semibold"
-                      >
-                        <Send className="h-5 w-5" />
-                        {sendingEmail ? 'Sending...' : `Send Mail To Selected (${selectedSuppliers.length} Suppliers${selectedHotels.length > 0 ? `, ${selectedHotels.length} Hotels` : ''}${selectedVehicles.length > 0 ? `, ${selectedVehicles.length} Vehicles` : ''})`}
-                      </button>
-                    </div>
-
-                    {/* Right Panel - Supplier Selection */}
-                    <div className="col-span-1 border-l border-gray-200 pl-6">
-                      <div className="mb-4">
-                        <label className="flex items-center gap-2 cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={selectAllSuppliers}
-                            onChange={(e) => handleSelectAllSuppliers(e.target.checked)}
-                            className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                          />
-                          <span className="font-semibold text-gray-800">Select Supplier</span>
-                        </label>
-                      </div>
-
-                      <div className="max-h-[300px] overflow-y-auto space-y-3 mb-6 pb-4 border-b border-gray-200">
-                        {suppliers.length === 0 ? (
-                          <div className="text-gray-500 text-sm">No suppliers available</div>
-                        ) : (
-                          suppliers.map((supplier) => (
-                            <div key={supplier.id} className="flex items-start gap-2">
-                              <input
-                                type="checkbox"
-                                checked={selectedSuppliers.includes(supplier.id)}
-                                onChange={() => handleSelectSupplier(supplier.id)}
-                                className="mt-1 w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                              />
-                              <div className="flex-1">
-                                <div className="font-medium text-gray-800 text-sm">
-                                  {supplier.company_name || supplier.company}
-                                </div>
-                                <div className="text-xs text-gray-600">
-                                  {supplier.title || ''} {supplier.name || `${supplier.first_name || ''} ${supplier.last_name || ''}`.trim()}
-                                </div>
-                                <div className="text-xs text-gray-500">
-                                  {supplier.email || 'No email'}
-                                </div>
-                              </div>
-                            </div>
-                          ))
-                        )}
-                      </div>
-
-                      {/* Hotels (from itinerary) - all proposals */}
-                      {hotelsFromConfirmedOption.length > 0 && (
-                        <>
-                          <div className="mb-4">
-                            <label className="flex items-center gap-2 cursor-pointer">
-                              <input
-                                type="checkbox"
-                                checked={selectAllHotels}
-                                onChange={(e) => handleSelectAllHotels(e.target.checked)}
-                                className="w-4 h-4 text-green-600 border-gray-300 rounded focus:ring-green-500"
-                              />
-                              <span className="font-semibold text-gray-800">Hotels (from itinerary)</span>
-                            </label>
-                          </div>
-
-                          <div className="max-h-[280px] overflow-y-auto space-y-3 mb-6 pb-4 border-b border-gray-200">
-                            {hotelsFromConfirmedOption.map((hotel) => (
-                              <div key={hotel.id} className="flex items-start gap-2 bg-green-50 p-2 rounded border border-green-200">
-                                <input
-                                  type="checkbox"
-                                  checked={selectedHotels.includes(hotel.id)}
-                                  onChange={() => handleSelectHotel(hotel.id)}
-                                  className="mt-1 w-4 h-4 text-green-600 border-gray-300 rounded focus:ring-green-500"
-                                />
-                                <div className="flex-1">
-                                  <div className="font-medium text-gray-800 text-sm">
-                                    {hotel.company_name || hotel.hotel_name}
-                                  </div>
-                                  {hotel.room_type && (
-                                    <div className="text-xs text-gray-600">
-                                      Room: {hotel.room_type} {hotel.meal_plan && `| Meal: ${hotel.meal_plan}`}
-                                    </div>
-                                  )}
-                                  {hotel.day && (
-                                    <div className="text-xs text-gray-500">
-                                      Day {hotel.day}
-                                    </div>
-                                  )}
-                                  <div className={`text-xs mt-1 ${hotel.email ? 'text-gray-500' : 'text-orange-600 font-medium'}`}>
-                                    {hotel.email || '⚠ No email - Please add email in hotel master'}
-                                  </div>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </>
-                      )}
-
-                      {/* Vehicles (from itinerary) - all proposals */}
-                      {vehiclesFromProposals.length > 0 && (
-                        <>
-                          <div className="mb-4">
-                            <label className="flex items-center gap-2 cursor-pointer">
-                              <input
-                                type="checkbox"
-                                checked={selectAllVehicles}
-                                onChange={(e) => handleSelectAllVehicles(e.target.checked)}
-                                className="w-4 h-4 text-amber-600 border-gray-300 rounded focus:ring-amber-500"
-                              />
-                              <span className="font-semibold text-gray-800">Vehicles (from itinerary)</span>
-                            </label>
-                          </div>
-
-                          <div className="max-h-[280px] overflow-y-auto space-y-3">
-                            {vehiclesFromProposals.map((vehicle) => (
-                              <div key={vehicle.id} className="flex items-start gap-2 bg-amber-50 p-2 rounded border border-amber-200">
-                                <input
-                                  type="checkbox"
-                                  checked={selectedVehicles.includes(vehicle.id)}
-                                  onChange={() => handleSelectVehicle(vehicle.id)}
-                                  disabled={!vehicle.email || !vehicle.email.trim()}
-                                  className="mt-1 w-4 h-4 text-amber-600 border-gray-300 rounded focus:ring-amber-500 disabled:opacity-50"
-                                />
-                                <div className="flex-1">
-                                  <div className="font-medium text-gray-800 text-sm">
-                                    {vehicle.name}
-                                  </div>
-                                  {vehicle.details && (
-                                    <div className="text-xs text-gray-600">
-                                      {vehicle.details}
-                                    </div>
-                                  )}
-                                  {vehicle.day && (
-                                    <div className="text-xs text-gray-500">
-                                      Day {vehicle.day}
-                                    </div>
-                                  )}
-                                  <div className={`text-xs mt-1 ${vehicle.email ? 'text-gray-500' : 'text-amber-600 font-medium'}`}>
-                                    {vehicle.email || '— No email (add in Transfer master to send)'}
-                                  </div>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                ):
-                activeTab === 'postSales' ? (
-                  <div className="space-y-6">
-                    <div className="bg-white border border-gray-200 rounded-lg p-6">
-                      <h3 className="text-lg font-semibold text-gray-800 mb-4">Post Sales</h3>
-                      <div className="text-center py-8 text-gray-500">
-                        <p>Post sales management coming soon</p>
-                        <p className="text-sm mt-2">Track and manage post-sale activities here</p>
-                      </div>
-                    </div>
-                  </div>
-                ):
-                activeTab === 'voucher' ? (
-                  <div className="space-y-6">
-                    <div className="bg-white border border-gray-200 rounded-lg p-6">
-                      <h3 className="text-lg font-semibold text-gray-800 mb-4">Vouchers</h3>
-                      {getConfirmedOption() ? (
-                        <>
-                          <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
-                            <p className="text-sm font-medium text-green-800">Voucher ready — Option {getConfirmedOption()?.optionNumber ?? ''} confirmed. You can preview, download, or email it to the client.</p>
-                          </div>
-                          <div className="flex flex-wrap gap-3">
-                            <button type="button" onClick={handleVoucherPreview} disabled={!!voucherActionLoading} className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-800 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50">
-                              {voucherActionLoading === 'preview' ? 'Opening…' : 'Preview'}
-                            </button>
-                            <button type="button" onClick={handleVoucherDownload} disabled={!!voucherActionLoading} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50">
-                              {voucherActionLoading === 'download' ? 'Downloading…' : 'Download'}
-                            </button>
-                            <button type="button" onClick={handleVoucherSend} disabled={!!voucherActionLoading} className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50">
-                              {voucherActionLoading === 'send' ? 'Sending…' : 'Send by Email'}
-                            </button>
-                          </div>
-                        </>
-                      ) : (
-                        <>
-                          <p className="text-gray-600 mb-4">Go to the <strong>Proposals</strong> tab and <strong>Confirm</strong> an option first. After confirmation, the voucher will be ready here — you can Preview, Download, or Email it.</p>
-                          <div className="flex flex-wrap gap-3">
-                            <button type="button" onClick={handleVoucherPreview} disabled={!!voucherActionLoading} className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-800 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50">
-                              {voucherActionLoading === 'preview' ? 'Opening…' : 'Preview (draft)'}
-                            </button>
-                            <button type="button" onClick={handleVoucherDownload} disabled={!!voucherActionLoading} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50">
-                              {voucherActionLoading === 'download' ? 'Downloading…' : 'Download (draft)'}
-                            </button>
-                            <button type="button" onClick={handleVoucherSend} disabled={!!voucherActionLoading} className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50">
-                              {voucherActionLoading === 'send' ? 'Sending…' : 'Send by Email'}
-                            </button>
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                ):
-                activeTab === 'docs' ? (
-                  <div className="space-y-6">
-                    <div className="bg-white border border-gray-200 rounded-lg p-6">
-                      <h3 className="text-lg font-semibold text-gray-800 mb-4">Documents</h3>
-                      <div className="flex justify-end mb-4">
-                        <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
-                          <Upload className="h-4 w-4" />
-                          Upload Document
-                        </button>
-                      </div>
-                      <div className="text-center py-8 text-gray-500">
-                        <p>No documents uploaded</p>
-                        <p className="text-sm mt-2">Upload passports, tickets, confirmations and other documents here</p>
-                      </div>
-                    </div>
-                  </div>
-                ):
-                activeTab === 'invoice' ? (
-                  <div className="space-y-6">
-                    <div className="bg-white border border-gray-200 rounded-lg p-6">
-                      <h3 className="text-lg font-semibold text-gray-800 mb-4">Invoices</h3>
-                      <p className="text-sm text-gray-500 mb-4">Confirming an option automatically creates an invoice.</p>
-                      {loadingHistory ? (
-                        <div className="text-center py-8 text-gray-500">Loading...</div>
-                      ) : queryDetailInvoices.length === 0 ? (
-                        <div className="text-center py-8 text-gray-500">
-                          <p>No invoices yet</p>
-                          <p className="text-sm mt-2">Confirm an option — invoice will be auto-created based on it</p>
-                        </div>
-                      ) : (
-                        <div className="overflow-x-auto">
-                          <table className="min-w-full divide-y divide-gray-200">
-                            <thead>
-                              <tr>
-                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Invoice No.</th>
-                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Option</th>
-                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Itinerary</th>
-                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Amount</th>
-                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Created</th>
-                                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {queryDetailInvoices.map((inv) => (
-                                <tr key={inv.id} className="hover:bg-gray-50">
-                                  <td className="px-4 py-2 text-sm font-medium text-gray-900">{inv.invoice_number}</td>
-                                  <td className="px-4 py-2 text-sm text-gray-600">Option {inv.option_number}</td>
-                                  <td className="px-4 py-2 text-sm text-gray-600">{inv.itinerary_name || '—'}</td>
-                                  <td className="px-4 py-2 text-sm text-gray-900">₹{Number(inv.total_amount).toLocaleString('en-IN')}</td>
-                                  <td className="px-4 py-2"><span className={`text-xs px-2 py-1 rounded ${inv.status === 'paid' ? 'bg-green-100 text-green-800' : inv.status === 'sent' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-700'}`}>{inv.status}</span></td>
-                                  <td className="px-4 py-2 text-sm text-gray-500">{inv.created_at ? new Date(inv.created_at).toLocaleDateString('en-IN') : '—'}</td>
-                                  <td className="px-4 py-2">
-                                    <div className="flex flex-wrap gap-1">
-                                      <button type="button" onClick={() => handleInvoicePreview(inv.id)} disabled={!!invoiceActionLoading} className="px-2 py-1 text-xs bg-gray-100 text-gray-800 rounded hover:bg-gray-200 disabled:opacity-50">Preview</button>
-                                      <button type="button" onClick={() => handleInvoiceDownload(inv.id)} disabled={!!invoiceActionLoading} className="px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50">Download PDF</button>
-                                      <button type="button" onClick={() => handleInvoiceSend(inv.id)} disabled={!!invoiceActionLoading} className="px-2 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50">Send by Email</button>
-                                    </div>
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ):
-                activeTab === 'billing' ? (
-                  <div className="space-y-6">
-                    {/* Package Details Section */}
-                    {(() => {
-                      const confirmedOption = getConfirmedOption();
-                      const confirmedOptionNum = confirmedOption?.optionNumber;
-                      const hotels = quotationData?.hotelOptions?.[confirmedOptionNum?.toString()] || [];
-                      const packagePrice = confirmedOption?.price || hotels.reduce((sum, h) => sum + (parseFloat(h.price) || 0), 0);
-
-                      return confirmedOption ? (
-                        <div className="bg-white border border-gray-200 rounded-lg p-6">
-                          <h3 className="text-lg font-semibold text-gray-800 mb-4">Final Package Details</h3>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                              <p className="text-sm text-gray-600">Option Number</p>
-                              <p className="text-base font-medium text-gray-900">Option {confirmedOptionNum}</p>
-                            </div>
-                            {quotationData?.itinerary && (
-                              <>
-                                <div>
-                                  <p className="text-sm text-gray-600">Destination</p>
-                                  <p className="text-base font-medium text-gray-900">{quotationData.itinerary.destinations || 'N/A'}</p>
-                                </div>
-                                <div>
-                                  <p className="text-sm text-gray-600">Duration</p>
-                                  <p className="text-base font-medium text-gray-900">{quotationData.itinerary.duration || 0} Nights</p>
-                                </div>
-                                {lead?.travel_start_date && (
-                                  <div>
-                                    <p className="text-sm text-gray-600">Travel Dates</p>
-                                    <p className="text-base font-medium text-gray-900">
-                                      {formatDateForDisplay(lead.travel_start_date)} - {lead.travel_end_date ? formatDateForDisplay(lead.travel_end_date) : 'N/A'}
-                                    </p>
-                                  </div>
-                                )}
-                              </>
-                            )}
-                            <div>
-                              <p className="text-sm text-gray-600">Total Package Price</p>
-                              <p className="text-xl font-bold text-green-600">₹{packagePrice.toLocaleString('en-IN')}</p>
-                            </div>
-                          </div>
-                          {hotels.length > 0 && (
-                            <div className="mt-4 pt-4 border-t border-gray-200">
-                              <p className="text-sm font-medium text-gray-700 mb-2">Hotels Included:</p>
-                              <div className="space-y-2">
-                                {hotels.map((hotel, idx) => (
-                                  <div key={idx} className="bg-gray-50 p-3 rounded">
-                                    <p className="text-sm font-medium text-gray-900">
-                                      Day {hotel.day}: {hotel.hotelName || 'Hotel'}
-                                    </p>
-                                    <p className="text-xs text-gray-600">
-                                      {hotel.roomName || 'N/A'} | {hotel.mealPlan || 'N/A'} | ₹{parseFloat(hotel.price || 0).toLocaleString('en-IN')}
-                                    </p>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      ) : (
-                        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                          <p className="text-sm text-yellow-800">
-                            ⚠️ No confirmed package found. Please confirm an option in the Proposals tab first.
-                          </p>
-                        </div>
-                      );
-                    })()}
-
-                    {/* Payment Summary */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                        <p className="text-sm text-blue-600 font-medium">Total Amount</p>
-                        <p className="text-2xl font-bold text-blue-700">
-                          ₹{paymentSummary.total_amount.toLocaleString('en-IN')}
-                        </p>
-                      </div>
-                      <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                        <p className="text-sm text-green-600 font-medium">Paid Amount</p>
-                        <p className="text-2xl font-bold text-green-700">
-                          ₹{paymentSummary.total_paid.toLocaleString('en-IN')}
-                        </p>
-                      </div>
-                      <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                        <p className="text-sm text-red-600 font-medium">Due Amount</p>
-                        <p className="text-2xl font-bold text-red-700">
-                          ₹{paymentSummary.total_due.toLocaleString('en-IN')}
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* Add Payment Button */}
-                    <div className="flex justify-end">
-                      <button
-                        onClick={() => {
-                          const confirmedOption = getConfirmedOption();
-                          const confirmedOptionNum = confirmedOption?.optionNumber;
-                          const hotels = quotationData?.hotelOptions?.[confirmedOptionNum?.toString()] || [];
-                          const packagePrice = confirmedOption?.price || hotels.reduce((sum, h) => sum + (parseFloat(h.price) || 0), 0);
-
-                          setPaymentFormData({
-                            amount: packagePrice > 0 ? packagePrice.toString() : '',
-                            paid_amount: '',
-                            due_date: ''
-                          });
-                          setShowPaymentModal(true);
-                        }}
-                        className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                      >
-                        <Plus className="h-4 w-4" />
-                        Add Payment
-                      </button>
-                    </div>
-
-                    {/* Payment History */}
-                    <div className="bg-white border border-gray-200 rounded-lg">
-                      <div className="p-4 border-b border-gray-200">
-                        <h3 className="text-lg font-semibold text-gray-800">Payment History</h3>
-                      </div>
-                      {loadingPayments ? (
-                        <div className="p-8 text-center text-gray-500">Loading payments...</div>
-                      ) : payments.length === 0 ? (
-                        <div className="p-8 text-center text-gray-500">No payments recorded yet</div>
-                      ) : (
-                        <div className="overflow-x-auto">
-                          <table className="w-full">
-                            <thead className="bg-gray-50">
-                              <tr>
-                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Date</th>
-                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Total Amount</th>
-                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Paid Amount</th>
-                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Due Amount</th>
-                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Due Date</th>
-                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Status</th>
-                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Added By</th>
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-200">
-                              {payments.map((payment) => (
-                                <tr key={payment.id} className="hover:bg-gray-50">
-                                  <td className="px-4 py-3 text-sm text-gray-900">
-                                    {payment.created_at ? formatDateForDisplay(payment.created_at) : 'N/A'}
-                                  </td>
-                                  <td className="px-4 py-3 text-sm font-medium text-gray-900">
-                                    ₹{parseFloat(payment.amount).toLocaleString('en-IN')}
-                                  </td>
-                                  <td className="px-4 py-3 text-sm text-green-600 font-medium">
-                                    ₹{parseFloat(payment.paid_amount).toLocaleString('en-IN')}
-                                  </td>
-                                  <td className="px-4 py-3 text-sm text-red-600 font-medium">
-                                    ₹{parseFloat(payment.due_amount || (payment.amount - payment.paid_amount)).toLocaleString('en-IN')}
-                                  </td>
-                                  <td className="px-4 py-3 text-sm text-gray-600">
-                                    {payment.due_date ? formatDateForDisplay(payment.due_date) : 'N/A'}
-                                  </td>
-                                  <td className="px-4 py-3">
-                                    <span className={`px-2 py-1 text-xs font-medium rounded-full ${payment.status === 'paid'
-                                      ? 'bg-green-100 text-green-800'
-                                      : payment.status === 'partial'
-                                        ? 'bg-yellow-100 text-yellow-800'
-                                        : 'bg-red-100 text-red-800'
-                                      }`}>
-                                      {payment.status === 'paid' ? 'Paid' : payment.status === 'partial' ? 'Partial' : 'Pending'}
-                                    </span>
-                                  </td>
-                                  <td className="px-4 py-3 text-sm text-gray-600">
-                                    {payment.creator?.name || 'N/A'}
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ):
-                activeTab === 'history' && (
-                  <div className="max-w-3xl">
-                    <h3 className="text-lg font-semibold text-gray-800 mb-4">Query History</h3>
-                    <p className="text-sm text-gray-500 mb-4">All activity for this query — payments, followups, calls, confirmations — is shown here.</p>
-                    {loadingHistory ? (
-                      <div className="text-center py-8 text-gray-500">Loading...</div>
-                    ) : activityTimeline.length === 0 ? (
-                      <div className="text-center py-12 text-gray-500">No history yet</div>
-                    ) : (
-                      <div className="space-y-0 border-l-2 border-gray-200 pl-6 ml-2">
-                        {activityTimeline.map((item, idx) => (
-                          <div key={idx} className="relative pb-6 last:pb-0">
-                            <span className="absolute -left-[29px] top-1 w-3 h-3 rounded-full bg-gray-300 border-2 border-white" />
-                            <div className="bg-gray-50 rounded-lg p-3 border border-gray-100">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <span className={`text-xs font-medium px-2 py-0.5 rounded ${
-                                  item.type === 'payment' ? 'bg-green-100 text-green-800' :
-                                  item.type === 'followup' ? 'bg-blue-100 text-blue-800' :
-                                  item.type === 'call' ? 'bg-purple-100 text-purple-800' :
-                                  'bg-gray-200 text-gray-700'
-                                }`}>
-                                  {item.title}
-                                </span>
-                                {item.user?.name && (
-                                  <span className="text-xs text-gray-500">by {item.user.name}</span>
-                                )}
-                                <span className="text-xs text-gray-400 ml-auto">
-                                  {item.created_at ? new Date(item.created_at).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' }) : ''}
-                                </span>
-                              </div>
-                              <p className="text-sm text-gray-700 mt-1">{item.description}</p>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
               </div>
             </div>
           </div>
@@ -6154,9 +6431,9 @@ ${emailContent}
                         navigator.clipboard.writeText(emailContent).then(() => {
                           const mailtoLink = `mailto:${lead.email || ''}?subject=${subject}&body=${encodeURIComponent('Please find the complete travel quotation with all options attached.')}`;
                           window.open(mailtoLink);
-                          alert('Complete quotation (all options) copied to clipboard! Paste it in your email client.');
+                          showToastNotification('success', 'Copied', 'Complete quotation (all options) copied to clipboard! Paste it in your email client.');
                         }).catch(() => {
-                          alert('Please use Print option to generate PDF with all options');
+                          showToastNotification('warning', 'Clipboards Failed', 'Please use Print option to generate PDF with all options');
                         });
                       }}
                       className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 text-sm font-medium"
@@ -6639,6 +6916,125 @@ ${emailContent}
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+      {/* Pax Details Modal */}
+      {showPaxModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="p-4 border-b flex justify-between items-center bg-gray-50">
+              <h3 className="text-lg font-bold text-gray-800">Manage Travellers</h3>
+              <button
+                onClick={() => setShowPaxModal(false)}
+                className="text-gray-500 hover:text-gray-700 p-1 hover:bg-gray-200 rounded-full transition"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-4 overflow-y-auto flex-1">
+              <div className="mb-4 bg-blue-50 text-blue-800 p-3 rounded-lg text-sm flex gap-2">
+                <Users className="w-5 h-5 shrink-0" />
+                <div>
+                  <p className="font-semibold">Total Pax Count: {((lead?.adult || 0) + (lead?.child || 0) + (lead?.infant || 0))}</p>
+                  <p>Adult: {lead?.adult || 0}, Child: {lead?.child || 0}, Infant: {lead?.infant || 0}</p>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                {paxTempList.map((pax, index) => (
+                  <div key={index} className="flex flex-col gap-2 border p-3 rounded-lg bg-gray-50">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-bold text-gray-500">Traveller #{index + 1}</span>
+                    </div>
+
+                    <div className="flex flex-wrap sm:flex-nowrap gap-3 items-start">
+                      <div className="flex-1 min-w-[120px]">
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Name</label>
+                        <input
+                          type="text"
+                          value={pax.name || ''}
+                          onChange={(e) => handlePaxChange(index, 'name', e.target.value)}
+                          className="w-full border rounded-md px-3 py-2 text-sm"
+                          placeholder="Full Name"
+                        />
+                      </div>
+                      <div className="w-24">
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Age</label>
+                        <input
+                          type="number"
+                          value={pax.age || ''}
+                          onChange={(e) => handlePaxChange(index, 'age', e.target.value)}
+                          className="w-full border rounded-md px-3 py-2 text-sm"
+                          placeholder="Age"
+                        />
+                      </div>
+                      <div className="w-32">
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Gender/Type</label>
+                        <select
+                          value={pax.gender || ''}
+                          onChange={(e) => handlePaxChange(index, 'gender', e.target.value)}
+                          className="w-full border rounded-md px-3 py-2 text-sm"
+                        >
+                          <option value="">Select</option>
+                          <option value="Male">Male</option>
+                          <option value="Female">Female</option>
+                          <option value="Child">Child</option>
+                          <option value="Infant">Infant</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap sm:flex-nowrap gap-3 items-start">
+                      <div className="flex-1">
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Phone</label>
+                        <input
+                          type="text"
+                          value={pax.phone || ''}
+                          onChange={(e) => handlePaxChange(index, 'phone', e.target.value)}
+                          className="w-full border rounded-md px-3 py-2 text-sm"
+                          placeholder="Phone Number"
+                        />
+                      </div>
+                      <div className="flex-1">
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Email</label>
+                        <input
+                          type="email"
+                          value={pax.email || ''}
+                          onChange={(e) => handlePaxChange(index, 'email', e.target.value)}
+                          className="w-full border rounded-md px-3 py-2 text-sm"
+                          placeholder="Email Address"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-4 p-3 bg-yellow-50 text-yellow-800 text-sm rounded-lg">
+                <p className="flex items-center gap-2">
+                  <Info className="w-4 h-4" />
+                  <span>The number of travellers is fixed based on Adults ({lead?.adult || 0}) + Children ({lead?.child || 0}) + Infants ({lead?.infant || 0}). To add more travellers, please update the lead's pax counts first.</span>
+                </p>
+              </div>
+            </div>
+
+            <div className="p-4 border-t bg-gray-50 flex justify-end gap-3">
+              <button
+                onClick={() => setShowPaxModal(false)}
+                className="px-4 py-2 text-gray-600 hover:text-gray-800 font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSavePaxDetails}
+                disabled={savingPax}
+                className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium disabled:opacity-50 flex items-center gap-2"
+              >
+                {savingPax ? 'Saving...' : 'Save Changes'}
+              </button>
+            </div>
           </div>
         </div>
       )}

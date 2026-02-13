@@ -211,6 +211,7 @@ export const vouchersAPI = {
 // Lead Invoices (preview PDF, send by email)
 export const leadInvoicesAPI = {
   preview: (leadId, invoiceId) => api.get(`/leads/${leadId}/invoices/${invoiceId}/preview`, { responseType: 'blob' }),
+  download: (leadId, invoiceId) => api.get(`/leads/${leadId}/invoices/${invoiceId}/download`, { responseType: 'blob' }),
   send: (leadId, invoiceId, data = {}) => api.post(`/leads/${leadId}/invoices/${invoiceId}/send`, data),
 };
 
@@ -367,13 +368,16 @@ export const permissionsAPI = {
 // Company Settings APIs (Admin only)
 export const settingsAPI = {
   get: () => api.get('/admin/settings'),
-  update: (data) => api.put('/admin/settings', data),
+  update: (data) => api.put('/settings/update', data),
   reset: () => api.post('/admin/settings/reset'),
   // New settings API for hotel options and package settings
   getAll: () => api.get('/settings'),
   getByKey: (key) => api.get('/settings', { params: { key } }),
   save: (data) => api.post('/settings', data),
   getMaxHotelOptions: () => api.get('/settings/max-hotel-options'),
+  // Company details from companies table
+  getCompany: () => api.get('/settings/company'),
+  updateCompany: (data) => api.put('/settings/company', data),
 };
 
 // Sidebar menu (dynamic from backend)
@@ -709,6 +713,8 @@ export const currenciesAPI = {
   create: (data) => api.post('/currencies', data),
   update: (id, data) => api.put(`/currencies/${id}`, data),
   delete: (id) => api.delete(`/currencies/${id}`),
+  getLiveRate: (from) => api.get('/currencies/live-rate', { params: { from } }),
+  setPrimary: (id) => api.put(`/currencies/${id}/set-primary`),
 };
 
 // Query Detail API
@@ -722,21 +728,21 @@ export const accountsAPI = {
   getClients: () => api.get('/accounts/clients'),
   getAgents: () => api.get('/accounts/agents'),
   getCorporate: () => api.get('/accounts/corporate'),
-  
+
   // Get cities for autocomplete
   getCities: (search) => api.get('/accounts/cities', { params: { search } }),
-  
+
   // CRUD operations for clients
   getClient: (id) => api.get(`/accounts/clients/${id}`),
   createClient: (data) => api.post('/accounts/clients', data),
   updateClient: (id, data) => api.put(`/accounts/clients/${id}`, data),
   deleteClient: (id) => api.delete(`/accounts/clients/${id}`),
-  
+
   // CRUD operations for agents
   createAgent: (data) => api.post('/accounts/agents', data),
   updateAgent: (id, data) => api.put(`/accounts/agents/${id}`, data),
   deleteAgent: (id) => api.delete(`/accounts/agents/${id}`),
-  
+
   // CRUD operations for corporate
   createCorporate: (data) => api.post('/accounts/corporate', data),
   updateCorporate: (id, data) => api.put(`/accounts/corporate/${id}`, data),
@@ -785,13 +791,13 @@ export const companySettingsAPI = {
   createUser: (data) => api.post('/company-settings/users', data),
   updateUser: (id, data) => api.put(`/company-settings/users/${id}`, data),
   deleteUser: (id) => api.delete(`/company-settings/users/${id}`),
-  
+
   // Branches management
   getBranches: (params = {}) => api.get('/company-settings/branches', { params }),
   createBranch: (data) => api.post('/company-settings/branches', data),
   updateBranch: (id, data) => api.put(`/company-settings/branches/${id}`, data),
   deleteBranch: (id) => api.delete(`/company-settings/branches/${id}`),
-  
+
   // Roles management
   getRoles: () => api.get('/company-settings/roles'),
   createRole: (data) => api.post('/company-settings/roles', data),
@@ -803,7 +809,7 @@ export const companySettingsAPI = {
   updateRolePermissions: (roleId, permissions) => api.put(`/company-settings/roles/${roleId}/permissions`, { permissions }),
   getUserPermissions: (userId) => api.get(`/company-settings/users/${userId}/permissions`),
   updateUserPermissions: (userId, permissions) => api.put(`/company-settings/users/${userId}/permissions`, { permissions }),
-  
+
   // Statistics
   getStats: () => api.get('/company-settings/stats'),
   // Mail settings
@@ -842,6 +848,27 @@ export const notificationsAPI = {
     }
     return api.post('/notifications/email', data);
   },
+};
+
+// Quotations APIs
+export const quotationsAPI = {
+  list: (params = {}) => api.get('/quotations', { params }),
+  get: (id) => api.get(`/quotations/${id}`),
+  create: (data) => api.post('/quotations', data),
+  update: (id, data) => api.put(`/quotations/${id}`, data),
+  delete: (id) => api.delete(`/quotations/${id}`),
+  download: (id) => api.get(`/quotations/${id}/download`, { responseType: 'blob' }),
+  preview: (id) => api.get(`/quotations/${id}/preview`, { responseType: 'blob' }),
+  send: (id, data) => api.post(`/quotations/${id}/send`, data),
+};
+
+
+// Master Points (Inclusions, Exclusions, Terms)
+export const masterPointsAPI = {
+  list: (type) => api.get('/master-points', { params: { type } }),
+  create: (data) => api.post('/master-points', data),
+  update: (id, data) => api.put(`/master-points/${id}`, data),
+  delete: (id) => api.delete(`/master-points/${id}`),
 };
 
 export default api;

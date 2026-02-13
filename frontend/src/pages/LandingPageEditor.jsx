@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
+import { toast } from 'react-toastify';
 import Layout from '../components/Layout';
 import { landingPagesAPI } from '../services/api';
 import { ArrowLeft, Save, Plus, Trash2, Upload, ChevronUp, ChevronDown } from 'lucide-react';
@@ -12,7 +13,7 @@ const ImageUploadField = ({ label, value, onChange, placeholder = 'https://...' 
     const file = e.target.files?.[0];
     if (!file) return;
     if (!file.type.startsWith('image/')) {
-      alert('Please select an image file (jpg, png, gif, webp, svg)');
+      toast.warning('Please select an image file (jpg, png, gif, webp, svg)');
       return;
     }
     setUploading(true);
@@ -20,9 +21,10 @@ const ImageUploadField = ({ label, value, onChange, placeholder = 'https://...' 
       const res = await landingPagesAPI.uploadImage(file);
       if (res.data?.success && res.data?.data?.url) {
         onChange(res.data.data.url);
+        toast.success('Image uploaded successfully');
       }
     } catch (err) {
-      alert(err.response?.data?.message || 'Upload failed');
+      toast.error(err.response?.data?.message || 'Upload failed');
     } finally {
       setUploading(false);
       e.target.value = '';
@@ -302,9 +304,8 @@ const LandingPageEditor = () => {
               <div key={key} className="flex items-center gap-1 group">
                 <button
                   onClick={() => setActiveTab(key)}
-                  className={`flex-1 text-left px-3 py-2 rounded-lg ${
-                    activeTab === key ? 'bg-teal-100 text-teal-800 font-medium' : 'hover:bg-gray-100'
-                  }`}
+                  className={`flex-1 text-left px-3 py-2 rounded-lg ${activeTab === key ? 'bg-teal-100 text-teal-800 font-medium' : 'hover:bg-gray-100'
+                    }`}
                 >
                   {getSectionLabel(key)}
                 </button>

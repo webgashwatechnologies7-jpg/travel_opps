@@ -1,6 +1,7 @@
-import React, { useState, useEffect, useRef } from "react";
-import { MoreVertical, MapPin, Trash2, MessageCircle, Mail, FileDown } from "lucide-react";
+import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from "react-router-dom";
+import { toast } from 'react-toastify';
+import { MoreVertical, Trash2, MapPin, MessageCircle, Mail } from 'lucide-react';
 
 export default function LeadCard({
   name,
@@ -86,12 +87,8 @@ export default function LeadCard({
 
   const handleEmailClick = (e) => {
     e.stopPropagation();
-    if (email) {
-      window.location.href = `mailto:${email}`;
-    } else {
-      // Navigate to lead details page with Mail tab active if email not available
-      navigate(`/leads/${id}?tab=mails`);
-    }
+    // Navigate to lead details page with Mail tab active
+    navigate(`/leads/${id}?tab=mails`);
   };
 
   const handlePDFDownload = async (e) => {
@@ -101,12 +98,12 @@ export default function LeadCard({
       navigate(`/leads/${id}?download=pdf`);
     } catch (err) {
       console.error('Failed to download PDF:', err);
-      alert('Failed to download PDF');
+      toast.error('Failed to download PDF');
     }
   };
 
   return (
-    <div 
+    <div
       onClick={handleCardClick}
       className="w-full rounded-2xl border bg-white shadow-sm overflow-hidden cursor-pointer transition-all duration-200 hover:shadow-md hover:scale-[1.02] relative"
     >
@@ -161,16 +158,15 @@ export default function LeadCard({
         <span className="text-gray-400">|</span>
         <span>{date}</span>
 
-        <button 
+        <button
           onClick={(e) => { e.stopPropagation(); onStatusChange?.(id); }}
-          className={`text-white text-xs px-3 py-1 rounded-full hover:opacity-90 transition-colors capitalize ${
-            status === 'new' ? 'bg-blue-500' :
+          className={`text-white text-xs px-3 py-1 rounded-full hover:opacity-90 transition-colors capitalize ${status === 'new' ? 'bg-blue-500' :
             status === 'proposal' ? 'bg-yellow-500' :
-            status === 'followup' ? 'bg-orange-500' :
-            status === 'confirmed' ? 'bg-green-500' :
-            status === 'cancelled' ? 'bg-red-500' :
-            'bg-gray-500'
-          }`}
+              status === 'followup' ? 'bg-orange-500' :
+                status === 'confirmed' ? 'bg-green-500' :
+                  status === 'cancelled' ? 'bg-red-500' :
+                    'bg-gray-500'
+            }`}
         >
           {status || 'Status Change'}
         </button>
@@ -190,7 +186,6 @@ export default function LeadCard({
         <div className="flex items-center gap-2">
           <button onClick={handleWhatsAppClick} className="bg-green-500 text-white p-2.5 rounded-lg hover:bg-green-600" title="WhatsApp"><MessageCircle className="h-5 w-5" /></button>
           <button onClick={handleEmailClick} className="bg-blue-500 text-white p-2.5 rounded-lg hover:bg-blue-600" title="Email"><Mail className="h-5 w-5" /></button>
-          <button onClick={handlePDFDownload} className="bg-red-500 text-white p-2.5 rounded-lg hover:bg-red-600" title="Download PDF"><FileDown className="h-5 w-5" /></button>
         </div>
       </div>
 

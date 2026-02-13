@@ -60,14 +60,7 @@ class ActivityController extends Controller
     public function store(Request $request): JsonResponse
     {
         try {
-            // Handle file upload
-            $activityPhotoPath = null;
-            if ($request->hasFile('activity_photo')) {
-                $file = $request->file('activity_photo');
-                $activityPhotoPath = $file->store('activities', 'public');
-            }
-
-            // Validate the request
+            // Validate the request first
             $validator = Validator::make($request->all(), [
                 'name' => 'required|string|max:255',
                 'destination' => 'required|string|max:255',
@@ -87,6 +80,13 @@ class ActivityController extends Controller
                     'message' => 'Validation failed',
                     'errors' => $validator->errors(),
                 ], 422);
+            }
+
+            // Handle file upload after validation passes
+            $activityPhotoPath = null;
+            if ($request->hasFile('activity_photo')) {
+                $file = $request->file('activity_photo');
+                $activityPhotoPath = $file->store('activities', 'public');
             }
 
             $activity = Activity::create([
@@ -305,7 +305,8 @@ class ActivityController extends Controller
     {
         try {
             $validator = Validator::make($request->all(), [
-                'file' => 'required|mimes:xlsx,xls,csv|max:10240', // 10MB max
+                'file' => 'nullable|mimes:xlsx,xls,csv|max:10240', // 10MB max
+                'import_file' => 'nullable|mimes:xlsx,xls,csv|max:10240', // 10MB max
             ], [
                 'file.required' => 'Please select a file to import.',
                 'file.mimes' => 'The file must be a valid Excel file (xlsx, xls, csv).',
@@ -320,12 +321,22 @@ class ActivityController extends Controller
                 ], 422);
             }
 
+            if (!$request->hasFile('file') && !$request->hasFile('import_file')) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Validation failed',
+                    'errors' => [
+                        'file' => ['Please select a file to import.'],
+                    ],
+                ], 422);
+            }
+
             // Handle file import (CSV/Excel)
             $importedCount = 0;
             $errors = [];
+            $file = $request->file('file') ?? $request->file('import_file');
             
-            if ($request->hasFile('import_file')) {
-                $file = $request->file('import_file');
+            if ($file) {
                 $filePath = $file->getPathname();
                 
                 try {
@@ -333,21 +344,34 @@ class ActivityController extends Controller
                     if ($file->getClientOriginalExtension() === 'csv') {
                         $handle = fopen($filePath, 'r');
                         $header = fgetcsv($handle); // Skip header row
+                        $lineNumber = 2; // First data row
                         
                         while (($row = fgetcsv($handle)) !== false) {
                             try {
+                                $name = isset($row[0]) ? trim($row[0]) : '';
+                                $destination = isset($row[1]) ? trim($row[1]) : '';
+                                // According to the template/export, activity details are in the 6th column
+                                $activityDetails = isset($row[5]) ? trim($row[5]) : '';
+
+                                if ($name === '' || $destination === '') {
+                                    $errors[] = "Row {$lineNumber}: Activity name and destination are required.";
+                                    $lineNumber++;
+                                    continue;
+                                }
+
                                 Activity::create([
-                                    'name' => $row[0] ?? '',
-                                    'destination' => $row[1] ?? '',
-                                    'activity_details' => $row[2] ?? '',
-                                    'status' => $row[3] ?? 'active',
+                                    'name' => $name,
+                                    'destination' => $destination,
+                                    'activity_details' => $activityDetails,
+                                    'status' => 'active',
                                     'created_by' => $request->user()->id,
                                     'company_id' => tenant('id'),
                                 ]);
                                 $importedCount++;
                             } catch (\Exception $e) {
-                                $errors[] = "Row " . ($importedCount + 2) . ": " . $e->getMessage();
+                                $errors[] = "Row {$lineNumber}: " . $e->getMessage();
                             }
+                            $lineNumber++;
                         }
                         fclose($handle);
                     }

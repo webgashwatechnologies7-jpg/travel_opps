@@ -43,7 +43,9 @@ import PublicLandingPage from './pages/PublicLandingPage';
 import TermsConditions from './pages/TermsConditions';
 import Policies from './pages/Policies';
 import AccountDetails from './pages/AccountDetails';
-import Logo from './pages/Logo';
+import { ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
+
 import Suppliers from './pages/Suppliers';
 import Hotel from './pages/Hotel';
 import Activity from './pages/Activity';
@@ -59,6 +61,7 @@ import ExpenseType from './pages/ExpenseType';
 import ClientGroups from './pages/ClientGroups';
 import PackageTheme from './pages/PackageTheme';
 import Currency from './pages/Currency';
+import MasterPoints from './pages/MasterPoints';
 import Clients from './pages/Clients';
 import Agents from './pages/Agents';
 import Corporate from './pages/Corporate';
@@ -498,10 +501,10 @@ const AppRoutes = () => {
         }
       />
       <Route
-        path="/settings/logo"
+        path="/settings/company"
         element={
           <ProtectedRoute>
-            <Logo />
+            <Settings />
           </ProtectedRoute>
         }
       />
@@ -598,6 +601,14 @@ const AppRoutes = () => {
         element={
           <ProtectedRoute>
             <Currency />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/masters/points"
+        element={
+          <ProtectedRoute>
+            <MasterPoints />
           </ProtectedRoute>
         }
       />
@@ -738,6 +749,18 @@ function App() {
         <SettingsProvider>
           <ContentProvider>
             <AppRoutes />
+            <ToastContainer
+              position="top-right"
+              autoClose={5000}
+              hideProgressBar={false}
+              newestOnTop={false}
+              closeOnClick
+              rtl={false}
+              pauseOnFocusLoss
+              draggable
+              pauseOnHover
+              theme="light"
+            />
           </ContentProvider>
         </SettingsProvider>
       </AuthProvider>

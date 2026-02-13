@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { toast } from 'react-toastify';
 import { usersAPI } from '../services/api';
 import Layout from '../components/Layout';
 
@@ -35,15 +35,16 @@ const Users = () => {
     try {
       await usersAPI.updateStatus(user.id, !user.is_active);
       fetchUsers(); // Refresh the list
+      toast.success(`User ${user.is_active ? 'deactivated' : 'activated'} successfully`);
     } catch (err) {
-      alert('Failed to update user status');
+      toast.error('Failed to update user status');
       console.error(err);
     }
   };
 
   const handleEdit = (user) => {
     // TODO: Implement edit functionality
-    alert('Edit functionality coming soon');
+    toast.info('Edit functionality coming soon');
   };
 
   if (loading) {
@@ -131,8 +132,8 @@ const Users = () => {
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span
                           className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${user.is_active
-                              ? 'bg-green-100 text-green-800'
-                              : 'bg-red-100 text-red-800'
+                            ? 'bg-green-100 text-green-800'
+                            : 'bg-red-100 text-red-800'
                             }`}
                         >
                           {user.is_active ? 'Active' : 'Inactive'}
@@ -149,8 +150,8 @@ const Users = () => {
                           <button
                             onClick={() => handleDeactivate(user)}
                             className={`px-3 py-1 border rounded hover:bg-opacity-80 ${user.is_active
-                                ? 'text-red-600 border-red-600 hover:bg-red-50'
-                                : 'text-green-600 border-green-600 hover:bg-green-50'
+                              ? 'text-red-600 border-red-600 hover:bg-red-50'
+                              : 'text-green-600 border-green-600 hover:bg-green-50'
                               }`}
                           >
                             {user.is_active ? 'Deactivate' : 'Activate'}

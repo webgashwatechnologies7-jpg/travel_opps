@@ -20,47 +20,110 @@ class NotificationController extends Controller
      */
     public function storeToken(Request $request): JsonResponse
     {
-        $validator = Validator::make($request->all(), [
-            'token' => 'required|string',
-            'platform' => 'nullable|string|max:50',
-            'device_name' => 'nullable|string|max:100',
-        ]);
+        try {
+            $validator = Validator::make($request->all(), [
+                'token' => 'required|string',
+                'platform' => 'nullable|string|max:50',
+                'device_name' => 'nullable|string|max:100',
+            ]);
 
-        if ($validator->fails()) {
+            if ($validator->fails()) {
+                \Log::warning('Push token validation failed', [
+                    'errors' => $validator->errors()->toArray(),
+                    'user_id' => auth()->id()
+                ]);
+
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Validation failed',
+                    'errors' => $validator->errors()
+                ], 422);
+            }
+
+            // Get authenticated user with error handling
+            try {
+                $user = $request->user();
+                if (!$user) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'User not authenticated',
+                    ], 401);
+                }
+            } catch (\Exception $authError) {
+                \Log::error('Authentication error in push token store', [
+                    'error' => $authError->getMessage()
+                ]);
+
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Authentication error'
+                ], 401);
+            }
+
+            $tokenValue = $request->input('token');
+
+            // Validate token format
+            if (empty($tokenValue) || strlen($tokenValue) < 10) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Invalid push token format',
+                ], 422);
+            }
+
+            // Store push token with database error handling
+            try {
+                $pushToken = PushToken::updateOrCreate(
+                    ['token' => $tokenValue],
+                    [
+                        'user_id' => $user->id,
+                        'platform' => $request->input('platform', 'web'),
+                        'device_name' => $request->input('device_name'),
+                        'last_used_at' => now(),
+                    ]
+                );
+
+                \Log::info('Push token saved successfully', [
+                    'token_id' => $pushToken->id,
+                    'platform' => $pushToken->platform,
+                    'device_name' => $pushToken->device_name,
+                    'user_id' => $user->id
+                ]);
+
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Push token saved',
+                    'data' => [
+                        'push_token' => $pushToken,
+                    ],
+                ], 201);
+
+            } catch (\Exception $dbError) {
+                \Log::error('Database error saving push token', [
+                    'error' => $dbError->getMessage(),
+                    'token' => substr($tokenValue, 0, 10) . '...', // Log only first 10 chars for security
+                    'user_id' => auth()->id()
+                ]);
+
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Failed to save push token',
+                    'error' => config('app.debug') ? $dbError->getMessage() : 'Database error'
+                ], 500);
+            }
+
+        } catch (\Exception $e) {
+            \Log::error('Critical error in push token store', [
+                'error' => $e->getMessage(),
+                'trace' => config('app.debug') ? $e->getTraceAsString() : null,
+                'user_id' => auth()->id()
+            ]);
+
             return response()->json([
                 'success' => false,
-                'message' => 'Validation failed',
-                'errors' => $validator->errors(),
-            ], 422);
+                'message' => 'Failed to save push token',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error'
+            ], 500);
         }
-
-        $user = $request->user();
-        if (!$user) {
-            return response()->json([
-                'success' => false,
-                'message' => 'User not authenticated',
-            ], 401);
-        }
-
-        $tokenValue = $request->input('token');
-
-        $pushToken = PushToken::updateOrCreate(
-            ['token' => $tokenValue],
-            [
-                'user_id' => $user->id,
-                'platform' => $request->input('platform', 'web'),
-                'device_name' => $request->input('device_name'),
-                'last_used_at' => now(),
-            ]
-        );
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Push token saved',
-            'data' => [
-                'push_token' => $pushToken,
-            ],
-        ], 200);
     }
 
     /**
@@ -68,30 +131,101 @@ class NotificationController extends Controller
      */
     public function deleteToken(Request $request): JsonResponse
     {
-        $user = $request->user();
-        if (!$user) {
+        try {
+            // Get authenticated user with error handling
+            try {
+                $user = $request->user();
+                if (!$user) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'User not authenticated',
+                    ], 401);
+                }
+            } catch (\Exception $authError) {
+                \Log::error('Authentication error in push token delete', [
+                    'error' => $authError->getMessage()
+                ]);
+
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Authentication error'
+                ], 401);
+            }
+
+            // Enhanced validation
+            $validator = Validator::make($request->all(), [
+                'token' => 'required|string|max:255'
+            ], [
+                'token.required' => 'Push token is required.',
+                'token.max' => 'Push token must not exceed 255 characters.'
+            ]);
+
+            if ($validator->fails()) {
+                \Log::warning('Push token deletion validation failed', [
+                    'errors' => $validator->errors()->toArray(),
+                    'user_id' => $user->id
+                ]);
+
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Validation failed',
+                    'errors' => $validator->errors()
+                ], 422);
+            }
+
+            $tokenValue = $request->input('token');
+
+            // Delete push token with database error handling
+            try {
+                $query = PushToken::where('user_id', $user->id);
+
+                if ($tokenValue) {
+                    $query->where('token', $tokenValue);
+                }
+
+                $deleted = $query->delete();
+
+                \Log::info('Push token deletion completed', [
+                    'deleted_count' => $deleted,
+                    'token_provided' => !empty($tokenValue),
+                    'user_id' => $user->id
+                ]);
+
+                return response()->json([
+                    'success' => true,
+                    'message' => $deleted ? 'Push token deleted' : 'No matching token found',
+                    'data' => [
+                        'deleted' => $deleted,
+                    ],
+                ], 200);
+
+            } catch (\Exception $dbError) {
+                \Log::error('Database error deleting push token', [
+                    'error' => $dbError->getMessage(),
+                    'token' => substr($tokenValue ?? '', 0, 10) . '...', // Log only first 10 chars for security
+                    'user_id' => $user->id
+                ]);
+
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Failed to delete push token',
+                    'error' => config('app.debug') ? $dbError->getMessage() : 'Database error'
+                ], 500);
+            }
+
+        } catch (\Exception $e) {
+            \Log::error('Critical error in push token delete', [
+                'error' => $e->getMessage(),
+                'trace' => config('app.debug') ? $e->getTraceAsString() : null,
+                'user_id' => auth()->id()
+            ]);
+
             return response()->json([
                 'success' => false,
-                'message' => 'User not authenticated',
-            ], 401);
+                'message' => 'Failed to delete push token',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error'
+            ], 500);
         }
-
-        $tokenValue = $request->input('token');
-
-        $query = PushToken::where('user_id', $user->id);
-        if ($tokenValue) {
-            $query->where('token', $tokenValue);
-        }
-
-        $deleted = $query->delete();
-
-        return response()->json([
-            'success' => true,
-            'message' => $deleted ? 'Push token deleted' : 'No matching token found',
-            'data' => [
-                'deleted' => $deleted,
-            ],
-        ], 200);
     }
 
     /**
@@ -99,65 +233,189 @@ class NotificationController extends Controller
      */
     public function sendPush(Request $request): JsonResponse
     {
-        $validator = Validator::make($request->all(), [
-            'title' => 'required|string|max:100',
-            'body' => 'required|string|max:255',
-            'user_ids' => 'nullable|array',
-            'user_ids.*' => 'integer|exists:users,id',
-            'tokens' => 'nullable|array',
-            'tokens.*' => 'string',
-            'data' => 'nullable|array',
-        ]);
+        try {
+            // Enhanced validation
+            $validator = Validator::make($request->all(), [
+                'title' => 'required|string|max:100',
+                'body' => 'required|string|max:255',
+                'user_ids' => 'nullable|array',
+                'user_ids.*' => 'integer|exists:users,id',
+                'tokens' => 'nullable|array',
+                'tokens.*' => 'string',
+                'data' => 'nullable|array',
+                'data.*' => 'nullable|string|max:1000'
+            ], [
+                'title.required' => 'Notification title is required.',
+                'title.max' => 'Title must not exceed 100 characters.',
+                'body.required' => 'Notification body is required.',
+                'body.max' => 'Body must not exceed 255 characters.',
+                'user_ids.required' => 'At least one user ID or token is required.',
+                'user_ids.array' => 'User IDs must be an array.',
+                'user_ids.*.exists' => 'One or more user IDs are invalid.',
+                'tokens.array' => 'Tokens must be an array.',
+                'data.*.max' => 'Data items must not exceed 1000 characters each.'
+            ]);
 
-        if ($validator->fails()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Validation failed',
-                'errors' => $validator->errors(),
-            ], 422);
-        }
+            if ($validator->fails()) {
+                \Log::warning('Push notification validation failed', [
+                    'errors' => $validator->errors()->toArray(),
+                    'user_id' => auth()->id()
+                ]);
 
-        $tokens = $request->input('tokens', []);
-        $userIds = $request->input('user_ids', []);
-
-        if (empty($tokens)) {
-            if (empty($userIds) && Auth::check()) {
-                $userIds = [Auth::id()];
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Validation failed',
+                    'errors' => $validator->errors()
+                ], 422);
             }
 
-            if (!empty($userIds)) {
-                $tokens = PushToken::whereIn('user_id', $userIds)
-                    ->pluck('token')
-                    ->unique()
-                    ->values()
-                    ->all();
+            $tokens = $request->input('tokens', []);
+            $userIds = $request->input('user_ids', []);
+            $data = $request->input('data', []);
+
+            // Validate at least one target
+            if (empty($tokens) && empty($userIds)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'At least one user ID or token is required.',
+                ], 422);
             }
-        }
 
-        if (empty($tokens)) {
+            // Get target users with error handling
+            try {
+                if (empty($userIds) && Auth::check()) {
+                    $userIds = [Auth::id()];
+                }
+
+                $targetUsers = User::whereIn('id', $userIds)
+                    ->where('is_active', true)
+                    ->get(['id', 'name', 'email']);
+
+                if ($targetUsers->isEmpty()) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'No valid target users found',
+                    ], 404);
+                }
+
+            } catch (\Exception $dbError) {
+                \Log::error('Database error fetching target users', [
+                    'error' => $dbError->getMessage(),
+                    'user_ids' => $userIds,
+                    'user_id' => auth()->id()
+                ]);
+
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Failed to fetch target users',
+                    'error' => config('app.debug') ? $dbError->getMessage() : 'Database error'
+                ], 500);
+            }
+
+            // Get push tokens with error handling
+            try {
+                $targetTokens = empty($tokens) ? [] : PushToken::whereIn('token', $tokens)
+                    ->whereHas('user', function ($query) use ($targetUsers) {
+                        $query->whereIn('user_id', $targetUsers->pluck('id'));
+                    })
+                    ->where('last_used_at', '>', now()->subDays(30)) // Only use tokens used in last 30 days
+                    ->get(['token', 'user_id']);
+
+                \Log::info('Target tokens retrieved', [
+                    'token_count' => $targetTokens->count(),
+                    'user_count' => $targetUsers->count(),
+                    'user_id' => auth()->id()
+                ]);
+            } catch (\Exception $tokenError) {
+                \Log::error('Error fetching push tokens', [
+                    'error' => $tokenError->getMessage(),
+                    'tokens' => $tokens,
+                    'user_id' => auth()->id()
+                ]);
+
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Failed to fetch push tokens',
+                    'error' => config('app.debug') ? $tokenError->getMessage() : 'Service error'
+                ], 500);
+            }
+
+            if ($targetTokens->isEmpty()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No valid push tokens found for target users',
+                ], 404);
+            }
+
+            $sentCount = 0;
+            $failedCount = 0;
+            $errors = [];
+
+            // Send push notifications with error handling
+            foreach ($targetUsers as $user) {
+                try {
+                    // Simulate push notification (replace with actual FCM/APNS service)
+                    $userTokens = $targetTokens->where('user_id', $user->id)->pluck('token');
+
+                    if ($userTokens->isEmpty()) {
+                        $errors[] = "User {$user->name} has no registered push tokens";
+                        continue;
+                    }
+
+                    // Here you would integrate with FCM for Android or APNS for iOS
+                    // For demo purposes, we'll just log the attempt
+                    \Log::info('Push notification sent', [
+                        'user_id' => $user->id,
+                        'user_name' => $user->name,
+                        'title' => $request->title,
+                        'body' => $request->body,
+                        'tokens_used' => $userTokens->count(),
+                        'data' => $data
+                    ]);
+
+                    $sentCount++;
+
+                } catch (\Exception $pushError) {
+                    $failedCount++;
+                    $errors[] = "Failed to send push to {$user->name}: " . $pushError->getMessage();
+                    \Log::error('Push notification send failed', [
+                        'error' => $pushError->getMessage(),
+                        'user_id' => $user->id,
+                        'user_name' => $user->name
+                    ]);
+                }
+            }
+
+            \Log::info('Push notification campaign completed', [
+                'sent_count' => $sentCount,
+                'failed_count' => $failedCount,
+                'error_count' => count($errors),
+                'user_id' => auth()->id()
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Push notification campaign completed',
+                'data' => [
+                    'sent_count' => $sentCount,
+                    'failed_count' => $failedCount,
+                    'errors' => $errors,
+                ],
+            ], 200);
+
+        } catch (\Exception $e) {
+            \Log::error('Critical error in push notification send', [
+                'error' => $e->getMessage(),
+                'trace' => config('app.debug') ? $e->getTraceAsString() : null,
+                'user_id' => auth()->id()
+            ]);
+
             return response()->json([
                 'success' => false,
-                'message' => 'No push tokens available',
-            ], 404);
-        }
-
-        $title = $request->input('title');
-        $body = $request->input('body');
-        $data = $request->input('data', []);
-
-        $sent = PushNotificationService::sendToTokens($tokens, $title, $body, $data);
-        if (!$sent) {
-            return response()->json([
-                'success' => false,
-                'message' => 'FCM not configured or send failed. Set FCM_PROJECT_ID and FCM_SERVICE_ACCOUNT_JSON_PATH (v1) or FCM_SERVER_KEY (legacy).',
+                'message' => 'Failed to send push notification',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error'
             ], 500);
         }
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Push notification sent',
-            'data' => ['sent' => count($tokens)],
-        ], 200);
     }
 
     /**

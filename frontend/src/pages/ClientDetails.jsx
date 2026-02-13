@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { toast } from 'react-toastify';
 import { accountsAPI, followUpAPI } from '../services/api';
 import Layout from '../components/Layout';
 import { ArrowLeft, Phone, Mail, MapPin, Calendar, DollarSign, FileText, MessageSquare, User, Plus, Edit, Save, X, TrendingUp } from 'lucide-react';
@@ -95,7 +96,7 @@ const ClientDetails = () => {
         }
       }
     };
-    
+
     loadFollowUps();
   }, [id]);
 
@@ -279,7 +280,7 @@ const ClientDetails = () => {
 
     } catch (error) {
       console.error('Failed to fetch client details:', error);
-      
+
       // Fallback to mock data if API fails
       const mockClient = {
         id: id,
@@ -345,10 +346,10 @@ const ClientDetails = () => {
   // Handler functions
   const handleAddFollowUp = async () => {
     if (!followUpForm.notes.trim()) {
-      alert('Please add notes for the follow-up');
+      toast.warning('Please add notes for the follow-up');
       return;
     }
-    
+
     try {
       // Prepare follow-up data for API
       const followUpData = {
@@ -361,10 +362,10 @@ const ClientDetails = () => {
         next_followup_date: followUpForm.nextFollowUpDate,
         created_by: 1 // This should come from auth context
       };
-      
+
       // Call API to save follow-up
       const response = await followUpAPI.create(followUpData);
-      
+
       if (response.data.success) {
         // Add to local state with server ID
         const newFollowUp = {
@@ -376,14 +377,14 @@ const ClientDetails = () => {
           nextAction: followUpForm.nextAction || 'No action specified',
           nextFollowUpDate: followUpForm.nextFollowUpDate
         };
-        
+
         // Update local state
         setFollowUps(prevFollowUps => {
           const updatedFollowUps = [newFollowUp, ...prevFollowUps];
           localStorage.setItem(`followUps_${id}`, JSON.stringify(updatedFollowUps));
           return updatedFollowUps;
         });
-        
+
         // Reset form
         setShowAddFollowUp(false);
         setFollowUpForm({
@@ -394,14 +395,14 @@ const ClientDetails = () => {
           nextAction: '',
           nextFollowUpDate: ''
         });
-        
+
         // Show success message
-        alert('Follow-up saved to database successfully!');
+        toast.success('Follow-up saved to database successfully!');
       } else {
         throw new Error(response.data.message || 'Failed to save follow-up');
       }
     } catch {
-      alert('Failed to save follow-up. Saving locally...');
+      toast.info('Failed to save follow-up. Saving locally...');
 
       // Fallback: Save to local state and localStorage
       const newFollowUp = {
@@ -413,13 +414,13 @@ const ClientDetails = () => {
         nextAction: followUpForm.nextAction || 'No action specified',
         nextFollowUpDate: followUpForm.nextFollowUpDate
       };
-      
+
       setFollowUps(prevFollowUps => {
         const updatedFollowUps = [newFollowUp, ...prevFollowUps];
         localStorage.setItem(`followUps_${id}`, JSON.stringify(updatedFollowUps));
         return updatedFollowUps;
       });
-      
+
       setShowAddFollowUp(false);
       setFollowUpForm({
         type: 'Phone Call',
@@ -429,8 +430,8 @@ const ClientDetails = () => {
         nextAction: '',
         nextFollowUpDate: ''
       });
-      
-      alert('Follow-up saved locally!');
+
+      toast.success('Follow-up saved locally!');
     }
   };
 
@@ -611,11 +612,10 @@ const ClientDetails = () => {
                   <TrendingUp className="h-4 w-4" />
                   <span>Reports</span>
                 </button>
-                <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                  client.status === 'Active' 
-                    ? 'bg-green-100 text-green-800' 
-                    : 'bg-gray-100 text-gray-800'
-                }`}>
+                <span className={`px-3 py-1 rounded-full text-sm font-medium ${client.status === 'Active'
+                  ? 'bg-green-100 text-green-800'
+                  : 'bg-gray-100 text-gray-800'
+                  }`}>
                   {client.status}
                 </span>
               </div>
@@ -905,11 +905,10 @@ const ClientDetails = () => {
                 <button
                   key={tab}
                   onClick={() => setActiveTab(tab)}
-                  className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                    activeTab === tab
-                      ? 'border-blue-500 text-blue-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
+                  className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === tab
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    }`}
                 >
                   {tab.charAt(0).toUpperCase() + tab.slice(1).replace('followups', 'Follow-ups').replace('vendorPayments', 'Vendor Payments')}
                 </button>
@@ -962,11 +961,10 @@ const ClientDetails = () => {
                             {payment.amount}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                              payment.status === 'Paid' 
-                                ? 'bg-green-100 text-green-800'
-                                : 'bg-yellow-100 text-yellow-800'
-                            }`}>
+                            <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${payment.status === 'Paid'
+                              ? 'bg-green-100 text-green-800'
+                              : 'bg-yellow-100 text-yellow-800'
+                              }`}>
                               {payment.status}
                             </span>
                           </td>
@@ -1008,13 +1006,12 @@ const ClientDetails = () => {
                             {query.destination}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                              query.status === 'Confirmed' 
-                                ? 'bg-green-100 text-green-800'
-                                : query.status === 'Pending'
+                            <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${query.status === 'Confirmed'
+                              ? 'bg-green-100 text-green-800'
+                              : query.status === 'Pending'
                                 ? 'bg-yellow-100 text-yellow-800'
                                 : 'bg-blue-100 text-blue-800'
-                            }`}>
+                              }`}>
                               {query.status}
                             </span>
                           </td>
@@ -1044,7 +1041,7 @@ const ClientDetails = () => {
                     <span>Add Follow-up</span>
                   </button>
                 </div>
-                
+
                 {/* Add Follow-up Modal */}
                 {showAddFollowUp && (
                   <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -1156,13 +1153,12 @@ const ClientDetails = () => {
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
                           <div className="flex items-center space-x-2 mb-2">
-                            <span className={`px-2 py-1 text-xs font-medium rounded ${
-                              followUp.type === 'Phone Call' 
-                                ? 'bg-blue-100 text-blue-800'
-                                : followUp.type === 'Email'
+                            <span className={`px-2 py-1 text-xs font-medium rounded ${followUp.type === 'Phone Call'
+                              ? 'bg-blue-100 text-blue-800'
+                              : followUp.type === 'Email'
                                 ? 'bg-green-100 text-green-800'
                                 : 'bg-purple-100 text-purple-800'
-                            }`}>
+                              }`}>
                               {followUp.type}
                             </span>
                             <span className="text-sm text-gray-500">{followUp.date}</span>
@@ -1221,11 +1217,10 @@ const ClientDetails = () => {
                             {invoice.amount}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                              invoice.status === 'Paid' 
-                                ? 'bg-green-100 text-green-800'
-                                : 'bg-yellow-100 text-yellow-800'
-                            }`}>
+                            <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${invoice.status === 'Paid'
+                              ? 'bg-green-100 text-green-800'
+                              : 'bg-yellow-100 text-yellow-800'
+                              }`}>
                               {invoice.status}
                             </span>
                           </td>
@@ -1254,11 +1249,10 @@ const ClientDetails = () => {
                           <FileText className="h-5 w-5 text-blue-600" />
                           <span className="font-medium text-gray-900">{doc.name}</span>
                         </div>
-                        <span className={`px-2 py-1 text-xs font-medium rounded ${
-                          doc.status === 'Verified' 
-                            ? 'bg-green-100 text-green-800'
-                            : 'bg-yellow-100 text-yellow-800'
-                        }`}>
+                        <span className={`px-2 py-1 text-xs font-medium rounded ${doc.status === 'Verified'
+                          ? 'bg-green-100 text-green-800'
+                          : 'bg-yellow-100 text-yellow-800'
+                          }`}>
                           {doc.status}
                         </span>
                       </div>
@@ -1317,11 +1311,10 @@ const ClientDetails = () => {
                             {payment.category}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                              payment.status === 'Paid' 
-                                ? 'bg-green-100 text-green-800'
-                                : 'bg-yellow-100 text-yellow-800'
-                            }`}>
+                            <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${payment.status === 'Paid'
+                              ? 'bg-green-100 text-green-800'
+                              : 'bg-yellow-100 text-yellow-800'
+                              }`}>
                               {payment.status}
                             </span>
                           </td>

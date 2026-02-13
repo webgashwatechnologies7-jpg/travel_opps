@@ -615,162 +615,352 @@ class MarketingController extends Controller
      */
     private function processEmailCampaign(EmailCampaign $campaign): array
     {
-        // Load template and leads
-        $template = $campaign->template;
-        if (!$template || !$template->is_active || $template->type !== 'email') {
-            // If template invalid, just mark as failed
-            $campaign->update(['status' => 'failed']);
-            return [
-                'status' => 'failed',
-                'sent_count' => 0,
-                'reason' => 'Invalid or inactive email template',
-            ];
-        }
-
-        $leadIds = (array) $campaign->lead_ids;
-        $leads = Lead::whereIn('id', $leadIds)
-            ->whereNotNull('email')
-            ->get();
-
-        if ($leads->isEmpty()) {
-            $campaign->update([
-                'status' => 'failed',
-                'sent_at' => now(),
-                'sent_count' => 0,
-            ]);
-            return [
-                'status' => 'failed',
-                'sent_count' => 0,
-                'reason' => 'No leads with valid email addresses',
-            ];
-        }
-
-        // Prepare company mail settings
-        $mailSettings = CompanyMailSettingsService::getSettings();
-        $useCompanyMail = !empty($mailSettings['enabled']) && (!empty($mailSettings['from_address']) || !empty($mailSettings['from_name']));
-
-        $companyLogo = Setting::getValue('company_logo', '');
-        $companyName = $useCompanyMail && !empty($mailSettings['from_name'])
-            ? $mailSettings['from_name']
-            : Setting::getValue('company_name', config('app.name', 'TravelOps'));
-        $companyEmail = $useCompanyMail && !empty($mailSettings['from_address'])
-            ? $mailSettings['from_address']
-            : Setting::getValue('company_email', config('mail.from.address', ''));
-        $companyPhone = Setting::getValue('company_phone', '');
-        $companyAddress = Setting::getValue('company_address', '');
-
-        $fromEmail = $companyEmail ?: config('mail.from.address', 'noreply@travelops.com');
-        $fromName = $companyName ?: config('mail.from.name', 'TravelOps');
-
-        $sentCount = 0;
-        $lastError = null;
-
-        foreach ($leads as $lead) {
+        try {
+            // Load template and leads with error handling
             try {
-                // Build variables for this lead
-                $variables = [
-                    'name' => $lead->client_name,
-                    'email' => $lead->email,
-                    'phone' => $lead->phone,
-                    'company' => $companyName,
-                    'destination' => $lead->destination,
-                ];
-
-                $body = $template->processContent($variables);
-
-                // Simple branded HTML (copied from NotificationController style)
-                $emailBody = '<!DOCTYPE html>
-                <html>
-                <head>
-                    <meta charset="utf-8">
-                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                    <title>' . htmlspecialchars($campaign->subject) . '</title>
-                </head>
-                <body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f4f4f4;">
-                    <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f4f4f4; padding: 20px 0;">
-                        <tr>
-                            <td align="center">
-                                <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-                                    <tr>
-                                        <td style="background: linear-gradient(135deg, #2563eb, #3b82f6); padding: 30px 40px; text-align: center;">
-                                            ' . ($companyLogo ? '<img src="' . $companyLogo . '" alt="' . htmlspecialchars($companyName) . '" style="max-height: 60px; margin-bottom: 10px;">' : '') . '
-                                            <h1 style="color: #ffffff; margin: 0; font-size: 24px; font-weight: 600;">' . htmlspecialchars($companyName) . '</h1>
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td style="padding: 40px;">
-                                            <div style="color: #333333; font-size: 15px; line-height: 1.6;">
-                                                ' . nl2br(htmlspecialchars($body)) . '
-                                            </div>
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td style="background-color: #f8fafc; padding: 30px 40px; border-top: 1px solid #e5e7eb;">
-                                            <table width="100%" cellpadding="0" cellspacing="0">
-                                                <tr>
-                                                    <td style="color: #6b7280; font-size: 13px;">
-                                                        <p style="margin: 0 0 10px 0;"><strong>' . htmlspecialchars($companyName) . '</strong></p>
-                                                        ' . ($companyPhone ? '<p style="margin: 0 0 5px 0;">📞 ' . htmlspecialchars($companyPhone) . '</p>' : '') . '
-                                                        ' . ($companyEmail ? '<p style="margin: 0 0 5px 0;">✉️ ' . htmlspecialchars($companyEmail) . '</p>' : '') . '
-                                                        ' . ($companyAddress ? '<p style="margin: 0;">📍 ' . htmlspecialchars($companyAddress) . '</p>' : '') . '
-                                                    </td>
-                                                </tr>
-                                            </table>
-                                        </td>
-                                    </tr>
-                                </table>
-                            </td>
-                        </tr>
-                    </table>
-                </body>
-                </html>';
-
-                CompanyMailSettingsService::applyIfEnabled();
-
-                Mail::send([], [], function ($message) use ($lead, $campaign, $emailBody, $fromEmail, $fromName) {
-                    $message->from($fromEmail, $fromName)
-                        ->to($lead->email)
-                        ->subject($campaign->subject)
-                        ->html($emailBody);
-                });
-
-                $sentCount++;
-            } catch (\Throwable $e) {
-                // Log and continue with next lead
-                \Log::error('Email campaign send failed for lead', [
+                $template = $campaign->template;
+            } catch (\Exception $templateError) {
+                \Log::error('Error loading campaign template', [
                     'campaign_id' => $campaign->id,
-                    'lead_id' => $lead->id,
-                    'error' => $e->getMessage(),
+                    'template_id' => $campaign->template_id,
+                    'error' => $templateError->getMessage()
                 ]);
-                $lastError = $e->getMessage();
+                
+                $campaign->update(['status' => 'failed']);
+                return [
+                    'status' => 'failed',
+                    'sent_count' => 0,
+                    'reason' => 'Template not found or inaccessible',
+                ];
             }
+            
+            if (!$template || !$template->is_active || $template->type !== 'email') {
+                \Log::warning('Invalid template for campaign', [
+                    'campaign_id' => $campaign->id,
+                    'template_id' => $campaign->template_id,
+                    'template_active' => $template?->is_active,
+                    'template_type' => $template?->type
+                ]);
+                
+                $campaign->update(['status' => 'failed']);
+                return [
+                    'status' => 'failed',
+                    'sent_count' => 0,
+                    'reason' => 'Invalid or inactive email template',
+                ];
+            }
+
+            // Load leads with error handling
+            try {
+                $leadIds = (array) $campaign->lead_ids;
+                $leads = Lead::whereIn('id', $leadIds)
+                    ->whereNotNull('email')
+                    ->get();
+            } catch (\Exception $leadError) {
+                \Log::error('Error loading campaign leads', [
+                    'campaign_id' => $campaign->id,
+                    'lead_ids' => $campaign->lead_ids,
+                    'error' => $leadError->getMessage()
+                ]);
+                
+                $campaign->update(['status' => 'failed']);
+                return [
+                    'status' => 'failed',
+                    'sent_count' => 0,
+                    'reason' => 'Failed to load campaign leads',
+                ];
+            }
+
+            if ($leads->isEmpty()) {
+                \Log::warning('No valid leads for campaign', [
+                    'campaign_id' => $campaign->id,
+                    'requested_lead_ids' => $leadIds,
+                    'total_requested' => count($leadIds)
+                ]);
+                
+                $campaign->update([
+                    'status' => 'failed',
+                    'sent_at' => now(),
+                    'sent_count' => 0,
+                ]);
+                return [
+                    'status' => 'failed',
+                    'sent_count' => 0,
+                    'reason' => 'No leads with valid email addresses',
+                ];
+            }
+
+            // Prepare company mail settings with error handling
+            try {
+                $mailSettings = CompanyMailSettingsService::getSettings();
+                $useCompanyMail = !empty($mailSettings['enabled']) && (!empty($mailSettings['from_address']) || !empty($mailSettings['from_name']));
+
+                $companyLogo = Setting::getValue('company_logo', '');
+                $companyName = $useCompanyMail && !empty($mailSettings['from_name'])
+                    ? $mailSettings['from_name']
+                    : Setting::getValue('company_name', config('app.name', 'TravelOps'));
+                $companyEmail = $useCompanyMail && !empty($mailSettings['from_address'])
+                    ? $mailSettings['from_address']
+                    : Setting::getValue('company_email', config('mail.from.address', ''));
+                $companyPhone = Setting::getValue('company_phone', '');
+                $companyAddress = Setting::getValue('company_address', '');
+
+                $fromEmail = $companyEmail ?: config('mail.from.address', 'noreply@travelops.com');
+                $fromName = $companyName ?: config('mail.from.name', 'TravelOps');
+            } catch (\Exception $settingsError) {
+                \Log::error('Error loading company settings for campaign', [
+                    'campaign_id' => $campaign->id,
+                    'error' => $settingsError->getMessage()
+                ]);
+                
+                // Use defaults
+                $fromEmail = config('mail.from.address', 'noreply@travelops.com');
+                $fromName = config('mail.from.name', 'TravelOps');
+                $companyName = $fromName;
+                $companyLogo = '';
+                $companyPhone = '';
+                $companyAddress = '';
+            }
+
+            $sentCount = 0;
+            $lastError = null;
+            $failedLeads = [];
+
+            foreach ($leads as $lead) {
+                try {
+                    // Build variables for this lead
+                    $variables = [
+                        'name' => $lead->client_name ?? 'Valued Customer',
+                        'email' => $lead->email,
+                        'phone' => $lead->phone ?? '',
+                        'company' => $companyName,
+                        'destination' => $lead->destination ?? 'Your Destination',
+                    ];
+
+                    $body = $template->processContent($variables);
+
+                    // Simple branded HTML
+                    $emailBody = $this->buildEmailBody($campaign->subject, $body, $companyName, $companyLogo, $companyPhone, $companyEmail, $companyAddress);
+
+                    CompanyMailSettingsService::applyIfEnabled();
+
+                    Mail::send([], [], function ($message) use ($lead, $campaign, $emailBody, $fromEmail, $fromName) {
+                        $message->from($fromEmail, $fromName)
+                            ->to($lead->email)
+                            ->subject($campaign->subject)
+                            ->html($emailBody);
+                    });
+
+                    // Check for mail failures
+                    if (Mail::failures()) {
+                        throw new \Exception('Mail service returned failure');
+                    }
+
+                    $sentCount++;
+                    \Log::info('Campaign email sent successfully', [
+                        'campaign_id' => $campaign->id,
+                        'lead_id' => $lead->id,
+                        'email' => $lead->email
+                    ]);
+                    
+                } catch (\Throwable $e) {
+                    // Log and continue with next lead
+                    \Log::error('Email campaign send failed for lead', [
+                        'campaign_id' => $campaign->id,
+                        'lead_id' => $lead->id,
+                        'email' => $lead->email,
+                        'error' => $e->getMessage(),
+                        'error_type' => get_class($e)
+                    ]);
+                    
+                    $lastError = $e->getMessage();
+                    $failedLeads[] = [
+                        'lead_id' => $lead->id,
+                        'email' => $lead->email,
+                        'error' => $e->getMessage()
+                    ];
+                }
+            }
+
+            $status = $sentCount > 0 ? 'sent' : 'failed';
+
+            try {
+                $campaign->update([
+                    'status' => $status,
+                    'sent_at' => now(),
+                    'sent_count' => $sentCount,
+                ]);
+            } catch (\Exception $updateError) {
+                \Log::error('Error updating campaign status', [
+                    'campaign_id' => $campaign->id,
+                    'error' => $updateError->getMessage()
+                ]);
+            }
+
+            \Log::info('Email campaign processing completed', [
+                'campaign_id' => $campaign->id,
+                'status' => $status,
+                'sent_count' => $sentCount,
+                'total_leads' => $leads->count(),
+                'failed_count' => count($failedLeads)
+            ]);
+
+            return [
+                'status' => $status,
+                'sent_count' => $sentCount,
+                'reason' => $status === 'sent'
+                    ? null
+                    : ($lastError ?: 'Unknown error while sending emails'),
+                'failed_leads' => $failedLeads
+            ];
+            
+        } catch (\Exception $e) {
+            \Log::error('Critical error in email campaign processing', [
+                'campaign_id' => $campaign->id,
+                'error' => $e->getMessage(),
+                'trace' => config('app.debug') ? $e->getTraceAsString() : null
+            ]);
+            
+            try {
+                $campaign->update(['status' => 'failed']);
+            } catch (\Exception $updateError) {
+                \Log::error('Failed to update campaign status after critical error', [
+                    'campaign_id' => $campaign->id,
+                    'error' => $updateError->getMessage()
+                ]);
+            }
+            
+            return [
+                'status' => 'failed',
+                'sent_count' => 0,
+                'reason' => 'Critical error during campaign processing',
+            ];
         }
-
-        $status = $sentCount > 0 ? 'sent' : 'failed';
-
-        $campaign->update([
-            'status' => $status,
-            'sent_at' => now(),
-            'sent_count' => $sentCount,
-        ]);
-
-        return [
-            'status' => $status,
-            'sent_count' => $sentCount,
-            'reason' => $status === 'sent'
-                ? null
-                : ($lastError ?: 'Unknown error while sending emails'),
-        ];
     }
 
     private function processSmsCampaign(SmsCampaign $campaign): void
     {
-        // Implementation for sending SMS campaign
-        $campaign->update(['status' => 'sent', 'sent_at' => now()]);
-        
-        // Update lead status
-        Lead::whereIn('id', $campaign->lead_ids)
-            ->update(['last_contacted_at' => now()]);
+        try {
+            // Load leads with error handling
+            $leadIds = (array) $campaign->lead_ids;
+            $leads = Lead::whereIn('id', $leadIds)
+                ->whereNotNull('phone')
+                ->get();
+
+            if ($leads->isEmpty()) {
+                \Log::warning('No valid leads for SMS campaign', [
+                    'campaign_id' => $campaign->id,
+                    'requested_lead_ids' => $leadIds
+                ]);
+                
+                $campaign->update(['status' => 'failed']);
+                return;
+            }
+
+            // Process SMS sending (placeholder for actual SMS integration)
+            $sentCount = 0;
+            foreach ($leads as $lead) {
+                try {
+                    // TODO: Integrate with actual SMS service (Twilio, etc.)
+                    // For now, just log the attempt
+                    \Log::info('SMS would be sent', [
+                        'campaign_id' => $campaign->id,
+                        'lead_id' => $lead->id,
+                        'phone' => $lead->phone
+                    ]);
+                    
+                    $sentCount++;
+                } catch (\Exception $smsError) {
+                    \Log::error('Failed to send SMS to lead', [
+                        'campaign_id' => $campaign->id,
+                        'lead_id' => $lead->id,
+                        'phone' => $lead->phone,
+                        'error' => $smsError->getMessage()
+                    ]);
+                }
+            }
+
+            $status = $sentCount > 0 ? 'sent' : 'failed';
+            
+            $campaign->update([
+                'status' => $status,
+                'sent_at' => now(),
+                'sent_count' => $sentCount,
+            ]);
+            
+            // Update lead status
+            if ($sentCount > 0) {
+                Lead::whereIn('id', $campaign->lead_ids)
+                    ->update(['last_contacted_at' => now()]);
+            }
+            
+            \Log::info('SMS campaign processing completed', [
+                'campaign_id' => $campaign->id,
+                'status' => $status,
+                'sent_count' => $sentCount,
+                'total_leads' => $leads->count()
+            ]);
+            
+        } catch (\Exception $e) {
+            \Log::error('Critical error in SMS campaign processing', [
+                'campaign_id' => $campaign->id,
+                'error' => $e->getMessage()
+            ]);
+            
+            $campaign->update(['status' => 'failed']);
+        }
+    }
+
+    /**
+     * Build email body HTML template
+     */
+    private function buildEmailBody(string $subject, string $body, string $companyName, string $companyLogo = '', string $companyPhone = '', string $companyEmail = '', string $companyAddress = ''): string
+    {
+        return '<!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>' . htmlspecialchars($subject) . '</title>
+        </head>
+        <body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f4f4f4;">
+            <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f4f4f4; padding: 20px 0;">
+                <tr>
+                    <td align="center">
+                        <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                            <tr>
+                                <td style="background: linear-gradient(135deg, #2563eb, #3b82f6); padding: 30px 40px; text-align: center;">
+                                    ' . ($companyLogo ? '<img src="' . $companyLogo . '" alt="' . htmlspecialchars($companyName) . '" style="max-height: 60px; margin-bottom: 10px;">' : '') . '
+                                    <h1 style="color: #ffffff; margin: 0; font-size: 24px; font-weight: 600;">' . htmlspecialchars($companyName) . '</h1>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 40px;">
+                                    <div style="color: #333333; font-size: 15px; line-height: 1.6;">
+                                        ' . nl2br(htmlspecialchars($body)) . '
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td style="background-color: #f8fafc; padding: 30px 40px; border-top: 1px solid #e5e7eb;">
+                                    <table width="100%" cellpadding="0" cellspacing="0">
+                                        <tr>
+                                            <td style="color: #6b7280; font-size: 13px;">
+                                                <p style="margin: 0 0 10px 0;"><strong>' . htmlspecialchars($companyName) . '</strong></p>
+                                                ' . ($companyPhone ? '<p style="margin: 0 0 5px 0;">📞 ' . htmlspecialchars($companyPhone) . '</p>' : '') . '
+                                                ' . ($companyEmail ? '<p style="margin: 0 0 5px 0;">✉️ ' . htmlspecialchars($companyEmail) . '</p>' : '') . '
+                                                ' . ($companyAddress ? '<p style="margin: 0;">📍 ' . htmlspecialchars($companyAddress) . '</p>' : '') . '
+                                            </td>
+                                        </tr>
+                                    </table>
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+            </table>
+        </body>
+        </html>';
     }
 
     private function getCampaignPerformance(string $startDate, string $endDate, string $type): array

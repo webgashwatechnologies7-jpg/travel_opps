@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { toast } from 'react-toastify';
 import Layout from '../components/Layout';
 import { Search, Plus, Edit, Eye, X, Image as ImageIcon, Hash, MapPin, CalendarDays, Trash, Upload, Camera } from 'lucide-react';
 import { packagesAPI } from '../services/api';
@@ -147,7 +148,7 @@ const Itineraries = () => {
       setShowViewModal(true);
     } catch (err) {
       console.error('Failed to fetch itinerary:', err);
-      alert('Failed to load itinerary details');
+      toast.error('Failed to load itinerary details');
     }
   };
 
@@ -171,7 +172,7 @@ const Itineraries = () => {
       setShowModal(true);
     } catch (err) {
       console.error('Failed to fetch itinerary:', err);
-      alert('Failed to load itinerary details');
+      toast.error('Failed to load itinerary details');
     }
   };
 
@@ -213,11 +214,11 @@ const Itineraries = () => {
   const librarySearch = librarySearchTerm.trim().toLowerCase();
   const libraryImages = librarySearch.length >= 2
     ? itineraries.filter(
-        (p) =>
-          p.image &&
-          ((p.title || p.itinerary_name || '').toLowerCase().includes(librarySearch) ||
-            (p.destination || p.destinations || '').toLowerCase().includes(librarySearch))
-      )
+      (p) =>
+        p.image &&
+        ((p.title || p.itinerary_name || '').toLowerCase().includes(librarySearch) ||
+          (p.destination || p.destinations || '').toLowerCase().includes(librarySearch))
+    )
     : [];
 
   const handleSelectLibraryImage = (itinerary) => {
@@ -252,7 +253,7 @@ const Itineraries = () => {
       setImagePreview(URL.createObjectURL(file));
       setShowLibraryModal(false);
     } catch (e) {
-      alert('Failed to load image. Try another or upload from device.');
+      toast.error('Failed to load image. Try another or upload from device.');
     }
   };
 
@@ -281,12 +282,12 @@ const Itineraries = () => {
 
       await fetchItineraries();
       handleCloseModal();
+      toast.success(editingItineraryId ? 'Itinerary updated successfully' : 'Itinerary created successfully');
     } catch (err) {
-      console.error('Failed to save itinerary:', err);
       const errorMessage = err.response?.data?.message || err.response?.data?.errors
         ? Object.values(err.response.data.errors).flat().join(', ')
         : 'Failed to save itinerary';
-      alert(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setSaving(false);
     }
@@ -313,10 +314,11 @@ const Itineraries = () => {
 
       // Refresh the list to get updated data from server
       await fetchItineraries(false);
+      toast.success('Status updated successfully');
     } catch {
       // Revert optimistic update on error
       await fetchItineraries(false);
-      alert('Failed to update itinerary status. Please try again.');
+      toast.error('Failed to update itinerary status. Please try again.');
     }
   };
 
@@ -326,9 +328,10 @@ const Itineraries = () => {
     try {
       await packagesAPI.delete(itinerary.id);
       await fetchItineraries(false);
+      toast.success('Itinerary deleted successfully');
     } catch (err) {
       console.error('Failed to delete itinerary:', err);
-      alert(err.response?.data?.message || 'Failed to delete itinerary. Please try again.');
+      toast.error(err.response?.data?.message || 'Failed to delete itinerary. Please try again.');
     }
   };
 
@@ -424,7 +427,7 @@ const Itineraries = () => {
                       <span className="text-xs text-gray-400 font-semibold uppercase tracking-wider">No Photo</span>
                     </div>
                   )}
-                  
+
                   {/* Top Actions Overlay - stopPropagation so card click doesn't fire */}
                   <div className="absolute top-3 right-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                     <button
@@ -497,19 +500,17 @@ const Itineraries = () => {
                         e.stopPropagation();
                         handleToggleStatus(itinerary);
                       }}
-                      className={`relative inline-flex h-5 w-10 items-center rounded-full transition-colors focus:outline-none ${
-                        itinerary.show_on_website ? "bg-green-500" : "bg-red-500"
-                      }`}
+                      className={`relative inline-flex h-5 w-10 items-center rounded-full transition-colors focus:outline-none ${itinerary.show_on_website ? "bg-green-500" : "bg-red-500"
+                        }`}
                     >
                       <span
-                        className={`h-3.5 w-3.5 bg-white rounded-full transform transition-transform duration-200 ease-in-out ${
-                          itinerary.show_on_website ? "translate-x-5" : "translate-x-1"
-                        }`}
+                        className={`h-3.5 w-3.5 bg-white rounded-full transform transition-transform duration-200 ease-in-out ${itinerary.show_on_website ? "translate-x-5" : "translate-x-1"
+                          }`}
                       />
                     </button>
                   </div>
                 </div>
-                
+
                 <div className="px-4 py-2 bg-gray-50 border-t border-gray-100 text-[10px] text-gray-400 flex justify-between">
                   <span>ID: {itinerary.id}</span>
                   <span>Updated: {formatDate(itinerary.updated_at || itinerary.last_updated)}</span>
@@ -951,8 +952,8 @@ const Itineraries = () => {
                   </label>
                   <span
                     className={`inline-flex px-3 py-1.5 text-xs font-bold rounded-full ${viewingItinerary.show_on_website
-                        ? 'bg-green-100 text-green-800 border border-green-300'
-                        : 'bg-red-100 text-red-800 border border-red-300'
+                      ? 'bg-green-100 text-green-800 border border-green-300'
+                      : 'bg-red-100 text-red-800 border border-red-300'
                       }`}
                   >
                     {viewingItinerary.show_on_website ? 'Yes' : 'No'}

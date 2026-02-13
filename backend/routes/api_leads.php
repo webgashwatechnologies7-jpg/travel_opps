@@ -24,6 +24,7 @@ Route::middleware('auth:sanctum')->prefix('leads')->group(function () {
     Route::get('/', [LeadsController::class, 'index']);
     Route::post('/', [LeadsController::class, 'store']);
     Route::get('/{leadId}/invoices/{invoiceId}/preview', [LeadInvoiceController::class, 'preview']);
+    Route::get('/{leadId}/invoices/{invoiceId}/download', [LeadInvoiceController::class, 'download']);
     Route::post('/{leadId}/invoices/{invoiceId}/send', [LeadInvoiceController::class, 'send']);
     Route::get('/{id}', [LeadsController::class, 'show']);
     Route::post('/{id}/confirm-option', LeadConfirmOptionController::class);

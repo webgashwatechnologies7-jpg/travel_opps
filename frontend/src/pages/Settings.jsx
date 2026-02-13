@@ -3,18 +3,32 @@ import { useSettings } from '../contexts/SettingsContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useContent } from '../contexts/ContentContext';
 import Layout from '../components/Layout';
-import { Settings as SettingsIcon, RotateCcw, Save, Hotel, Mail, Bell } from 'lucide-react';
-import { settingsAPI, googleMailAPI, notificationsAPI } from '../services/api';
+import { Settings as SettingsIcon, RotateCcw, Save, Hotel, Mail, Bell, Upload, X, Building, Phone, MapPin, Globe, Image as ImageIcon } from 'lucide-react';
+import api, { settingsAPI, googleMailAPI, notificationsAPI } from '../services/api';
 
 const Settings = () => {
   const { user } = useAuth();
   const { t } = useContent();
-  const { settings, updateSettings, resetSettings, loading: settingsLoading } = useSettings();
+  const { settings, updateSettings, resetSettings, loadSettings, loading: settingsLoading } = useSettings();
   const [formData, setFormData] = useState({
     sidebar_color: '#2765B0',
     dashboard_background_color: '#D8DEF5',
     header_background_color: '#D8DEF5',
   });
+
+  // Company Info State
+  const [logo, setLogo] = useState(null);
+  const [logoPreview, setLogoPreview] = useState(null);
+  const [favicon, setFavicon] = useState(null);
+  const [faviconPreview, setFaviconPreview] = useState(null);
+  const [companyForm, setCompanyForm] = useState({
+    company_name: '',
+    company_address: '',
+    company_phone: '',
+    company_email: '',
+    company_website: ''
+  });
+
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
   const [maxHotelOptions, setMaxHotelOptions] = useState(4);
@@ -28,8 +42,19 @@ const Settings = () => {
         dashboard_background_color: settings.dashboard_background_color || '#D8DEF5',
         header_background_color: settings.header_background_color || '#D8DEF5',
       });
+      // Company details are now loaded from companies table via fetchCompanyDetails()
+      // setCompanyForm({
+      //   company_name: settings.company_name || '',
+      //   company_address: settings.company_address || '',
+      //   company_phone: settings.company_phone || '',
+      //   company_email: settings.company_email || '',
+      //   company_website: settings.company_website || ''
+      // });
+      // Logo is now loaded from companies table via fetchCompanyDetails()
+      // setLogoPreview(settings.company_logo || null);
     }
     fetchMaxHotelOptions();
+    fetchCompanyDetails();
   }, [settings]);
 
   const fetchMaxHotelOptions = async () => {
@@ -40,6 +65,35 @@ const Settings = () => {
       }
     } catch (err) {
       console.error('Failed to fetch max hotel options:', err);
+    }
+  };
+
+  const fetchCompanyDetails = async () => {
+    try {
+      const response = await settingsAPI.getCompany();
+      if (response.data?.success && response.data?.data) {
+        const company = response.data.data;
+        setCompanyForm({
+          company_name: company.name || '',
+          company_address: company.address || '',
+          company_phone: company.phone || '',
+          company_email: company.email || '',
+          company_website: ''
+        });
+        if (company.logo) {
+          setLogoPreview(company.logo);
+        }
+        if (company.favicon) {
+          setFaviconPreview(company.favicon);
+          // Apply to tab immediately
+          const faviconEl = document.getElementById('favicon');
+          if (faviconEl) {
+            faviconEl.href = company.favicon;
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Failed to fetch company details:', err);
     }
   };
 
@@ -71,20 +125,147 @@ const Settings = () => {
     setMessage({ type: '', text: '' });
   };
 
+  const handleCompanyChange = (e) => {
+    const { name, value } = e.target;
+    setCompanyForm(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      if (file.size > 2 * 1024 * 1024) {
+        setMessage({ type: 'error', text: 'File size should be less than 2MB' });
+        return;
+      }
+      if (!file.type.startsWith('image/')) {
+        setMessage({ type: 'error', text: 'Please select an image file' });
+        return;
+      }
+      setLogo(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setLogoPreview(reader.result);
+      };
+      reader.readAsDataURL(file);
+      setMessage({ type: '', text: '' });
+    }
+  };
+
+  const handleRemoveLogo = () => {
+    setLogo(null);
+    setLogoPreview(null);
+    setMessage({ type: 'info', text: 'Click "Save Settings" to confirm logo removal.' });
+  };
+
+  const handleFaviconChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      if (file.size > 2 * 1024 * 1024) {
+        setMessage({ type: 'error', text: 'Favicon size should be less than 2MB' });
+        return;
+      }
+      setFavicon(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setFaviconPreview(reader.result);
+        // Instant preview in browser tab
+        const faviconEl = document.getElementById('favicon');
+        if (faviconEl) {
+          faviconEl.href = reader.result;
+        }
+      };
+      reader.readAsDataURL(file);
+      setMessage({ type: '', text: '' });
+    }
+  };
+
+  const handleRemoveFavicon = () => {
+    setFavicon(null);
+    setFaviconPreview(null);
+    // Reset to default/settings favicon
+    const faviconEl = document.getElementById('favicon');
+    if (faviconEl) {
+      faviconEl.href = '/vite.svg';
+    }
+    setMessage({ type: 'info', text: 'Click "Save Settings" to confirm favicon removal.' });
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSaving(true);
     setMessage({ type: '', text: '' });
 
     try {
-      const result = await updateSettings(formData);
+      let logoUrl = logoPreview;
+
+      // Handle Logo Upload
+      if (logo) {
+        const logoData = new FormData();
+        logoData.append('logo', logo);
+
+        const uploadResponse = await api.post('/settings/upload-logo', logoData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+
+        if (uploadResponse.data.success) {
+          logoUrl = uploadResponse.data.data.logo_url;
+        } else {
+          throw new Error('Failed to upload logo');
+        }
+      }
+
+      // Save company details to companies table
+      const companyData = {
+        name: companyForm.company_name,
+        address: companyForm.company_address,
+        phone: companyForm.company_phone,
+        email: companyForm.company_email,
+        logo: logoPreview === null ? null : (logoUrl || logoPreview)
+      };
+
+      // Handle Favicon
+      let faviconUrl = faviconPreview;
+      if (favicon) {
+        const faviconData = new FormData();
+        faviconData.append('logo', favicon); // Using same endpoint
+        const uploadResponse = await api.post('/settings/upload-logo', faviconData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+        if (uploadResponse.data.success) {
+          faviconUrl = uploadResponse.data.data.logo_url;
+        }
+      }
+      companyData.favicon = faviconPreview === null ? null : (faviconUrl || faviconPreview);
+
+      const companyResult = await settingsAPI.updateCompany(companyData);
+
+      if (!companyResult.data?.success) {
+        throw new Error(companyResult.data?.message || 'Failed to update company details');
+      }
+
+      // Save theme colors to settings table
+      const themeSettings = {
+        sidebar_color: formData.sidebar_color,
+        dashboard_background_color: formData.dashboard_background_color,
+        header_background_color: formData.header_background_color,
+      };
+
+      const result = await updateSettings(themeSettings);
       if (result.success) {
         setMessage({ type: 'success', text: t('settings.settings_updated') });
+        // Refresh company details in form
+        fetchCompanyDetails();
+        // Refresh global settings context (updates sidebar/header logo)
+        loadSettings();
       } else {
         setMessage({ type: 'error', text: result.message || 'Failed to update settings' });
       }
     } catch (error) {
-      setMessage({ type: 'error', text: 'An error occurred while updating settings' });
+      console.error('Error updating settings:', error);
+      setMessage({ type: 'error', text: error.message || 'An error occurred while updating settings' });
     } finally {
       setSaving(false);
     }
@@ -132,8 +313,8 @@ const Settings = () => {
       <div className="p-6">
         <div className="mb-6">
           <h1 className="flex items-center gap-2 text-3xl font-bold text-gray-800">
-            <SettingsIcon className="w-8 h-8" />
-            {t('settings.page_title')}
+            <Building className="w-8 h-8" />
+            Company Settings
           </h1>
           <p className="mt-2 text-gray-600">{t('settings.subtitle')}</p>
         </div>
@@ -151,6 +332,204 @@ const Settings = () => {
 
         <form onSubmit={handleSubmit} className="p-6 bg-white rounded-lg shadow">
           <div className="space-y-6">
+
+            {/* Logo Section */}
+            <div className="pb-6 border-b border-gray-200">
+              <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                <ImageIcon className="h-5 w-5 text-blue-600" />
+                Company Logo
+              </h2>
+
+              <div className="mb-4">
+                <div className="flex items-center gap-4">
+                  <div className="relative">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleFileChange}
+                      className="hidden"
+                      id="logo-upload"
+                    />
+                    <label
+                      htmlFor="logo-upload"
+                      className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 cursor-pointer"
+                    >
+                      <Upload className="h-4 w-4" />
+                      Choose Logo
+                    </label>
+                  </div>
+                  {logoPreview && (
+                    <button
+                      type="button"
+                      onClick={handleRemoveLogo}
+                      className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+                    >
+                      <X className="h-4 w-4" />
+                      Remove
+                    </button>
+                  )}
+                </div>
+                <p className="text-xs text-gray-500 mt-2">
+                  Recommended size: 200x50px. Max: 2MB.
+                </p>
+              </div>
+
+              {logoPreview && (
+                <div className="border border-gray-300 rounded-lg p-4 bg-gray-50 flex items-center justify-center w-fit">
+                  <img
+                    src={logoPreview}
+                    alt="Logo Preview"
+                    className="max-h-24 max-w-full object-contain"
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* Favicon Section */}
+            <div className="pb-6 border-b border-gray-200">
+              <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                <ImageIcon className="h-5 w-5 text-blue-600" />
+                Company Favicon
+              </h2>
+
+              <div className="mb-4">
+                <div className="flex items-center gap-4">
+                  <div className="relative">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleFaviconChange}
+                      className="hidden"
+                      id="favicon-upload"
+                    />
+                    <label
+                      htmlFor="favicon-upload"
+                      className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 cursor-pointer"
+                    >
+                      <Upload className="h-4 w-4" />
+                      Choose Favicon
+                    </label>
+                  </div>
+                  {faviconPreview && (
+                    <button
+                      type="button"
+                      onClick={handleRemoveFavicon}
+                      className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+                    >
+                      <X className="h-4 w-4" />
+                      Remove
+                    </button>
+                  )}
+                </div>
+                <p className="text-xs text-gray-500 mt-2">
+                  Recommended size: 32x32px. Max: 2MB.
+                </p>
+              </div>
+
+              {faviconPreview && (
+                <div className="border border-gray-300 rounded-lg p-2 bg-gray-50 flex items-center justify-center w-fit">
+                  <img
+                    src={faviconPreview}
+                    alt="Favicon Preview"
+                    className="w-8 h-8 object-contain"
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* Company Info Section */}
+            <div className="pb-6 border-b border-gray-200">
+              <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                <Building className="h-5 w-5 text-blue-600" />
+                Company Information
+              </h2>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Company Name</label>
+                  <div className="relative">
+                    <Building className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
+                    <input
+                      type="text"
+                      name="company_name"
+                      value={companyForm.company_name}
+                      onChange={handleCompanyChange}
+                      className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="Enter company name"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Address</label>
+                  <div className="relative">
+                    <MapPin className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
+                    <textarea
+                      name="company_address"
+                      value={companyForm.company_address}
+                      onChange={handleCompanyChange}
+                      rows="3"
+                      className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="Enter full address"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
+                    <div className="relative">
+                      <Phone className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
+                      <input
+                        type="text"
+                        name="company_phone"
+                        value={companyForm.company_phone}
+                        onChange={handleCompanyChange}
+                        className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="+1 234 567 890"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Email Address</label>
+                    <div className="relative">
+                      <Mail className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
+                      <input
+                        type="email"
+                        name="company_email"
+                        value={companyForm.company_email}
+                        onChange={handleCompanyChange}
+                        className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="contact@company.com"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Website</label>
+                  <div className="relative">
+                    <Globe className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
+                    <input
+                      type="text"
+                      name="company_website"
+                      value={companyForm.company_website}
+                      onChange={handleCompanyChange}
+                      className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="www.company.com"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Application Theme Label */}
+            <h2 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
+              <SettingsIcon className="h-5 w-5 text-blue-600" />
+              Customize your dashboard colors
+            </h2>
+
             {/* Sidebar Color */}
             <div>
               <label className="block mb-2 text-sm font-medium text-gray-700">

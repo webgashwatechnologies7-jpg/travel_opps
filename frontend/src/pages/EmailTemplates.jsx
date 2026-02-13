@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
+import { toast } from 'react-toastify';
 import { Mail, Plus, Edit, Trash2, Eye, Save, X } from 'lucide-react';
 import { settingsAPI } from '../services/api';
 
@@ -130,10 +131,10 @@ const EmailTemplates = () => {
         description: 'Selected email template for sending quotations'
       });
       setSelectedTemplate(templateId);
-      alert('Template selected successfully!');
+      toast.success('Template selected successfully!');
     } catch (err) {
       console.error('Failed to save selected template:', err);
-      alert('Failed to save template selection');
+      toast.error('Failed to save template selection');
     } finally {
       setSaving(false);
     }
@@ -153,7 +154,7 @@ const EmailTemplates = () => {
 
       const updatedTemplates = [...templates, template];
       setTemplates(updatedTemplates);
-      
+
       // Try to save to backend, but don't fail if it doesn't work
       try {
         await settingsAPI.save({
@@ -168,9 +169,9 @@ const EmailTemplates = () => {
 
       setShowCreateModal(false);
       setNewTemplate({ name: '', subject: '', content: '', description: '' });
-      alert('Template created successfully!');
+      toast.success('Template created successfully!');
     } catch {
-      alert('Failed to create template');
+      toast.error('Failed to create template');
     }
   };
 
@@ -179,7 +180,7 @@ const EmailTemplates = () => {
       try {
         const updatedTemplates = templates.filter(t => t.id !== templateId);
         setTemplates(updatedTemplates);
-        
+
         // Try to save to backend, but don't fail if it doesn't work
         try {
           await settingsAPI.save({
@@ -195,10 +196,10 @@ const EmailTemplates = () => {
         if (selectedTemplate === templateId) {
           setSelectedTemplate(null);
         }
-        
-        alert('Template deleted successfully!');
+
+        toast.success('Template deleted successfully!');
       } catch {
-        alert('Failed to delete template');
+        toast.error('Failed to delete template');
       }
     }
   };
@@ -717,7 +718,7 @@ const EmailTemplates = () => {
     };
 
     const styles = templateStyles[template.id] || templateStyles['template-1'];
-    
+
     // Special templates with unique layouts
     if (template.id === 'template-2') {
       return generate3DPremiumTemplate();
@@ -886,11 +887,10 @@ const EmailTemplates = () => {
           {templates.map((template) => (
             <div
               key={template.id}
-              className={`bg-white rounded-lg shadow-md border-2 transition-all ${
-                selectedTemplate === template.id
+              className={`bg-white rounded-lg shadow-md border-2 transition-all ${selectedTemplate === template.id
                   ? 'border-blue-600 ring-4 ring-blue-200'
                   : 'border-gray-200 hover:border-gray-300'
-              }`}
+                }`}
             >
               <div className="p-4">
                 <div className="flex items-start justify-between mb-3">
@@ -906,15 +906,15 @@ const EmailTemplates = () => {
                 </div>
 
                 {/* Template Preview */}
-                <div 
+                <div
                   className="mb-4 h-32 rounded-lg flex items-center justify-center border border-gray-200 overflow-hidden"
                   style={{
                     background: template.id === 'template-2' ? 'linear-gradient(135deg, #84cc16 0%, #65a30d 100%)' :
-                               template.id === 'template-3' ? 'linear-gradient(180deg, #0ea5e9 0%, #06b6d4 50%, #22d3ee 100%)' :
-                               template.id === 'template-4' ? '#3f6212' :
-                               template.id === 'template-5' ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' :
-                               template.id === 'template-6' ? '#ffffff' :
-                               'linear-gradient(135deg, #2563eb 0%, #1e40af 100%)'
+                      template.id === 'template-3' ? 'linear-gradient(180deg, #0ea5e9 0%, #06b6d4 50%, #22d3ee 100%)' :
+                        template.id === 'template-4' ? '#3f6212' :
+                          template.id === 'template-5' ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' :
+                            template.id === 'template-6' ? '#ffffff' :
+                              'linear-gradient(135deg, #2563eb 0%, #1e40af 100%)'
                   }}
                 >
                   <div className="text-center">
@@ -954,11 +954,10 @@ const EmailTemplates = () => {
                   <button
                     onClick={() => saveSelectedTemplate(template.id)}
                     disabled={selectedTemplate === template.id || saving}
-                    className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded text-sm ${
-                      selectedTemplate === template.id
+                    className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded text-sm ${selectedTemplate === template.id
                         ? 'bg-blue-600 text-white cursor-not-allowed'
                         : 'bg-blue-600 text-white hover:bg-blue-700'
-                    }`}
+                      }`}
                   >
                     {selectedTemplate === template.id ? (
                       <>
@@ -1008,7 +1007,7 @@ const EmailTemplates = () => {
               </div>
               <div className="flex-1 overflow-y-auto p-6 bg-gray-100">
                 <div className="bg-white rounded-lg shadow-lg p-4">
-                  <div 
+                  <div
                     dangerouslySetInnerHTML={{ __html: previewTemplateData.html }}
                     style={{ maxWidth: '100%', overflowX: 'auto' }}
                   />
@@ -1022,7 +1021,7 @@ const EmailTemplates = () => {
             </div>
           </div>
         )}
-        
+
         {/* Create Template Modal */}
         {showCreateModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -1039,7 +1038,7 @@ const EmailTemplates = () => {
                   <X className="h-6 w-6" />
                 </button>
               </div>
-              
+
               <div className="p-6 space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -1048,7 +1047,7 @@ const EmailTemplates = () => {
                   <input
                     type="text"
                     value={newTemplate.name}
-                    onChange={(e) => setNewTemplate({...newTemplate, name: e.target.value})}
+                    onChange={(e) => setNewTemplate({ ...newTemplate, name: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     placeholder="Enter template name"
                     required
@@ -1062,7 +1061,7 @@ const EmailTemplates = () => {
                   <input
                     type="text"
                     value={newTemplate.subject}
-                    onChange={(e) => setNewTemplate({...newTemplate, subject: e.target.value})}
+                    onChange={(e) => setNewTemplate({ ...newTemplate, subject: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     placeholder="Enter email subject"
                     required
@@ -1076,7 +1075,7 @@ const EmailTemplates = () => {
                   <input
                     type="text"
                     value={newTemplate.description}
-                    onChange={(e) => setNewTemplate({...newTemplate, description: e.target.value})}
+                    onChange={(e) => setNewTemplate({ ...newTemplate, description: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     placeholder="Brief description of this template"
                   />
@@ -1088,7 +1087,7 @@ const EmailTemplates = () => {
                   </label>
                   <textarea
                     value={newTemplate.content}
-                    onChange={(e) => setNewTemplate({...newTemplate, content: e.target.value})}
+                    onChange={(e) => setNewTemplate({ ...newTemplate, content: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     rows={10}
                     placeholder="Enter your email content here. You can use HTML tags for formatting."

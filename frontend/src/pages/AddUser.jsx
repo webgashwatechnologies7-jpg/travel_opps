@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { toast } from 'react-toastify';
 import { usersAPI } from '../services/api';
 import Layout from '../components/Layout';
 
@@ -15,7 +16,6 @@ const AddUser = () => {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [showToast, setShowToast] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -24,13 +24,8 @@ const AddUser = () => {
 
     try {
       await usersAPI.create(formData);
-      setShowToast(true);
-      
-      // Hide toast after 3 seconds and redirect
-      setTimeout(() => {
-        setShowToast(false);
-        navigate('/users');
-      }, 3000);
+      toast.success('User created successfully!');
+      navigate('/users');
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to create user');
       console.error(err);
@@ -59,16 +54,6 @@ const AddUser = () => {
             Back to Users
           </button>
         </div>
-
-        {/* Toast Notification */}
-        {showToast && (
-          <div className="fixed top-4 right-4 bg-green-500 text-white px-6 py-4 rounded-lg shadow-lg z-50 flex items-center space-x-2 animate-slide-in">
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-            </svg>
-            <span className="font-semibold">User created successfully!</span>
-          </div>
-        )}
 
         <div className="bg-white rounded-lg shadow-md p-6">
           {error && (
@@ -189,22 +174,6 @@ const AddUser = () => {
           </form>
         </div>
       </div>
-
-      <style>{`
-        @keyframes slide-in {
-          from {
-            transform: translateX(100%);
-            opacity: 0;
-          }
-          to {
-            transform: translateX(0);
-            opacity: 1;
-          }
-        }
-        .animate-slide-in {
-          animation: slide-in 0.3s ease-out;
-        }
-      `}</style>
     </Layout>
   );
 };

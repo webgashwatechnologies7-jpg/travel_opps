@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Response;
+use App\Http\Controllers\QuotationController;
 
 /*
 |--------------------------------------------------------------------------
@@ -30,3 +31,6 @@ Route::middleware('auth')->group(function () {
     Route::get('/google/connect', [GoogleController::class, 'connect'])->name('google.connect');
     Route::get('/google/callback', [GoogleController::class, 'callback'])->name('google.callback');
 });
+
+// --- PUBLIC PREVIEW ROUTE FOR DEVELOPMENT ---
+Route::get('/preview-quotation/{id}', [QuotationController::class, 'publicPreview']);

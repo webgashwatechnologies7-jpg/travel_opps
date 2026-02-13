@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Mail, ArrowRight, RefreshCw, Inbox, Reply, X, Search } from 'lucide-react';
+import { toast } from 'react-toastify';
 import Layout from '../components/Layout';
 import { googleMailAPI } from '../services/api';
 import { rewriteHtmlImageUrls, sanitizeEmailHtmlForDisplay } from '../utils/imageUrl';
@@ -109,7 +110,7 @@ const EmailInbox = () => {
     try {
       await googleMailAPI.markEmailsRead(tid ? { thread_id: tid } : { email_ids: ids });
       setEmails(prev => prev.map(e => (ids.includes(e.id) ? { ...e, is_read: true } : e)));
-    } catch (_) {}
+    } catch (_) { }
   };
 
   const startReply = (thread) => {
@@ -125,7 +126,7 @@ const EmailInbox = () => {
   const handleSendReply = async (e) => {
     e.preventDefault();
     if (!replyForm.to_email || !replyForm.subject || !replyForm.body) {
-      alert('Please fill To, Subject and Body');
+      toast.warning('Please fill To, Subject and Body');
       return;
     }
     setSendingReply(true);
@@ -142,7 +143,7 @@ const EmailInbox = () => {
         ? await googleMailAPI.sendMailWithAttachment({ ...payload, attachment: replyAttachment })
         : await googleMailAPI.sendMail(payload);
       if (res.data?.success || res.data?.message) {
-        alert('Reply sent successfully!');
+        toast.success('Reply sent successfully!');
         setShowReplyForm(false);
         setReplyForm({ to_email: '', subject: '', body: '' });
         setReplyAttachment(null);
@@ -155,10 +156,10 @@ const EmailInbox = () => {
           if (same.length) setSelectedThread(same.sort((a, b) => new Date(b.created_at) - new Date(a.created_at)));
         }
       } else {
-        alert('Failed to send: ' + (res.data?.error || 'Unknown error'));
+        toast.error('Failed to send: ' + (res.data?.error || 'Unknown error'));
       }
     } catch (err) {
-      alert('Failed to send reply: ' + (err.response?.data?.error || err.message));
+      toast.error('Failed to send reply: ' + (err.response?.data?.error || err.message));
     } finally {
       setSendingReply(false);
     }

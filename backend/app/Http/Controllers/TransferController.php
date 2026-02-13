@@ -314,6 +314,7 @@ class TransferController extends Controller
     public function import(Request $request): JsonResponse
     {
         try {
+            // Enhanced validation
             $validator = Validator::make($request->all(), [
                 'file' => 'required|mimes:xlsx,xls,csv|max:10240', // 10MB max
             ], [
@@ -323,29 +324,75 @@ class TransferController extends Controller
             ]);
 
             if ($validator->fails()) {
+                \Log::warning('Transfer import validation failed', [
+                    'errors' => $validator->errors()->toArray(),
+                    'user_id' => auth()->id()
+                ]);
+                
                 return response()->json([
                     'success' => false,
                     'message' => 'Validation failed',
-                    'errors' => $validator->errors(),
+                    'errors' => $validator->errors()
                 ], 422);
             }
 
-            // Handle file import (CSV/Excel)
+            // Handle file import with comprehensive error handling
             $importedCount = 0;
             $errors = [];
             
-            if ($request->hasFile('import_file')) {
-                $file = $request->file('import_file');
-                $filePath = $file->getPathname();
-                
+            if ($request->hasFile('file')) {
                 try {
+                    $file = $request->file('file');
+                    
+                    // Validate file integrity
+                    if (!$file->isValid()) {
+                        return response()->json([
+                            'success' => false,
+                            'message' => 'Invalid file upload',
+                            'error' => $file->getErrorMessage()
+                        ], 422);
+                    }
+                    
+                    // Check file size
+                    if ($file->getSize() > 10240 * 1024) { // 10MB
+                        return response()->json([
+                            'success' => false,
+                            'message' => 'File size exceeds 10MB limit',
+                            'error' => 'File too large'
+                        ], 422);
+                    }
+                    
+                    $filePath = $file->getPathname();
+                    $originalName = $file->getClientOriginalName();
+                    
+                    \Log::info('Starting transfer import', [
+                        'file_name' => $originalName,
+                        'file_size' => $file->getSize(),
+                        'file_type' => $file->getClientOriginalExtension(),
+                        'user_id' => auth()->id()
+                    ]);
+                    
                     // Handle CSV file
                     if ($file->getClientOriginalExtension() === 'csv') {
                         $handle = fopen($filePath, 'r');
+                        if (!$handle) {
+                            throw new \Exception('Failed to open CSV file');
+                        }
+                        
                         $header = fgetcsv($handle); // Skip header row
+                        $rowNumber = 1; // Start from row 2 (after header)
                         
                         while (($row = fgetcsv($handle)) !== false) {
+                            $rowNumber++;
+                            
                             try {
+                                // Validate required fields
+                                if (empty($row[0])) { // name is required
+                                    $errors[] = "Row {$rowNumber}: Transfer name is required";
+                                    continue;
+                                }
+                                
+                                // Create transfer with database error handling
                                 $transfer = Transfer::create([
                                     'name' => $row[0] ?? '',
                                     'destination' => $row[1] ?? '',
@@ -354,41 +401,157 @@ class TransferController extends Controller
                                     'transfer_details' => $row[4] ?? '',
                                     'transfer_image' => $row[5] ?? '',
                                     'status' => $row[6] ?? 'active',
-                                    'created_by' => $request->user()->id,
+                                    'created_by' => auth()->id(),
                                     'company_id' => tenant('id'),
                                 ]);
                                 
                                 // Add price if provided
-                                if (!empty($row[7])) {
-                                    $transfer->prices()->create([
-                                        'vehicle_type' => $row[8] ?? 'Standard',
-                                        'price' => $row[7],
-                                        'capacity' => $row[9] ?? 4,
-                                        'company_id' => tenant('id'),
-                                    ]);
+                                if (!empty($row[7]) && is_numeric($row[7])) {
+                                    try {
+                                        $transfer->prices()->create([
+                                            'vehicle_type' => $row[8] ?? 'Standard',
+                                            'price' => $row[7],
+                                            'capacity' => $row[9] ?? 4,
+                                            'company_id' => tenant('id'),
+                                        ]);
+                                    } catch (\Exception $priceError) {
+                                        $errors[] = "Row {$rowNumber}: Failed to create price - " . $priceError->getMessage();
+                                    }
                                 }
                                 
                                 $importedCount++;
-                            } catch (\Exception $e) {
-                                $errors[] = "Row " . ($importedCount + 2) . ": " . $e->getMessage();
+                                \Log::info('Transfer imported successfully', [
+                                    'transfer_id' => $transfer->id,
+                                    'transfer_name' => $transfer->name,
+                                    'row_number' => $rowNumber,
+                                    'user_id' => auth()->id()
+                                ]);
+                                
+                            } catch (\Exception $rowError) {
+                                $errors[] = "Row {$rowNumber}: " . $rowError->getMessage();
+                                \Log::error('Failed to import transfer row', [
+                                    'error' => $rowError->getMessage(),
+                                    'row_number' => $rowNumber,
+                                    'row_data' => $row,
+                                    'user_id' => auth()->id()
+                                ]);
                             }
                         }
+                        
                         fclose($handle);
+                        
+                    } else {
+                        // For Excel files - check if PhpSpreadsheet is available
+                        if (!class_exists('PhpOffice\\PhpSpreadsheet\\IOFactory')) {
+                            return response()->json([
+                                'success' => false,
+                                'message' => 'Excel files require PhpSpreadsheet library. Please install: composer require phpoffice/phpspreadsheet',
+                                'error' => 'Missing library'
+                            ], 422);
+                        }
+                        
+                        try {
+                            $spreadsheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($filePath);
+                            $worksheet = $spreadsheet->getActiveSheet();
+                            $rows = $worksheet->toArray();
+                            
+                            // Skip header row if present
+                            $startRow = 1;
+                            if (count($rows) > 0 && !empty($rows[0][0])) {
+                                $startRow = 1; // Assume first row is header
+                            }
+                            
+                            foreach (array_slice($rows, $startRow) as $index => $row) {
+                                $rowNumber = $startRow + $index + 1;
+                                
+                                try {
+                                    // Validate required fields
+                                    if (empty($row[0])) {
+                                        $errors[] = "Row {$rowNumber}: Transfer name is required";
+                                        continue;
+                                    }
+                                    
+                                    // Create transfer with database error handling
+                                    $transfer = Transfer::create([
+                                        'name' => $row[0] ?? '',
+                                        'destination' => $row[1] ?? '',
+                                        'from_date' => $row[2] ?? null,
+                                        'to_date' => $row[3] ?? null,
+                                        'transfer_details' => $row[4] ?? '',
+                                        'transfer_image' => $row[5] ?? '',
+                                        'status' => $row[6] ?? 'active',
+                                        'created_by' => auth()->id(),
+                                        'company_id' => tenant('id'),
+                                    ]);
+                                    
+                                    // Add price if provided
+                                    if (!empty($row[7]) && is_numeric($row[7])) {
+                                        try {
+                                            $transfer->prices()->create([
+                                                'vehicle_type' => $row[8] ?? 'Standard',
+                                                'price' => $row[7],
+                                                'capacity' => $row[9] ?? 4,
+                                                'company_id' => tenant('id'),
+                                            ]);
+                                        } catch (\Exception $priceError) {
+                                            $errors[] = "Row {$rowNumber}: Failed to create price - " . $priceError->getMessage();
+                                        }
+                                    }
+                                    
+                                    $importedCount++;
+                                    \Log::info('Transfer imported successfully from Excel', [
+                                        'transfer_id' => $transfer->id,
+                                        'transfer_name' => $transfer->name,
+                                        'row_number' => $rowNumber,
+                                        'user_id' => auth()->id()
+                                    ]);
+                                    
+                                } catch (\Exception $rowError) {
+                                    $errors[] = "Row {$rowNumber}: " . $rowError->getMessage();
+                                    \Log::error('Failed to import transfer row from Excel', [
+                                        'error' => $rowError->getMessage(),
+                                        'row_number' => $rowNumber,
+                                        'row_data' => $row,
+                                        'user_id' => auth()->id()
+                                    ]);
+                                }
+                            }
+                            
+                        } catch (\Exception $excelError) {
+                            \Log::error('Excel processing error', [
+                                'error' => $excelError->getMessage(),
+                                'file_name' => $originalName,
+                                'user_id' => auth()->id()
+                            ]);
+                            
+                            return response()->json([
+                                'success' => false,
+                                'message' => 'Error processing Excel file: ' . $excelError->getMessage(),
+                                'error' => config('app.debug') ? $excelError->getMessage() : 'Excel processing error'
+                            ], 500);
+                        }
                     }
-                    // For Excel files, would need PhpSpreadsheet library
-                    else {
-                        return response()->json([
-                            'success' => false,
-                            'message' => 'Excel files require PhpSpreadsheet library. Please use CSV format or install PhpSpreadsheet.',
-                        ], 422);
-                    }
-                } catch (\Exception $e) {
+                    
+                } catch (\Exception $fileError) {
+                    \Log::error('Transfer import file processing error', [
+                        'error' => $fileError->getMessage(),
+                        'file_name' => $originalName ?? 'unknown',
+                        'user_id' => auth()->id()
+                    ]);
+                    
                     return response()->json([
                         'success' => false,
-                        'message' => 'Error processing file: ' . $e->getMessage(),
+                        'message' => 'Error processing file: ' . $fileError->getMessage(),
+                        'error' => config('app.debug') ? $fileError->getMessage() : 'File processing error'
                     ], 500);
                 }
             }
+            
+            \Log::info('Transfer import completed', [
+                'imported_count' => $importedCount,
+                'error_count' => count($errors),
+                'user_id' => auth()->id()
+            ]);
             
             return response()->json([
                 'success' => true,
@@ -400,10 +563,16 @@ class TransferController extends Controller
             ], 200);
 
         } catch (\Exception $e) {
+            \Log::error('Critical error in transfer import', [
+                'error' => $e->getMessage(),
+                'trace' => config('app.debug') ? $e->getTraceAsString() : null,
+                'user_id' => auth()->id()
+            ]);
+            
             return response()->json([
                 'success' => false,
                 'message' => 'An error occurred while importing transfers',
-                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error'
             ], 500);
         }
     }

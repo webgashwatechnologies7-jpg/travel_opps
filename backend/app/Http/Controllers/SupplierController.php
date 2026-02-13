@@ -543,18 +543,30 @@ class SupplierController extends Controller
             </body>
             </html>';
 
-            // Send emails to suppliers
+            // Send emails to suppliers with enhanced error handling
             foreach ($suppliers as $supplier) {
                 if (!$supplier->email) {
                     $failedCount++;
                     $errors[] = "Supplier {$supplier->company_name} does not have an email address.";
+                    \Log::warning('Supplier email skipped - no email address', [
+                        'supplier_id' => $supplier->id,
+                        'supplier_name' => $supplier->company_name,
+                        'user_id' => auth()->id()
+                    ]);
                     continue;
                 }
 
                 try {
+                    // Validate email address format
+                    if (!filter_var($supplier->email, FILTER_VALIDATE_EMAIL)) {
+                        throw new \Exception('Invalid email address format');
+                    }
+                    
                     $fromEmail = $companyEmail ?: config('mail.from.address', 'noreply@travelops.com');
                     $fromName = $companyName ?: config('mail.from.name', 'TravelOps');
+                    
                     CompanyMailSettingsService::applyIfEnabled();
+                    
                     Mail::send([], [], function ($message) use ($supplier, $request, $emailBody, $fromEmail, $fromName) {
                         $message->from($fromEmail, $fromName)
                             ->to($supplier->email)
@@ -565,32 +577,58 @@ class SupplierController extends Controller
                             $message->cc($request->cc_email);
                         }
                     });
+                    
+                    // Check for mail failures
+                    if (Mail::failures()) {
+                        throw new \Exception('Mail service returned failure');
+                    }
+                    
                     $sentCount++;
+                    \Log::info('Supplier email sent successfully', [
+                        'supplier_id' => $supplier->id,
+                        'supplier_email' => $supplier->email,
+                        'subject' => $request->subject,
+                        'user_id' => auth()->id()
+                    ]);
+                    
                 } catch (\Exception $e) {
                     $failedCount++;
                     $errors[] = "Failed to send email to {$supplier->company_name}: " . $e->getMessage();
-                    Log::error('Supplier email send failed', [
+                    \Log::error('Supplier email send failed', [
                         'supplier_id' => $supplier->id,
                         'supplier_email' => $supplier->email,
                         'error' => $e->getMessage(),
-                        'trace' => $e->getTraceAsString(),
+                        'error_type' => get_class($e),
+                        'trace' => config('app.debug') ? $e->getTraceAsString() : null,
+                        'user_id' => auth()->id()
                     ]);
                 }
             }
 
-            // Send emails to hotels
+            // Send emails to hotels with enhanced error handling
             foreach ($hotelEmails as $hotel) {
                 if (empty($hotel['email'])) {
                     $failedCount++;
                     $hotelName = $hotel['name'] ?? 'Unknown';
                     $errors[] = "Hotel {$hotelName} does not have an email address.";
+                    \Log::warning('Hotel email skipped - no email address', [
+                        'hotel_name' => $hotelName,
+                        'user_id' => auth()->id()
+                    ]);
                     continue;
                 }
-
+                
                 try {
+                    // Validate email address format
+                    if (!filter_var($hotel['email'], FILTER_VALIDATE_EMAIL)) {
+                        throw new \Exception('Invalid email address format');
+                    }
+                    
                     $fromEmail = $companyEmail ?: config('mail.from.address', 'noreply@travelops.com');
                     $fromName = $companyName ?: config('mail.from.name', 'TravelOps');
+                    
                     CompanyMailSettingsService::applyIfEnabled();
+                    
                     Mail::send([], [], function ($message) use ($hotel, $request, $emailBody, $fromEmail, $fromName) {
                         $message->from($fromEmail, $fromName)
                             ->to($hotel['email'])
@@ -601,16 +639,31 @@ class SupplierController extends Controller
                             $message->cc($request->cc_email);
                         }
                     });
+                    
+                    // Check for mail failures
+                    if (Mail::failures()) {
+                        throw new \Exception('Mail service returned failure');
+                    }
+                    
                     $sentCount++;
+                    \Log::info('Hotel email sent successfully', [
+                        'hotel_email' => $hotel['email'],
+                        'hotel_name' => $hotel['name'] ?? 'Unknown',
+                        'subject' => $request->subject,
+                        'user_id' => auth()->id()
+                    ]);
+                    
                 } catch (\Exception $e) {
                     $failedCount++;
                     $hotelName = $hotel['name'] ?? 'Hotel';
                     $errors[] = "Failed to send email to {$hotelName}: " . $e->getMessage();
-                    Log::error('Hotel email send failed', [
+                    \Log::error('Hotel email send failed', [
                         'hotel_email' => $hotel['email'],
                         'hotel_name' => $hotel['name'] ?? 'Unknown',
                         'error' => $e->getMessage(),
-                        'trace' => $e->getTraceAsString(),
+                        'error_type' => get_class($e),
+                        'trace' => config('app.debug') ? $e->getTraceAsString() : null,
+                        'user_id' => auth()->id()
                     ]);
                 }
             }

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
+import { toast } from 'react-toastify';
 import { useSettings } from '../contexts/SettingsContext';
 import { Search, Plus, Edit, X, Image as ImageIcon, Trash2, Camera, Upload } from 'lucide-react';
 import { dayItinerariesAPI, packagesAPI } from '../services/api';
@@ -40,7 +41,7 @@ const DayItinerary = () => {
       setLoading(true);
       const response = await dayItinerariesAPI.list();
       const data = response.data.data || response.data || [];
-      
+
       // Process image URLs - handle both relative and absolute URLs
       const processedData = data.map(itinerary => {
         if (itinerary.image) {
@@ -57,7 +58,7 @@ const DayItinerary = () => {
         }
         return itinerary;
       });
-      
+
       setDayItineraries(processedData);
       setError('');
     } catch (err) {
@@ -131,7 +132,7 @@ const DayItinerary = () => {
       setLibraryPackages(processed);
     } catch (err) {
       console.error('Failed to fetch library:', err);
-      alert('Failed to load image library. Please try again.');
+      toast.error('Failed to load image library. Please try again.');
     } finally {
       setLibraryLoading(false);
     }
@@ -169,7 +170,7 @@ const DayItinerary = () => {
       setImageSource('upload');
       setShowImageModal(false);
     } catch (e) {
-      alert('Failed to load image. Try another or upload from device.');
+      toast.error('Failed to load image. Try another or upload from device.');
     }
   };
 
@@ -177,11 +178,11 @@ const DayItinerary = () => {
   const librarySearch = (librarySearchTerm || '').trim().toLowerCase();
   const libraryImages = librarySearch.length >= 2
     ? libraryPackages.filter(
-        (p) =>
-          p.image &&
-          ((p.title || p.itinerary_name || '').toLowerCase().includes(librarySearch) ||
-            (p.destination || p.destinations || '').toLowerCase().includes(librarySearch))
-      )
+      (p) =>
+        p.image &&
+        ((p.title || p.itinerary_name || '').toLowerCase().includes(librarySearch) ||
+          (p.destination || p.destinations || '').toLowerCase().includes(librarySearch))
+    )
     : [];
 
   const handleImageSelect = (imageUrl) => {
@@ -208,14 +209,14 @@ const DayItinerary = () => {
   const handleSave = async (e) => {
     e.preventDefault();
     setSaving(true);
-    
+
     try {
       const submitData = new FormData();
       submitData.append('destination', formData.destination);
       submitData.append('title', formData.title);
       submitData.append('details', formData.details);
       submitData.append('status', formData.status);
-      
+
       // Handle image - either file or library image
       if (formData.image) {
         submitData.append('image', formData.image);
@@ -249,7 +250,7 @@ const DayItinerary = () => {
   const handleEdit = (itinerary) => {
     setEditingItineraryId(itinerary.id);
     setIsModalOpen(true);
-    
+
     setFormData({
       destination: itinerary.destination || '',
       title: itinerary.title || '',
@@ -257,7 +258,7 @@ const DayItinerary = () => {
       status: itinerary.status || 'active',
       image: null
     });
-    
+
     // Set image preview if image exists
     if (itinerary.image) {
       // Handle both relative and absolute URLs
@@ -398,9 +399,9 @@ const DayItinerary = () => {
                         <div className="flex items-center gap-3">
                           <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center overflow-hidden border border-gray-200 flex-shrink-0">
                             {itinerary.image ? (
-                              <img 
-                                src={itinerary.image} 
-                                alt={itinerary.title || 'Day Itinerary'} 
+                              <img
+                                src={itinerary.image}
+                                alt={itinerary.title || 'Day Itinerary'}
                                 className="w-full h-full object-cover"
                                 onError={(e) => {
                                   e.target.style.display = 'none';
@@ -426,11 +427,10 @@ const DayItinerary = () => {
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                          itinerary.status === 'active' 
-                            ? 'bg-green-100 text-green-800' 
+                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${itinerary.status === 'active'
+                            ? 'bg-green-100 text-green-800'
                             : 'bg-red-100 text-red-800'
-                        }`}>
+                          }`}>
                           {itinerary.status === 'active' ? 'Active' : 'Inactive'}
                         </span>
                       </td>
@@ -539,9 +539,9 @@ const DayItinerary = () => {
                     <div className="space-y-2">
                       {imagePreview ? (
                         <div className="relative">
-                          <img 
-                            src={imagePreview} 
-                            alt="Preview" 
+                          <img
+                            src={imagePreview}
+                            alt="Preview"
                             className="w-full h-48 object-cover rounded-lg border border-gray-300"
                           />
                           <button

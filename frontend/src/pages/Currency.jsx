@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
-import { Search, Plus, Edit, X, Trash2 } from 'lucide-react';
+import { Search, Plus, Edit, X, Trash2, Star } from 'lucide-react';
 import { currenciesAPI } from '../services/api';
+import { toast } from 'react-toastify';
 
 const Currency = () => {
   const [currencies, setCurrencies] = useState([]);
@@ -12,6 +13,7 @@ const Currency = () => {
   const [editingCurrencyId, setEditingCurrencyId] = useState(null);
   const [formData, setFormData] = useState({
     name: '',
+    symbol: '',
     rate: '',
     status: 'active'
   });
@@ -44,6 +46,7 @@ const Currency = () => {
     setIsModalOpen(true);
     setFormData({
       name: '',
+      symbol: '',
       rate: '',
       status: 'active'
     });
@@ -54,6 +57,7 @@ const Currency = () => {
     setEditingCurrencyId(null);
     setFormData({
       name: '',
+      symbol: '',
       rate: '',
       status: 'active'
     });
@@ -69,7 +73,7 @@ const Currency = () => {
   const handleSave = async (e) => {
     e.preventDefault();
     setSaving(true);
-    
+
     try {
       if (editingCurrencyId) {
         await currenciesAPI.update(editingCurrencyId, formData);
@@ -99,9 +103,10 @@ const Currency = () => {
   const handleEdit = (currency) => {
     setEditingCurrencyId(currency.id);
     setIsModalOpen(true);
-    
+
     setFormData({
       name: currency.name || '',
+      symbol: currency.symbol || '',
       rate: currency.rate || '',
       status: currency.status || 'active'
     });
@@ -120,11 +125,21 @@ const Currency = () => {
     }
   };
 
+  const handleSetPrimary = async (id) => {
+    try {
+      await currenciesAPI.setPrimary(id);
+      await fetchCurrencies();
+      toast.success('Primary currency updated');
+    } catch (err) {
+      toast.error('Failed to update primary currency');
+    }
+  };
+
   const filteredCurrencies = currencies.filter(currency => {
     const name = currency.name || '';
     const searchLower = searchTerm.toLowerCase();
     return name.toLowerCase().includes(searchLower);
-  });
+  }).sort((a, b) => (b.is_primary ? 1 : 0) - (a.is_primary ? 1 : 0));
 
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
@@ -215,17 +230,23 @@ const Currency = () => {
                   filteredCurrencies.map((currency) => (
                     <tr key={currency.id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900">{currency.name || 'N/A'}</div>
+                        <div className="flex items-center gap-2">
+                          <div className="text-sm font-medium text-gray-900">
+                            {currency.name || 'N/A'} {currency.symbol && <span className="text-gray-400">({currency.symbol})</span>}
+                          </div>
+                          {currency.is_primary && (
+                            <Star className="h-4 w-4 text-yellow-500 fill-yellow-500" title="Primary Currency" />
+                          )}
+                        </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm text-gray-900">{currency.rate || 'N/A'}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                          currency.status === 'active' 
-                            ? 'bg-green-100 text-green-800' 
-                            : 'bg-red-100 text-red-800'
-                        }`}>
+                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${currency.status === 'active'
+                          ? 'bg-green-100 text-green-800'
+                          : 'bg-red-100 text-red-800'
+                          }`}>
                           {currency.status === 'active' ? 'Active' : 'Inactive'}
                         </span>
                       </td>
@@ -236,6 +257,15 @@ const Currency = () => {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                         <div className="flex items-center gap-2">
+                          {!currency.is_primary && (
+                            <button
+                              onClick={() => handleSetPrimary(currency.id)}
+                              className="text-gray-400 hover:text-yellow-600 p-2 hover:bg-yellow-50 rounded-full"
+                              title="Set as Primary"
+                            >
+                              <Star className="h-5 w-5" />
+                            </button>
+                          )}
                           <button
                             onClick={() => handleEdit(currency)}
                             className="text-green-600 hover:text-green-900 p-2 hover:bg-green-50 rounded-full"
@@ -299,11 +329,48 @@ const Currency = () => {
                     />
                   </div>
 
-                  {/* Rate */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Rate *
+                      Symbol (e.g. ₹, $)
                     </label>
+                    <input
+                      type="text"
+                      value={formData.symbol}
+                      onChange={(e) => handleInputChange('symbol', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="Enter symbol"
+                    />
+                  </div>
+
+                  {/* Rate */}
+                  <div>
+                    <div className="flex justify-between items-center mb-1">
+                      <label className="block text-sm font-medium text-gray-700">
+                        Rate *
+                      </label>
+                      {formData.name && formData.name.length >= 3 && (
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            try {
+                              setSaving(true);
+                              const res = await currenciesAPI.getLiveRate(formData.name);
+                              if (res.data.success) {
+                                handleInputChange('rate', res.data.rate);
+                                toast.success(`Live rate for ${formData.name} fetched!`);
+                              }
+                            } catch (err) {
+                              toast.error('Could not fetch live rate. Please check currency name (e.g. USD, EUR)');
+                            } finally {
+                              setSaving(false);
+                            }
+                          }}
+                          className="text-xs text-blue-600 hover:text-blue-800 font-medium"
+                        >
+                          Fetch Live Rate
+                        </button>
+                      )}
+                    </div>
                     <input
                       type="number"
                       step="0.01"

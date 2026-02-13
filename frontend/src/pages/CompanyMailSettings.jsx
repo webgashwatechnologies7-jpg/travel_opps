@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Mail, Save, Send, HelpCircle, ChevronDown, ChevronUp, Eye, EyeOff, Inbox, Link2 } from 'lucide-react';
+import { toast } from 'react-toastify';
 import Layout from '../components/Layout';
 import { companySettingsAPI, googleMailAPI, companyGoogleAPI } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
@@ -165,7 +166,7 @@ const CompanyMailSettings = () => {
   const handleTest = async () => {
     const isGmail = (formData.host || '').toLowerCase().includes('gmail');
     if (isGmail && !formData.password && !hasPassword) {
-      alert('SMTP Password is required for Gmail.\n\nEnter your Gmail App Password (16-character code) in the SMTP Password field, then click Save Settings, then Send Test Mail.\n\nYour normal Gmail password will not work — use an App Password.');
+      toast.warning('SMTP Password is required for Gmail. Enter your Gmail App Password (16-character code) in the SMTP Password field, then click Save Settings, then Send Test Mail.');
       return;
     }
 
@@ -199,7 +200,7 @@ const CompanyMailSettings = () => {
           ? '\n\nTip: Gmail 535 = wrong credentials. (1) Use App Password, not your normal password. (2) Enter the 16-char App Password in the Password field, Save, then Test again.'
           : '';
         setMessage({ type: 'error', text: 'Mail could not be sent. Issue: ' + msg + (tip ? '\n\n' + tip.trim() : '') });
-        alert('Mail could not be sent.\n\nIssue: ' + msg + tip);
+        toast.error('Mail could not be sent. Issue: ' + msg + tip);
       }
     } catch (err) {
       const msg = err.response?.data?.message || err.response?.data?.error || err.message || 'Mail test failed';
@@ -208,7 +209,7 @@ const CompanyMailSettings = () => {
         ? '\n\nTip: Gmail 535 = wrong credentials. Use App Password, enter it in the Password field, Save, then Test again.'
         : '';
       setMessage({ type: 'error', text: 'Mail could not be sent. Issue: ' + msg + (tip ? '\n\n' + tip.trim() : '') });
-      alert('Mail could not be sent.\n\nIssue: ' + msg + tip);
+      toast.error('Mail could not be sent. Issue: ' + msg + tip);
     } finally {
       setTesting(false);
     }
@@ -358,17 +359,17 @@ const CompanyMailSettings = () => {
                   <button
                     type="button"
                     onClick={async () => {
-                    try {
-                      const res = await googleMailAPI.getConnectUrlForRedirect();
-                      if (res.data?.url) {
-                        window.location.href = res.data.url;
-                      } else {
-                        setMessage({ type: 'error', text: res.data?.error || 'Could not get connect URL' });
+                      try {
+                        const res = await googleMailAPI.getConnectUrlForRedirect();
+                        if (res.data?.url) {
+                          window.location.href = res.data.url;
+                        } else {
+                          setMessage({ type: 'error', text: res.data?.error || 'Could not get connect URL' });
+                        }
+                      } catch (err) {
+                        setMessage({ type: 'error', text: err.response?.data?.error || err.message || 'Failed to start Gmail connect' });
                       }
-                    } catch (err) {
-                      setMessage({ type: 'error', text: err.response?.data?.error || err.message || 'Failed to start Gmail connect' });
-                    }
-                  }}
+                    }}
                     className="w-fit px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
                   >
                     Reconnect Gmail
@@ -473,11 +474,10 @@ const CompanyMailSettings = () => {
 
             {message.text && (
               <div
-                className={`mb-4 px-4 py-3 rounded ${
-                  message.type === 'success'
-                    ? 'bg-green-100 border border-green-300 text-green-700'
-                    : 'bg-red-100 border border-red-300 text-red-700'
-                }`}
+                className={`mb-4 px-4 py-3 rounded ${message.type === 'success'
+                  ? 'bg-green-100 border border-green-300 text-green-700'
+                  : 'bg-red-100 border border-red-300 text-red-700'
+                  }`}
               >
                 {message.text}
               </div>

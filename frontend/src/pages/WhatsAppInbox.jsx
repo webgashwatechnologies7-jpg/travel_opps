@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
 import { whatsappAPI } from '../services/api';
+import { toast } from 'react-toastify';
 import Layout from '../components/Layout';
 
 const WhatsAppInbox = () => {
@@ -35,13 +35,14 @@ const WhatsAppInbox = () => {
 
   const handleSend = async () => {
     if (!message.trim() || !selectedLead) return;
-    
+
     try {
       await whatsappAPI.send(selectedLead.lead_id, message);
       setMessage('');
       fetchInbox();
+      toast.success('Message sent successfully');
     } catch (err) {
-      alert('Failed to send message');
+      toast.error('Failed to send message');
     }
   };
 
@@ -59,7 +60,7 @@ const WhatsAppInbox = () => {
     <Layout>
       <div className="h-[calc(100vh-8rem)]">
         <h1 className="text-3xl font-bold text-gray-800 mb-8">WhatsApp Inbox</h1>
-        
+
         <div className="flex h-full gap-4">
           {/* Lead List */}
           <div className="w-1/3 bg-white rounded-lg shadow overflow-hidden">
@@ -71,9 +72,8 @@ const WhatsAppInbox = () => {
                 <div
                   key={item.lead_id}
                   onClick={() => setSelectedLead(item)}
-                  className={`p-4 border-b cursor-pointer hover:bg-gray-50 ${
-                    selectedLead?.lead_id === item.lead_id ? 'bg-blue-50' : ''
-                  }`}
+                  className={`p-4 border-b cursor-pointer hover:bg-gray-50 ${selectedLead?.lead_id === item.lead_id ? 'bg-blue-50' : ''
+                    }`}
                 >
                   <div className="font-semibold text-gray-900">{item.client_name}</div>
                   <div className="text-sm text-gray-500">{item.phone}</div>
@@ -94,7 +94,7 @@ const WhatsAppInbox = () => {
                   <h2 className="font-semibold text-gray-900">{selectedLead.client_name}</h2>
                   <p className="text-sm text-gray-500">{selectedLead.phone}</p>
                 </div>
-                
+
                 <div className="flex-1 p-4 overflow-y-auto bg-gray-50">
                   <div className="bg-white p-3 rounded-lg shadow-sm mb-4">
                     <p className="text-sm text-gray-700">{selectedLead.last_message}</p>

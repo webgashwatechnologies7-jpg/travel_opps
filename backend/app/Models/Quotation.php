@@ -3,10 +3,16 @@
 namespace App\Models;
 
 use App\Models\User;
+use App\Modules\Leads\Domain\Entities\Lead;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+/**
+ * @property \Illuminate\Support\Carbon|null $travel_start_date
+ * @property \Illuminate\Support\Carbon|null $travel_end_date
+ * @property \Illuminate\Support\Carbon|null $valid_until
+ */
 class Quotation extends Model
 {
     use HasFactory;
@@ -62,6 +68,7 @@ class Quotation extends Model
         'rejected_at' => 'datetime',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
+        'valid_until' => 'date',
     ];
 
     public function lead(): BelongsTo

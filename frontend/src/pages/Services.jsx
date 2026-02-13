@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { toast } from 'react-toastify';
 import Layout from '../components/Layout';
 import { servicesAPI } from '../services/api';
 import { Plus, Edit2, Trash2, Eye, ToggleLeft, ToggleRight, Search, Filter } from 'lucide-react';
@@ -37,21 +37,22 @@ const Services = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const response = editingService 
+      const response = editingService
         ? await servicesAPI.update(editingService.id, formData)
         : await servicesAPI.create(formData);
-      
+
       if (response.data.success) {
         setShowModal(false);
         setEditingService(null);
         setFormData({ name: '', status: 'active' });
         fetchServices();
+        toast.success(editingService ? 'Service updated successfully' : 'Service created successfully');
       } else {
-        alert(response.data.message || 'Failed to save service');
+        toast.error(response.data.message || 'Failed to save service');
       }
     } catch (err) {
       console.error('Failed to save service:', err);
-      alert('Failed to save service');
+      toast.error('Failed to save service');
     }
   };
 
@@ -73,28 +74,30 @@ const Services = () => {
       const response = await servicesAPI.delete(service.id);
       if (response.data.success) {
         fetchServices();
+        toast.success('Service deleted successfully');
       } else {
-        alert(response.data.message || 'Failed to delete service');
+        toast.error(response.data.message || 'Failed to delete service');
       }
     } catch (err) {
       console.error('Failed to delete service:', err);
-      alert('Failed to delete service');
+      toast.error('Failed to delete service');
     }
   };
 
   const handleToggleStatus = async (service) => {
     const newStatus = service.status === 'active' ? 'inactive' : 'active';
-    
+
     try {
       const response = await servicesAPI.update(service.id, { ...service, status: newStatus });
       if (response.data.success) {
         fetchServices();
+        toast.success(`Service status updated to ${newStatus}`);
       } else {
-        alert(response.data.message || 'Failed to update service status');
+        toast.error(response.data.message || 'Failed to update service status');
       }
     } catch (err) {
       console.error('Failed to update service status:', err);
-      alert('Failed to update service status');
+      toast.error('Failed to update service status');
     }
   };
 
@@ -189,11 +192,10 @@ const Services = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span
-                        className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                          service.status === 'active'
+                        className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${service.status === 'active'
                             ? 'bg-green-100 text-green-800'
                             : 'bg-red-100 text-red-800'
-                        }`}
+                          }`}
                       >
                         {service.status}
                       </span>
@@ -205,11 +207,10 @@ const Services = () => {
                       <div className="flex justify-end gap-2">
                         <button
                           onClick={() => handleToggleStatus(service)}
-                          className={`p-1 rounded transition-colors ${
-                            service.status === 'active'
+                          className={`p-1 rounded transition-colors ${service.status === 'active'
                               ? 'text-green-600 hover:bg-green-50'
                               : 'text-red-600 hover:bg-red-50'
-                          }`}
+                            }`}
                           title={service.status === 'active' ? 'Deactivate' : 'Activate'}
                         >
                           {service.status === 'active' ? (

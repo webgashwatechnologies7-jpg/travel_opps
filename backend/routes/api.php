@@ -19,25 +19,31 @@ Route::any('/test-unique', function () {
     return response()->json(['status' => 'ok']);
 });
 
+// Debug route
+require __DIR__ . '/test-debug.php';
+
 // Load modular route files
-require __DIR__.'/api_auth.php';
-require __DIR__.'/api_crm.php';
-require __DIR__.'/api_leads.php';
-require __DIR__.'/api_operations.php';
-require __DIR__.'/api_settings.php';
-require __DIR__.'/api_analytics.php';
-require __DIR__.'/api_finance.php';
-require __DIR__.'/api_automation.php';
-require __DIR__.'/api_superadmin.php';
-require __DIR__.'/api_company_admin.php';
-require __DIR__.'/api_marketing.php';
-require __DIR__.'/api_accounts.php';
-require __DIR__.'/api_followups.php';
-require __DIR__.'/api_documents.php';
-require __DIR__.'/api_vouchers.php';
-require __DIR__.'/api_services.php';
-require __DIR__.'/api_notifications.php';
-require __DIR__.'/api_calls.php';
+require __DIR__ . '/api_auth.php';
+require __DIR__ . '/api_crm.php';
+require __DIR__ . '/api_leads.php';
+require __DIR__ . '/api_operations.php';
+require __DIR__ . '/api_settings.php';
+require __DIR__ . '/api_analytics.php';
+require __DIR__ . '/api_finance.php';
+require __DIR__ . '/api_automation.php';
+require __DIR__ . '/api_superadmin.php';
+require __DIR__ . '/api_company_admin.php';
+require __DIR__ . '/api_marketing.php';
+require __DIR__ . '/api_accounts.php';
+require __DIR__ . '/api_followups.php';
+require __DIR__ . '/api_documents.php';
+require __DIR__ . '/api_vouchers.php';
+require __DIR__ . '/api_services.php';
+require __DIR__ . '/api_notifications.php';
+require __DIR__ . '/api_calls.php';
+require __DIR__ . '/api_quotations.php';
+require __DIR__ . '/api_master_points.php';
+
 
 // Employee Management routes - require authentication
 Route::middleware('auth:sanctum')->prefix('employees')->group(function () {

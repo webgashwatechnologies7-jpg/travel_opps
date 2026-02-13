@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { followupsAPI } from '../services/api';
+import { toast } from 'react-toastify';
 import Layout from '../components/Layout';
 
 const Followups = () => {
@@ -31,8 +32,9 @@ const Followups = () => {
     try {
       await followupsAPI.complete(id);
       fetchFollowups();
+      toast.success('Follow-up marked as complete');
     } catch (err) {
-      alert('Failed to mark as complete');
+      toast.error('Failed to mark as complete');
     }
   };
 
@@ -57,8 +59,8 @@ const Followups = () => {
           <button
             onClick={() => setActiveTab('today')}
             className={`px-6 py-2 rounded-lg ${activeTab === 'today'
-                ? 'bg-blue-600 text-white'
-                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+              ? 'bg-blue-600 text-white'
+              : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
               }`}
           >
             Today ({todayFollowups.length})
@@ -66,8 +68,8 @@ const Followups = () => {
           <button
             onClick={() => setActiveTab('overdue')}
             className={`px-6 py-2 rounded-lg ${activeTab === 'overdue'
-                ? 'bg-red-600 text-white'
-                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+              ? 'bg-red-600 text-white'
+              : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
               }`}
           >
             Overdue ({overdueFollowups.length})

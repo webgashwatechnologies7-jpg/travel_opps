@@ -23,22 +23,12 @@ const PricingTab = ({
   setTcs,
   discount,
   setDiscount,
-  initialOptionGstSettings = {},
+  optionGstSettings = {},
+  setOptionGstSettings,
   showToastNotification,
   onPricingSaveSuccess
 }) => {
-  // Individual GST settings for each option (overrides global gst)
-  const [optionGstSettings, setOptionGstSettings] = useState(initialOptionGstSettings || {});
 
-  // Sync internal GST settings when server-provided settings change
-  useEffect(() => {
-    if (initialOptionGstSettings && Object.keys(initialOptionGstSettings).length > 0) {
-      setOptionGstSettings(prev => ({
-        ...prev,
-        ...initialOptionGstSettings
-      }));
-    }
-  }, [initialOptionGstSettings]);
   // Collect all accommodation events with hotel options (preserve optionIdx for key consistency with FinalTab)
   const allOptions = [];
   Object.keys(dayEvents).forEach(day => {
@@ -61,7 +51,7 @@ const PricingTab = ({
   // Initialize pricing data for any missing options
   useEffect(() => {
     if (!dayEvents || Object.keys(dayEvents).length === 0) return;
-    
+
     const missingPricing = {};
     Object.keys(dayEvents).forEach(day => {
       const events = dayEvents[day] || [];
@@ -130,7 +120,7 @@ const PricingTab = ({
       totalMarkup += pricing.markup || 0;
     });
     const totalGross = totalNet + totalMarkup;
-    
+
     // Use individual GST settings for this option, fallback to global settings
     const optGst = optionGstSettings[optNum] || {
       cgst: cgst,
@@ -139,19 +129,19 @@ const PricingTab = ({
       tcs: tcs,
       discount: discount
     };
-    
+
     const cgstAmount = (totalGross * optGst.cgst) / 100;
     const sgstAmount = (totalGross * optGst.sgst) / 100;
     const igstAmount = (totalGross * optGst.igst) / 100;
     const tcsAmount = (totalGross * optGst.tcs) / 100;
     const discountAmount = (totalGross * optGst.discount) / 100;
     const finalTotal = totalGross + cgstAmount + sgstAmount + igstAmount + tcsAmount - discountAmount;
-    
+
     // Use final client price if set, otherwise use calculated finalTotal
-    const clientPrice = finalClientPrices[optNum] !== undefined && finalClientPrices[optNum] !== null 
+    const clientPrice = finalClientPrices[optNum] !== undefined && finalClientPrices[optNum] !== null
       ? parseFloat(finalClientPrices[optNum]) || finalTotal
       : finalTotal;
-    
+
     optionTotals[optNum] = {
       totalNet,
       totalMarkup,
@@ -171,7 +161,7 @@ const PricingTab = ({
   const handleUpdateOption = (optNum) => {
     const options = optionsByNumber[optNum] || [];
     const updatedPricing = { ...pricingData };
-    
+
     options.forEach((option) => {
       const optionIdx = option.optionIdx ?? 0;
       const optionKey = `${optNum}-${option.day}-${optionIdx}`;
@@ -180,32 +170,32 @@ const PricingTab = ({
         markup: 0,
         gross: parseFloat(option.price) || 0
       };
-      
+
       // Apply base markup percentage
       let newNet = currentPricing.net;
       let newMarkup = 0;
-      
+
       if (baseMarkup > 0) {
         newMarkup = (newNet * baseMarkup) / 100;
       }
-      
+
       // Add extra markup (distributed per option)
       const optionsCount = options.length;
       const extraMarkupPerOption = extraMarkup / optionsCount;
       newMarkup += extraMarkupPerOption;
-      
+
       const newGross = newNet + newMarkup;
-      
+
       updatedPricing[optionKey] = { net: newNet, markup: newMarkup, gross: newGross };
     });
-    
+
     setPricingData(updatedPricing);
   };
 
   // Handle update for all options
   const handleUpdateAllOptions = () => {
     const updatedPricing = { ...pricingData };
-    
+
     Object.keys(optionsByNumber).forEach(optNum => {
       const options = optionsByNumber[optNum] || [];
       options.forEach((option) => {
@@ -216,26 +206,26 @@ const PricingTab = ({
           markup: 0,
           gross: parseFloat(option.price) || 0
         };
-        
+
         // Apply base markup percentage
         let newNet = currentPricing.net;
         let newMarkup = 0;
-        
+
         if (baseMarkup > 0) {
           newMarkup = (newNet * baseMarkup) / 100;
         }
-        
+
         // Add extra markup (distributed per option)
         const totalOptions = allOptions.length;
         const extraMarkupPerOption = totalOptions > 0 ? extraMarkup / totalOptions : 0;
         newMarkup += extraMarkupPerOption;
-        
+
         const newGross = newNet + newMarkup;
-        
+
         updatedPricing[optionKey] = { net: newNet, markup: newMarkup, gross: newGross };
       });
     });
-    
+
     setPricingData(updatedPricing);
   };
 
@@ -290,7 +280,7 @@ const PricingTab = ({
               const options = optionsByNumber[optNum];
               // Sort options by day
               const sortedOptions = [...options].sort((a, b) => a.day - b.day);
-              
+
               return (
                 <div key={optNum} className="bg-white rounded-lg border-2 border-blue-300 p-4 shadow-sm flex flex-col gap-3">
                   {/* Header */}
@@ -549,8 +539,8 @@ const PricingTab = ({
           </div>
           <div className="mt-4 p-3 bg-blue-100 rounded-lg border border-blue-300">
             <p className="text-xs text-blue-800">
-              <strong>Note:</strong> Each option can have different hotels for each night. 
-              For example, Option 1 Night 1 = Hotel A, Option 1 Night 2 = Hotel D. 
+              <strong>Note:</strong> Each option can have different hotels for each night.
+              For example, Option 1 Night 1 = Hotel A, Option 1 Night 2 = Hotel D.
               Set prices for each hotel in the sections below.
             </p>
           </div>

@@ -71,20 +71,13 @@ class HotelController extends Controller
     public function store(Request $request): JsonResponse
     {
         try {
-            // Handle file upload
-            $hotelPhotoPath = null;
-            if ($request->hasFile('hotel_photo')) {
-                $file = $request->file('hotel_photo');
-                $hotelPhotoPath = $file->store('hotels', 'public');
-            }
-
-            // Validate the request
+            // Enhanced validation with file type restrictions
             $validator = Validator::make($request->all(), [
                 'name' => 'required|string|max:255',
                 'category' => 'nullable|integer|min:1|max:5',
                 'destination' => 'required|string|max:255',
                 'hotel_details' => 'nullable|string',
-                'hotel_photo' => 'nullable|image|max:2048',
+                'hotel_photo' => 'nullable|image|mimes:jpeg,jpg,png,gif|max:2048',
                 'contact_person' => 'nullable|string|max:255',
                 'email' => 'nullable|email|max:255',
                 'phone' => 'nullable|string|max:20',
@@ -96,36 +89,142 @@ class HotelController extends Controller
                 'destination.required' => 'The destination field is required.',
                 'hotel_address.required' => 'The hotel address field is required.',
                 'hotel_photo.image' => 'The hotel photo must be an image.',
+                'hotel_photo.mimes' => 'The hotel photo must be a file of type: jpeg, jpg, png, gif.',
                 'hotel_photo.max' => 'The hotel photo must not be greater than 2MB.',
                 'email.email' => 'The email must be a valid email address.',
                 'hotel_link.url' => 'The hotel link must be a valid URL.',
             ]);
 
             if ($validator->fails()) {
+                \Log::warning('Hotel creation validation failed', [
+                    'errors' => $validator->errors()->toArray(),
+                    'user_id' => auth()->id()
+                ]);
+                
                 return response()->json([
                     'success' => false,
                     'message' => 'Validation failed',
-                    'errors' => $validator->errors(),
+                    'errors' => $validator->errors()
                 ], 422);
             }
 
-            $hotel = Hotel::create([
-                'name' => $request->name,
-                'category' => $request->category,
-                'destination' => $request->destination,
-                'hotel_details' => $request->hotel_details,
-                'hotel_photo' => $hotelPhotoPath,
-                'contact_person' => $request->contact_person,
-                'email' => $request->email,
-                'phone' => $request->phone,
-                'hotel_address' => $request->hotel_address,
-                'hotel_link' => $request->hotel_link,
-                'status' => $request->status ?? 'active',
-                'price_updates_count' => 0,
-                'created_by' => $request->user()->id,
-            ]);
+            // Handle file upload with comprehensive error handling
+            $hotelPhotoPath = null;
+            if ($request->hasFile('hotel_photo')) {
+                try {
+                    $file = $request->file('hotel_photo');
+                    
+                    // Validate file integrity
+                    if (!$file->isValid()) {
+                        return response()->json([
+                            'success' => false,
+                            'message' => 'Invalid file upload',
+                            'error' => $file->getErrorMessage()
+                        ], 422);
+                    }
+                    
+                    // Check file size
+                    if ($file->getSize() > 2048 * 1024) { // 2MB
+                        return response()->json([
+                            'success' => false,
+                            'message' => 'File size exceeds 2MB limit',
+                            'error' => 'File too large'
+                        ], 422);
+                    }
+                    
+                    // Create directory if it doesn't exist
+                    $uploadPath = 'hotels';
+                    if (!Storage::disk('public')->exists($uploadPath)) {
+                        Storage::disk('public')->makeDirectory($uploadPath);
+                    }
+                    
+                    $hotelPhotoPath = $file->store($uploadPath, 'public');
+                    
+                    if (!$hotelPhotoPath) {
+                        throw new \Exception('Failed to store hotel photo');
+                    }
+                    
+                    \Log::info('Hotel photo uploaded successfully', [
+                        'file_path' => $hotelPhotoPath,
+                        'original_name' => $file->getClientOriginalName(),
+                        'file_size' => $file->getSize(),
+                        'user_id' => auth()->id()
+                    ]);
+                    
+                } catch (\Exception $fileError) {
+                    \Log::error('Hotel photo upload failed', [
+                        'error' => $fileError->getMessage(),
+                        'file_name' => $request->file('hotel_photo')?->getClientOriginalName(),
+                        'user_id' => auth()->id()
+                    ]);
+                    
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Failed to upload hotel photo',
+                        'error' => config('app.debug') ? $fileError->getMessage() : 'File upload error'
+                    ], 500);
+                }
+            }
 
-            $hotel->load('creator');
+            // Create hotel with database error handling
+            try {
+                $hotel = Hotel::create([
+                    'name' => $request->name,
+                    'category' => $request->category,
+                    'destination' => $request->destination,
+                    'hotel_details' => $request->hotel_details,
+                    'hotel_photo' => $hotelPhotoPath,
+                    'contact_person' => $request->contact_person,
+                    'email' => $request->email,
+                    'phone' => $request->phone,
+                    'hotel_address' => $request->hotel_address,
+                    'hotel_link' => $request->hotel_link,
+                    'status' => $request->status ?? 'active',
+                    'price_updates_count' => 0,
+                    'created_by' => auth()->id(),
+                ]);
+                
+                \Log::info('Hotel created successfully', [
+                    'hotel_id' => $hotel->id,
+                    'name' => $hotel->name,
+                    'user_id' => auth()->id()
+                ]);
+                
+            } catch (\Exception $dbError) {
+                \Log::error('Failed to create hotel in database', [
+                    'error' => $dbError->getMessage(),
+                    'user_id' => auth()->id(),
+                    'request_data' => $request->except(['hotel_photo'])
+                ]);
+                
+                // Clean up uploaded file if database save fails
+                if ($hotelPhotoPath) {
+                    try {
+                        Storage::disk('public')->delete($hotelPhotoPath);
+                    } catch (\Exception $cleanupError) {
+                        \Log::error('Failed to cleanup hotel photo after DB error', [
+                            'error' => $cleanupError->getMessage(),
+                            'file_path' => $hotelPhotoPath
+                        ]);
+                    }
+                }
+                
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Failed to create hotel',
+                    'error' => config('app.debug') ? $dbError->getMessage() : 'Database error'
+                ], 500);
+            }
+
+            // Load relationship with error handling
+            try {
+                $hotel->load('creator');
+            } catch (\Exception $relationError) {
+                \Log::error('Failed to load hotel creator relationship', [
+                    'error' => $relationError->getMessage(),
+                    'hotel_id' => $hotel->id
+                ]);
+            }
 
             return response()->json([
                 'success' => true,
@@ -153,10 +252,17 @@ class HotelController extends Controller
             ], 201);
 
         } catch (\Exception $e) {
+            \Log::error('Critical error in hotel creation', [
+                'error' => $e->getMessage(),
+                'trace' => config('app.debug') ? $e->getTraceAsString() : null,
+                'user_id' => auth()->id(),
+                'request_data' => $request->except(['hotel_photo'])
+            ]);
+            
             return response()->json([
                 'success' => false,
                 'message' => 'An error occurred while creating hotel',
-                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error'
             ], 500);
         }
     }

@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
 import Layout from '../components/Layout';
+import { toast } from 'react-toastify';
 import { companySettingsAPI } from '../services/api';
 import { Download, Share2, Users, PhoneCall, CheckCircle, ClipboardList } from 'lucide-react';
 
@@ -62,7 +62,7 @@ const TeamReports = () => {
   const handleDownloadPdf = () => {
     const printWindow = window.open('', '_blank');
     if (!printWindow) {
-      alert('Please allow pop-ups to download the report.');
+      toast.error('Please allow pop-ups to download the report.');
       return;
     }
 
@@ -142,10 +142,10 @@ const TeamReports = () => {
 
     try {
       await navigator.clipboard.writeText(summaryText);
-      alert('Report summary copied to clipboard.');
+      toast.success('Report summary copied to clipboard.');
     } catch (err) {
       console.error('Clipboard failed:', err);
-      alert('Unable to share report.');
+      toast.error('Unable to share report.');
     }
   };
 
@@ -175,11 +175,10 @@ const TeamReports = () => {
                 <button
                   key={range}
                   onClick={() => setSelectedRange(range)}
-                  className={`px-3 py-1.5 text-sm rounded-full border transition-colors ${
-                    selectedRange === range
+                  className={`px-3 py-1.5 text-sm rounded-full border transition-colors ${selectedRange === range
                       ? 'bg-blue-600 text-white border-blue-600'
                       : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'
-                  }`}
+                    }`}
                 >
                   {range.charAt(0).toUpperCase() + range.slice(1)}
                 </button>

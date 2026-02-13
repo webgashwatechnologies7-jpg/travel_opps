@@ -40,11 +40,32 @@ class AuthController extends Controller
                 ], 422);
             }
 
-            // Attempt to find the user
-            $user = User::where('email', $request->email)->first();
+            // Attempt to find the user with error handling
+            try {
+                $user = User::where('email', $request->email)->first();
+            } catch (\Exception $dbError) {
+                \Log::error('Database error during login', [
+                    'error' => $dbError->getMessage(),
+                    'email' => $request->email,
+                    'ip' => $request->ip()
+                ]);
+                
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Login service temporarily unavailable',
+                ], 503);
+            }
+            
             $passwordToCheck = trim($request->password);
 
             if (!$user || !Hash::check($passwordToCheck, $user->password)) {
+                \Log::warning('Login attempt with invalid credentials', [
+                    'email' => $request->email,
+                    'user_exists' => !is_null($user),
+                    'ip' => $request->ip(),
+                    'user_agent' => $request->userAgent()
+                ]);
+                
                 return response()->json([
                     'success' => false,
                     'message' => 'Invalid credentials. Please check your email and password.',
@@ -109,8 +130,21 @@ class AuthController extends Controller
             // Revoke all existing tokens (optional - for single device login)
             // $user->tokens()->delete();
 
-            // Create a new token
-            $token = $user->createToken('auth-token')->plainTextToken;
+            // Create a new token with error handling
+            try {
+                $token = $user->createToken('auth-token')->plainTextToken;
+            } catch (\Exception $tokenError) {
+                \Log::error('Error creating authentication token', [
+                    'error' => $tokenError->getMessage(),
+                    'user_id' => $user->id,
+                    'email' => $user->email
+                ]);
+                
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Authentication service temporarily unavailable',
+                ], 503);
+            }
 
             $userData = [
                 'id' => $user->id,
@@ -129,6 +163,13 @@ class AuthController extends Controller
                 ];
             }
 
+            \Log::info('User logged in successfully', [
+                'user_id' => $user->id,
+                'email' => $user->email,
+                'ip' => $request->ip(),
+                'user_agent' => $request->userAgent()
+            ]);
+
             return response()->json([
                 'success' => true,
                 'message' => 'Login successful',
@@ -140,6 +181,14 @@ class AuthController extends Controller
             ], 200);
 
         } catch (\Exception $e) {
+            \Log::error('Login error', [
+                'error' => $e->getMessage(),
+                'email' => $request->email ?? 'not_provided',
+                'ip' => $request->ip(),
+                'user_agent' => $request->userAgent(),
+                'trace' => config('app.debug') ? $e->getTraceAsString() : null
+            ]);
+            
             return response()->json([
                 'success' => false,
                 'message' => 'An error occurred during login',
@@ -180,18 +229,52 @@ class AuthController extends Controller
     public function logout(Request $request): JsonResponse
     {
         try {
-            // Get the authenticated user
+            // Get the current token before user check
+            $token = $request->bearerToken();
+            
+            // Get authenticated user
             $user = $request->user();
 
             if (!$user) {
+                \Log::warning('Logout attempt with invalid token', [
+                    'token_exists' => !empty($token),
+                    'ip' => $request->ip(),
+                    'user_agent' => $request->userAgent()
+                ]);
+                
                 return response()->json([
                     'success' => false,
                     'message' => 'User not authenticated',
                 ], 401);
             }
 
-            // Revoke the current token
-            $request->user()->currentAccessToken()->delete();
+            // Revoke current token with error handling
+            try {
+                $currentToken = $user->currentAccessToken();
+                if ($currentToken) {
+                    $tokenId = $currentToken->id;
+                    $currentToken->delete();
+                    
+                    \Log::info('User logged out successfully', [
+                        'user_id' => $user->id,
+                        'email' => $user->email,
+                        'token_id' => $tokenId,
+                        'ip' => $request->ip()
+                    ]);
+                } else {
+                    \Log::warning('Logout attempt but no current token found', [
+                        'user_id' => $user->id,
+                        'email' => $user->email
+                    ]);
+                }
+            } catch (\Exception $tokenError) {
+                \Log::error('Error revoking token during logout', [
+                    'error' => $tokenError->getMessage(),
+                    'user_id' => $user->id
+                ]);
+                
+                // Continue with logout response even if token revocation fails
+            }
 
             return response()->json([
                 'success' => true,
@@ -199,6 +282,12 @@ class AuthController extends Controller
             ], 200);
 
         } catch (\Exception $e) {
+            \Log::error('Logout error', [
+                'error' => $e->getMessage(),
+                'ip' => $request->ip(),
+                'user_agent' => $request->userAgent()
+            ]);
+            
             return response()->json([
                 'success' => false,
                 'message' => 'An error occurred during logout',
@@ -219,29 +308,73 @@ class AuthController extends Controller
             $user = $request->user();
 
             if (!$user) {
+                \Log::warning('Profile access attempt with invalid authentication', [
+                    'ip' => $request->ip(),
+                    'user_agent' => $request->userAgent(),
+                    'has_token' => !empty($request->bearerToken())
+                ]);
+                
                 return response()->json([
                     'success' => false,
                     'message' => 'User not authenticated',
                 ], 401);
             }
 
+            // Load relationships with error handling
+            try {
+                $user->load(['roles', 'company']);
+            } catch (\Exception $relationError) {
+                \Log::error('Error loading user relationships for profile', [
+                    'error' => $relationError->getMessage(),
+                    'user_id' => $user->id
+                ]);
+                
+                // Continue without relationships
+            }
+
+            $profileData = [
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+                'email_verified_at' => $user->email_verified_at,
+                'is_active' => $user->is_active ?? true,
+                'created_at' => $user->created_at,
+                'updated_at' => $user->updated_at,
+                'roles' => isset($user->roles) ? $user->roles->pluck('name') : [],
+            ];
+
+            // Add company info if available
+            if (isset($user->company) && $user->company) {
+                $profileData['company'] = [
+                    'id' => $user->company->id,
+                    'name' => $user->company->name,
+                    'subdomain' => $user->company->subdomain,
+                    'status' => $user->company->status ?? 'unknown'
+                ];
+            }
+
+            \Log::info('Profile accessed successfully', [
+                'user_id' => $user->id,
+                'email' => $user->email,
+                'ip' => $request->ip()
+            ]);
+
             return response()->json([
                 'success' => true,
                 'message' => 'Profile retrieved successfully',
                 'data' => [
-                    'user' => [
-                        'id' => $user->id,
-                        'name' => $user->name,
-                        'email' => $user->email,
-                        'email_verified_at' => $user->email_verified_at,
-                        'created_at' => $user->created_at,
-                        'updated_at' => $user->updated_at,
-                        'roles' => $user->roles->pluck('name'),
-                    ],
+                    'user' => $profileData,
                 ],
             ], 200);
 
         } catch (\Exception $e) {
+            \Log::error('Profile retrieval error', [
+                'error' => $e->getMessage(),
+                'ip' => $request->ip(),
+                'user_agent' => $request->userAgent(),
+                'user_id' => auth()->id() ?? 'unknown'
+            ]);
+            
             return response()->json([
                 'success' => false,
                 'message' => 'An error occurred while retrieving profile',

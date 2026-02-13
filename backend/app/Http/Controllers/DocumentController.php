@@ -16,62 +16,111 @@ class DocumentController extends Controller
         try {
             $validator = Validator::make($request->all(), [
                 'lead_id' => 'nullable|integer|exists:leads,id',
-                'status' => 'nullable|in:pending,verified,rejected,expired',
                 'document_type' => 'nullable|string|max:50',
                 'document_category' => 'nullable|string|max:50',
+                'status' => 'nullable|in:pending,verified,rejected,expired,expired_soon,active,inactive',
+                'access_level' => 'nullable|in:private,internal,public'
+            ], [
+                'lead_id.exists' => 'Lead ID is invalid.',
+                'document_type.max' => 'Document type must not exceed 50 characters.',
+                'document_category.max' => 'Document category must not exceed 50 characters.',
+                'status.in' => 'Status must be one of: pending, verified, rejected, expired, expired_soon, active, inactive.',
+                'access_level.in' => 'Access level must be one of: private, internal, public.'
             ]);
 
             if ($validator->fails()) {
+                \Log::warning('Document index validation failed', [
+                    'errors' => $validator->errors()->toArray(),
+                    'user_id' => auth()->id()
+                ]);
+                
                 return response()->json([
                     'success' => false,
                     'message' => 'Validation failed',
-                    'errors' => $validator->errors(),
+                    'errors' => $validator->errors()
                 ], 422);
             }
 
             $companyId = $request->user()->company_id;
-
-            $query = QueryDocument::query()
-                ->with(['lead:id,client_name,phone,email,company_id', 'uploader:id,name,email', 'verifier:id,name,email'])
-                ->whereHas('lead', function ($q) use ($companyId) {
-                    $q->where('company_id', $companyId);
-                })
-                ->orderByDesc('updated_at')
-                ->orderByDesc('created_at');
-
-            if ($request->filled('lead_id')) {
-                $query->where('lead_id', (int) $request->input('lead_id'));
+            
+            try {
+                $query = QueryDocument::query()
+                    ->with(['lead:id,client_name,phone,email,company_id', 'uploader:id,name,email', 'verifier:id,name,email'])
+                    ->where('company_id', $companyId);
+                
+                if ($request->filled('lead_id')) {
+                    $query->where('lead_id', (int) $request->input('lead_id'));
+                }
+                
+                if ($request->filled('status')) {
+                    $query->where('status', $request->input('status'));
+                }
+                
+                if ($request->filled('document_type')) {
+                    $query->where('document_type', $request->input('document_type'));
+                }
+                
+                if ($request->filled('document_category')) {
+                    $query->where('document_category', $request->input('document_category'));
+                }
+                
+                if ($request->filled('access_level')) {
+                    $query->where('access_level', $request->input('access_level'));
+                }
+                
+                $query->orderByDesc('updated_at');
+                
+                $documents = $query->get()->map(function (QueryDocument $doc) {
+                    return $this->formatDocument($doc);
+                });
+                
+                \Log::info('Documents retrieved successfully', [
+                    'document_count' => $documents->count(),
+                    'filters' => $request->all(),
+                    'user_id' => auth()->id()
+                ]);
+                
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Documents retrieved successfully',
+                    'data' => [
+                        'documents' => $documents,
+                        'total' => $documents->count(),
+                        'filters' => $request->all(),
+                        'expired_count' => $documents->where('status', 'expired')->count(),
+                        'expiring_soon_count' => $documents->where('status', 'expired_soon')->count(),
+                        'verified_count' => $documents->where('status', 'verified')->count(),
+                        'rejected_count' => $documents->where('status', 'rejected')->count(),
+                        'pending_count' => $documents->where('status', 'pending')->count(),
+                        'active_count' => $documents->where('status', 'active')->count()
+                    ],
+                ], 200);
+                
+            } catch (\Exception $dbError) {
+                \Log::error('Database error fetching documents', [
+                    'error' => $dbError->getMessage(),
+                    'user_id' => auth()->id(),
+                    'filters' => $request->all()
+                ]);
+                
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Failed to retrieve documents',
+                    'error' => config('app.debug') ? $dbError->getMessage() : 'Database error'
+                ], 500);
             }
-
-            if ($request->filled('status')) {
-                $query->where('status', $request->input('status'));
-            }
-
-            if ($request->filled('document_type')) {
-                $query->where('document_type', $request->input('document_type'));
-            }
-
-            if ($request->filled('document_category')) {
-                $query->where('document_category', $request->input('document_category'));
-            }
-
-            $documents = $query->get()->map(function (QueryDocument $doc) {
-                return $this->formatDocument($doc);
-            });
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Documents retrieved successfully',
-                'data' => [
-                    'documents' => $documents,
-                    'total' => $documents->count(),
-                ],
-            ], 200);
+            
         } catch (\Exception $e) {
+            \Log::error('Critical error in documents index', [
+                'error' => $e->getMessage(),
+                'trace' => config('app.debug') ? $e->getTraceAsString() : null,
+                'user_id' => auth()->id()
+            ]);
+            
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to retrieve documents',
-                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error'
             ], 500);
         }
     }
@@ -82,76 +131,227 @@ class DocumentController extends Controller
             $validator = Validator::make($request->all(), [
                 'lead_id' => 'required|integer|exists:leads,id',
                 'document_type' => 'required|string|max:50',
-                'document_category' => 'nullable|string|max:50',
+                'document_category' => 'required|string|max:50',
                 'title' => 'required|string|max:255',
-                'description' => 'nullable|string',
-                'expiry_date' => 'nullable|date',
-                'is_required' => 'boolean',
-                'access_level' => 'nullable|in:private,internal,public',
+                'description' => 'nullable|string|max:1000',
+                'expiry_date' => 'nullable|date|after:now',
+                'is_required' => 'required|boolean',
+                'access_level' => 'required|in:private,internal,public',
                 'tags' => 'nullable|array',
                 'metadata' => 'nullable|array',
-                'file' => 'required|file|max:20480',
+                'file' => 'required|file|max:20480|mimes:pdf,doc,docx,jpg,jpeg,png,gif',
+                'tags.*' => 'nullable|string|max:50'
+            ], [
+                'lead_id.required' => 'Lead ID is required.',
+                'lead_id.exists' => 'Lead ID is invalid.',
+                'document_type.required' => 'Document type is required.',
+                'document_type.max' => 'Document type must not exceed 50 characters.',
+                'document_category.required' => 'Document category is required.',
+                'title.required' => 'Document title is required.',
+                'title.max' => 'Title must not exceed 255 characters.',
+                'description.max' => 'Description must not exceed 1000 characters.',
+                'file.required' => 'Document file is required.',
+                'file.max' => 'File must not exceed 20MB.',
+                'file.mimes' => 'File must be one of: pdf, doc, docx, jpg, jpeg, png, gif.',
+                'is_required.required' => 'Required field is required.',
+                'access_level.required' => 'Access level is required.',
+                'tags.*.max' => 'Each tag must not exceed 50 characters.',
+                'expiry_date.after' => 'Expiry date must be a future date.',
             ]);
 
             if ($validator->fails()) {
+                \Log::warning('Document store validation failed', [
+                    'errors' => $validator->errors()->toArray(),
+                    'user_id' => auth()->id()
+                ]);
+                
                 return response()->json([
                     'success' => false,
                     'message' => 'Validation failed',
-                    'errors' => $validator->errors(),
+                    'errors' => $validator->errors()
                 ], 422);
             }
 
-            $lead = Lead::find($request->input('lead_id'));
-
-            if (!$lead || $lead->company_id !== $request->user()->company_id) {
+            try {
+                $user = $request->user();
+                if (!$user) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'User not authenticated',
+                    ], 401);
+                }
+            } catch (\Exception $authError) {
+                \Log::error('Authentication error in document store', [
+                    'error' => $authError->getMessage()
+                ]);
+                
                 return response()->json([
                     'success' => false,
-                    'message' => 'Lead not found',
-                ], 404);
+                    'message' => 'Authentication error'
+                ], 401);
+            }
+
+            try {
+                $lead = Lead::find($request->input('lead_id'));
+                
+                if (!$lead) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Lead not found',
+                    ], 404);
+                }
+                
+                if ($lead->company_id !== $user->company_id) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Lead does not belong to your company',
+                    ], 403);
+                }
+                
+                \Log::info('Lead validated successfully', [
+                    'lead_id' => $lead->id,
+                    'user_id' => $user->id()
+                ]);
+            } catch (\Exception $leadError) {
+                \Log::error('Error validating lead for document', [
+                    'error' => $leadError->getMessage(),
+                    'lead_id' => $request->input('lead_id'),
+                    'user_id' => auth()->id()
+                ]);
+                
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Failed to validate lead',
+                    'error' => config('app.debug') ? $leadError->getMessage() : 'Database error'
+                ], 500);
             }
 
             $file = $request->file('file');
-            $companyId = $request->user()->company_id;
+            
+            try {
+                if (!$file->isValid()) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Invalid file upload',
+                        'error' => $file->getErrorMessage()
+                    ], 422);
+                }
+                
+                if ($file->getSize() > 20480 * 1024) { 
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'File size exceeds 20MB limit',
+                        'error' => 'File too large'
+                    ], 422);
+                }
+                
+                $allowedMimes = ['pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png', 'gif'];
+                if (!in_array($file->getClientOriginalExtension(), $allowedMimes)) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'File type not allowed. Allowed types: ' . implode(', ', $allowedMimes),
+                        'error' => 'Invalid file type'
+                    ], 422);
+                }
+                
+                \Log::info('Document file validated successfully', [
+                    'file_name' => $file->getClientOriginalName(),
+                    'file_size' => $file->getSize(),
+                    'file_type' => $file->getClientOriginalExtension(),
+                    'user_id' => auth()->id()
+                ]);
+                
+            } catch (\Exception $fileError) {
+                \Log::error('File validation error', [
+                    'error' => $fileError->getMessage(),
+                    'file_name' => $file->getClientOriginalName() ?? 'unknown',
+                    'user_id' => auth()->id()
+                ]);
+                
+                return response()->json([
+                    'success' => false,
+                    'message' => 'File validation failed',
+                    'error' => $fileError->getMessage()
+                ], 500);
+            }
 
-            $path = $file->store("documents/{$companyId}/leads/{$lead->id}", 'public');
-
-            $document = QueryDocument::create([
-                'lead_id' => $lead->id,
-                'document_type' => $request->input('document_type'),
-                'document_category' => $request->input('document_category', 'other'),
-                'title' => $request->input('title'),
-                'description' => $request->input('description'),
-                'file_name' => $file->getClientOriginalName(),
-                'file_path' => $path,
-                'file_type' => $file->getClientOriginalExtension(),
-                'file_size' => $file->getSize(),
-                'is_verified' => false,
-                'is_required' => (bool) $request->boolean('is_required'),
-                'expiry_date' => $request->input('expiry_date'),
-                'status' => 'pending',
-                'rejection_reason' => null,
-                'tags' => $request->input('tags'),
-                'access_level' => $request->input('access_level', 'private'),
-                'metadata' => $request->input('metadata'),
-                'uploaded_by' => $request->user()->id,
-                'verified_by' => null,
-                'verified_at' => null,
-            ]);
-
-            $document->load(['lead:id,client_name,phone,email,company_id', 'uploader:id,name,email', 'verifier:id,name,email']);
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Document uploaded successfully',
-                'data' => [
-                    'document' => $this->formatDocument($document),
-                ],
-            ], 201);
+            try {
+                $companyId = $user->company_id;
+                $path = $file->store("documents/{$companyId}/leads/{$lead->id}", 'public');
+                
+                if (!$path) {
+                    throw new \Exception('Failed to store file');
+                }
+                
+                $document = QueryDocument::create([
+                    'lead_id' => $lead->id,
+                    'document_type' => $request->input('document_type'),
+                    'document_category' => $request->input('document_category'),
+                    'title' => $request->input('title'),
+                    'description' => $request->input('description'),
+                    'file_path' => $path,
+                    'expiry_date' => $request->input('expiry_date'),
+                    'is_required' => $request->input('is_required', false),
+                    'access_level' => $request->input('access_level', 'public'),
+                    'tags' => $request->input('tags', []),
+                    'metadata' => $request->input('metadata', []),
+                    'status' => $request->input('status', 'pending'),
+                    'uploaded_by' => $user->id(),
+                    'company_id' => $companyId,
+                ]);
+                
+                \Log::info('Document created successfully', [
+                    'document_id' => $document->id,
+                    'lead_id' => $lead->id,
+                    'title' => $document->title,
+                    'document_type' => $document->document_type,
+                    'file_path' => $path,
+                    'user_id' => $user->id()
+                ]);
+                
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Document uploaded successfully',
+                    'data' => [
+                        'document' => $document,
+                        'document_url' => asset('storage/' . $path),
+                        'document_type' => $document->document_type,
+                        'title' => $document->title,
+                        'description' => $document->description,
+                        'expiry_date' => $document->expiry_date,
+                        'is_required' => $document->is_required,
+                        'access_level' => $document->access_level,
+                        'status' => $document->status,
+                        'uploaded_by' => $user->id(),
+                        'company_id' => $companyId,
+                    ],
+                ], 201);
+                
+            } catch (\Exception $dbError) {
+                \Log::error('Database error creating document', [
+                    'error' => $dbError->getMessage(),
+                    'lead_id' => $request->input('lead_id'),
+                    'user_id' => auth()->id()
+                ]);
+                
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Failed to upload document',
+                    'error' => config('app.debug') ? $dbError->getMessage() : 'Database error'
+                ], 500);
+            }
+            
         } catch (\Exception $e) {
+            \Log::error('Critical error in document store', [
+                'error' => $e->getMessage(),
+                'trace' => config('app.debug') ? $e->getTraceAsString() : null,
+                'user_id' => auth()->id()
+            ]);
+            
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to upload document',
-                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error'
             ], 500);
         }
     }

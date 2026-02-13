@@ -33,8 +33,8 @@ Route::middleware('auth:sanctum')->prefix('expenses')->group(function () {
     Route::delete('/{id}', [ExpenseController::class, 'destroy']);
 });
 
-// Target routes - require authentication and Admin role
-Route::middleware(['auth:sanctum', 'role:Admin'])->prefix('targets')->group(function () {
+// Target routes - require authentication and Admin or Company Admin role
+Route::middleware(['auth:sanctum', 'role:Admin|Company Admin'])->prefix('targets')->group(function () {
     Route::get('/{user_id}/{month}', [TargetController::class, 'show']);
     Route::post('/', [TargetController::class, 'store']);
     Route::put('/{id}/update-achieved', [TargetController::class, 'updateAchieved']);

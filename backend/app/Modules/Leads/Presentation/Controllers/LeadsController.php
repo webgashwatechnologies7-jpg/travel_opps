@@ -112,6 +112,7 @@ class LeadsController extends Controller
                         'child' => $lead->child ?? 0,
                         'infant' => $lead->infant ?? 0,
                         'remark' => $lead->remark ?? null,
+                        'pax_details' => $lead->pax_details,
                         'assigned_user' => $lead->assignedUser ? [
                             'id' => $lead->assignedUser->id,
                             'name' => $lead->assignedUser->name,
@@ -189,6 +190,7 @@ class LeadsController extends Controller
                 'child' => 'nullable|integer|min:0|max:99',
                 'infant' => 'nullable|integer|min:0|max:99',
                 'remark' => 'nullable|string',
+                'pax_details' => 'nullable|array',
             ], [
                 'client_name.required' => 'Client name is required.',
                 'source.required' => 'Source is required.',
@@ -239,6 +241,7 @@ class LeadsController extends Controller
                         'child' => $lead->child,
                         'infant' => $lead->infant,
                         'remark' => $lead->remark,
+                        'pax_details' => $lead->pax_details,
                         'created_at' => $lead->created_at,
                         'updated_at' => $lead->updated_at,
                     ],
@@ -279,6 +282,7 @@ class LeadsController extends Controller
                 'child' => 'nullable|integer|min:0|max:99',
                 'infant' => 'nullable|integer|min:0|max:99',
                 'remark' => 'nullable|string',
+                'pax_details' => 'nullable|array',
             ], [
                 'status.in' => 'Status must be one of: new, proposal, followup, confirmed, cancelled.',
                 'priority.in' => 'Priority must be one of: hot, warm, cold.',
@@ -322,6 +326,7 @@ class LeadsController extends Controller
                         'child' => $lead->child ?? 0,
                         'infant' => $lead->infant ?? 0,
                         'remark' => $lead->remark ?? null,
+                        'pax_details' => $lead->pax_details,
                         'created_by' => $lead->created_by,
                         'updated_at' => $lead->updated_at,
                     ],

@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { accountsAPI, paymentsAPI } from '../services/api';
+import { toast } from 'react-toastify';
 import Layout from '../components/Layout';
 import { ArrowLeft, Download, FileText, Table, Calendar, DollarSign, TrendingUp, Filter, FileDown } from 'lucide-react';
 import { generatePDFReport, generateExcelReport, generateDetailedReport } from '../utils/reportGenerator';
@@ -124,40 +125,40 @@ const ClientReports = () => {
 
   const generatePDF = () => {
     if (!client || !reportData) return;
-    
+
     try {
       generatePDFReport(client, reportData, dateRange);
       // Show success message
-      alert('PDF report generated successfully!');
+      toast.success('PDF report generated successfully!');
     } catch (error) {
       console.error('Error generating PDF:', error);
-      alert('Failed to generate PDF report. Please try again.');
+      toast.error('Failed to generate PDF report. Please try again.');
     }
   };
 
   const generateExcel = () => {
     if (!client || !reportData) return;
-    
+
     try {
       generateExcelReport(client, reportData, dateRange);
       // Show success message
-      alert('Excel report generated successfully!');
+      toast.success('Excel report generated successfully!');
     } catch (error) {
       console.error('Error generating Excel:', error);
-      alert('Failed to generate Excel report. Please try again.');
+      toast.error('Failed to generate Excel report. Please try again.');
     }
   };
 
   const generateDetailedJSON = () => {
     if (!client || !reportData) return;
-    
+
     try {
       generateDetailedReport(client, reportData, dateRange);
       // Show success message
-      alert('Detailed JSON report generated successfully!');
+      toast.success('Detailed JSON report generated successfully!');
     } catch (error) {
       console.error('Error generating detailed report:', error);
-      alert('Failed to generate detailed report. Please try again.');
+      toast.error('Failed to generate detailed report. Please try again.');
     }
   };
 
@@ -420,11 +421,10 @@ const ClientReports = () => {
                         {payment.amount}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                          payment.status === 'Paid' 
+                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${payment.status === 'Paid'
                             ? 'bg-green-100 text-green-800'
                             : 'bg-yellow-100 text-yellow-800'
-                        }`}>
+                          }`}>
                           {payment.status}
                         </span>
                       </td>

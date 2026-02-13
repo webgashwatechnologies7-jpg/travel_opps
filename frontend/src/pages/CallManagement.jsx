@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
+import { toast } from 'react-toastify';
 import { callsAPI, leadsAPI, usersAPI } from '../services/api';
 import { Phone, Play, Pause, Filter, Plus, X } from 'lucide-react';
 
@@ -133,7 +134,7 @@ const CallManagement = () => {
       setRecordingUrls(prev => ({ ...prev, [callId]: url }));
       setActiveRecordingId(callId);
     } catch (err) {
-      alert('Failed to load recording');
+      toast.error('Failed to load recording');
     }
   };
 
@@ -159,8 +160,9 @@ const CallManagement = () => {
       setNoteModalCall(refreshed.data.data.call || null);
       setNoteText('');
       setEditingNoteId(null);
+      toast.success(editingNoteId ? 'Note updated successfully' : 'Note added successfully');
     } catch (err) {
-      alert('Failed to save note');
+      toast.error('Failed to save note');
     } finally {
       setSavingNote(false);
     }
@@ -178,8 +180,9 @@ const CallManagement = () => {
         is_active: true,
       });
       loadMappings();
+      toast.success('Mapping saved successfully');
     } catch (err) {
-      alert('Failed to save mapping');
+      toast.error('Failed to save mapping');
     }
   };
 
@@ -187,8 +190,9 @@ const CallManagement = () => {
     try {
       await callsAPI.updateMapping(mapping.id, { is_active: !mapping.is_active });
       loadMappings();
+      toast.success(`Mapping ${!mapping.is_active ? 'activated' : 'deactivated'} successfully`);
     } catch (err) {
-      alert('Failed to update mapping');
+      toast.error('Failed to update mapping');
     }
   };
 
@@ -199,8 +203,9 @@ const CallManagement = () => {
     try {
       await callsAPI.deleteMapping(mappingId);
       loadMappings();
+      toast.success('Mapping deleted successfully');
     } catch (err) {
-      alert('Failed to delete mapping');
+      toast.error('Failed to delete mapping');
     }
   };
 

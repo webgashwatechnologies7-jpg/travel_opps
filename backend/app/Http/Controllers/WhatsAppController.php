@@ -27,14 +27,21 @@ class WhatsAppController extends Controller
     public function sendMessage(Request $request): JsonResponse
     {
         try {
+            // Enhanced validation
             $validator = Validator::make($request->all(), [
-                'to' => 'required|string',
-                'message' => 'required_without:template_name|string',
-                'template_name' => 'required_without:message|string',
-                'template_data' => 'array'
+                'to' => 'required|string|regex:/^[+]?[0-9]{10,15}$/',
+                'message' => 'required_without:template_name|string|max:1000',
+                'template_name' => 'required_without:message|string|max:255',
+                'template_data' => 'array',
+                'lead_id' => 'nullable|integer|exists:leads,id'
             ]);
 
             if ($validator->fails()) {
+                \Log::warning('WhatsApp message validation failed', [
+                    'errors' => $validator->errors()->toArray(),
+                    'user_id' => auth()->id()
+                ]);
+                
                 return response()->json([
                     'success' => false,
                     'message' => 'Validation failed',
@@ -42,36 +49,87 @@ class WhatsAppController extends Controller
                 ], 422);
             }
 
+            // Get authenticated user with error handling
+            try {
+                $user = auth()->user();
+                if (!$user) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'User not authenticated'
+                    ], 401);
+                }
+                $companyId = $user->company_id;
+            } catch (\Exception $authError) {
+                \Log::error('Authentication error in WhatsApp send', [
+                    'error' => $authError->getMessage()
+                ]);
+                
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Authentication error'
+                ], 401);
+            }
+            
             $to = $request->input('to');
             $message = $request->input('message');
             $templateName = $request->input('template_name');
             $templateData = $request->input('template_data', []);
+            $leadId = $request->input('lead_id');
 
-            // Add company context for multi-tenant
-            $companyId = auth()->user()->company_id;
-            
             // Log message attempt
-            Log::info('WhatsApp send attempt', [
+            \Log::info('WhatsApp send attempt', [
                 'user_id' => auth()->id(),
                 'company_id' => $companyId,
                 'to' => $to,
-                'is_template' => !empty($templateName)
+                'is_template' => !empty($templateName),
+                'has_lead' => !empty($leadId)
             ]);
 
-            $result = $this->whatsappService->sendMessage($to, $message, $templateName, $templateData);
+            // Send message with timeout handling
+            try {
+                $result = $this->whatsappService->sendMessage($to, $message, $templateName, $templateData);
+            } catch (\Exception $serviceError) {
+                \Log::error('WhatsApp service error during send', [
+                    'error' => $serviceError->getMessage(),
+                    'to' => $to,
+                    'user_id' => auth()->id(),
+                    'company_id' => $companyId
+                ]);
+                
+                return response()->json([
+                    'success' => false,
+                    'message' => 'WhatsApp service temporarily unavailable',
+                    'error' => config('app.debug') ? $serviceError->getMessage() : 'Service error'
+                ], 503);
+            }
 
             if ($result['success']) {
-                // Save message to database
-                $this->saveMessage([
-                    'company_id' => $companyId,
-                    'user_id' => auth()->id(),
-                    'lead_id' => $request->input('lead_id'),
+                // Save message to database with error handling
+                try {
+                    $this->saveMessage([
+                        'company_id' => $companyId,
+                        'user_id' => auth()->id(),
+                        'lead_id' => $leadId,
+                        'to' => $to,
+                        'message' => $message,
+                        'whatsapp_message_id' => $result['message_id'],
+                        'direction' => 'outbound',
+                        'status' => 'sent',
+                        'is_template' => !empty($templateName)
+                    ]);
+                } catch (\Exception $dbError) {
+                    \Log::error('Failed to save WhatsApp message to database', [
+                        'error' => $dbError->getMessage(),
+                        'message_id' => $result['message_id'] ?? 'unknown',
+                        'user_id' => auth()->id()
+                    ]);
+                    // Continue with success response even if DB save fails
+                }
+
+                \Log::info('WhatsApp message sent successfully', [
+                    'message_id' => $result['message_id'],
                     'to' => $to,
-                    'message' => $message,
-                    'whatsapp_message_id' => $result['message_id'],
-                    'direction' => 'outbound',
-                    'status' => 'sent',
-                    'is_template' => !empty($templateName)
+                    'user_id' => auth()->id()
                 ]);
 
                 return response()->json([
@@ -83,19 +141,27 @@ class WhatsAppController extends Controller
                     ]
                 ]);
             } else {
+                \Log::warning('WhatsApp message send failed', [
+                    'error' => $result['error'] ?? 'Unknown error',
+                    'to' => $to,
+                    'user_id' => auth()->id()
+                ]);
+                
                 return response()->json([
                     'success' => false,
-                    'message' => $result['error'],
-                    'error' => $result['error']
+                    'message' => $result['error'] ?? 'Failed to send message',
+                    'error' => $result['error'] ?? 'Unknown error'
                 ], 500);
             }
+            
         } catch (\Exception $e) {
-            Log::error('WhatsApp send error', [
+            \Log::error('Critical WhatsApp send error', [
                 'error' => $e->getMessage(),
+                'trace' => config('app.debug') ? $e->getTraceAsString() : null,
                 'user_id' => auth()->id(),
                 'company_id' => auth()->user()?->company_id
             ]);
-
+            
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to send message',
@@ -110,13 +176,20 @@ class WhatsAppController extends Controller
     public function sendMedia(Request $request): JsonResponse
     {
         try {
+            // Enhanced validation
             $validator = Validator::make($request->all(), [
-                'to' => 'required|string',
-                'media_file' => 'required|file|max:10240', // 10MB max
-                'caption' => 'nullable|string|max:1000'
+                'to' => 'required|string|regex:/^[+]?[0-9]{10,15}$/',
+                'media_file' => 'required|file|max:10240|mimes:jpg,jpeg,png,gif,mp4,mpeg,mp3,wav,pdf,doc,docx',
+                'caption' => 'nullable|string|max:1000',
+                'lead_id' => 'nullable|integer|exists:leads,id'
             ]);
 
             if ($validator->fails()) {
+                \Log::warning('WhatsApp media validation failed', [
+                    'errors' => $validator->errors()->toArray(),
+                    'user_id' => auth()->id()
+                ]);
+                
                 return response()->json([
                     'success' => false,
                     'message' => 'Validation failed',
@@ -124,58 +197,144 @@ class WhatsAppController extends Controller
                 ], 422);
             }
 
+            // Get authenticated user
+            try {
+                $user = auth()->user();
+                if (!$user) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'User not authenticated'
+                    ], 401);
+                }
+                $companyId = $user->company_id;
+            } catch (\Exception $authError) {
+                \Log::error('Authentication error in WhatsApp media send', [
+                    'error' => $authError->getMessage()
+                ]);
+                
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Authentication error'
+                ], 401);
+            }
+
             $to = $request->input('to');
             $mediaFile = $request->file('media_file');
             $caption = $request->input('caption', '');
+            $leadId = $request->input('lead_id');
 
-            // Upload media to WhatsApp servers
-            $uploadResult = $this->whatsappService->uploadMedia($mediaFile->getPathname(), $this->getMediaType($mediaFile));
-
-            if (!$uploadResult['success']) {
+            // Validate file integrity
+            if (!$mediaFile->isValid()) {
+                \Log::error('Invalid media file uploaded', [
+                    'error' => $mediaFile->getErrorMessage(),
+                    'original_name' => $mediaFile->getClientOriginalName(),
+                    'size' => $mediaFile->getSize(),
+                    'user_id' => auth()->id()
+                ]);
+                
                 return response()->json([
                     'success' => false,
-                    'message' => 'Failed to upload media',
-                    'error' => $uploadResult['error']
-                ], 500);
+                    'message' => 'Invalid media file',
+                    'error' => $mediaFile->getErrorMessage()
+                ], 422);
             }
 
-            // Send media message
-            $result = $this->whatsappService->sendMedia($to, $uploadResult['url'], $this->getMediaType($mediaFile), $caption);
+            try {
+                // Upload media to WhatsApp servers
+                $uploadResult = $this->whatsappService->uploadMedia($mediaFile->getPathname(), $this->getMediaType($mediaFile));
 
-            if ($result['success']) {
-                // Save media message to database
-                $this->saveMessage([
-                    'company_id' => auth()->user()->company_id,
-                    'user_id' => auth()->id(),
-                    'lead_id' => $request->input('lead_id'),
-                    'to' => $to,
-                    'message' => $caption,
-                    'media_url' => $uploadResult['url'],
-                    'media_type' => $this->getMediaType($mediaFile),
-                    'whatsapp_message_id' => $result['message_id'],
-                    'direction' => 'outbound',
-                    'status' => 'sent'
-                ]);
+                if (!$uploadResult['success']) {
+                    \Log::error('WhatsApp media upload failed', [
+                        'error' => $uploadResult['error'] ?? 'Unknown upload error',
+                        'file_name' => $mediaFile->getClientOriginalName(),
+                        'file_size' => $mediaFile->getSize(),
+                        'user_id' => auth()->id()
+                    ]);
+                    
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Failed to upload media',
+                        'error' => $uploadResult['error'] ?? 'Upload failed'
+                    ], 500);
+                }
 
-                return response()->json([
-                    'success' => true,
-                    'message' => 'Media sent successfully',
-                    'data' => [
+                // Send media message
+                $result = $this->whatsappService->sendMedia($to, $uploadResult['url'], $this->getMediaType($mediaFile), $caption);
+
+                if ($result['success']) {
+                    // Save media message to database
+                    try {
+                        $this->saveMessage([
+                            'company_id' => $companyId,
+                            'user_id' => auth()->id(),
+                            'lead_id' => $leadId,
+                            'to' => $to,
+                            'message' => $caption,
+                            'media_url' => $uploadResult['url'],
+                            'media_type' => $this->getMediaType($mediaFile),
+                            'whatsapp_message_id' => $result['message_id'],
+                            'direction' => 'outbound',
+                            'status' => 'sent'
+                        ]);
+                    } catch (\Exception $dbError) {
+                        \Log::error('Failed to save WhatsApp media message', [
+                            'error' => $dbError->getMessage(),
+                            'message_id' => $result['message_id'] ?? 'unknown',
+                            'user_id' => auth()->id()
+                        ]);
+                        // Continue with success response
+                    }
+
+                    \Log::info('WhatsApp media sent successfully', [
                         'message_id' => $result['message_id'],
-                        'media_url' => $uploadResult['url']
-                    ]
-                ]);
-            }
+                        'to' => $to,
+                        'media_url' => $uploadResult['url'],
+                        'user_id' => auth()->id()
+                    ]);
 
-            return response()->json([
-                'success' => false,
-                'message' => $result['error'],
-                'error' => $result['error']
-            ], 500);
+                    return response()->json([
+                        'success' => true,
+                        'message' => 'Media sent successfully',
+                        'data' => [
+                            'message_id' => $result['message_id'],
+                            'media_url' => $uploadResult['url']
+                        ]
+                    ]);
+                } else {
+                    \Log::error('WhatsApp media send failed', [
+                        'error' => $result['error'] ?? 'Unknown error',
+                        'to' => $to,
+                        'media_url' => $uploadResult['url'] ?? 'unknown',
+                        'user_id' => auth()->id()
+                    ]);
+                    
+                    return response()->json([
+                        'success' => false,
+                        'message' => $result['error'] ?? 'Failed to send media',
+                        'error' => $result['error'] ?? 'Unknown error'
+                    ], 500);
+                }
+                
+            } catch (\Exception $serviceError) {
+                \Log::error('WhatsApp service error during media send', [
+                    'error' => $serviceError->getMessage(),
+                    'to' => $to,
+                    'file_name' => $mediaFile->getClientOriginalName(),
+                    'user_id' => auth()->id(),
+                    'company_id' => $companyId
+                ]);
+                
+                return response()->json([
+                    'success' => false,
+                    'message' => 'WhatsApp service temporarily unavailable',
+                    'error' => config('app.debug') ? $serviceError->getMessage() : 'Service error'
+                ], 503);
+            }
 
         } catch (\Exception $e) {
-            Log::error('WhatsApp media send error', [
+            \Log::error('Critical WhatsApp media send error', [
                 'error' => $e->getMessage(),
+                'trace' => config('app.debug') ? $e->getTraceAsString() : null,
                 'user_id' => auth()->id()
             ]);
 

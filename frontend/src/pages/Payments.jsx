@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
 import { paymentsAPI } from '../services/api';
 import Layout from '../components/Layout';
+import { useSettings } from '../contexts/SettingsContext';
 
 const Payments = () => {
+  const { currency } = useSettings();
   const [dueToday, setDueToday] = useState([]);
   const [pending, setPending] = useState([]);
   const [activeTab, setActiveTab] = useState('due-today');
@@ -57,8 +59,8 @@ const Payments = () => {
           <button
             onClick={() => setActiveTab('due-today')}
             className={`px-6 py-2 rounded-lg ${activeTab === 'due-today'
-                ? 'bg-blue-600 text-white'
-                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+              ? 'bg-blue-600 text-white'
+              : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
               }`}
           >
             Due Today ({dueToday.length})
@@ -66,8 +68,8 @@ const Payments = () => {
           <button
             onClick={() => setActiveTab('pending')}
             className={`px-6 py-2 rounded-lg ${activeTab === 'pending'
-                ? 'bg-yellow-600 text-white'
-                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+              ? 'bg-yellow-600 text-white'
+              : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
               }`}
           >
             Pending ({pending.length})
@@ -94,8 +96,8 @@ const Payments = () => {
                     </div>
                     <div className="text-sm text-gray-500">{payment.lead?.phone || 'N/A'}</div>
                   </td>
-                  <td className="px-6 py-4 text-sm text-gray-900">${payment.amount}</td>
-                  <td className="px-6 py-4 text-sm text-gray-900">${payment.paid_amount}</td>
+                  <td className="px-6 py-4 text-sm text-gray-900">{currency?.name || 'INR'} {payment.amount}</td>
+                  <td className="px-6 py-4 text-sm text-gray-900">{currency?.name || 'INR'} {payment.paid_amount}</td>
                   <td className="px-6 py-4 text-sm text-gray-500">{payment.due_date || 'N/A'}</td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(payment.status)}`}>

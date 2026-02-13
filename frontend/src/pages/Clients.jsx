@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { accountsAPI } from '../services/api';
+import { toast } from 'react-toastify';
 import Layout from '../components/Layout';
 import AddClientModal from '../components/AddClientModal';
 import { Edit2, Trash2, Eye, TrendingUp, MoreVertical, Download, FileText, Plus } from 'lucide-react';
@@ -119,12 +120,13 @@ const Clients = () => {
         if (response.data.success) {
           // Refresh clients list
           fetchClients();
+          toast.success('Client deleted successfully');
         } else {
           throw new Error(response.data.message || 'Failed to delete client');
         }
       } catch (error) {
         console.error('Error deleting client:', error);
-        alert('Failed to delete client. Please try again.');
+        toast.error('Failed to delete client. Please try again.');
       }
     }
   };
@@ -147,7 +149,7 @@ const Clients = () => {
       totalQueries: client.queries || 0,
       lastQuery: client.lastQuery || 'N/A'
     };
-    
+
     const reportContent = `
 QUICK CLIENT REPORT
 ====================
@@ -165,7 +167,7 @@ Summary:
 
 This is a quick report. For detailed reports, please use the Reports option.
     `;
-    
+
     const blob = new Blob([reportContent], { type: 'text/plain' });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -205,8 +207,8 @@ This is a quick report. For detailed reports, please use the Reports option.
   };
 
   const handleSelectClient = (clientId) => {
-    setSelectedClients(prev => 
-      prev.includes(clientId) 
+    setSelectedClients(prev =>
+      prev.includes(clientId)
         ? prev.filter(id => id !== clientId)
         : [...prev, clientId]
     );
@@ -222,17 +224,17 @@ This is a quick report. For detailed reports, please use the Reports option.
 
   const handleBulkAction = (action) => {
     if (selectedClients.length === 0) {
-      alert('Please select at least one client');
+      toast.warning('Please select at least one client');
       return;
     }
 
     switch (action) {
       case 'bulkReport':
         // Generate bulk report for selected clients
-        const selectedClientsData = clients.filter(client => 
+        const selectedClientsData = clients.filter(client =>
           selectedClients.includes(client.id)
         );
-        
+
         const bulkReportContent = `
 BULK CLIENT REPORT
 ==================
@@ -252,7 +254,7 @@ ${index + 1}. ${client.name}
 
 This is a bulk report for selected clients.
         `;
-        
+
         const blob = new Blob([bulkReportContent], { type: 'text/plain' });
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -263,16 +265,16 @@ This is a bulk report for selected clients.
         document.body.removeChild(a);
         window.URL.revokeObjectURL(url);
         break;
-        
+
       case 'bulkDelete':
         if (window.confirm(`Are you sure you want to delete ${selectedClients.length} clients?`)) {
           // Remove selected clients from list
           setClients(prev => prev.filter(client => !selectedClients.includes(client.id)));
           setSelectedClients([]);
-          alert(`${selectedClients.length} clients deleted successfully`);
+          toast.success(`${selectedClients.length} clients deleted successfully`);
         }
         break;
-        
+
       default:
         break;
     }
@@ -423,7 +425,7 @@ This is a bulk report for selected clients.
                         >
                           <MoreVertical className="h-4 w-4" />
                         </button>
-                        
+
                         {activeDropdown === client.id && (
                           <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-10 border border-gray-200">
                             <div className="py-1">

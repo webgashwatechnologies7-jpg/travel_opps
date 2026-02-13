@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { leadsAPI, leadSourcesAPI, usersAPI } from '../services/api';
+import { toast } from 'react-toastify';
 import { useAuth } from '../contexts/AuthContext';
 import Layout from '../components/Layout';
 import { X, ChevronDown, Filter, Eye, Mail, MessageSquare, Edit, MoreVertical, History, Plus } from 'lucide-react';
@@ -14,7 +15,7 @@ const getDefaultFormData = () => ({
   type: 'Client',
   phone: '',
   email: '',
-  client_title: 'Mr.',
+  client_title: '',
   client_name: '',
   destination: '',
   travel_month: getCurrentMonth(),
@@ -232,8 +233,9 @@ const Leads = () => {
       setShowModal(false);
       setFormData(getDefaultFormData());
       fetchLeads();
+      toast.success('Lead created successfully');
     } catch (err) {
-      alert('Failed to create lead');
+      toast.error('Failed to create lead');
       console.error(err);
     }
   };
@@ -244,8 +246,9 @@ const Leads = () => {
       fetchLeads();
       setShowAssignModal(false);
       setSelectedLead(null);
+      toast.success('Lead assigned successfully');
     } catch (err) {
-      alert('Failed to assign lead');
+      toast.error('Failed to assign lead');
     }
   };
 
@@ -266,8 +269,9 @@ const Leads = () => {
       fetchLeads();
       setShowStatusModal(false);
       setSelectedLead(null);
+      toast.success('Status updated successfully');
     } catch (err) {
-      alert('Failed to update status');
+      toast.error('Failed to update status');
     }
   };
 
@@ -281,9 +285,9 @@ const Leads = () => {
     try {
       await leadsAPI.delete(leadId);
       fetchLeads();
-      alert('Lead deleted successfully');
+      toast.success('Lead deleted successfully');
     } catch (err) {
-      alert('Failed to delete lead');
+      toast.error('Failed to delete lead');
       console.error(err);
     }
   };
@@ -465,7 +469,7 @@ const Leads = () => {
       window.URL.revokeObjectURL(url);
       setShowOptionsDropdown(false);
     } catch (err) {
-      alert('Failed to download CSV template');
+      toast.error('Failed to download CSV template');
       console.error(err);
     }
   };
@@ -474,19 +478,19 @@ const Leads = () => {
   const handleImportCSV = async (e) => {
     e.preventDefault();
     if (!importFile) {
-      alert('Please select a CSV file');
+      toast.warning('Please select a CSV file');
       return;
     }
 
     try {
       await leadsAPI.import(importFile);
-      alert('Leads imported successfully!');
+      toast.success('Leads imported successfully!');
       setShowImportModal(false);
       setImportFile(null);
       setShowOptionsDropdown(false);
       fetchLeads();
     } catch (err) {
-      alert(err.response?.data?.message || 'Failed to import CSV');
+      toast.error(err.response?.data?.message || 'Failed to import CSV');
       console.error(err);
     }
   };
@@ -523,7 +527,7 @@ const Leads = () => {
       window.URL.revokeObjectURL(url);
       setShowOptionsDropdown(false);
     } catch (err) {
-      alert('Failed to export data');
+      toast.error('Failed to export data');
       console.error(err);
     }
   };
@@ -634,14 +638,14 @@ const Leads = () => {
             {filteredLeads.map((lead) => {
               // Get assigned user name from various possible fields
               // Backend returns assignedUser relationship or assigned_user object
-              const assignedUserName = 
-                lead.assignedUser?.name || 
-                lead.assigned_user?.name || 
-                lead.assigned_to?.name || 
-                lead.assigned_to_name || 
-                lead.assigned_user_name || 
+              const assignedUserName =
+                lead.assignedUser?.name ||
+                lead.assigned_user?.name ||
+                lead.assigned_to?.name ||
+                lead.assigned_to_name ||
+                lead.assigned_user_name ||
                 null;
-              
+
               return (
                 <LeadCard
                   id={lead.id}
@@ -745,6 +749,7 @@ const Leads = () => {
                         onChange={(e) => setFormData({ ...formData, client_title: e.target.value })}
                         className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                       >
+                        <option value="">Title</option>
                         <option value="Mr.">Mr.</option>
                         <option value="Mrs.">Mrs.</option>
                         <option value="Ms.">Ms.</option>
@@ -1027,7 +1032,7 @@ const Leads = () => {
                     if (userId && selectedLead) {
                       handleAssign(selectedLead.id, parseInt(userId));
                     } else {
-                      alert('Please select a user');
+                      toast.warning('Please select a user');
                     }
                   }}
                   className="flex-1 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700"

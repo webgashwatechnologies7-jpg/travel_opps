@@ -52,96 +52,15 @@ const MENU_ICON_MAP = {
   Package,
 };
 
-const Layout = ({ children, Header,padding=0 }) => {
+const Layout = ({ children, Header, padding = 0 }) => {
   const { user, logout } = useAuth();
-  const { settings, isSidebarOpen, toggleSidebar } = useSettings();
+  const { settings, isSidebarOpen, toggleSidebar, menuItems, openSubmenus, setOpenSubmenus, toggleSubmenu } = useSettings();
   const location = useLocation();
   const navigate = useNavigate();
   const [isUserDropdownOpen, setIsUserDropdownOpen] = useState(false);
-  const [companyLogo, setCompanyLogo] = useState(null);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
-  const [openSubmenus, setOpenSubmenus] = useState({
-    reports: false,
-    masters: false,
-    settings: false,
-    marketing: false
-  });
 
-  // Dynamic sidebar menu (from API, fallback to default)
-  const staffManagementItem = {
-    label: 'Staff Management',
-    icon: 'Users',
-    submenu: [
-      { path: '/staff-management/dashboard', label: 'Dashboard' },
-      { path: '/staff-management/users', label: 'All Users' },
-      { path: '/staff-management/teams', label: 'All Team' },
-      { path: '/staff-management/roles', label: 'All Role' },
-      { path: '/staff-management/branches', label: 'All Branch' },
-    ],
-  };
 
-  const defaultMenuItems = [
-    { path: '/dashboard', label: 'Dashboard', icon: 'LayoutDashboard' },
-    { path: '/leads', label: 'Queries', icon: 'MessageSquare' },
-    { path: '/itineraries', label: 'Itineraries', icon: 'FileText' },
-    { path: '/payments', label: 'Payments', icon: 'CreditCard' },
-    { path: '/sales-reps', label: 'Sales Reps', icon: 'Users' },
-    { label: 'Accounts', icon: 'CreditCard', submenu: [{ path: '/accounts/clients', label: 'Clients' }, { path: '/accounts/agents', label: 'Agents' }, { path: '/accounts/corporate', label: 'Corporate' }] },
-    { path: '/whatsapp', label: 'WhatsApp', icon: 'MessageCircle' },
-    { path: '/mail', label: 'Mail', icon: 'Mail' },
-    { label: 'Integrate', icon: 'Link2', submenu: [{ path: '/settings/mail', label: 'Email Integration' }, { path: '/settings/whatsapp', label: 'WhatsApp Integration' }] },
-    { path: '/call-management', label: 'Call Management System', icon: 'Phone' },
-    { path: '/followups', label: 'Followups', icon: 'ClipboardList' },
-    staffManagementItem,
-    { label: 'Reports', icon: 'BarChart3', submenu: [{ path: '/dashboard/employee-performance', label: 'Performance' }, { path: '/dashboard/source-roi', label: 'Source ROI' }, { path: '/dashboard/destination-performance', label: 'Destination' }] },
-    { label: 'Marketing', icon: 'Megaphone', submenu: [{ path: '/marketing', label: 'Dashboard' }, { path: '/client-groups', label: 'Clients Group' }, { path: '/marketing/templates', label: 'Email Templates' }, { path: '/marketing/whatsapp-templates', label: 'WhatsApp Templates' }, { path: '/marketing/email-campaigns', label: 'Campaigns' }, { path: '/marketing/landing-pages', label: 'Landing Pages' }] },
-    { label: 'Settings', icon: 'Settings', submenu: [{ path: '/settings', label: 'Settings' }, { path: '/settings/whatsapp', label: 'WhatsApp Integration' }, { path: '/settings/mail', label: 'Email Integration' }, { path: '/email-templates', label: 'Email Templates' }, { path: '/settings/terms-conditions', label: 'Terms & Conditions' }, { path: '/settings/policies', label: 'Policies' }, { path: '/settings/account-details', label: 'Account Details' }, { path: '/settings/logo', label: 'Logo' }] },
-    { label: 'Masters', icon: 'Grid', submenu: [{ path: '/masters/suppliers', label: 'Suppliers' }, { path: '/masters/hotel', label: 'Hotel' }, { path: '/masters/activity', label: 'Activity' }, { path: '/masters/transfer', label: 'Transfer' }, { path: '/masters/day-itinerary', label: 'Day Itinerary' }, { path: '/masters/destinations', label: 'Destinations' }, { path: '/masters/room-type', label: 'Room Type' }, { path: '/masters/meal-plan', label: 'Meal Plan' }, { path: '/masters/lead-source', label: 'Lead Source' }, { path: '/masters/expense-type', label: 'Expense Type' }, { path: '/masters/package-theme', label: 'Package Theme' }, { path: '/masters/currency', label: 'Currency' }, { path: '/users', label: 'Users' }, { path: '/targets', label: 'Targets' }, { path: '/permissions', label: 'Permissions' }] },
-  ];
-  const [menuItems, setMenuItems] = useState(defaultMenuItems);
-
-  // Ensure Settings submenu has WhatsApp & Email Integration (company admin flow)
-  const ensureSettingsIntegrationItems = (menu) => {
-    return menu.map((item) => {
-      if (item.label === 'Settings' && item.submenu && Array.isArray(item.submenu)) {
-        const sub = [...item.submenu];
-        const hasWhatsApp = sub.some((s) => s.path === '/settings/whatsapp');
-        const hasEmail = sub.some((s) => s.path === '/settings/mail');
-        let insertAt = 1;
-        if (!hasWhatsApp) {
-          sub.splice(insertAt++, 0, { path: '/settings/whatsapp', label: 'WhatsApp Integration' });
-        }
-        if (!hasEmail) {
-          sub.splice(insertAt++, 0, { path: '/settings/mail', label: 'Email Integration' });
-        }
-        return { ...item, submenu: sub };
-      }
-      return item;
-    });
-  };
-
-  useEffect(() => {
-    menuAPI.get()
-      .then((res) => {
-        if (res.data?.success && Array.isArray(res.data.data) && res.data.data.length > 0) {
-          let apiMenu = [...res.data.data];
-          const hasStaff = apiMenu.some(
-            (item) => item.label === 'Staff Management' || item.path === '/staff-management'
-          );
-          if (!hasStaff) {
-            const reportsIndex = apiMenu.findIndex((item) => item.label === 'Reports');
-            if (reportsIndex >= 0) {
-              apiMenu.splice(reportsIndex, 0, staffManagementItem);
-            } else {
-              apiMenu.push(staffManagementItem);
-            }
-          }
-          apiMenu = ensureSettingsIntegrationItems(apiMenu);
-          setMenuItems(apiMenu);
-        }
-      })
-      .catch(() => { /* keep default */ });
-  }, []);
 
   // Check if user is Admin
   const isAdmin = user?.role === 'Admin' || user?.roles?.some(role => role.name === 'Admin') || false;
@@ -166,59 +85,21 @@ const Layout = ({ children, Header,padding=0 }) => {
     navigate('/login');
   };
 
-  const isActive = (path) => location.pathname === path;
-  const isSubmenuActive = (paths) => paths.some(path => location.pathname === path);
+  const isActive = (path) => location.pathname === path || location.pathname.startsWith(path + '/');
+  const isSubmenuActive = (paths) => paths.some(path => location.pathname === path || location.pathname.startsWith(path + '/'));
 
-  const toggleSubmenu = (submenu) => {
-    setOpenSubmenus(prev => ({
-      ...prev,
-      [submenu]: !prev[submenu]
-    }));
-  };
 
-  // Fetch company logo (404 when no logo is set is expected)
-  useEffect(() => {
-    const fetchLogo = async () => {
-      try {
-        const response = await settingsAPI.getByKey('company_logo');
-        if (response.data?.success && response.data?.data?.value) {
-          setCompanyLogo(response.data.data.value);
-        }
-      } catch {
-        // Use default (no logo) on any error
-      }
-    };
-    fetchLogo();
-  }, []);
-
-  // Refresh logo when navigating to logo settings page
-  useEffect(() => {
-    if (location.pathname === '/settings/logo') {
-      const fetchLogo = async () => {
-        try {
-          const response = await settingsAPI.getByKey('company_logo');
-          if (response.data?.success && response.data?.data?.value) {
-            setCompanyLogo(response.data.data.value);
-          }
-        } catch (err) {
-          if (err?.response?.status !== 404) {
-            console.error('Failed to fetch company logo:', err);
-          }
-        }
-      };
-      fetchLogo();
-    }
-  }, [location.pathname]);
 
   // Auto-open submenus when their items are active (derived from dynamic menuItems)
   useEffect(() => {
     setOpenSubmenus(prev => {
-      const next = { ...prev };
+      // Reset state to ensure only relevant submenus are open
+      const next = {};
       menuItems.forEach((item) => {
         if (item.submenu && item.label) {
           const key = item.label.toLowerCase();
           const paths = item.submenu.map(sm => sm.path);
-          if (paths.some(path => location.pathname === path)) {
+          if (paths.some(path => location.pathname === path || location.pathname.startsWith(path + '/'))) {
             next[key] = true;
           }
         }
@@ -227,87 +108,83 @@ const Layout = ({ children, Header,padding=0 }) => {
     });
   }, [location.pathname, menuItems]);
 
-  if (!Header) {
-    Header = () => {
-      return (
-        <div
-  className={`header-bar fixed top-0 z-10 right-0 left-0
-  px-3 sm:px-4 lg:px-6
-  py-2 lg:py-3
-  min-h-14 lg:min-h-16 lg:h-16
-  transition-all duration-300
-  ${isSidebarOpen ? 'lg:left-64' : 'lg:left-20'}`}
-  style={{ backgroundColor: settings?.dashboard_background_color || '#D8DEF5' }}
->
-  <div className="flex flex-col lg:flex-row lg:items-center lg:justify-end gap-3 h-full">
+  // Global GlobalHeader Component
+  const GlobalHeader = () => (
+    <div
+      className={`header-bar fixed top-0 z-10 right-0 left-0
+px-3 sm:px-4 lg:px-6
+py-2 lg:py-3
+min-h-14 lg:min-h-16 lg:h-16
+transition-all duration-300
+${isSidebarOpen ? 'lg:left-64' : 'lg:left-20'}`}
+      style={{ backgroundColor: settings?.dashboard_background_color || '#D8DEF5' }}
+    >
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-end gap-3 h-full">
 
-    {/* RIGHT SECTION */}
-    <div className="flex flex-wrap items-center justify-between sm:justify-end gap-2">
+        {/* RIGHT SECTION */}
+        <div className="flex flex-wrap items-center justify-between sm:justify-end gap-2">
 
-      {/* Action buttons */}
-      <div className="flex gap-2 w-full sm:w-auto">
-        <button className="flex-1 sm:flex-none px-3 py-2 bg-blue-700 text-white rounded-lg text-sm hover:bg-blue-800 flex items-center justify-center gap-2 font-medium">
-          <Plane className="h-4 w-4" />
-          <span className="hidden sm:inline">Flight Search</span>
-        </button>
+          {/* Action buttons */}
+          <div className="flex gap-2 w-full sm:w-auto">
+            <button className="flex-1 sm:flex-none px-3 py-2 bg-blue-700 text-white rounded-lg text-sm hover:bg-blue-800 flex items-center justify-center gap-2 font-medium">
+              <Plane className="h-4 w-4" />
+              <span className="hidden sm:inline">Flight Search</span>
+            </button>
 
-        <button className="flex-1 sm:flex-none px-3 py-2 bg-orange-500 text-white rounded-lg text-sm hover:bg-orange-600 flex items-center justify-center gap-2 font-medium">
-          <Hotel className="h-4 w-4" />
-          <span className="hidden sm:inline">Hotel Search</span>
-        </button>
-      </div>
-
-      {/* Icons */}
-      <button className="p-2 text-gray-700 hover:bg-gray-400 rounded-lg">
-        <Bell className="h-5 w-5" />
-      </button>
-
-      {isAdmin && (
-        <Link to="/settings" className="p-2 text-gray-700 hover:bg-gray-400 rounded-lg">
-          <Settings className="h-5 w-5" />
-        </Link>
-      )}
-
-      {/* User */}
-      <div className="relative">
-        <button
-          onClick={toggleUserDropdown}
-          className="flex items-center gap-2 pl-3 border-l border-gray-500 hover:bg-gray-200 rounded-lg px-2 py-1"
-        >
-          <div className="w-8 h-8 bg-blue-700 rounded-full flex items-center justify-center text-white text-sm font-semibold">
-            {user?.name?.charAt(0) || 'A'}
-          </div>
-          <span className="hidden sm:block text-sm font-medium text-gray-800">
-            {user?.name || 'Admin User'}
-          </span>
-          <ChevronDownIcon
-            className={`h-4 w-4 text-gray-700 transition-transform ${isUserDropdownOpen ? 'rotate-180' : ''}`}
-          />
-        </button>
-
-        {isUserDropdownOpen && (
-          <div className="user-dropdown absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
-            <div className="px-4 py-2 border-b">
-              <p className="text-sm font-medium">{user?.name}</p>
-              <p className="text-xs text-gray-500">{user?.email}</p>
-            </div>
-            <button
-              onClick={handleLogout}
-              className="w-full px-4 py-2 text-sm text-left text-red-600 hover:bg-red-50 flex gap-2"
-            >
-              Logout
+            <button className="flex-1 sm:flex-none px-3 py-2 bg-orange-500 text-white rounded-lg text-sm hover:bg-orange-600 flex items-center justify-center gap-2 font-medium">
+              <Hotel className="h-4 w-4" />
+              <span className="hidden sm:inline">Hotel Search</span>
             </button>
           </div>
-        )}
+
+          {/* Icons */}
+          <button className="p-2 text-gray-700 hover:bg-gray-400 rounded-lg">
+            <Bell className="h-5 w-5" />
+          </button>
+
+          {isAdmin && (
+            <Link to="/settings" className="p-2 text-gray-700 hover:bg-gray-400 rounded-lg">
+              <Settings className="h-5 w-5" />
+            </Link>
+          )}
+
+          {/* User */}
+          <div className="relative">
+            <button
+              onClick={toggleUserDropdown}
+              className="flex items-center gap-2 pl-3 border-l border-gray-500 hover:bg-gray-200 rounded-lg px-2 py-1"
+            >
+              <div className="w-8 h-8 bg-blue-700 rounded-full flex items-center justify-center text-white text-sm font-semibold">
+                {user?.name?.charAt(0) || 'A'}
+              </div>
+              <span className="hidden sm:block text-sm font-medium text-gray-800">
+                {user?.name || 'Admin User'}
+              </span>
+              <ChevronDownIcon
+                className={`h-4 w-4 text-gray-700 transition-transform ${isUserDropdownOpen ? 'rotate-180' : ''}`}
+              />
+            </button>
+
+            {isUserDropdownOpen && (
+              <div className="user-dropdown absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
+                <div className="px-4 py-2 border-b">
+                  <p className="text-sm font-medium">{user?.name}</p>
+                  <p className="text-xs text-gray-500">{user?.email}</p>
+                </div>
+                <button
+                  onClick={handleLogout}
+                  className="w-full px-4 py-2 text-sm text-left text-red-600 hover:bg-red-50 flex gap-2"
+                >
+                  Logout
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+
       </div>
     </div>
-
-  </div>
-</div>
-
-      )
-    }
-  }
+  );
   const bgColor = settings?.dashboard_background_color || '#D8DEF5';
   return (
     <div className="min-h-screen relative" style={{ backgroundColor: bgColor }}>
@@ -323,29 +200,31 @@ const Layout = ({ children, Header,padding=0 }) => {
             {/* Logo and Toggle Button */}
             <div className="p-4 border-b border-blue-800/50 flex items-center justify-between">
               <div className="flex items-center justify-start flex-1">
-                {companyLogo ? (
-                  <>
-                    <img
-                      src={companyLogo}
-                      alt="Company Logo"
-                      className={`h-8 object-contain transition-all duration-300 ${isSidebarOpen ? 'opacity-100 max-w-[180px]' : 'opacity-100 w-8'}`}
-                      onError={(e) => {
-                        e.target.style.display = 'none';
-                        const fallback = e.target.nextSibling;
-                        if (fallback) fallback.style.display = 'flex';
-                      }}
-                    />
-                    <div className="hidden flex items-center">
+                <Link to="/dashboard" className="flex items-center gap-2">
+                  {settings?.company_logo ? (
+                    <>
+                      <img
+                        src={settings.company_logo}
+                        alt="Company Logo"
+                        className={`h-8 object-contain transition-all duration-300 ${isSidebarOpen ? 'opacity-100 max-w-[180px]' : 'opacity-100 w-8'}`}
+                        onError={(e) => {
+                          e.target.style.display = 'none';
+                          const fallback = e.target.nextSibling;
+                          if (fallback) fallback.style.display = 'flex';
+                        }}
+                      />
+                      <div className="hidden flex items-center">
+                        <h1 className="text-xl font-bold text-white">T</h1>
+                        <span className={`ml-3 text-white font-semibold whitespace-nowrap transition-opacity duration-300 ${isSidebarOpen ? 'opacity-100' : 'opacity-0 w-0 overflow-hidden'}`}>TravelOps</span>
+                      </div>
+                    </>
+                  ) : (
+                    <>
                       <h1 className="text-xl font-bold text-white">T</h1>
                       <span className={`ml-3 text-white font-semibold whitespace-nowrap transition-opacity duration-300 ${isSidebarOpen ? 'opacity-100' : 'opacity-0 w-0 overflow-hidden'}`}>TravelOps</span>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <h1 className="text-xl font-bold text-white">T</h1>
-                    <span className={`ml-3 text-white font-semibold whitespace-nowrap transition-opacity duration-300 ${isSidebarOpen ? 'opacity-100' : 'opacity-0 w-0 overflow-hidden'}`}>TravelOps</span>
-                  </>
-                )}
+                    </>
+                  )}
+                </Link>
               </div>
               <button
                 onClick={toggleSidebar}
@@ -445,8 +324,8 @@ const Layout = ({ children, Header,padding=0 }) => {
               {/* Mobile Sidebar Header */}
               <div className="p-4 border-b border-blue-800/50 flex items-center justify-between">
                 <div className="flex items-center">
-                  {companyLogo ? (
-                    <img src={companyLogo} alt="Logo" className="h-8 object-contain max-w-[140px]" />
+                  {settings?.company_logo ? (
+                    <img src={settings.company_logo} alt="Logo" className="h-8 object-contain max-w-[140px]" />
                   ) : (
                     <span className="text-white font-bold text-xl">TravelOps</span>
                   )}
@@ -543,13 +422,17 @@ const Layout = ({ children, Header,padding=0 }) => {
         className={`main-content transition-all duration-300 ${isSidebarOpen ? 'lg:ml-64' : 'lg:ml-20'} ml-0 pb-20 lg:pb-0 min-h-screen`}
         style={{ backgroundColor: bgColor }}
       >
-        {/* Header Bar - same background */}
-        <div style={{ padding: `${padding}px ${padding}px 0px ${padding}px`, backgroundColor: bgColor }}>
-          {Header && <Header />}
-        </div>
+        <GlobalHeader />
 
-        {/* Content Area */}
+        {/* Content Area with Top Padding for GlobalHeader */}
         <div className="pt-14 lg:pt-16 custom-scroll" style={{ backgroundColor: bgColor }}>
+          {/* Optional Page-Specific Header */}
+          {Header && (
+            <div style={{ padding: `${padding}px ${padding}px 0px ${padding}px` }}>
+              <Header />
+            </div>
+          )}
+
           <div className="p-4 pb-6 md:p-6 md:pb-8 lg:p-8 lg:pb-8">
             {children}
           </div>

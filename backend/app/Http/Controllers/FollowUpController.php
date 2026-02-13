@@ -4,8 +4,8 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
-use App\Models\LeadFollowup;
-use App\Models\Lead;
+use App\Modules\Leads\Domain\Entities\LeadFollowup;
+use App\Modules\Leads\Domain\Entities\Lead;
 use App\Models\User;
 
 class FollowUpController extends Controller

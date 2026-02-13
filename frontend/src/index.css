@@ -1,7 +1,8 @@
 @import url('https://fonts.googleapis.com/css2?family=Nunito+Sans:ital,opsz,wght@0,6..12,200..1000;1,6..12,200..1000&display=swap');
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss/base";
+@import "tailwindcss/components";
+@import "tailwindcss/utilities";
+
 body {
   margin: 0;
   font-family: "Nunito Sans", -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto',
@@ -16,6 +17,7 @@ body {
   min-height: 100%;
   display: block;
 }
+
 @layer base {
   :root {
     --background: 0 0% 100%;
@@ -67,11 +69,13 @@ body {
   * {
     border-color: hsl(var(--border));
   }
+
   body {
     background-color: hsl(var(--background));
     color: hsl(var(--foreground));
   }
 }
+
 .custom-scroll {
   overflow-y: auto;
   scroll-behavior: smooth;
@@ -91,4 +95,66 @@ body {
   background: #9DC7F1;
   border-radius: 20px;
   border: 2px solid #ffffff;
+}
+
+/* Custom Toastify Styles for Premium Look */
+.Toastify__toast {
+  border-radius: 12px !important;
+  box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.15) !important;
+  font-family: inherit !important;
+  padding: 14px 20px !important;
+  min-height: 70px !important;
+}
+
+.Toastify__toast--light {
+  background: #ffffff !important;
+  color: #1e293b !important;
+  border: 1px solid #f1f5f9 !important;
+}
+
+.Toastify__toast--success {
+  border-left: 6px solid #22c55e !important;
+}
+
+.Toastify__toast--error {
+  border-left: 6px solid #ef4444 !important;
+}
+
+.Toastify__toast--warning {
+  border-left: 6px solid #f59e0b !important;
+}
+
+.Toastify__toast--info {
+  border-left: 6px solid #3b82f6 !important;
+}
+
+.Toastify__toast-body {
+  padding: 0 !important;
+  margin: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+}
+
+.Toastify__toast-icon {
+  width: 24px !important;
+  margin-right: 12px !important;
+}
+
+.Toastify__progress-bar--success {
+  background: #22c55e !important;
+}
+
+.Toastify__progress-bar--error {
+  background: #ef4444 !important;
+}
+
+.Toastify__close-button {
+  align-self: flex-start !important;
+  margin-top: -2px !important;
+  color: #64748b !important;
+  opacity: 0.5 !important;
+}
+
+.Toastify__close-button:hover {
+  opacity: 1 !important;
 }

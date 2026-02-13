@@ -70,7 +70,8 @@ class Lead extends Model
         'client_type',
         'company_id',
         'date_of_birth',
-        'marriage_anniversary'
+        'marriage_anniversary',
+        'pax_details'
     ];
 
     /**
@@ -92,6 +93,7 @@ class Lead extends Model
         'deleted_at' => 'datetime',
         'date_of_birth' => 'date',
         'marriage_anniversary' => 'date',
+        'pax_details' => 'array',
     ];
 
     /**
@@ -321,6 +323,14 @@ class Lead extends Model
             return (float) $this->budget;
         }
         return 0;
+    }
+
+    /**
+     * Get the company that owns the lead.
+     */
+    public function company(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\Company::class, 'company_id');
     }
 }
 

@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { toast } from 'react-toastify';
 import { useAuth } from '../contexts/AuthContext';
 import { companySettingsAPI, whatsappAPI } from '../services/api';
 import Layout from '../components/Layout';
@@ -140,7 +140,7 @@ const UserDetails = () => {
 
     } catch (error) {
       console.error('Failed to fetch user details:', error);
-      
+
       // Fallback to mock data if API fails
       const mockUser = {
         id: id,
@@ -205,7 +205,7 @@ const UserDetails = () => {
 
   const handleDownloadPerformancePdf = () => {
     if (!performance || !performance.ranges) {
-      alert('Performance data available nahi hai.');
+      toast.warning('Performance data is not available.');
       return;
     }
     const rangeData = performance.ranges[selectedRange] || {};
@@ -213,7 +213,7 @@ const UserDetails = () => {
 
     const win = window.open('', '_blank');
     if (!win) {
-      alert('Please allow pop-ups to download the report.');
+      toast.error('Please allow pop-ups to download the report.');
       return;
     }
 
@@ -332,13 +332,13 @@ const UserDetails = () => {
           ...editForm
         });
         setEditingUser(false);
-        alert('User updated successfully!');
+        toast.success('User updated successfully!');
       } else {
         throw new Error(response.data.message || 'Failed to update user');
       }
     } catch (error) {
       console.error('Error updating user:', error);
-      alert('Failed to update user. Please try again.');
+      toast.error('Failed to update user. Please try again.');
     }
   };
 
@@ -420,11 +420,10 @@ const UserDetails = () => {
                 Download Performance
               </button>
               <div className="flex items-center space-x-2">
-                <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                  user.is_active 
-                    ? 'bg-green-100 text-green-800' 
+                <span className={`px-3 py-1 rounded-full text-sm font-medium ${user.is_active
+                    ? 'bg-green-100 text-green-800'
                     : 'bg-red-100 text-red-800'
-                }`}>
+                  }`}>
                   {user.is_active ? 'Active' : 'Inactive'}
                 </span>
                 {!editingUser ? (
@@ -686,7 +685,7 @@ const UserDetails = () => {
               </div>
             </div>
           </div>
-          
+
           <div className="bg-white shadow-sm rounded-lg p-6">
             <div className="flex items-center">
               <div className="flex-shrink-0">
@@ -698,7 +697,7 @@ const UserDetails = () => {
               </div>
             </div>
           </div>
-          
+
           <div className="bg-white shadow-sm rounded-lg p-6">
             <div className="flex items-center">
               <div className="flex-shrink-0">
@@ -712,7 +711,7 @@ const UserDetails = () => {
               </div>
             </div>
           </div>
-          
+
           <div className="bg-white shadow-sm rounded-lg p-6">
             <div className="flex items-center">
               <div className="flex-shrink-0">
@@ -738,11 +737,10 @@ const UserDetails = () => {
                   <button
                     key={range}
                     onClick={() => setSelectedRange(range)}
-                    className={`px-3 py-1 text-sm rounded-full border transition-colors ${
-                      selectedRange === range
+                    className={`px-3 py-1 text-sm rounded-full border transition-colors ${selectedRange === range
                         ? 'bg-blue-600 text-white border-blue-600'
                         : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'
-                    }`}
+                      }`}
                   >
                     {range.charAt(0).toUpperCase() + range.slice(1)}
                   </button>
@@ -937,11 +935,10 @@ const UserDetails = () => {
                       key={conv.lead_id}
                       type="button"
                       onClick={() => openChat(conv.lead_id)}
-                      className={`w-full text-left px-4 py-3 rounded-lg border transition-colors ${
-                        selectedChatLeadId === conv.lead_id
+                      className={`w-full text-left px-4 py-3 rounded-lg border transition-colors ${selectedChatLeadId === conv.lead_id
                           ? 'bg-green-50 border-green-300 ring-1 ring-green-200'
                           : 'bg-gray-50 border-gray-200 hover:bg-gray-100'
-                      }`}
+                        }`}
                     >
                       <div className="font-medium text-gray-900">{conv.client_name || conv.phone || 'Unknown'}</div>
                       <div className="text-xs text-gray-500 truncate">{conv.phone}</div>

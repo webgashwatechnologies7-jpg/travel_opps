@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { Smartphone, Settings, CheckCircle, AlertCircle, RefreshCw, BarChart3, MessageSquare, Phone, Edit2, Save } from 'lucide-react';
 import { useErrorHandler } from '../hooks/useErrorHandler';
+import { toast } from 'react-toastify';
+import { Save, CheckCircle, Smartphone, Settings, Edit2, BarChart3, MessageSquare } from 'lucide-react';
 import { companyWhatsappAPI } from '../services/api';
 
 const CompanyWhatsAppSetup = () => {
@@ -144,7 +145,7 @@ const CompanyWhatsAppSetup = () => {
 
   const handleSaveManual = async () => {
     if (!manualForm.whatsapp_phone_number?.trim() || !manualForm.whatsapp_api_key?.trim() || !manualForm.whatsapp_phone_number_id?.trim()) {
-      alert('Phone Number, API Key and Phone Number ID are required.');
+      toast.error('Phone Number, API Key and Phone Number ID are required.');
       return;
     }
     setSaving(true);
@@ -209,7 +210,7 @@ const CompanyWhatsAppSetup = () => {
                   </p>
                 </div>
               </div>
-              
+
               <div className="flex space-x-2">
                 <button
                   onClick={handleSyncSettings}
@@ -219,7 +220,7 @@ const CompanyWhatsAppSetup = () => {
                   <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
                   <span>Sync</span>
                 </button>
-                
+
                 <button
                   onClick={handleTestConnection}
                   disabled={testing || !settings.enabled}
@@ -240,7 +241,7 @@ const CompanyWhatsAppSetup = () => {
                 Connect Your WhatsApp Business Number
               </h3>
               <p className="text-gray-600 text-sm mb-4">
-                Enter your WhatsApp Business API credentials from Meta Developer Console. 
+                Enter your WhatsApp Business API credentials from Meta Developer Console.
                 You can connect any number that is registered with WhatsApp Business API.
               </p>
 
@@ -327,7 +328,7 @@ const CompanyWhatsAppSetup = () => {
                     🚀 Auto-Provision WhatsApp
                   </h3>
                   <p className="text-blue-800">
-                    Automatically set up WhatsApp Business API for your company. 
+                    Automatically set up WhatsApp Business API for your company.
                     We'll create a WhatsApp Business Account, register a phone number, and configure webhooks.
                   </p>
                   <div className="mt-4 space-y-2 text-sm text-blue-700">
@@ -349,7 +350,7 @@ const CompanyWhatsAppSetup = () => {
                     </div>
                   </div>
                 </div>
-                
+
                 <button
                   onClick={handleAutoProvision}
                   disabled={provisioning}
@@ -379,7 +380,7 @@ const CompanyWhatsAppSetup = () => {
                     Change Number
                   </button>
                 </div>
-                
+
                 <div className="space-y-3">
                   <div>
                     <label className="block text-sm font-medium text-gray-700">Phone Number</label>
@@ -387,14 +388,14 @@ const CompanyWhatsAppSetup = () => {
                       <span className="font-mono text-sm">{settings.phone_number || settings.whatsapp_phone_number || 'Not configured'}</span>
                     </div>
                   </div>
-                  
+
                   <div>
                     <label className="block text-sm font-medium text-gray-700">Display Name</label>
                     <div className="mt-1 p-3 bg-gray-50 rounded border border-gray-200">
                       <span className="text-sm">{settings.display_name || settings.whatsapp_display_name || 'Not configured'}</span>
                     </div>
                   </div>
-                  
+
                   <div>
                     <label className="block text-sm font-medium text-gray-700">Last Sync</label>
                     <div className="mt-1 p-3 bg-gray-50 rounded border border-gray-200">
@@ -411,23 +412,23 @@ const CompanyWhatsAppSetup = () => {
                   <BarChart3 className="w-5 h-5" />
                   Quick Stats
                 </h4>
-                
+
                 <div className="space-y-3">
                   <div className="flex items-center justify-between p-3 bg-green-50 rounded border border-green-200">
                     <span className="text-sm font-medium text-green-800">Messages Sent (30 days)</span>
                     <span className="text-lg font-bold text-green-900">1,234</span>
                   </div>
-                  
+
                   <div className="flex items-center justify-between p-3 bg-blue-50 rounded border border-blue-200">
                     <span className="text-sm font-medium text-blue-800">Messages Received</span>
                     <span className="text-lg font-bold text-blue-900">856</span>
                   </div>
-                  
+
                   <div className="flex items-center justify-between p-3 bg-purple-50 rounded border border-purple-200">
                     <span className="text-sm font-medium text-purple-800">Read Rate</span>
                     <span className="text-lg font-bold text-purple-900">87.3%</span>
                   </div>
-                  
+
                   <div className="flex items-center justify-between p-3 bg-orange-50 rounded border border-orange-200">
                     <span className="text-sm font-medium text-orange-800">Template Messages</span>
                     <span className="text-lg font-bold text-orange-900">445</span>
@@ -444,7 +445,7 @@ const CompanyWhatsAppSetup = () => {
                 <MessageSquare className="w-5 h-5" />
                 How to Use WhatsApp in CRM
               </h4>
-              
+
               <div className="space-y-3 text-sm text-green-800">
                 <div className="flex items-start space-x-3">
                   <span className="font-semibold">1.</span>

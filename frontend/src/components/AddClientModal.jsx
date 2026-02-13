@@ -4,7 +4,7 @@ import { accountsAPI } from '../services/api';
 
 const AddClientModal = ({ isOpen, onClose, onSave, editMode = false, initialData = null }) => {
   const [formData, setFormData] = useState({
-    title: 'Mr.',
+    title: '',
     firstName: '',
     lastName: '',
     email: '',
@@ -35,9 +35,18 @@ const AddClientModal = ({ isOpen, onClose, onSave, editMode = false, initialData
   useEffect(() => {
     if (editMode && initialData) {
       // Parse name into first and last name
-      const nameParts = (initialData.name || '').split(' ');
+      let nameParts = (initialData.name || '').split(' ');
+      let title = initialData.title || '';
+
+      // If name starts with a title and it's not already in the title field, or if title is empty
+      const commonTitles = ['Mr.', 'Ms.', 'Mrs.', 'Dr.'];
+      if (nameParts.length > 0 && commonTitles.includes(nameParts[0])) {
+        if (!title) title = nameParts[0];
+        nameParts = nameParts.slice(1);
+      }
+
       setFormData({
-        title: initialData.title || 'Mr.',
+        title: title,
         firstName: nameParts[0] || '',
         lastName: nameParts.slice(1).join(' ') || '',
         email: initialData.email || '',
@@ -64,10 +73,10 @@ const AddClientModal = ({ isOpen, onClose, onSave, editMode = false, initialData
       console.error('Failed to fetch cities:', error);
       // Fallback to mock data
       const mockCities = [
-        'Mumbai', 'Delhi', 'Bangalore', 'Hyderabad', 'Ahmedabad', 'Chennai', 
+        'Mumbai', 'Delhi', 'Bangalore', 'Hyderabad', 'Ahmedabad', 'Chennai',
         'Kolkata', 'Pune', 'Jaipur', 'Lucknow'
       ];
-      const filtered = mockCities.filter(city => 
+      const filtered = mockCities.filter(city =>
         city.toLowerCase().includes(search.toLowerCase())
       ).slice(0, 10);
       setCities(filtered);
@@ -105,36 +114,37 @@ const AddClientModal = ({ isOpen, onClose, onSave, editMode = false, initialData
 
   const validateForm = () => {
     const newErrors = {};
-    
+
     // Validate email format
     if (formData.email && !/\S+@\S+\.\S+/.test(formData.email)) {
       newErrors.email = 'Please enter a valid email address';
     }
-    
+
     if (formData.email2 && !/\S+@\S+\.\S+/.test(formData.email2)) {
       newErrors.email2 = 'Please enter a valid email address';
     }
-    
+
     // Validate mobile format (basic validation)
-    if (formData.mobile && !/^\+91\d{10}$/.test(formData.mobile.replace(/\s/g, ''))) {
-      newErrors.mobile = 'Please enter a valid mobile number (e.g., +91 9876543210)';
+    const mobileRegex = /^(\+91)?\d{10}$/;
+    if (formData.mobile && !mobileRegex.test(formData.mobile.replace(/\s/g, ''))) {
+      newErrors.mobile = 'Please enter a valid 10-digit mobile number';
     }
-    
-    if (formData.mobile2 && formData.mobile2 !== '+91' && !/^\+91\d{10}$/.test(formData.mobile2.replace(/\s/g, ''))) {
-      newErrors.mobile2 = 'Please enter a valid mobile number (e.g., +91 9876543210)';
+
+    if (formData.mobile2 && formData.mobile2 !== '+91' && formData.mobile2 !== '' && !mobileRegex.test(formData.mobile2.replace(/\s/g, ''))) {
+      newErrors.mobile2 = 'Please enter a valid 10-digit mobile number';
     }
-    
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (!validateForm()) {
       return;
     }
-    
+
     setLoading(true);
 
     try {
@@ -165,7 +175,7 @@ const AddClientModal = ({ isOpen, onClose, onSave, editMode = false, initialData
 
   const handleClose = () => {
     setFormData({
-      title: 'Mr.',
+      title: '',
       firstName: '',
       lastName: '',
       email: '',
@@ -215,6 +225,7 @@ const AddClientModal = ({ isOpen, onClose, onSave, editMode = false, initialData
                 onChange={handleInputChange}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
+                <option value="">Select</option>
                 <option value="Mr.">Mr.</option>
                 <option value="Ms.">Ms.</option>
                 <option value="Mrs.">Mrs.</option>
@@ -262,9 +273,8 @@ const AddClientModal = ({ isOpen, onClose, onSave, editMode = false, initialData
                 name="email"
                 value={formData.email}
                 onChange={handleInputChange}
-                className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                  errors.email ? 'border-red-500' : 'border-gray-300'
-                }`}
+                className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.email ? 'border-red-500' : 'border-gray-300'
+                  }`}
               />
               {errors.email && (
                 <p className="mt-1 text-sm text-red-600">{errors.email}</p>
@@ -282,9 +292,8 @@ const AddClientModal = ({ isOpen, onClose, onSave, editMode = false, initialData
                 value={formData.mobile}
                 onChange={handleInputChange}
                 required
-                className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                  errors.mobile ? 'border-red-500' : 'border-gray-300'
-                }`}
+                className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.mobile ? 'border-red-500' : 'border-gray-300'
+                  }`}
               />
               {errors.mobile && (
                 <p className="mt-1 text-sm text-red-600">{errors.mobile}</p>
@@ -301,9 +310,8 @@ const AddClientModal = ({ isOpen, onClose, onSave, editMode = false, initialData
                 name="email2"
                 value={formData.email2}
                 onChange={handleInputChange}
-                className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                  errors.email2 ? 'border-red-500' : 'border-gray-300'
-                }`}
+                className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.email2 ? 'border-red-500' : 'border-gray-300'
+                  }`}
               />
               {errors.email2 && (
                 <p className="mt-1 text-sm text-red-600">{errors.email2}</p>
@@ -320,9 +328,8 @@ const AddClientModal = ({ isOpen, onClose, onSave, editMode = false, initialData
                 name="mobile2"
                 value={formData.mobile2}
                 onChange={handleInputChange}
-                className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                  errors.mobile2 ? 'border-red-500' : 'border-gray-300'
-                }`}
+                className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${errors.mobile2 ? 'border-red-500' : 'border-gray-300'
+                  }`}
               />
               {errors.mobile2 && (
                 <p className="mt-1 text-sm text-red-600">{errors.mobile2}</p>

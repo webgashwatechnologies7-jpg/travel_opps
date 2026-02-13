@@ -40,8 +40,11 @@ Route::middleware('auth:sanctum')->prefix('suppliers')->group(function () {
 Route::middleware('auth:sanctum')->prefix('settings')->group(function () {
     Route::get('/', [SettingsController::class, 'index']);
     Route::post('/', [SettingsController::class, 'store']);
+    Route::put('/update', [SettingsController::class, 'update']);
     Route::get('/max-hotel-options', [SettingsController::class, 'getMaxHotelOptions']);
     Route::post('/upload-logo', [SettingsController::class, 'uploadLogo']);
+    Route::get('/company', [SettingsController::class, 'getCompanyDetails']);
+    Route::put('/company', [SettingsController::class, 'updateCompanyDetails']);
 });
 
 // Sidebar menu - dynamic (from settings or default)
@@ -85,6 +88,8 @@ Route::middleware('auth:sanctum')->prefix('package-themes')->group(function () {
 
 // Currencies routes - require authentication
 Route::middleware('auth:sanctum')->prefix('currencies')->group(function () {
+    Route::get('/live-rate', [CurrencyController::class, 'fetchLiveRate']);
+    Route::put('/{id}/set-primary', [CurrencyController::class, 'setPrimary']);
     Route::get('/', [CurrencyController::class, 'index']);
     Route::post('/', [CurrencyController::class, 'store']);
     Route::get('/{id}', [CurrencyController::class, 'show']);
@@ -102,13 +107,13 @@ Route::middleware('auth:sanctum')->prefix('company-settings')->group(function ()
     Route::post('/users', [CompanySettingsController::class, 'createUser']);
     Route::put('/users/{id}', [CompanySettingsController::class, 'updateUser']);
     Route::delete('/users/{id}', [CompanySettingsController::class, 'deleteUser']);
-    
+
     // Branches management
     Route::get('/branches', [CompanySettingsController::class, 'getBranches']);
     Route::post('/branches', [CompanySettingsController::class, 'createBranch']);
     Route::put('/branches/{id}', [CompanySettingsController::class, 'updateBranch']);
     Route::delete('/branches/{id}', [CompanySettingsController::class, 'deleteBranch']);
-    
+
     // Roles management
     Route::get('/roles', [CompanySettingsController::class, 'getRoles']);
     Route::post('/roles', [CompanySettingsController::class, 'createRole']);
@@ -121,7 +126,7 @@ Route::middleware('auth:sanctum')->prefix('company-settings')->group(function ()
     Route::put('/roles/{id}/permissions', [CompanySettingsController::class, 'updateRolePermissions']);
     Route::get('/users/{id}/permissions', [CompanySettingsController::class, 'getUserPermissions']);
     Route::put('/users/{id}/permissions', [CompanySettingsController::class, 'updateUserPermissions']);
-    
+
     // Statistics
     Route::get('/stats', [CompanySettingsController::class, 'getStats']);
 

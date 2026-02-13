@@ -25,8 +25,10 @@ class Currency extends Model
      */
     protected $fillable = [
         'name',
+        'symbol',
         'rate',
         'status',
+        'is_primary',
         'created_by',
     ];
 
@@ -37,6 +39,7 @@ class Currency extends Model
      */
     protected $casts = [
         'rate' => 'decimal:2',
+        'is_primary' => 'boolean',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
     ];

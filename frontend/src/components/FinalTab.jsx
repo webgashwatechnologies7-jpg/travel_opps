@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { getDisplayImageUrl } from '../utils/imageUrl';
-import { settingsAPI } from '../services/api';
+import { settingsAPI, masterPointsAPI } from '../services/api';
 import { Building2, Star, Calendar, Hash, X, Eye, MapPin, Users, Clock, Image as ImageIcon, Car, UtensilsCrossed, Plane, User, Ship, FileText, FileText as PassportIcon, File, Download, Mail, MessageCircle, Printer } from 'lucide-react';
 
 const POLICY_KEYS = [
@@ -10,6 +10,7 @@ const POLICY_KEYS = [
   { key: 'confirmation_policy', label: 'Confirmation Policy' },
   { key: 'cancellation_policy', label: 'Cancellation Policy' },
   { key: 'amendment_policy', label: 'Amendment Policy' },
+  { key: 'payment_policy', label: 'Payment Policy' }, // Added new type
   { key: 'thank_you_message', label: 'Thank You Message' }
 ];
 // Left sidebar: only policies (no Day-by-Day); default view is still itinerary
@@ -43,28 +44,57 @@ const FinalTab = ({
     confirmation_policy: '',
     cancellation_policy: '',
     amendment_policy: '',
+    payment_policy: '',
     thank_you_message: ''
   });
 
   useEffect(() => {
-    const getVal = (res) => (res?.data?.success && res?.data?.data?.value != null ? res.data.data.value : (res?.data?.data?.content ?? '')) || '';
-    Promise.all([
-      settingsAPI.getByKey('remarks'),
-      settingsAPI.getByKey('terms_conditions'),
-      settingsAPI.getByKey('confirmation_policy'),
-      settingsAPI.getByKey('cancellation_policy'),
-      settingsAPI.getByKey('amendment_policy'),
-      settingsAPI.getByKey('thank_you_message')
-    ]).then(([r1, r2, r3, r4, r5, r6]) => {
-      setPolicyContent({
-        remarks: getVal(r1),
-        terms_conditions: getVal(r2),
-        confirmation_policy: getVal(r3),
-        cancellation_policy: getVal(r4),
-        amendment_policy: getVal(r5),
-        thank_you_message: getVal(r6)
-      });
-    }).catch(() => {});
+    // Helper to get first point content from Master API response
+    const getMasterVal = (res) => {
+      if (res?.data && Array.isArray(res.data) && res.data.length > 0) {
+        return res.data[0].content; // Use the first item (sorted by sort_order)
+      }
+      return '';
+    };
+
+    // Helper for Settings API (Legacy fallback for thank you message)
+    const getSettingVal = (res) => (res?.data?.success && res?.data?.data?.value != null ? res.data.data.value : (res?.data?.data?.content ?? '')) || '';
+
+    const loadPolicies = async () => {
+      try {
+        const [
+          remarksRes,
+          termsRes,
+          confirmRes,
+          cancelRes,
+          amendRes,
+          paymentRes,
+          thankYouRes
+        ] = await Promise.all([
+          masterPointsAPI.list('remarks'),
+          masterPointsAPI.list('terms'),
+          masterPointsAPI.list('confirmation'),
+          masterPointsAPI.list('cancellation'),
+          masterPointsAPI.list('amendment'),
+          masterPointsAPI.list('payment'),
+          masterPointsAPI.list('thank_you')
+        ]);
+
+        setPolicyContent({
+          remarks: getMasterVal(remarksRes),
+          terms_conditions: getMasterVal(termsRes),
+          confirmation_policy: getMasterVal(confirmRes),
+          cancellation_policy: getMasterVal(cancelRes),
+          amendment_policy: getMasterVal(amendRes),
+          payment_policy: getMasterVal(paymentRes),
+          thank_you_message: getMasterVal(thankYouRes)
+        });
+      } catch (error) {
+        console.error("Failed to load policies", error);
+      }
+    };
+
+    loadPolicies();
   }, []);
 
   // Smooth scroll to right content heading when a policy is selected
@@ -128,12 +158,12 @@ const FinalTab = ({
     const tcsAmount = (totalGross * (optGst.tcs || 0)) / 100;
     const discountAmount = (totalGross * (optGst.discount || 0)) / 100;
     const calculatedTotal = totalGross + cgstAmount + sgstAmount + igstAmount + tcsAmount - discountAmount;
-    
+
     // Use final client price if set, otherwise use calculated total
-    const clientPrice = finalClientPrices[optNum] !== undefined && finalClientPrices[optNum] !== null 
+    const clientPrice = finalClientPrices[optNum] !== undefined && finalClientPrices[optNum] !== null
       ? parseFloat(finalClientPrices[optNum]) || calculatedTotal
       : calculatedTotal;
-    
+
     optionTotals[optNum] = {
       totalNet,
       totalMarkup,
@@ -158,7 +188,7 @@ const FinalTab = ({
       optionData.options.forEach(opt => {
         optionDays.add(opt.day);
       });
-      
+
       // Filter day events to show only events for days that have this option's hotels
       const filteredDayEvents = {};
       Object.keys(dayEvents).forEach(day => {
@@ -166,7 +196,7 @@ const FinalTab = ({
           filteredDayEvents[day] = dayEvents[day] || [];
         }
       });
-      
+
       setSelectedOption({
         optionNumber: optNum,
         ...optionData,
@@ -233,7 +263,7 @@ const FinalTab = ({
       Object.keys(dayEvents).forEach(day => {
         const dayNum = parseInt(day);
         const events = dayEvents[day] || [];
-        
+
         // Filter events: for accommodation, only show the selected option
         const filteredEvents = events.map(event => {
           if (event.eventType === 'accommodation' && event.hotelOptions) {
@@ -251,12 +281,12 @@ const FinalTab = ({
           }
           return event; // Include all other events
         }).filter(Boolean); // Remove null entries
-        
+
         if (filteredEvents.length > 0) {
           filteredDayEvents[day] = filteredEvents;
         }
       });
-      
+
       setSelectedOptionForPlan({
         optionNumber: optNum,
         ...optionData,
@@ -322,8 +352,8 @@ const FinalTab = ({
       {/* Hero Section - Destination Header */}
       <div className="relative w-full h-72 overflow-hidden">
         {itinerary?.image && (
-          <img 
-            src={getDisplayImageUrl(itinerary.image) || itinerary.image} 
+          <img
+            src={getDisplayImageUrl(itinerary.image) || itinerary.image}
             alt={itinerary?.itinerary_name}
             className="absolute inset-0 w-full h-full object-cover"
             onError={(e) => { e.target.style.display = 'none'; }}
@@ -364,9 +394,8 @@ const FinalTab = ({
                     role="button"
                     tabIndex={0}
                     onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSidebarSelectedOption(optNum); setRightView('itinerary'); } }}
-                    className={`bg-white rounded-xl shadow-md border-2 overflow-hidden transition-all cursor-pointer ${
-                      activeOption === optNum ? 'border-blue-500 ring-2 ring-blue-200' : 'border-gray-200 hover:border-blue-300'
-                    }`}
+                    className={`bg-white rounded-xl shadow-md border-2 overflow-hidden transition-all cursor-pointer ${activeOption === optNum ? 'border-blue-500 ring-2 ring-blue-200' : 'border-gray-200 hover:border-blue-300'
+                      }`}
                   >
                     <div className="p-5">
                       <div className="text-xs font-semibold text-blue-600 mb-2">Option {optNum}</div>
@@ -425,11 +454,10 @@ const FinalTab = ({
                     key={key}
                     type="button"
                     onClick={() => setRightView(key)}
-                    className={`w-full text-left px-4 py-2.5 rounded-lg text-sm font-medium border-2 transition-all ${
-                      rightView === key
-                        ? 'border-blue-500 bg-blue-50 text-blue-700'
-                        : 'border-gray-200 bg-white text-gray-700 hover:border-blue-300 hover:bg-gray-50'
-                    }`}
+                    className={`w-full text-left px-4 py-2.5 rounded-lg text-sm font-medium border-2 transition-all ${rightView === key
+                      ? 'border-blue-500 bg-blue-50 text-blue-700'
+                      : 'border-gray-200 bg-white text-gray-700 hover:border-blue-300 hover:bg-gray-50'
+                      }`}
                   >
                     {label}
                   </button>
@@ -441,161 +469,161 @@ const FinalTab = ({
 
         {/* Right Content - Day-by-Day Itinerary (default) or selected Policy */}
         <div className="flex-1 min-w-0">
-        <div ref={rightContentRef} className="bg-white rounded-xl shadow-lg p-8 mb-8">
-          {rightView === 'itinerary' ? (
-            <>
-              <h2 className="text-2xl font-bold text-gray-900 mb-6">Day-by-Day Itinerary</h2>
-              <div className="space-y-8">
-            {days.map((day) => {
-              const events = filteredDayEvents[day] || [];
-              const firstEventSubject = events[0]?.subject || events[0]?.eventType || '';
-              const dayTitle = firstEventSubject ? `${firstEventSubject}` : `Day ${day}`;
-              return (
-                <div key={day} className="border-l-2 border-gray-200 pl-6 pb-6 relative">
-                  <div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-green-500 border-2 border-white shadow"></div>
-                  <div className="flex items-center gap-3 mb-4 flex-wrap">
-                    <span className="inline-flex items-center px-4 py-1.5 bg-green-500 text-white text-sm font-bold rounded-full">
-                      Day {day}
-                    </span>
-                    <span className="text-lg font-semibold text-gray-900">{dayTitle}</span>
-                  </div>
-                  
-                  {events.length === 0 ? (
-                    <p className="text-gray-500 italic ml-4">No activities added</p>
-                  ) : (
-                    <div className="space-y-4">
-                      {events.map((event, eventIdx) => (
-                        <div key={eventIdx} className="bg-gray-50 rounded-lg p-5 hover:shadow-md transition-shadow flex items-start gap-4">
-                          <div className="flex-shrink-0 text-green-600 mt-0.5">{/* Checkmark style */}<span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-green-100">✓</span></div>
-                          <div className="flex-1 min-w-0">
-                            {(event.startTime || event.endTime) && (
-                              <div className="text-sm text-gray-500 mb-1 font-medium">
-                                <Clock className="h-4 w-4 inline mr-1" />
-                                {event.startTime || '—'} - {event.endTime || '—'}
-                              </div>
-                            )}
-                            <div className="flex items-center gap-2 mb-2">
-                              <div className="text-gray-700">{getEventIcon(event.eventType)}</div>
-                              <h4 className="text-lg font-semibold text-gray-900">
-                                {event.subject || `${event.eventType}`}
-                              </h4>
-                            </div>
-                              
-                              {event.details && (
-                                <p className="text-gray-700 mb-3 whitespace-pre-wrap">{event.details}</p>
-                              )}
-                              
-                              {/* Hotel Options for Accommodation */}
-                              {event.eventType === 'accommodation' && event.hotelOptions && event.hotelOptions.length > 0 && (
-                                <div className="mt-4 space-y-3">
-                                  {event.hotelOptions.map((hotel, hotelIdx) => (
-                                    <div key={hotelIdx} className="bg-white rounded-lg p-4 border border-gray-200">
-                                      <div className="flex items-start gap-4">
-                                        {hotel.image && (
-                                          <img 
-                                            src={getDisplayImageUrl(hotel.image) || hotel.image} 
-                                            alt={hotel.hotelName}
-                                            className="w-24 h-24 object-cover rounded-lg"
-                                            onError={(e) => {
-                                              e.target.style.display = 'none';
-                                            }}
-                                          />
-                                        )}
-                                        <div className="flex-1">
-                                          <div className="flex items-center gap-2 mb-2">
-                                            <h5 className="font-semibold text-gray-900">{hotel.hotelName || 'Hotel'}</h5>
-                                            {[...Array(parseInt(hotel.category || 1))].map((_, i) => (
-                                              <Star key={i} className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                                            ))}
-                                          </div>
-                                          <div className="grid grid-cols-2 gap-2 text-sm text-gray-600">
-                                            {hotel.roomName && (
-                                              <div><Hash className="h-3 w-3 inline mr-1" />Room: {hotel.roomName}</div>
+          <div ref={rightContentRef} className="bg-white rounded-xl shadow-lg p-8 mb-8">
+            {rightView === 'itinerary' ? (
+              <>
+                <h2 className="text-2xl font-bold text-gray-900 mb-6">Day-by-Day Itinerary</h2>
+                <div className="space-y-8">
+                  {days.map((day) => {
+                    const events = filteredDayEvents[day] || [];
+                    const firstEventSubject = events[0]?.subject || events[0]?.eventType || '';
+                    const dayTitle = firstEventSubject ? `${firstEventSubject}` : `Day ${day}`;
+                    return (
+                      <div key={day} className="border-l-2 border-gray-200 pl-6 pb-6 relative">
+                        <div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-green-500 border-2 border-white shadow"></div>
+                        <div className="flex items-center gap-3 mb-4 flex-wrap">
+                          <span className="inline-flex items-center px-4 py-1.5 bg-green-500 text-white text-sm font-bold rounded-full">
+                            Day {day}
+                          </span>
+                          <span className="text-lg font-semibold text-gray-900">{dayTitle}</span>
+                        </div>
+
+                        {events.length === 0 ? (
+                          <p className="text-gray-500 italic ml-4">No activities added</p>
+                        ) : (
+                          <div className="space-y-4">
+                            {events.map((event, eventIdx) => (
+                              <div key={eventIdx} className="bg-gray-50 rounded-lg p-5 hover:shadow-md transition-shadow flex items-start gap-4">
+                                <div className="flex-shrink-0 text-green-600 mt-0.5">{/* Checkmark style */}<span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-green-100">✓</span></div>
+                                <div className="flex-1 min-w-0">
+                                  {(event.startTime || event.endTime) && (
+                                    <div className="text-sm text-gray-500 mb-1 font-medium">
+                                      <Clock className="h-4 w-4 inline mr-1" />
+                                      {event.startTime || '—'} - {event.endTime || '—'}
+                                    </div>
+                                  )}
+                                  <div className="flex items-center gap-2 mb-2">
+                                    <div className="text-gray-700">{getEventIcon(event.eventType)}</div>
+                                    <h4 className="text-lg font-semibold text-gray-900">
+                                      {event.subject || `${event.eventType}`}
+                                    </h4>
+                                  </div>
+
+                                  {event.details && (
+                                    <p className="text-gray-700 mb-3 whitespace-pre-wrap">{event.details}</p>
+                                  )}
+
+                                  {/* Hotel Options for Accommodation */}
+                                  {event.eventType === 'accommodation' && event.hotelOptions && event.hotelOptions.length > 0 && (
+                                    <div className="mt-4 space-y-3">
+                                      {event.hotelOptions.map((hotel, hotelIdx) => (
+                                        <div key={hotelIdx} className="bg-white rounded-lg p-4 border border-gray-200">
+                                          <div className="flex items-start gap-4">
+                                            {hotel.image && (
+                                              <img
+                                                src={getDisplayImageUrl(hotel.image) || hotel.image}
+                                                alt={hotel.hotelName}
+                                                className="w-24 h-24 object-cover rounded-lg"
+                                                onError={(e) => {
+                                                  e.target.style.display = 'none';
+                                                }}
+                                              />
                                             )}
-                                            {hotel.mealPlan && (
-                                              <div><UtensilsCrossed className="h-3 w-3 inline mr-1" />Meal: {hotel.mealPlan}</div>
-                                            )}
-                                            {hotel.checkIn && (
-                                              <div><Calendar className="h-3 w-3 inline mr-1" />Check-in: {new Date(hotel.checkIn).toLocaleDateString('en-GB')}</div>
-                                            )}
-                                            {hotel.checkOut && (
-                                              <div><Calendar className="h-3 w-3 inline mr-1" />Check-out: {new Date(hotel.checkOut).toLocaleDateString('en-GB')}</div>
-                                            )}
+                                            <div className="flex-1">
+                                              <div className="flex items-center gap-2 mb-2">
+                                                <h5 className="font-semibold text-gray-900">{hotel.hotelName || 'Hotel'}</h5>
+                                                {[...Array(parseInt(hotel.category || 1))].map((_, i) => (
+                                                  <Star key={i} className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+                                                ))}
+                                              </div>
+                                              <div className="grid grid-cols-2 gap-2 text-sm text-gray-600">
+                                                {hotel.roomName && (
+                                                  <div><Hash className="h-3 w-3 inline mr-1" />Room: {hotel.roomName}</div>
+                                                )}
+                                                {hotel.mealPlan && (
+                                                  <div><UtensilsCrossed className="h-3 w-3 inline mr-1" />Meal: {hotel.mealPlan}</div>
+                                                )}
+                                                {hotel.checkIn && (
+                                                  <div><Calendar className="h-3 w-3 inline mr-1" />Check-in: {new Date(hotel.checkIn).toLocaleDateString('en-GB')}</div>
+                                                )}
+                                                {hotel.checkOut && (
+                                                  <div><Calendar className="h-3 w-3 inline mr-1" />Check-out: {new Date(hotel.checkOut).toLocaleDateString('en-GB')}</div>
+                                                )}
+                                              </div>
+                                            </div>
                                           </div>
                                         </div>
-                                      </div>
+                                      ))}
                                     </div>
-                                  ))}
+                                  )}
+
+                                  {/* Other event details */}
+                                  {event.destination && (
+                                    <div className="mt-2 text-sm text-gray-600">
+                                      <MapPin className="h-4 w-4 inline mr-1" />
+                                      {event.destination}
+                                    </div>
+                                  )}
                                 </div>
-                              )}
-                              
-                              {/* Other event details */}
-                              {event.destination && (
-                                <div className="mt-2 text-sm text-gray-600">
-                                  <MapPin className="h-4 w-4 inline mr-1" />
-                                  {event.destination}
-                                </div>
-                              )}
-                            </div>
-                          {(event.image || (event.eventType === 'accommodation' && event.hotelOptions?.[0]?.image)) && (
-                            <div className="flex-shrink-0">
-                              <img 
-                                src={getDisplayImageUrl(event.image || event.hotelOptions?.[0]?.image) || event.image || event.hotelOptions?.[0]?.image} 
-                                alt={event.subject || 'Event'}
-                                className="w-24 h-24 object-cover rounded-lg border border-gray-200"
-                                onError={(e) => { e.target.style.display = 'none'; }}
-                              />
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
+                                {(event.image || (event.eventType === 'accommodation' && event.hotelOptions?.[0]?.image)) && (
+                                  <div className="flex-shrink-0">
+                                    <img
+                                      src={getDisplayImageUrl(event.image || event.hotelOptions?.[0]?.image) || event.image || event.hotelOptions?.[0]?.image}
+                                      alt={event.subject || 'Event'}
+                                      className="w-24 h-24 object-cover rounded-lg border border-gray-200"
+                                      onError={(e) => { e.target.style.display = 'none'; }}
+                                    />
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
+            ) : (
+              <>
+                <h2 className="text-2xl font-bold text-gray-900 mb-6">
+                  {POLICY_KEYS.find(p => p.key === rightView)?.label || rightView}
+                </h2>
+                <div className="prose max-w-none text-gray-700 leading-relaxed bg-gray-50 p-6 rounded-lg min-h-[200px]">
+                  {policyContent[rightView] ? (
+                    <div dangerouslySetInnerHTML={{ __html: policyContent[rightView] }} />
+                  ) : (
+                    <p className="text-gray-500 italic">No content added for this section yet. Add it from Settings → Terms & Conditions.</p>
                   )}
                 </div>
-              );
-            })}
-              </div>
-            </>
-          ) : (
-            <>
-              <h2 className="text-2xl font-bold text-gray-900 mb-6">
-                {POLICY_KEYS.find(p => p.key === rightView)?.label || rightView}
-              </h2>
-              <div className="prose max-w-none text-gray-700 leading-relaxed bg-gray-50 p-6 rounded-lg min-h-[200px]">
-                {policyContent[rightView] ? (
-                  <div dangerouslySetInnerHTML={{ __html: policyContent[rightView] }} />
-                ) : (
-                  <p className="text-gray-500 italic">No content added for this section yet. Add it from Settings → Terms & Conditions.</p>
+              </>
+            )}
+          </div>
+
+          {/* Terms & Conditions (legacy package terms - kept if needed) */}
+          {(packageTerms?.terms_conditions || packageTerms?.refund_policy) && (
+            <div className="bg-white rounded-xl shadow-lg p-8 mb-8">
+              <h2 className="text-3xl font-bold text-gray-900 mb-6">Terms & Policies</h2>
+              <div className="space-y-6">
+                {packageTerms?.terms_conditions && (
+                  <div>
+                    <h3 className="text-xl font-semibold text-gray-800 mb-3">Terms & Conditions</h3>
+                    <div className="prose max-w-none text-gray-700 whitespace-pre-wrap leading-relaxed bg-gray-50 p-4 rounded-lg">
+                      {packageTerms.terms_conditions}
+                    </div>
+                  </div>
+                )}
+                {packageTerms?.refund_policy && (
+                  <div>
+                    <h3 className="text-xl font-semibold text-gray-800 mb-3">Refund Policy</h3>
+                    <div className="prose max-w-none text-gray-700 whitespace-pre-wrap leading-relaxed bg-gray-50 p-4 rounded-lg">
+                      {packageTerms.refund_policy}
+                    </div>
+                  </div>
                 )}
               </div>
-            </>
-          )}
-        </div>
-
-        {/* Terms & Conditions (legacy package terms - kept if needed) */}
-        {(packageTerms?.terms_conditions || packageTerms?.refund_policy) && (
-          <div className="bg-white rounded-xl shadow-lg p-8 mb-8">
-            <h2 className="text-3xl font-bold text-gray-900 mb-6">Terms & Policies</h2>
-            <div className="space-y-6">
-              {packageTerms?.terms_conditions && (
-                <div>
-                  <h3 className="text-xl font-semibold text-gray-800 mb-3">Terms & Conditions</h3>
-                  <div className="prose max-w-none text-gray-700 whitespace-pre-wrap leading-relaxed bg-gray-50 p-4 rounded-lg">
-                    {packageTerms.terms_conditions}
-                  </div>
-                </div>
-              )}
-              {packageTerms?.refund_policy && (
-                <div>
-                  <h3 className="text-xl font-semibold text-gray-800 mb-3">Refund Policy</h3>
-                  <div className="prose max-w-none text-gray-700 whitespace-pre-wrap leading-relaxed bg-gray-50 p-4 rounded-lg">
-                    {packageTerms.refund_policy}
-                  </div>
-                </div>
-              )}
             </div>
-          </div>
-        )}
+          )}
 
         </div>
       </div>
@@ -689,25 +717,25 @@ const FinalTab = ({
                             </div>
                             <h5 className="text-lg font-bold text-gray-900">Day {day}</h5>
                           </div>
-                          
+
                           {events.length === 0 ? (
                             <p className="text-gray-500 italic ml-13">No events scheduled for this day</p>
                           ) : (
                             <div className="space-y-3 ml-13">
                               {events.map((event, eventIdx) => {
                                 // Check if this event has hotel options matching selected option
-                                const hasMatchingHotel = event.eventType === 'accommodation' && 
-                                  event.hotelOptions && 
+                                const hasMatchingHotel = event.eventType === 'accommodation' &&
+                                  event.hotelOptions &&
                                   event.hotelOptions.some(opt => opt.optionNumber === parseInt(selectedOption.optionNumber));
-                                
+
                                 return (
                                   <div key={eventIdx} className="bg-white rounded-lg p-4 border border-gray-200">
                                     <div className="flex items-start gap-4">
                                       {/* Event Image */}
                                       {(event.image || (event.eventType === 'accommodation' && event.hotelOptions?.[0]?.image)) && (
                                         <div className="flex-shrink-0">
-                                          <img 
-                                            src={getDisplayImageUrl(event.image || event.hotelOptions?.[0]?.image) || event.image || event.hotelOptions?.[0]?.image} 
+                                          <img
+                                            src={getDisplayImageUrl(event.image || event.hotelOptions?.[0]?.image) || event.image || event.hotelOptions?.[0]?.image}
                                             alt={event.subject || 'Event'}
                                             className="w-24 h-24 object-cover rounded-lg border-2 border-gray-200"
                                             onError={(e) => {
@@ -716,7 +744,7 @@ const FinalTab = ({
                                           />
                                         </div>
                                       )}
-                                      
+
                                       <div className="flex-1">
                                         <div className="flex items-center gap-3 mb-2">
                                           <div className="text-blue-600">
@@ -734,11 +762,11 @@ const FinalTab = ({
                                             </span>
                                           )}
                                         </div>
-                                        
+
                                         {event.details && (
                                           <p className="text-sm text-gray-700 mb-2 whitespace-pre-wrap">{event.details}</p>
                                         )}
-                                        
+
                                         {/* Hotel Options for Accommodation */}
                                         {event.eventType === 'accommodation' && event.hotelOptions && event.hotelOptions.length > 0 && (
                                           <div className="mt-3 space-y-2">
@@ -748,13 +776,13 @@ const FinalTab = ({
                                               .map(({ hotel, hotelIdx }) => {
                                                 const optionKey = `${selectedOption.optionNumber}-${day}-${hotelIdx}`;
                                                 const pricing = pricingData[optionKey] || { net: hotel.price || 0, markup: 0, gross: hotel.price || 0 };
-                                                
+
                                                 return (
                                                   <div key={hotelIdx} className="bg-blue-50 rounded-lg p-3 border border-blue-200">
                                                     <div className="flex items-start gap-3">
                                                       {hotel.image && (
-                                                        <img 
-                                                          src={getDisplayImageUrl(hotel.image) || hotel.image} 
+                                                        <img
+                                                          src={getDisplayImageUrl(hotel.image) || hotel.image}
                                                           alt={hotel.hotelName}
                                                           className="w-16 h-16 object-cover rounded border border-gray-200"
                                                           onError={(e) => {
@@ -786,7 +814,7 @@ const FinalTab = ({
                                               })}
                                           </div>
                                         )}
-                                        
+
                                         {event.destination && (
                                           <div className="mt-2 text-xs text-gray-600">
                                             <MapPin className="h-3 w-3 inline mr-1" />
@@ -821,14 +849,14 @@ const FinalTab = ({
                     const optionIdx = option.optionIdx ?? 0;
                     const optionKey = `${selectedOption.optionNumber}-${option.day}-${optionIdx}`;
                     const pricing = pricingData[optionKey] || { net: option.price || 0, markup: 0, gross: option.price || 0 };
-                    
+
                     return (
                       <div key={idx} className="bg-white border-2 border-gray-200 rounded-xl p-6 hover:shadow-lg transition-shadow">
                         <div className="flex flex-col md:flex-row gap-6">
                           {option.image && (
                             <div className="flex-shrink-0">
-                              <img 
-                                src={getDisplayImageUrl(option.image) || option.image} 
+                              <img
+                                src={getDisplayImageUrl(option.image) || option.image}
                                 alt={option.hotelName}
                                 className="w-full md:w-48 h-48 object-cover rounded-lg border-2 border-gray-200"
                                 onError={(e) => {
@@ -857,7 +885,7 @@ const FinalTab = ({
                                 <div className="text-xs text-gray-500">Per Room</div>
                               </div>
                             </div>
-                            
+
                             <div className="grid grid-cols-2 gap-4 mb-4">
                               <div className="flex items-center gap-2">
                                 <Calendar className="h-4 w-4 text-gray-500" />
@@ -888,7 +916,7 @@ const FinalTab = ({
                                 </div>
                               </div>
                             </div>
-                            
+
                             <div className="pt-4 border-t border-gray-200">
                               <div className="text-sm font-semibold text-gray-700 mb-2">Room Configuration:</div>
                               <div className="flex flex-wrap gap-2">
@@ -1025,22 +1053,22 @@ const FinalTab = ({
                           </div>
                           <h3 className="text-xl font-bold text-gray-900">Day {day}</h3>
                         </div>
-                        
+
                         {events.length === 0 ? (
                           <p className="text-gray-500 italic ml-16">No events scheduled for this day</p>
                         ) : (
                           <div className="space-y-4 ml-16">
                             {events.map((event, eventIdx) => {
-                              const hasMatchingHotel = event.eventType === 'accommodation' && 
-                                event.hotelOptions && 
+                              const hasMatchingHotel = event.eventType === 'accommodation' &&
+                                event.hotelOptions &&
                                 event.hotelOptions.some(opt => opt.optionNumber === parseInt(selectedOptionForPlan.optionNumber));
-                              
+
                               return (
                                 <div key={eventIdx} className="bg-gray-50 rounded-lg p-4 border border-gray-200">
                                   <div className="flex items-start gap-4">
                                     {(event.image || (event.eventType === 'accommodation' && event.hotelOptions?.[0]?.image)) && (
-                                      <img 
-                                        src={getDisplayImageUrl(event.image || event.hotelOptions?.[0]?.image) || event.image || event.hotelOptions?.[0]?.image} 
+                                      <img
+                                        src={getDisplayImageUrl(event.image || event.hotelOptions?.[0]?.image) || event.image || event.hotelOptions?.[0]?.image}
                                         alt={event.subject || 'Event'}
                                         className="w-24 h-24 object-cover rounded-lg border-2 border-gray-200"
                                         onError={(e) => {
@@ -1048,7 +1076,7 @@ const FinalTab = ({
                                         }}
                                       />
                                     )}
-                                    
+
                                     <div className="flex-1">
                                       <div className="flex items-center gap-3 mb-2">
                                         <div className="text-blue-600">
@@ -1066,11 +1094,11 @@ const FinalTab = ({
                                           </span>
                                         )}
                                       </div>
-                                      
+
                                       {event.details && (
                                         <p className="text-gray-700 mb-3 whitespace-pre-wrap">{event.details}</p>
                                       )}
-                                      
+
                                       {/* Hotel Details */}
                                       {event.eventType === 'accommodation' && event.hotelOptions && event.hotelOptions.length > 0 && (
                                         <div className="mt-3 space-y-2">
@@ -1080,13 +1108,13 @@ const FinalTab = ({
                                             .map(({ hotel, hotelIdx }) => {
                                               const optionKey = `${selectedOptionForPlan.optionNumber}-${day}-${hotelIdx}`;
                                               const pricing = pricingData[optionKey] || { net: hotel.price || 0, markup: 0, gross: hotel.price || 0 };
-                                              
+
                                               return (
                                                 <div key={hotelIdx} className="bg-blue-50 rounded-lg p-4 border border-blue-200">
                                                   <div className="flex items-start gap-4">
                                                     {hotel.image && (
-                                                      <img 
-                                                        src={getDisplayImageUrl(hotel.image) || hotel.image} 
+                                                      <img
+                                                        src={getDisplayImageUrl(hotel.image) || hotel.image}
                                                         alt={hotel.hotelName}
                                                         className="w-20 h-20 object-cover rounded border border-gray-200"
                                                         onError={(e) => {
@@ -1127,7 +1155,7 @@ const FinalTab = ({
                                             })}
                                         </div>
                                       )}
-                                      
+
                                       {event.destination && (
                                         <div className="mt-2 text-sm text-gray-600">
                                           <MapPin className="h-4 w-4 inline mr-1" />
