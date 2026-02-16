@@ -15,6 +15,7 @@ import TaskFollowups from '../components/dashboard/TaskFollowups';
 import TopDestinationAndPerformance from '../components/dashboard/TopDestinationAndPerformance';
 import { useNavigate } from "react-router";
 import { useAuth } from '../contexts/AuthContext';
+import { useSettings } from '../contexts/SettingsContext';
 
 const Dashboard = () => {
   const [stats, setStats] = useState(null);
@@ -38,6 +39,20 @@ const Dashboard = () => {
   const [error, setError] = useState('');
   let navigate = useNavigate();
   const { user } = useAuth();
+  const { menuItems } = useSettings();
+
+  // Helper to check permissions based on visible menu items
+  const isVisible = (label) => {
+    // Check if user is Admin/SuperAdmin - they see everything
+    if (user?.is_super_admin || user?.roles?.some(r => r === 'Admin' || r === 'Company Admin')) return true;
+
+    // Check if label exists in menuItems
+    return menuItems.some(item =>
+      item.label === label ||
+      // Also check submenu labels if needed
+      (item.submenu && item.submenu.some(sub => sub.label === label))
+    );
+  };
 
   useEffect(() => {
     fetchAllData();
@@ -73,9 +88,9 @@ const Dashboard = () => {
         const dateValue = item.reminder_date || item.created_at || null;
         const dateLabel = dateValue
           ? new Date(dateValue).toLocaleDateString("en-GB", {
-              day: "2-digit",
-              month: "short",
-            })
+            day: "2-digit",
+            month: "short",
+          })
           : "Today";
         const timeLabel = item.reminder_time ? ` - ${item.reminder_time}` : "";
         return {
@@ -196,114 +211,154 @@ const Dashboard = () => {
     { label: 'Cancel', value: toPercent(stats?.cancelled || 0) },
     { label: 'Proposal Conv.', value: toPercent(stats?.proposal_confirmed || 0) }
   ];
+
+  const hasQueries = isVisible('Queries');
+  const hasFollowups = isVisible('Followups');
+  const hasItineraries = isVisible('Itineraries');
+  const hasPayments = isVisible('Payments');
+  const hasReports = isVisible('Reports');
+  const hasSales = isVisible('Sales Reps');
+
   return (
     <Layout>
       <div className="p-4 overflow-x-auto">
         <div className="min-w-[1280px] grid grid-cols-12 gap-6 items-stretch">
           {/* Row 1 */}
-          <div className="col-span-3 flex h-[300px]">
-            <div className="w-full">
-              <TodayQueriesCard
-                queries={todayQueries}
-                totalCount={todayQueries.length}
-                loading={loadingTodayQueries}
-                onViewAll={() => navigate("/leads?today=1")}
-                onQueryClick={(query) => {
-                  if (query?.id) {
-                    navigate(`/leads/${query.id}`);
-                  }
-                }}
-              />
+          {hasQueries && (
+            <div className="col-span-3 flex h-[300px]">
+              <div className="w-full">
+                <TodayQueriesCard
+                  queries={todayQueries}
+                  totalCount={todayQueries.length}
+                  loading={loadingTodayQueries}
+                  onViewAll={() => navigate("/leads?today=1")}
+                  onQueryClick={(query) => {
+                    if (query?.id) {
+                      navigate(`/leads/${query.id}`);
+                    }
+                  }}
+                />
+              </div>
             </div>
-          </div>
-          <div className="col-span-6 flex h-[300px]">
-            <div className="w-full">
-              <DashboardStatsCards
-                stats={{
-                  totalQueries: leadStats.total,
-                  newQueries: leadStats.new,
-                  pendingQueries: leadStats.pending,
-                  closedQueries: leadStats.closed,
-                  weeklyQueries: leadStats.weekly,
-                  monthlyQueries: leadStats.monthly,
-                  yearlyQueries: leadStats.yearly,
-                  hotQueries: leadStats.hot,
-                }}
-              />
+          )}
+
+          {hasQueries && (
+            <div className="col-span-6 flex h-[300px]">
+              <div className="w-full">
+                <DashboardStatsCards
+                  stats={{
+                    totalQueries: leadStats.total,
+                    newQueries: leadStats.new,
+                    pendingQueries: leadStats.pending,
+                    closedQueries: leadStats.closed,
+                    weeklyQueries: leadStats.weekly,
+                    monthlyQueries: leadStats.monthly,
+                    yearlyQueries: leadStats.yearly,
+                    hotQueries: leadStats.hot,
+                  }}
+                />
+              </div>
             </div>
-          </div>
-          <div className="col-span-3 flex h-[300px]">
-            <div className="w-full">
-              <TaskFollowups
-                followups={followups}
-                onViewMore={() => navigate("/followups")}
-                onFollowupClick={(item) => {
-                  if (item?.leadId) {
-                    navigate(`/leads/${item.leadId}?tab=followups`);
-                  }
-                }}
-              />
+          )}
+
+          {hasFollowups && (
+            <div className="col-span-3 flex h-[300px]">
+              <div className="w-full">
+                <TaskFollowups
+                  followups={followups}
+                  onViewMore={() => navigate("/followups")}
+                  onFollowupClick={(item) => {
+                    if (item?.leadId) {
+                      navigate(`/leads/${item.leadId}?tab=followups`);
+                    }
+                  }}
+                />
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Row 2 */}
-          <div className="col-span-3 flex h-[300px]">
-            <div className="w-full">
-              <UpcomingTours data={upcomingTours} />
+          {hasItineraries && (
+            <div className="col-span-3 flex h-[300px]">
+              <div className="w-full">
+                <UpcomingTours data={upcomingTours} />
+              </div>
             </div>
-          </div>
-          <div className="col-span-6 flex h-[300px]">
-            <div className="w-full">
-              <RevenueChart revenueData={revenueData} />
+          )}
+
+          {hasReports && (
+            <div className="col-span-6 flex h-[300px]">
+              <div className="w-full">
+                <RevenueChart revenueData={revenueData} />
+              </div>
             </div>
-          </div>
-          <div className="col-span-3 flex h-[300px]">
-            <div className="w-full">
-              <PaymentCollectionTable />
+          )}
+
+          {hasPayments && (
+            <div className="col-span-3 flex h-[300px]">
+              <div className="w-full">
+                <PaymentCollectionTable />
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Row 3 */}
-          <div className="col-span-3 flex h-[300px]">
-            <div className="w-full">
-              <RevenueGrowthCard
-                title="Revenue Growth"
-                data={revenueGrowthPercentages}
-                buttonText="View Full Report's"
-                onButtonClick={() => navigate("/reports")}
-              />
+          {hasReports && (
+            <div className="col-span-3 flex h-[300px]">
+              <div className="w-full">
+                <RevenueGrowthCard
+                  title="Revenue Growth"
+                  data={revenueGrowthPercentages}
+                  buttonText="View Full Report's"
+                  onButtonClick={() => navigate("/reports")}
+                />
+              </div>
             </div>
-          </div>
-          <div className="col-span-6 flex h-[300px]">
-            <div className="w-full">
-              <YearQueriesChart
-                title="This Year Queries / Confirmed"
-                data={stats?.this_year_queries_confirmed || []}
-              />
+          )}
+
+          {hasReports && (
+            <div className="col-span-6 flex h-[300px]">
+              <div className="w-full">
+                <YearQueriesChart
+                  title="This Year Queries / Confirmed"
+                  data={stats?.this_year_queries_confirmed || []}
+                />
+              </div>
             </div>
-          </div>
-          <div className="col-span-3 flex h-[300px]">
-            <div className="w-full">
-              <SalesRepsTable title={"Sales"} />
+          )}
+
+          {hasSales && (
+            <div className="col-span-3 flex h-[300px]">
+              <div className="w-full">
+                <SalesRepsTable title={"Sales"} />
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Row 4 */}
-          <div className="col-span-3 flex h-[300px]">
-            <div className="w-full">
-              <LatestQuery latestNotes={latestNotes} />
+          {hasQueries && (
+            <div className="col-span-3 flex h-[300px]">
+              <div className="w-full">
+                <LatestQuery latestNotes={latestNotes} />
+              </div>
             </div>
-          </div>
-          <div className="col-span-6 flex h-[300px]">
-            <div className="w-full">
-              <TopLeadSource leadData={stats?.top_lead_sources || []} />
+          )}
+
+          {hasReports && (
+            <div className="col-span-6 flex h-[300px]">
+              <div className="w-full">
+                <TopLeadSource leadData={stats?.top_lead_sources || []} />
+              </div>
             </div>
-          </div>
-          <div className="col-span-3 flex h-[300px]">
-            <div className="w-full">
-              <TopDestinationAndPerformance />
+          )}
+
+          {hasReports && (
+            <div className="col-span-3 flex h-[300px]">
+              <div className="w-full">
+                <TopDestinationAndPerformance />
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
     </Layout>

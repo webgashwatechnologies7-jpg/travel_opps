@@ -239,7 +239,14 @@
                 <td>
                     <span class="section-label">Guest Details</span>
                     <div class="info-value">{{ $lead->client_name }}</div>
-                    <div class="info-sub">{{ $lead->phone }}</div>
+                    @if(!empty($lead->pax_details) && is_array($lead->pax_details))
+                        @foreach($lead->pax_details as $pax)
+                            @if(!in_array(($pax['gender'] ?? ''), ['Child', 'Infant']) && strtolower(trim($pax['name'] ?? '')) !== strtolower(trim($lead->client_name ?? '')))
+                                <div class="info-value" style="font-size: 14px;">{{ $pax['name'] ?? '' }}</div>
+                            @endif
+                        @endforeach
+                    @endif
+                    <div class="info-sub" style="margin-top: 5px;">{{ $lead->phone }}</div>
                     <div class="info-sub">{{ $lead->email }}</div>
                 </td>
                 <td>
@@ -250,6 +257,7 @@
                         @if($lead->child > 0), {{ $lead->child }} Children @endif
                         @if($lead->infant > 0), {{ $lead->infant }} Infants @endif
                     </div>
+
                 </td>
             </tr>
         </table>
@@ -260,7 +268,8 @@
                     <tr>
                         <td class="detail-label">Check-in / Start Date</td>
                         <td class="detail-data">
-                            {{ $lead->travel_start_date ? $lead->travel_start_date->format('d M, Y') : 'TBA' }}</td>
+                            {{ $lead->travel_start_date ? $lead->travel_start_date->format('d M, Y') : 'TBA' }}
+                        </td>
                     </tr>
                 </table>
             </div>
@@ -269,7 +278,8 @@
                     <tr>
                         <td class="detail-label">Check-out / End Date</td>
                         <td class="detail-data">
-                            {{ $lead->travel_end_date ? $lead->travel_end_date->format('d M, Y') : 'TBA' }}</td>
+                            {{ $lead->travel_end_date ? $lead->travel_end_date->format('d M, Y') : 'TBA' }}
+                        </td>
                     </tr>
                 </table>
             </div>

@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect } from 'react';
+import { useAuth } from './AuthContext';
 import { settingsAPI, menuAPI, currenciesAPI } from '../services/api';
 
 const SettingsContext = createContext(null);
@@ -12,6 +13,8 @@ export const useSettings = () => {
 };
 
 export const SettingsProvider = ({ children }) => {
+  const { user } = useAuth();
+
   // Initialize settings from localStorage if available to prevent flash of default content
   const [settings, setSettings] = useState(() => {
     const saved = localStorage.getItem('appSettings');
@@ -65,6 +68,7 @@ export const SettingsProvider = ({ children }) => {
     { label: 'Masters', icon: 'Grid', submenu: [{ path: '/masters/suppliers', label: 'Suppliers' }, { path: '/masters/hotel', label: 'Hotel' }, { path: '/masters/activity', label: 'Activity' }, { path: '/masters/transfer', label: 'Transfer' }, { path: '/masters/day-itinerary', label: 'Day Itinerary' }, { path: '/masters/destinations', label: 'Destinations' }, { path: '/masters/room-type', label: 'Room Type' }, { path: '/masters/meal-plan', label: 'Meal Plan' }, { path: '/masters/lead-source', label: 'Lead Source' }, { path: '/masters/expense-type', label: 'Expense Type' }, { path: '/masters/package-theme', label: 'Package Theme' }, { path: '/masters/currency', label: 'Currency' }, { path: '/masters/points', label: 'Inclusions & Exclusions' }, { path: '/users', label: 'Users' }, { path: '/targets', label: 'Targets' }, { path: '/permissions', label: 'Permissions' }] },
   ];
 
+  const [rawMenuItems, setRawMenuItems] = useState(defaultMenuItems);
   const [menuItems, setMenuItems] = useState(defaultMenuItems);
 
   const toggleSubmenu = (key) => {
@@ -101,8 +105,8 @@ export const SettingsProvider = ({ children }) => {
     });
   };
 
+  // Load Menu Structure from API
   useEffect(() => {
-    // Load Menu
     menuAPI.get()
       .then((res) => {
         if (res.data?.success && Array.isArray(res.data.data) && res.data.data.length > 0) {
@@ -154,11 +158,72 @@ export const SettingsProvider = ({ children }) => {
             return item;
           });
 
-          setMenuItems(apiMenu);
+          setRawMenuItems(apiMenu);
         }
       })
       .catch(() => { /* keep default */ });
   }, []);
+
+  // Filter Menu based on Permissions
+  useEffect(() => {
+    if (!user) {
+      // If no user (e.g. login page), clear menu
+      setMenuItems([]);
+      return;
+    }
+
+    // Admins see everything
+    const isAdmin = user.is_super_admin || user.roles?.some(r => r === 'Admin' || r === 'Company Admin' || r === 'Super Admin');
+    if (isAdmin) {
+      setMenuItems(rawMenuItems);
+      return;
+    }
+
+    const userPermissions = (user.permissions || []).map(p => p.toLowerCase());
+
+    // Helper to check if item is allowed
+    const isAllowed = (item) => {
+      // ALWAYS allow Dashboard
+      if (item.label === 'Dashboard') return true;
+
+      const label = item.label.toLowerCase();
+
+      // Flexible matching: check if any permission string is contained in label or label in permission string.
+      // This handles cases like "Activities" permission matching "Activity" menu item, or vice-versa.
+      return userPermissions.some(p => p.includes(label) || label.includes(p));
+    };
+
+    const filterMenu = (items) => {
+      return items.reduce((acc, item) => {
+        const newItem = { ...item }; // Create a shallow copy to avoid direct mutation of rawMenuItems
+
+        if (newItem.submenu) {
+          const filteredSub = filterMenu(newItem.submenu);
+          if (filteredSub.length > 0) {
+            newItem.submenu = filteredSub;
+            acc.push(newItem);
+          } else {
+            // If a parent has no permitted children, it should only be shown if it's a direct link AND allowed
+            if (newItem.path && isAllowed(newItem)) {
+              acc.push(newItem);
+            }
+            // If it's just a folder (no path) and no children are allowed, hide it.
+          }
+        } else {
+          if (isAllowed(newItem)) {
+            acc.push(newItem);
+          }
+        }
+        return acc;
+      }, []);
+    };
+
+    // Deep copy rawMenuItems to ensure no mutation side effects on the original state
+    const deepCopiedMenu = JSON.parse(JSON.stringify(rawMenuItems));
+    const filtered = filterMenu(deepCopiedMenu);
+    setMenuItems(filtered);
+
+  }, [user, rawMenuItems]);
 
   /* Sidebar Toggle State */
   const [isSidebarOpen, setIsSidebarOpen] = useState(() => {

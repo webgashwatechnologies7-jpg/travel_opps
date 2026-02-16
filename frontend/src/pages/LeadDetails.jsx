@@ -5599,26 +5599,38 @@ const LeadDetails = () => {
                                       })()}
 
                                       {/* Payment Summary */}
-                                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                                          <p className="text-sm text-blue-600 font-medium">Total Amount</p>
-                                          <p className="text-2xl font-bold text-blue-700">
-                                            ₹{paymentSummary.total_amount.toLocaleString('en-IN')}
-                                          </p>
-                                        </div>
-                                        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                                          <p className="text-sm text-green-600 font-medium">Paid Amount</p>
-                                          <p className="text-2xl font-bold text-green-700">
-                                            ₹{paymentSummary.total_paid.toLocaleString('en-IN')}
-                                          </p>
-                                        </div>
-                                        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                                          <p className="text-sm text-red-600 font-medium">Due Amount</p>
-                                          <p className="text-2xl font-bold text-red-700">
-                                            ₹{paymentSummary.total_due.toLocaleString('en-IN')}
-                                          </p>
-                                        </div>
-                                      </div>
+                                      {(() => {
+                                        const confirmedOption = getConfirmedOption();
+                                        const confirmedOptionNum = confirmedOption?.optionNumber;
+                                        const hotels = quotationData?.hotelOptions?.[confirmedOptionNum?.toString()] || [];
+                                        const packagePrice = confirmedOption?.price || hotels.reduce((sum, h) => sum + (parseFloat(h.price) || 0), 0);
+
+                                        const displayTotal = packagePrice > 0 ? packagePrice : paymentSummary.total_amount;
+                                        const displayDue = Math.max(0, displayTotal - paymentSummary.total_paid);
+
+                                        return (
+                                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                                              <p className="text-sm text-blue-600 font-medium">Total Amount</p>
+                                              <p className="text-2xl font-bold text-blue-700">
+                                                ₹{displayTotal.toLocaleString('en-IN')}
+                                              </p>
+                                            </div>
+                                            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                                              <p className="text-sm text-green-600 font-medium">Paid Amount</p>
+                                              <p className="text-2xl font-bold text-green-700">
+                                                ₹{paymentSummary.total_paid.toLocaleString('en-IN')}
+                                              </p>
+                                            </div>
+                                            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                                              <p className="text-sm text-red-600 font-medium">Due Amount</p>
+                                              <p className="text-2xl font-bold text-red-700">
+                                                ₹{displayDue.toLocaleString('en-IN')}
+                                              </p>
+                                            </div>
+                                          </div>
+                                        );
+                                      })()}
 
                                       {/* Add Payment Button */}
                                       <div className="flex justify-end">
@@ -5629,8 +5641,10 @@ const LeadDetails = () => {
                                             const hotels = quotationData?.hotelOptions?.[confirmedOptionNum?.toString()] || [];
                                             const packagePrice = confirmedOption?.price || hotels.reduce((sum, h) => sum + (parseFloat(h.price) || 0), 0);
 
+                                            const remainingAmount = Math.max(0, packagePrice - paymentSummary.total_paid);
+
                                             setPaymentFormData({
-                                              amount: packagePrice > 0 ? packagePrice.toString() : '',
+                                              amount: remainingAmount > 0 ? remainingAmount.toString() : '',
                                               paid_amount: '',
                                               due_date: ''
                                             });

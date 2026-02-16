@@ -49,13 +49,13 @@ class AuthController extends Controller
                     'email' => $request->email,
                     'ip' => $request->ip()
                 ]);
-                
+
                 return response()->json([
                     'success' => false,
                     'message' => 'Login service temporarily unavailable',
                 ], 503);
             }
-            
+
             $passwordToCheck = trim($request->password);
 
             if (!$user || !Hash::check($passwordToCheck, $user->password)) {
@@ -65,7 +65,7 @@ class AuthController extends Controller
                     'ip' => $request->ip(),
                     'user_agent' => $request->userAgent()
                 ]);
-                
+
                 return response()->json([
                     'success' => false,
                     'message' => 'Invalid credentials. Please check your email and password.',
@@ -139,7 +139,7 @@ class AuthController extends Controller
                     'user_id' => $user->id,
                     'email' => $user->email
                 ]);
-                
+
                 return response()->json([
                     'success' => false,
                     'message' => 'Authentication service temporarily unavailable',
@@ -174,7 +174,9 @@ class AuthController extends Controller
                 'success' => true,
                 'message' => 'Login successful',
                 'data' => [
-                    'user' => $userData,
+                    'user' => array_merge($userData, [
+                        'permissions' => $user->getAllPermissions()->pluck('name'),
+                    ]),
                     'token' => $token,
                     'token_type' => 'Bearer',
                 ],
@@ -188,7 +190,7 @@ class AuthController extends Controller
                 'user_agent' => $request->userAgent(),
                 'trace' => config('app.debug') ? $e->getTraceAsString() : null
             ]);
-            
+
             return response()->json([
                 'success' => false,
                 'message' => 'An error occurred during login',
@@ -231,7 +233,7 @@ class AuthController extends Controller
         try {
             // Get the current token before user check
             $token = $request->bearerToken();
-            
+
             // Get authenticated user
             $user = $request->user();
 
@@ -241,7 +243,7 @@ class AuthController extends Controller
                     'ip' => $request->ip(),
                     'user_agent' => $request->userAgent()
                 ]);
-                
+
                 return response()->json([
                     'success' => false,
                     'message' => 'User not authenticated',
@@ -254,7 +256,7 @@ class AuthController extends Controller
                 if ($currentToken) {
                     $tokenId = $currentToken->id;
                     $currentToken->delete();
-                    
+
                     \Log::info('User logged out successfully', [
                         'user_id' => $user->id,
                         'email' => $user->email,
@@ -272,7 +274,7 @@ class AuthController extends Controller
                     'error' => $tokenError->getMessage(),
                     'user_id' => $user->id
                 ]);
-                
+
                 // Continue with logout response even if token revocation fails
             }
 
@@ -287,7 +289,7 @@ class AuthController extends Controller
                 'ip' => $request->ip(),
                 'user_agent' => $request->userAgent()
             ]);
-            
+
             return response()->json([
                 'success' => false,
                 'message' => 'An error occurred during logout',
@@ -313,7 +315,7 @@ class AuthController extends Controller
                     'user_agent' => $request->userAgent(),
                     'has_token' => !empty($request->bearerToken())
                 ]);
-                
+
                 return response()->json([
                     'success' => false,
                     'message' => 'User not authenticated',
@@ -328,7 +330,7 @@ class AuthController extends Controller
                     'error' => $relationError->getMessage(),
                     'user_id' => $user->id
                 ]);
-                
+
                 // Continue without relationships
             }
 
@@ -341,6 +343,7 @@ class AuthController extends Controller
                 'created_at' => $user->created_at,
                 'updated_at' => $user->updated_at,
                 'roles' => isset($user->roles) ? $user->roles->pluck('name') : [],
+                'permissions' => $user->getAllPermissions()->pluck('name'),
             ];
 
             // Add company info if available
@@ -374,7 +377,7 @@ class AuthController extends Controller
                 'user_agent' => $request->userAgent(),
                 'user_id' => auth()->id() ?? 'unknown'
             ]);
-            
+
             return response()->json([
                 'success' => false,
                 'message' => 'An error occurred while retrieving profile',

@@ -262,7 +262,7 @@ class CompanySettingsController extends Controller
         if ($request->search) {
             $query->where(function ($q) use ($request) {
                 $q->where('name', 'like', '%' . $request->search . '%')
-                  ->orWhere('email', 'like', '%' . $request->search . '%');
+                    ->orWhere('email', 'like', '%' . $request->search . '%');
             });
         }
 
@@ -455,7 +455,7 @@ class CompanySettingsController extends Controller
         if ($request->search) {
             $query->where(function ($q) use ($request) {
                 $q->where('name', 'like', '%' . $request->search . '%')
-                  ->orWhere('code', 'like', '%' . $request->search . '%');
+                    ->orWhere('code', 'like', '%' . $request->search . '%');
             });
         }
 
@@ -618,7 +618,7 @@ class CompanySettingsController extends Controller
     {
         // Debug: Log the incoming request
         \Log::info('Role creation request:', $request->all());
-        
+
         $request->validate([
             'name' => 'required|string|max:255|unique:roles,name',
             'permissions' => 'nullable|array',
@@ -717,19 +717,44 @@ class CompanySettingsController extends Controller
     /**
      * Get all available permissions
      */
+    /**
+     * Get all available permissions available to the company
+     */
     public function getPermissions()
     {
+        // Seeding logic - simplified and standardized on feature_key
         if (Permission::count() === 0) {
             $features = SubscriptionPlanFeature::getAvailableFeatures();
             foreach ($features as $featureKey => $feature) {
                 Permission::firstOrCreate([
-                    'name' => $feature['name'] ?? $featureKey,
+                    'name' => $featureKey,
                     'guard_name' => 'web',
                 ]);
             }
+            // Basic permissions
+            foreach (['view dashboard', 'manage profile'] as $perm) {
+                Permission::firstOrCreate(['name' => $perm, 'guard_name' => 'web']);
+            }
         }
 
-        $permissions = Permission::orderBy('name')->get(['id', 'name']);
+        $user = Auth::user();
+
+        // Super Admin gets everything
+        if ($user->is_super_admin) {
+            $permissions = Permission::orderBy('name')->get(['id', 'name']);
+            return response()->json(['success' => true, 'data' => $permissions]);
+        }
+
+        // Company Users get permissions based on Subscription Plan
+        $allowedNames = collect(['view dashboard', 'manage profile']);
+
+        $company = $user->company;
+        if ($company && $company->subscriptionPlan) {
+            $planFeatures = $company->subscriptionPlan->getEnabledFeaturesFromPermissions();
+            $allowedNames = $allowedNames->merge($planFeatures->pluck('feature_key'));
+        }
+
+        $permissions = Permission::whereIn('name', $allowedNames)->orderBy('name')->get(['id', 'name']);
 
         return response()->json([
             'success' => true,
@@ -756,11 +781,36 @@ class CompanySettingsController extends Controller
     public function updateRolePermissions(Request $request, $id)
     {
         $role = Role::findOrFail($id);
+        // Ensure role belongs to company (if strictly checking, role doesn't have company_id usually, but handled by app logic)
+        // Spatie roles are global but usually we prefix or manage them. Here assuming we just edit.
 
         $request->validate([
             'permissions' => 'nullable|array',
             'permissions.*' => 'exists:permissions,id'
         ]);
+
+        $user = Auth::user();
+
+        // Validate that user is allowed to assign these permissions
+        if (!$user->is_super_admin) {
+            $allowedNames = collect(['view dashboard', 'manage profile']);
+            $company = $user->company;
+            if ($company && $company->subscriptionPlan) {
+                $planFeatures = $company->subscriptionPlan->getEnabledFeaturesFromPermissions();
+                $allowedNames = $allowedNames->merge($planFeatures->pluck('feature_key'));
+            }
+
+            $allowedIds = Permission::whereIn('name', $allowedNames)->pluck('id')->toArray();
+            $requestedIds = $request->input('permissions', []);
+
+            // Check if any requested ID is NOT in allowed IDs
+            if (!empty(array_diff($requestedIds, $allowedIds))) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'You are attempting to assign permissions that are not enabled in your subscription plan.'
+                ], 403);
+            }
+        }
 
         $permissionIds = $request->input('permissions', []);
         $permissions = Permission::whereIn('id', $permissionIds)->get();
@@ -795,23 +845,46 @@ class CompanySettingsController extends Controller
     public function updateUserPermissions(Request $request, $id)
     {
         $companyId = $this->resolveCompanyId();
-        $user = User::where('company_id', $companyId)->findOrFail($id);
+        $targetUser = User::where('company_id', $companyId)->findOrFail($id);
 
         $request->validate([
             'permissions' => 'nullable|array',
             'permissions.*' => 'exists:permissions,id'
         ]);
 
+        $currentUser = Auth::user();
+
+        // Validate that current user is allowed to assign these permissions
+        if (!$currentUser->is_super_admin) {
+            $allowedNames = collect(['view dashboard', 'manage profile']);
+            $company = $currentUser->company;
+            if ($company && $company->subscriptionPlan) {
+                $planFeatures = $company->subscriptionPlan->getEnabledFeaturesFromPermissions();
+                $allowedNames = $allowedNames->merge($planFeatures->pluck('feature_key'));
+            }
+
+            $allowedIds = Permission::whereIn('name', $allowedNames)->pluck('id')->toArray();
+            $requestedIds = $request->input('permissions', []);
+
+            // Check if any requested ID is NOT in allowed IDs
+            if (!empty(array_diff($requestedIds, $allowedIds))) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'You are attempting to assign permissions that are not enabled in your subscription plan.'
+                ], 403);
+            }
+        }
+
         $permissionIds = $request->input('permissions', []);
         $permissions = Permission::whereIn('id', $permissionIds)->get();
-        $user->syncPermissions($permissions);
+        $targetUser->syncPermissions($permissions);
 
         app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
 
         return response()->json([
             'success' => true,
             'message' => 'User permissions updated successfully',
-            'data' => $user->permissions->pluck('id')->toArray()
+            'data' => $targetUser->permissions->pluck('id')->toArray()
         ]);
     }
 

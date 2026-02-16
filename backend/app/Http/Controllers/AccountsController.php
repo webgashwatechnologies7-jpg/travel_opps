@@ -19,33 +19,33 @@ class AccountsController extends Controller
         try {
             // Get leads that are individual clients (not corporate or agents)
             $clients = Lead::select([
-                'id', 
-                'client_name as name', 
-                'email', 
-                'phone as mobile', 
+                'id',
+                'client_name as name',
+                'email',
+                'phone as mobile',
                 'destination as city',
                 'created_by',
                 'created_at',
                 'updated_at'
             ])
-            ->where(function($query) {
-                $query->where('client_type', 'individual')
-                      ->orWhereNull('client_type');
-            })
-            ->orderBy('created_at', 'desc')
-            ->get()
-            ->map(function($client) {
-                return [
-                    'id' => $client->id,
-                    'name' => $client->name,
-                    'mobile' => $client->mobile,
-                    'email' => $client->email,
-                    'queries' => 0, // Default to 0 for now
-                    'lastQuery' => $client->updated_at ? $client->updated_at->format('Y-m-d') : 'N/A',
-                    'city' => $client->city ?: 'N/A',
-                    'createdBy' => 'Admin' // Default for now
-                ];
-            });
+                ->where(function ($query) {
+                    $query->where('client_type', 'individual')
+                        ->orWhereNull('client_type');
+                })
+                ->orderBy('created_at', 'desc')
+                ->get()
+                ->map(function ($client) {
+                    return [
+                        'id' => $client->id,
+                        'name' => $client->name,
+                        'mobile' => $client->mobile,
+                        'email' => $client->email,
+                        'queries' => 0, // Default to 0 for now
+                        'lastQuery' => $client->updated_at ? $client->updated_at->format('Y-m-d') : 'N/A',
+                        'city' => $client->city ?: 'N/A',
+                        'createdBy' => 'Admin' // Default for now
+                    ];
+                });
 
             return response()->json([
                 'success' => true,
@@ -58,7 +58,7 @@ class AccountsController extends Controller
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString()
             ]);
-            
+
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to retrieve clients',
@@ -74,40 +74,40 @@ class AccountsController extends Controller
     {
         try {
             $companyId = auth()->user()->company_id;
-            
+
             // Get users who are agents
             $agents = User::select([
-                'id', 
-                'name', 
-                'email', 
+                'id',
+                'name',
+                'email',
                 'phone as mobile',
                 'company_name',
                 'gst_number',
                 'city',
                 'created_by'
             ])
-            ->where('company_id', $companyId)
-            ->where(function($query) {
-                $query->where('role', 'Agent')
-                      ->orWhere('user_type', 'agent');
-            })
-            ->withCount(['leadsAssigned as queries'])
-            ->orderBy('created_at', 'desc')
-            ->get()
-            ->map(function($agent) {
-                return [
-                    'id' => $agent->id,
-                    'company' => $agent->company_name ?: 'N/A',
-                    'gst' => $agent->gst_number ?: 'N/A',
-                    'name' => $agent->name,
-                    'mobile' => $agent->mobile,
-                    'email' => $agent->email,
-                    'queries' => $agent->queries,
-                    'lastQuery' => $agent->updated_at->format('Y-m-d'),
-                    'city' => $agent->city ?: 'N/A',
-                    'createdBy' => 'Admin'
-                ];
-            });
+                ->where('company_id', $companyId)
+                ->where(function ($query) {
+                    $query->where('role', 'Agent')
+                        ->orWhere('user_type', 'agent');
+                })
+                ->withCount(['leadsAssigned as queries'])
+                ->orderBy('created_at', 'desc')
+                ->get()
+                ->map(function ($agent) {
+                    return [
+                        'id' => $agent->id,
+                        'company' => $agent->company_name ?: 'N/A',
+                        'gst' => $agent->gst_number ?: 'N/A',
+                        'name' => $agent->name,
+                        'mobile' => $agent->mobile,
+                        'email' => $agent->email,
+                        'queries' => $agent->queries,
+                        'lastQuery' => $agent->updated_at->format('Y-m-d'),
+                        'city' => $agent->city ?: 'N/A',
+                        'createdBy' => 'Admin'
+                    ];
+                });
 
             return response()->json([
                 'success' => true,
@@ -131,43 +131,45 @@ class AccountsController extends Controller
     {
         try {
             $companyId = auth()->user()->company_id;
-            
+
             // Get leads that are corporate clients
             $corporates = Lead::select([
-                'id', 
-                'client_name as companyName', 
-                'email', 
-                'phone as mobile', 
+                'id',
+                'client_name as companyName',
+                'email',
+                'phone as mobile',
                 'destination as city',
                 'created_by',
                 'budget',
                 'client_title as industry',
                 'created_at'
             ])
-            ->where('company_id', $companyId)
-            ->where('client_type', 'corporate')
-            ->withCount(['queryProposals as queries'])
-            ->with(['creator' => function($query) {
-                $query->select('id', 'name');
-            }])
-            ->orderBy('created_at', 'desc')
-            ->get()
-            ->map(function($corporate) {
-                return [
-                    'id' => $corporate->id,
-                    'companyName' => $corporate->companyName,
-                    'industry' => $corporate->industry ?: 'N/A',
-                    'contactPerson' => $corporate->companyName,
-                    'designation' => 'Contact Person',
-                    'mobile' => $corporate->mobile,
-                    'email' => $corporate->email,
-                    'queries' => $corporate->queries,
-                    'lastQuery' => $corporate->updated_at->format('Y-m-d'),
-                    'city' => $corporate->city ?: 'N/A',
-                    'creditLimit' => '₹' . number_format($corporate->budget ?: 0, 2),
-                    'status' => 'Active'
-                ];
-            });
+                ->where('company_id', $companyId)
+                ->where('client_type', 'corporate')
+                ->withCount(['queryProposals as queries'])
+                ->with([
+                    'creator' => function ($query) {
+                        $query->select('id', 'name');
+                    }
+                ])
+                ->orderBy('created_at', 'desc')
+                ->get()
+                ->map(function ($corporate) {
+                    return [
+                        'id' => $corporate->id,
+                        'companyName' => $corporate->companyName,
+                        'industry' => $corporate->industry ?: 'N/A',
+                        'contactPerson' => $corporate->companyName,
+                        'designation' => 'Contact Person',
+                        'mobile' => $corporate->mobile,
+                        'email' => $corporate->email,
+                        'queries' => $corporate->queries,
+                        'lastQuery' => $corporate->updated_at->format('Y-m-d'),
+                        'city' => $corporate->city ?: 'N/A',
+                        'creditLimit' => '₹' . number_format($corporate->budget ?: 0, 2),
+                        'status' => 'Active'
+                    ];
+                });
 
             return response()->json([
                 'success' => true,
@@ -191,25 +193,71 @@ class AccountsController extends Controller
     {
         try {
             $search = $request->get('search', '');
-            
+
             // Mock cities data - replace with database if needed
             $allCities = [
-                'Mumbai', 'Delhi', 'Bangalore', 'Hyderabad', 'Ahmedabad', 'Chennai', 
-                'Kolkata', 'Pune', 'Jaipur', 'Lucknow', 'Kanpur', 'Nagpur', 
-                'Indore', 'Thane', 'Bhopal', 'Visakhapatnam', 'Patna', 'Vadodara',
-                'Ghaziabad', 'Ludhiana', 'Agra', 'Nashik', 'Faridabad', 'Meerut',
-                'Rajkot', 'Kalyan-Dombivali', 'Vasai-Virar', 'Varanasi', 'Srinagar',
-                'Aurangabad', 'Dhanbad', 'Amritsar', 'Navi Mumbai', 'Allahabad',
-                'Ranchi', 'Coimbatore', 'Jabalpur', 'Gwalior', 'Vijayawada',
-                'Jodhpur', 'Madurai', 'Raipur', 'Kota', 'Chandigarh', 'Guwahati',
-                'Goa', 'Surat', 'Bhubaneswar', 'Dehradun', 'Ranchi', 'Mysore',
-                'Thiruvananthapuram', 'Coimbatore', 'Kochi', 'Kozhikode', 'Mangalore'
+                'Mumbai',
+                'Delhi',
+                'Bangalore',
+                'Hyderabad',
+                'Ahmedabad',
+                'Chennai',
+                'Kolkata',
+                'Pune',
+                'Jaipur',
+                'Lucknow',
+                'Kanpur',
+                'Nagpur',
+                'Indore',
+                'Thane',
+                'Bhopal',
+                'Visakhapatnam',
+                'Patna',
+                'Vadodara',
+                'Ghaziabad',
+                'Ludhiana',
+                'Agra',
+                'Nashik',
+                'Faridabad',
+                'Meerut',
+                'Rajkot',
+                'Kalyan-Dombivali',
+                'Vasai-Virar',
+                'Varanasi',
+                'Srinagar',
+                'Aurangabad',
+                'Dhanbad',
+                'Amritsar',
+                'Navi Mumbai',
+                'Allahabad',
+                'Ranchi',
+                'Coimbatore',
+                'Jabalpur',
+                'Gwalior',
+                'Vijayawada',
+                'Jodhpur',
+                'Madurai',
+                'Raipur',
+                'Kota',
+                'Chandigarh',
+                'Guwahati',
+                'Goa',
+                'Surat',
+                'Bhubaneswar',
+                'Dehradun',
+                'Ranchi',
+                'Mysore',
+                'Thiruvananthapuram',
+                'Coimbatore',
+                'Kochi',
+                'Kozhikode',
+                'Mangalore'
             ];
 
             $filteredCities = collect($allCities)
-                ->filter(function($city) use ($search) {
-                    return strcasecmp($city, $search) === 0 || 
-                           stripos($city, $search) !== false;
+                ->filter(function ($city) use ($search) {
+                    return strcasecmp($city, $search) === 0 ||
+                        stripos($city, $search) !== false;
                 })
                 ->take(10)
                 ->values();
@@ -234,8 +282,10 @@ class AccountsController extends Controller
      */
     public function getClient($id): JsonResponse
     {
+
         try {
             $client = Lead::find($id);
+
             if (!$client) {
                 return response()->json([
                     'success' => false,
@@ -243,7 +293,14 @@ class AccountsController extends Controller
                 ], 404);
             }
 
-            // Transform client data for frontend
+            // Test relationships existence to pinpoint failure
+            try {
+                $queriesCount = $client->queryProposals()->count();
+            } catch (\Throwable $e) {
+                \Log::error('Queries relation error: ' . $e->getMessage());
+                throw $e;
+            }
+
             $clientData = [
                 'id' => $client->id,
                 'title' => $client->client_title ?: 'Mr.',
@@ -259,13 +316,84 @@ class AccountsController extends Controller
                 'dateOfBirth' => $client->date_of_birth ? $client->date_of_birth->format('Y-m-d') : null,
                 'marriageAnniversary' => $client->marriage_anniversary ? $client->marriage_anniversary->format('Y-m-d') : null,
                 'status' => $client->status ?: 'Active',
+                'budget' => '₹' . number_format($client->budget ?? 0, 2),
                 'createdBy' => 'Admin',
                 'createdAt' => $client->created_at->format('Y-m-d'),
                 'lastQuery' => $client->updated_at ? $client->updated_at->format('Y-m-d') : 'N/A',
-                'totalQueries' => 0, // Default for now
-                'totalPayments' => 0, // Default for now
-                'totalAmount' => '₹0',
-                'nextFollowUp' => 'N/A'
+                'totalQueries' => $client->queryProposals()->count() + 1,
+                'totalPayments' => $client->payments()->count(),
+                'totalAmount' => '₹' . number_format($client->payments()->sum('paid_amount'), 2),
+                'nextFollowUp' => optional($client->followups()->where('reminder_date', '>=', now()->toDateString())->orderBy('reminder_date', 'asc')->first())->reminder_date
+                    ? \Carbon\Carbon::parse(optional($client->followups()->where('reminder_date', '>=', now()->toDateString())->orderBy('reminder_date', 'asc')->first())->reminder_date)->format('Y-m-d')
+                    : 'N/A',
+                'payments' => $client->payments()->orderBy('created_at', 'desc')->get()->map(function ($payment) {
+                    return [
+                        'id' => $payment->id,
+                        'date' => optional($payment->created_at)->format('Y-m-d') ?? 'N/A',
+                        'amount' => '₹' . number_format($payment->amount ?? 0, 2),
+                        'paidAmount' => '₹' . number_format($payment->paid_amount ?? 0, 2),
+                        'dueAmount' => '₹' . number_format(($payment->amount ?? 0) - ($payment->paid_amount ?? 0), 2),
+                        'dueDate' => optional($payment->due_date)->format('Y-m-d') ?? 'N/A',
+                        'status' => ucfirst($payment->status ?? 'pending'),
+                        'method' => 'N/A',
+                        'description' => 'Payment #' . $payment->id
+                    ];
+                }),
+                'queries' => collect([
+                    [
+                        'id' => $client->id, // Using Lead ID for the main query
+                        'date' => optional($client->created_at)->format('Y-m-d') ?? 'N/A',
+                        'destination' => $client->destination ?? 'N/A',
+                        'status' => ucfirst($client->status ?? 'Active'),
+                        'budget' => '₹' . number_format($client->budget ?? 0, 2),
+                        'adults' => $client->adult ?? 1,
+                        'children' => $client->child ?? 0
+                    ]
+                ])->merge($client->queryProposals()->orderBy('created_at', 'desc')->get()->map(function ($query) {
+                    return [
+                        'id' => $query->id,
+                        'date' => optional($query->created_at)->format('Y-m-d') ?? 'N/A',
+                        'destination' => $query->destination ?? 'N/A',
+                        'status' => ucfirst($query->status ?? 'pending'),
+                        'budget' => '₹' . number_format($query->budget ?? 0, 2),
+                        'adults' => $query->adults ?? 1,
+                        'children' => $query->children ?? 0
+                    ];
+                })),
+                'invoices' => $client->leadInvoices()->orderBy('created_at', 'desc')->get()->map(function ($invoice) {
+                    return [
+                        'id' => $invoice->id,
+                        'invoiceNumber' => $invoice->invoice_number ?? 'N/A',
+                        'date' => optional($invoice->created_at)->format('Y-m-d') ?? 'N/A',
+                        'dueDate' => $invoice->created_at ? $invoice->created_at->copy()->addDays(7)->format('Y-m-d') : 'N/A',
+                        'amount' => '₹' . number_format($invoice->total_amount ?? 0, 2),
+                        'status' => ucfirst($invoice->status ?? 'pending'),
+                        'description' => 'Invoice for Lead #' . ($invoice->lead_id ?? 'N/A'),
+                        'queryId' => $invoice->lead_id ?? 'N/A'
+                    ];
+                }),
+                'documents' => $client->queryDocuments()->orderBy('created_at', 'desc')->get()->map(function ($doc) {
+                    return [
+                        'id' => $doc->id,
+                        'name' => $doc->title ?? $doc->file_name ?? 'Untitled',
+                        'type' => $doc->document_type ?? 'Document',
+                        'uploadDate' => optional($doc->created_at)->format('Y-m-d') ?? 'N/A',
+                        'size' => ($doc->file_size ? round($doc->file_size / 1024, 2) . ' KB' : 'N/A'),
+                        'status' => ($doc->is_verified ? 'Verified' : ucfirst($doc->status ?? 'Pending'))
+                    ];
+                }),
+                'followUps' => $client->followups()->orderBy('reminder_date', 'desc')->get()->map(function ($followup) {
+                    return [
+                        'id' => $followup->id,
+                        'date' => optional($followup->reminder_date)->format('Y-m-d') ?? 'N/A',
+                        'time' => $followup->reminder_time ?? 'N/A',
+                        'type' => 'Follow-up',
+                        'notes' => $followup->remark ?? '',
+                        'status' => $followup->is_completed ? 'Completed' : 'Scheduled',
+                        'assignedTo' => optional($followup->user)->name ?? 'Unknown'
+                    ];
+                }),
+                'vendorPayments' => [] // Placeholder: No vendor payments table identified yet
             ];
 
             return response()->json([
@@ -274,11 +402,14 @@ class AccountsController extends Controller
                 'data' => $clientData
             ], 200);
 
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
+            \Log::error('Client Details API Error: ' . $e->getMessage() . ' Trace: ' . $e->getTraceAsString());
+            file_put_contents(public_path('debug_error.txt'), $e->getMessage() . "\n" . $e->getTraceAsString());
+
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to retrieve client',
-                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error'
+                'message' => 'Failed to retrieve client: ' . $e->getMessage(),
+                'error' => $e->getMessage()
             ], 500);
         }
     }

@@ -2644,6 +2644,13 @@ const ItineraryDetail = () => {
               optionGstSettings={optionGstSettings}
               setOptionGstSettings={setOptionGstSettings}
               onPricingSaveSuccess={(gst) => setOptionGstSettings(gst || {})}
+              showToastNotification={(type, title, msg) => {
+                const text = title ? `${title}: ${msg}` : msg;
+                if (type === 'error') toast.error(text);
+                else if (type === 'warning') toast.warning(text);
+                else if (type === 'success') toast.success(text);
+                else toast.info(text);
+              }}
             />
           )}
 

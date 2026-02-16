@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { accountsAPI, paymentsAPI } from '../services/api';
+import { accountsAPI, paymentsAPI, leadsAPI } from '../services/api';
 import { toast } from 'react-toastify';
 import Layout from '../components/Layout';
 import { ArrowLeft, Download, FileText, Table, Calendar, DollarSign, TrendingUp, Filter, FileDown } from 'lucide-react';
@@ -15,6 +15,7 @@ const ClientReports = () => {
   const [client, setClient] = useState(null);
   const [loading, setLoading] = useState(true);
   const [allPayments, setAllPayments] = useState([]);
+  const [confirmedPackagePrice, setConfirmedPackagePrice] = useState(0);
   const getDefaultDateRange = () => {
     const end = new Date();
     const start = new Date();
@@ -34,13 +35,18 @@ const ClientReports = () => {
   const fetchClientData = async () => {
     try {
       setLoading(true);
+
+      // 1. Fetch Client Basic Info & Payments
       const [clientRes, paymentsRes] = await Promise.all([
         accountsAPI.getClient(id),
         paymentsAPI.getByLead(id)
       ]);
 
+      let currentClient = null;
+
       if (clientRes?.data?.success) {
         const c = clientRes.data.data;
+        currentClient = c;
         setClient({ id: c.id, name: c.name, email: c.email, mobile: c.mobile, city: c.city, status: c.status });
       } else {
         setClient(null);
@@ -48,10 +54,57 @@ const ClientReports = () => {
         return;
       }
 
-      if (paymentsRes?.data?.success && paymentsRes.data.data?.payments) {
-        setAllPayments(paymentsRes.data.data.payments);
-      } else {
-        setAllPayments([]);
+      const fetchedPayments = (paymentsRes?.data?.success && paymentsRes.data.data?.payments) ? paymentsRes.data.data.payments : [];
+      setAllPayments(fetchedPayments);
+
+      // 2. Aggregate Package Prices from All Queries
+      if (currentClient) {
+        const queryIds = [currentClient.id];
+        if (currentClient.queries && Array.isArray(currentClient.queries)) {
+          currentClient.queries.forEach(q => {
+            if (q.id && !queryIds.includes(q.id)) queryIds.push(q.id);
+          });
+        }
+
+        const leadPromises = queryIds.map(qid => leadsAPI.get(qid).catch(() => null));
+        const leadResults = await Promise.all(leadPromises);
+
+        let grandTotalPackagePrice = 0;
+
+        leadResults.forEach(res => {
+          if (res?.data?.success) {
+            const lead = res.data.data;
+            if (lead.proposals && lead.proposals.length > 0) {
+              const confirmed = lead.proposals.find(p => p.status?.toLowerCase() === 'confirmed');
+              if (confirmed) {
+                let price = parseFloat(confirmed.price || 0);
+                if (!price && lead.quotation && lead.quotation.data) {
+                  try {
+                    const qData = JSON.parse(lead.quotation.data);
+                    const optNum = confirmed.option_number;
+                    if (qData.hotelOptions && qData.hotelOptions[optNum]) {
+                      const calcPrice = qData.hotelOptions[optNum].reduce((sum, h) => sum + (parseFloat(h.price) || 0), 0);
+                      if (calcPrice > 0) price = calcPrice;
+                    }
+                  } catch (e) {
+                    console.error("Error parsing quotation data for lead " + lead.id, e);
+                  }
+                }
+                grandTotalPackagePrice += price;
+              }
+            }
+          }
+        });
+
+        // Fallback: If no confirmed package price found, use the MAXIMUM 'Total Amount' from any single payment
+        if (grandTotalPackagePrice === 0 && fetchedPayments.length > 0) {
+          const maxPaymentExpected = fetchedPayments.reduce((max, p) => Math.max(max, parseFloat(p.amount) || 0), 0);
+          if (maxPaymentExpected > 0) {
+            grandTotalPackagePrice = maxPaymentExpected;
+          }
+        }
+
+        setConfirmedPackagePrice(grandTotalPackagePrice);
       }
     } catch (error) {
       console.error('Failed to fetch client data:', error);
@@ -62,7 +115,8 @@ const ClientReports = () => {
   };
 
   const reportData = useMemo(() => {
-    if (!allPayments || !allPayments.length) {
+    // If no payments and no confirmed price, return empty state
+    if ((!allPayments || !allPayments.length) && !confirmedPackagePrice) {
       return {
         summary: { totalPayments: 0, totalAmount: '₹0', averagePayment: '₹0', pendingPayments: 0, pendingAmount: '₹0', lastPaymentDate: '-', paymentTrend: '-' },
         payments: [],
@@ -70,26 +124,48 @@ const ClientReports = () => {
         paymentMethods: {}
       };
     }
+
     const start = new Date(dateRange.start);
     const end = new Date(dateRange.end);
     end.setHours(23, 59, 59, 999);
-    const filtered = allPayments.filter((p) => {
+
+    const filtered = (allPayments || []).filter((p) => {
       const d = new Date(p.created_at);
       return d >= start && d <= end;
     });
-    const totalAmount = filtered.reduce((s, p) => s + parseFloat(p.amount || 0), 0);
-    const totalPaid = filtered.reduce((s, p) => s + parseFloat(p.paid_amount || 0), 0);
-    const totalDue = filtered.reduce((s, p) => s + parseFloat((p.amount || 0) - (p.paid_amount || 0)), 0);
+
+    const sumOfPaymentsFiltered = filtered.reduce((s, p) => s + parseFloat(p.amount || 0), 0);
+    const globalTotalPaid = (allPayments || []).reduce((s, p) => s + parseFloat(p.paid_amount || 0), 0);
+
+    // Effective Total: Confirmed Price > Sum of Filtered Payments (Fallback)
+    const effectiveTotalAmount = confirmedPackagePrice > 0 ? confirmedPackagePrice : sumOfPaymentsFiltered;
+
+    // Effective Pending: Price - Global Paid
+    const effectivePendingAmount = confirmedPackagePrice > 0
+      ? Math.max(0, confirmedPackagePrice - globalTotalPaid)
+      : filtered.reduce((s, p) => s + parseFloat((p.amount || 0) - (p.paid_amount || 0)), 0);
+
     const pendingCount = filtered.filter((p) => (p.status || '').toLowerCase() !== 'paid').length;
     const lastPayment = filtered.length ? filtered.reduce((a, b) => (new Date(a.created_at) > new Date(b.created_at) ? a : b)) : null;
+
     const monthlyMap = {};
+    const paymentMethodsMap = {};
+
     filtered.forEach((p) => {
+      // Monthly Breakdown
       const m = new Date(p.created_at);
       const key = `${m.getFullYear()}-${String(m.getMonth() + 1).padStart(2, '0')}`;
       if (!monthlyMap[key]) monthlyMap[key] = { count: 0, amount: 0 };
       monthlyMap[key].count += 1;
       monthlyMap[key].amount += parseFloat(p.amount || 0);
+
+      // Payment Methods
+      const method = p.payment_method || p.method || 'Other';
+      if (!paymentMethodsMap[method]) paymentMethodsMap[method] = { count: 0, amount: 0 };
+      paymentMethodsMap[method].count += 1;
+      paymentMethodsMap[method].amount += parseFloat(p.amount || 0);
     });
+
     const monthlyBreakdown = Object.entries(monthlyMap)
       .sort(([a], [b]) => b.localeCompare(a))
       .map(([k, v]) => ({
@@ -97,31 +173,38 @@ const ClientReports = () => {
         payments: v.count,
         amount: formatCurrency(v.amount)
       }));
+
+    const paymentMethods = Object.entries(paymentMethodsMap).reduce((acc, [method, data]) => {
+      acc[method] = { count: data.count, amount: formatCurrency(data.amount) };
+      return acc;
+    }, {});
+
     const payments = filtered.map((p) => ({
       id: p.id,
       date: formatDate(p.created_at),
       amount: formatCurrency(p.amount),
       status: (p.status || 'pending').charAt(0).toUpperCase() + (p.status || '').slice(1),
-      method: '-',
-      description: '-',
+      method: p.payment_method || p.method || '-',
+      description: p.description || p.notes || '-',
       queryId: p.lead_id ? `Q${p.lead_id}` : '-',
-      invoiceNo: '-'
+      invoiceNo: p.invoice_number || (p.invoice_id ? `#${p.invoice_id}` : '-')
     }));
+
     return {
       summary: {
         totalPayments: filtered.length,
-        totalAmount: formatCurrency(totalAmount),
-        averagePayment: filtered.length ? formatCurrency(totalAmount / filtered.length) : '₹0',
+        totalAmount: formatCurrency(effectiveTotalAmount),
+        averagePayment: filtered.length ? formatCurrency(sumOfPaymentsFiltered / filtered.length) : '₹0',
         pendingPayments: pendingCount,
-        pendingAmount: formatCurrency(totalDue),
+        pendingAmount: formatCurrency(effectivePendingAmount),
         lastPaymentDate: lastPayment ? formatDate(lastPayment.created_at) : '-',
         paymentTrend: '-'
       },
       payments,
       monthlyBreakdown,
-      paymentMethods: filtered.length ? { Payment: { count: filtered.length, amount: formatCurrency(totalAmount) } } : {}
+      paymentMethods: Object.keys(paymentMethods).length ? paymentMethods : {}
     };
-  }, [allPayments, dateRange]);
+  }, [allPayments, dateRange, confirmedPackagePrice]);
 
   const generatePDF = () => {
     if (!client || !reportData) return;
@@ -422,8 +505,8 @@ const ClientReports = () => {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${payment.status === 'Paid'
-                            ? 'bg-green-100 text-green-800'
-                            : 'bg-yellow-100 text-yellow-800'
+                          ? 'bg-green-100 text-green-800'
+                          : 'bg-yellow-100 text-yellow-800'
                           }`}>
                           {payment.status}
                         </span>

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import { accountsAPI, followUpAPI } from '../services/api';
+import { accountsAPI, followUpAPI, leadsAPI, paymentsAPI } from '../services/api';
 import Layout from '../components/Layout';
 import { ArrowLeft, Phone, Mail, MapPin, Calendar, DollarSign, FileText, MessageSquare, User, Plus, Edit, Save, X, TrendingUp } from 'lucide-react';
 
@@ -109,235 +109,123 @@ const ClientDetails = () => {
       const clientResponse = await accountsAPI.getClient(id);
 
       if (clientResponse && clientResponse.data && clientResponse.data.success) {
-        setClient(clientResponse.data.data);
-        setEditForm({
-          name: clientResponse.data.data.name,
-          email: clientResponse.data.data.email,
-          mobile: clientResponse.data.data.mobile,
-          mobile2: clientResponse.data.data.mobile2 || '',
-          email2: clientResponse.data.data.email2 || '',
-          city: clientResponse.data.data.city,
-          address: clientResponse.data.data.address || '',
-          dateOfBirth: clientResponse.data.data.dateOfBirth || '',
-          marriageAnniversary: clientResponse.data.data.marriageAnniversary || ''
-        });
-      } else {
-        // Use mock data if API fails
-        const mockClient = {
-          id: id,
-          name: 'Shubi Paras',
-          title: 'Mr.',
-          firstName: 'Shubi',
-          lastName: 'Paras',
-          email: 'web.gashwatechnologies7@gmail.com',
-          email2: 'shubi@example.com',
-          mobile: '+919805585855',
-          mobile2: '+919805598988',
-          city: 'Shimla',
-          address: 'Igh, Shimla, Himachal Pradesh',
-          dateOfBirth: '2017-06-27',
-          marriageAnniversary: '2020-01-15',
-          status: 'Active',
-          createdBy: 'Admin',
-          createdAt: '2024-01-15',
-          lastQuery: '2024-01-14',
-          totalQueries: 5,
-          totalPayments: 3,
-          totalAmount: '₹45,000',
-          nextFollowUp: '2024-01-20'
-        };
+        const clientData = clientResponse.data.data;
 
-        setClient(mockClient);
-        setEditForm({
-          name: mockClient.name,
-          email: mockClient.email,
-          mobile: mockClient.mobile,
-          mobile2: mockClient.mobile2 || '',
-          email2: mockClient.email2 || '',
-          city: mockClient.city,
-          address: mockClient.address || '',
-          dateOfBirth: mockClient.dateOfBirth || '',
-          marriageAnniversary: mockClient.marriageAnniversary || ''
+        // Define relevant IDs: Main Client ID (if it's a lead) + Query IDs
+        const queryIds = clientData.id ? [clientData.id] : [];
+        if (clientData.queries && Array.isArray(clientData.queries)) {
+          clientData.queries.forEach(q => {
+            if (q.id && !queryIds.includes(q.id)) queryIds.push(q.id);
+          });
+        }
+
+        // Fetch details for all queries to sum up package prices causing total deal value
+        const leadPromises = queryIds.map(qid => leadsAPI.get(qid).catch(() => null));
+        const paymentPromises = queryIds.map(qid => paymentsAPI.getByLead(qid).catch(() => null));
+
+        const [leadResults, paymentResults] = await Promise.all([
+          Promise.all(leadPromises),
+          Promise.all(paymentPromises)
+        ]);
+
+        let grandTotalPackagePrice = 0;
+        let grandTotalPaid = 0;
+        let aggregatedPayments = [];
+
+        // Process Package Prices from Leads
+        leadResults.forEach(res => {
+          if (res?.data?.success) {
+            const lead = res.data.data;
+            // Find confirmed proposal
+            if (lead.proposals && lead.proposals.length > 0) {
+              const confirmed = lead.proposals.find(p => p.status?.toLowerCase() === 'confirmed');
+              if (confirmed) {
+                let price = parseFloat(confirmed.price || 0);
+                // Fallback to quotation data if price is missing
+                if (!price && lead.quotation && lead.quotation.data) {
+                  try {
+                    const qData = JSON.parse(lead.quotation.data);
+                    const optNum = confirmed.option_number;
+                    if (qData.hotelOptions && qData.hotelOptions[optNum]) {
+                      // Use reducing logic for hotel options price sum if applicable
+                      const calcPrice = qData.hotelOptions[optNum].reduce((sum, h) => sum + (parseFloat(h.price) || 0), 0);
+                      if (calcPrice > 0) price = calcPrice;
+                    }
+                  } catch (e) {
+                    console.error("Error parsing quotation data for lead " + lead.id, e);
+                  }
+                }
+                grandTotalPackagePrice += price;
+              }
+            }
+          }
         });
+
+        // Process Payments
+        paymentResults.forEach(res => {
+          if (res?.data?.success && res.data.data?.payments) {
+            const pList = res.data.data.payments;
+            pList.forEach(p => {
+              // Check if already added (avoid duplicates if main query ID is repeated)
+              if (!aggregatedPayments.some(ap => ap.id === p.id)) {
+                aggregatedPayments.push(p);
+                grandTotalPaid += parseFloat(p.paid_amount || 0);
+              }
+            });
+          }
+        });
+
+        // Fallback: If no confirmed package price found, use the MAXIMUM 'Total Amount' from any single payment
+        // This avoids summing up the 'Deal Value' repeatedly if the user entered it for every installment.
+        if (grandTotalPackagePrice === 0 && aggregatedPayments.length > 0) {
+          const maxPaymentExpected = aggregatedPayments.reduce((max, p) => Math.max(max, parseFloat(p.amount) || 0), 0);
+          if (maxPaymentExpected > 0) {
+            grandTotalPackagePrice = maxPaymentExpected;
+          }
+        }
+
+        const grandTotalDue = Math.max(0, grandTotalPackagePrice - grandTotalPaid);
+
+        // Update Client Data with new calculated totals
+        clientData.calculatedTotal = grandTotalPackagePrice;
+        clientData.calculatedPaid = grandTotalPaid;
+        clientData.calculatedDue = grandTotalDue;
+
+        setClient(clientData);
+
+        setEditForm({
+          name: clientData.name,
+          email: clientData.email,
+          mobile: clientData.mobile,
+          mobile2: clientData.mobile2 || '',
+          email2: clientData.email2 || '',
+          city: clientData.city,
+          address: clientData.address || '',
+          marriageAnniversary: clientData.marriageAnniversary || ''
+        });
+
+        // Format Aggregated Payments for Display
+        const formattedPayments = aggregatedPayments.sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).map(p => ({
+          id: p.id,
+          date: p.created_at ? new Date(p.created_at).toISOString().split('T')[0] : 'N/A',
+          amount: `₹${parseFloat(p.amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`,
+          paidAmount: `₹${parseFloat(p.paid_amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`,
+          dueAmount: `₹${Math.max(0, parseFloat(p.amount || 0) - parseFloat(p.paid_amount || 0)).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`,
+          status: p.status ? p.status.charAt(0).toUpperCase() + p.status.slice(1) : 'Pending',
+          description: p.description || `Payment #${p.id}`,
+          dueDate: p.due_date,
+          addedBy: p.created_by
+        }));
+
+        setPayments(formattedPayments);
+        setQueries(clientData.queries || []);
+        setInvoices(clientData.invoices || []);
+        setDocuments(clientData.documents || []);
+        setFollowUps(clientData.followUps || []);
+        setVendorPayments(clientData.vendorPayments || []);
       }
-
-      // Mock other data for now (can be replaced with real APIs later)
-      setPayments([
-        {
-          id: 1,
-          date: '2024-01-10',
-          amount: '₹15,000',
-          status: 'Paid',
-          method: 'Bank Transfer',
-          description: 'Trip to Manali'
-        },
-        {
-          id: 2,
-          date: '2024-01-08',
-          amount: '₹20,000',
-          status: 'Paid',
-          method: 'Cash',
-          description: 'Advance for Delhi trip'
-        },
-        {
-          id: 3,
-          date: '2024-01-05',
-          amount: '₹10,000',
-          status: 'Pending',
-          method: 'Online',
-          description: 'Hotel booking'
-        }
-      ]);
-
-      setQueries([
-        {
-          id: 1,
-          date: '2024-01-14',
-          destination: 'Manali',
-          status: 'Confirmed',
-          budget: '₹25,000',
-          adults: 2,
-          children: 1
-        },
-        {
-          id: 2,
-          date: '2024-01-10',
-          destination: 'Delhi',
-          status: 'Pending',
-          budget: '₹15,000',
-          adults: 1,
-          children: 0
-        }
-      ]);
-
-      // Mock invoices data
-      setInvoices([
-        {
-          id: 1,
-          invoiceNumber: 'INV-2024-001',
-          date: '2024-01-10',
-          dueDate: '2024-01-25',
-          amount: '₹15,000',
-          status: 'Paid',
-          description: 'Manali Trip Package',
-          queryId: 'Q001'
-        },
-        {
-          id: 2,
-          invoiceNumber: 'INV-2024-002',
-          date: '2024-01-08',
-          dueDate: '2024-01-23',
-          amount: '₹20,000',
-          status: 'Paid',
-          description: 'Delhi Trip Advance',
-          queryId: 'Q002'
-        }
-      ]);
-
-      // Mock documents data
-      setDocuments([
-        {
-          id: 1,
-          name: 'Passport Copy',
-          type: 'ID Proof',
-          uploadDate: '2024-01-10',
-          size: '2.5 MB',
-          status: 'Verified'
-        },
-        {
-          id: 2,
-          name: 'Travel Insurance',
-          type: 'Insurance',
-          uploadDate: '2024-01-08',
-          size: '1.8 MB',
-          status: 'Verified'
-        }
-      ]);
-
-      // Mock vendor payments data
-      setVendorPayments([
-        {
-          id: 1,
-          vendorName: 'Himalayan Travels',
-          date: '2024-01-10',
-          amount: '₹12,000',
-          category: 'Transportation',
-          status: 'Paid',
-          invoiceNumber: 'VEN-001',
-          description: 'Manali to Delhi Taxi'
-        },
-        {
-          id: 2,
-          vendorName: 'Mountain View Hotel',
-          date: '2024-01-08',
-          amount: '₹8,000',
-          category: 'Accommodation',
-          status: 'Paid',
-          invoiceNumber: 'VEN-002',
-          description: '2 Nights Stay'
-        }
-      ]);
-
     } catch (error) {
       console.error('Failed to fetch client details:', error);
-
-      // Fallback to mock data if API fails
-      const mockClient = {
-        id: id,
-        name: 'Shubi Paras',
-        title: 'Mr.',
-        firstName: 'Shubi',
-        lastName: 'Paras',
-        email: 'web.gashwatechnologies7@gmail.com',
-        email2: 'shubi@example.com',
-        mobile: '+919805585855',
-        mobile2: '+919805598988',
-        city: 'Shimla',
-        address: 'Igh, Shimla, Himachal Pradesh',
-        dateOfBirth: '2017-06-27',
-        marriageAnniversary: '2020-01-15',
-        status: 'Active',
-        createdBy: 'Admin',
-        createdAt: '2024-01-15',
-        lastQuery: '2024-01-14',
-        totalQueries: 5,
-        totalPayments: 3,
-        totalAmount: '₹45,000',
-        nextFollowUp: '2024-01-20'
-      };
-
-      setClient(mockClient);
-      setEditForm({
-        name: mockClient.name,
-        email: mockClient.email,
-        mobile: mockClient.mobile,
-        mobile2: mockClient.mobile2 || '',
-        email2: mockClient.email2 || '',
-        city: mockClient.city,
-        address: mockClient.address || '',
-        dateOfBirth: mockClient.dateOfBirth || '',
-        marriageAnniversary: mockClient.marriageAnniversary || ''
-      });
-
-      // Mock follow-ups data
-      setFollowUps([
-        {
-          id: 1,
-          date: '2024-01-20',
-          time: '10:00',
-          type: 'Phone Call',
-          notes: 'Discussed Manali trip details, client interested in 3-day package',
-          nextAction: 'Send detailed itinerary'
-        },
-        {
-          id: 2,
-          date: '2024-01-15',
-          time: '14:30',
-          type: 'Email',
-          notes: 'Sent payment reminder for Delhi trip',
-          nextAction: 'Follow up on payment'
-        }
-      ]);
     } finally {
       setLoading(false);
     }
@@ -850,11 +738,11 @@ const ClientDetails = () => {
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <div className="bg-white shadow-sm rounded-lg p-6">
             <div className="flex items-center">
               <div className="p-3 bg-blue-100 rounded-lg">
-                <FileText className="h-6 w-6 text-blue-600" />
+                <MessageSquare className="h-6 w-6 text-blue-600" />
               </div>
               <div className="ml-4">
                 <p className="text-sm text-gray-500">Total Queries</p>
@@ -864,34 +752,42 @@ const ClientDetails = () => {
           </div>
           <div className="bg-white shadow-sm rounded-lg p-6">
             <div className="flex items-center">
+              <div className="p-3 bg-purple-100 rounded-lg">
+                <TrendingUp className="h-6 w-6 text-purple-600" />
+              </div>
+              <div className="ml-4">
+                <p className="text-sm text-gray-500">Total Deal Value</p>
+                <p className="text-2xl font-semibold text-gray-900">
+                  {client.calculatedTotal !== undefined
+                    ? `₹${client.calculatedTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`
+                    : client.totalAmount}
+                </p>
+              </div>
+            </div>
+          </div>
+          <div className="bg-white shadow-sm rounded-lg p-6">
+            <div className="flex items-center">
               <div className="p-3 bg-green-100 rounded-lg">
                 <DollarSign className="h-6 w-6 text-green-600" />
               </div>
               <div className="ml-4">
-                <p className="text-sm text-gray-500">Total Payments</p>
-                <p className="text-2xl font-semibold text-gray-900">{client.totalPayments}</p>
+                <p className="text-sm text-gray-500">Paid Amount</p>
+                <p className="text-2xl font-semibold text-gray-900">
+                  ₹{(client.calculatedPaid || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                </p>
               </div>
             </div>
           </div>
           <div className="bg-white shadow-sm rounded-lg p-6">
             <div className="flex items-center">
-              <div className="p-3 bg-purple-100 rounded-lg">
-                <DollarSign className="h-6 w-6 text-purple-600" />
+              <div className="p-3 bg-red-100 rounded-lg">
+                <DollarSign className="h-6 w-6 text-red-600" />
               </div>
               <div className="ml-4">
-                <p className="text-sm text-gray-500">Total Amount</p>
-                <p className="text-2xl font-semibold text-gray-900">{client.totalAmount}</p>
-              </div>
-            </div>
-          </div>
-          <div className="bg-white shadow-sm rounded-lg p-6">
-            <div className="flex items-center">
-              <div className="p-3 bg-orange-100 rounded-lg">
-                <Calendar className="h-6 w-6 text-orange-600" />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm text-gray-500">Next Follow-up</p>
-                <p className="text-lg font-semibold text-gray-900">{client.nextFollowUp}</p>
+                <p className="text-sm text-gray-500">Due Amount</p>
+                <p className="text-2xl font-semibold text-gray-900">
+                  ₹{(client.calculatedDue || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                </p>
               </div>
             </div>
           </div>
@@ -945,14 +841,17 @@ const ClientDetails = () => {
                     <thead className="bg-gray-50">
                       <tr>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Amount</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Total Amount</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Paid Amount</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Due Amount</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Due Date</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Method</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Description</th>
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                      {mockPayments.map((payment) => (
+                      {payments.map((payment) => (
                         <tr key={payment.id} className="hover:bg-gray-50">
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                             {payment.date}
@@ -960,10 +859,21 @@ const ClientDetails = () => {
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                             {payment.amount}
                           </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-medium text-green-600">
+                            {payment.paidAmount}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-medium text-red-600">
+                            {payment.dueAmount}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {payment.dueDate}
+                          </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${payment.status === 'Paid'
                               ? 'bg-green-100 text-green-800'
-                              : 'bg-yellow-100 text-yellow-800'
+                              : payment.status === 'Partial'
+                                ? 'bg-orange-100 text-orange-800'
+                                : 'bg-yellow-100 text-yellow-800'
                               }`}>
                               {payment.status}
                             </span>
@@ -997,7 +907,7 @@ const ClientDetails = () => {
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                      {mockQueries.map((query) => (
+                      {queries.map((query) => (
                         <tr key={query.id} className="hover:bg-gray-50">
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                             {query.date}
@@ -1025,162 +935,6 @@ const ClientDetails = () => {
                       ))}
                     </tbody>
                   </table>
-                </div>
-              </div>
-            )}
-
-            {activeTab === 'followups' && (
-              <div>
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-medium text-gray-900">Follow-up History</h3>
-                  <button
-                    onClick={() => setShowAddFollowUp(true)}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center space-x-2"
-                  >
-                    <Plus className="h-4 w-4" />
-                    <span>Add Follow-up</span>
-                  </button>
-                </div>
-
-                {/* Add Follow-up Modal */}
-                {showAddFollowUp && (
-                  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                    <div className="bg-white rounded-lg w-full max-w-md max-h-[90vh] overflow-y-auto">
-                      <div className="p-6">
-                        <h3 className="text-lg font-semibold text-gray-900 mb-4">Add Follow-up</h3>
-                        <div className="space-y-4">
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                              Type
-                            </label>
-                            <select
-                              name="type"
-                              value={followUpForm.type}
-                              onChange={handleFollowUpFormChange}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            >
-                              <option value="Phone Call">Phone Call</option>
-                              <option value="Email">Email</option>
-                              <option value="Meeting">Meeting</option>
-                              <option value="WhatsApp">WhatsApp</option>
-                            </select>
-                          </div>
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                              Date
-                            </label>
-                            <input
-                              type="date"
-                              name="date"
-                              value={followUpForm.date}
-                              onChange={handleFollowUpFormChange}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                              Time
-                            </label>
-                            <input
-                              type="time"
-                              name="time"
-                              value={followUpForm.time}
-                              onChange={handleFollowUpFormChange}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                              Notes
-                            </label>
-                            <textarea
-                              name="notes"
-                              value={followUpForm.notes}
-                              onChange={handleFollowUpFormChange}
-                              rows={3}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                              placeholder="What was discussed..."
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                              Next Action
-                            </label>
-                            <input
-                              type="text"
-                              name="nextAction"
-                              value={followUpForm.nextAction}
-                              onChange={handleFollowUpFormChange}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                              placeholder="What to do next..."
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                              Next Follow-up Date
-                            </label>
-                            <input
-                              type="date"
-                              name="nextFollowUpDate"
-                              value={followUpForm.nextFollowUpDate}
-                              onChange={handleFollowUpFormChange}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            />
-                          </div>
-                        </div>
-                        <div className="flex justify-end space-x-3 mt-6">
-                          <button
-                            onClick={() => setShowAddFollowUp(false)}
-                            className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
-                          >
-                            Cancel
-                          </button>
-                          <button
-                            onClick={handleAddFollowUp}
-                            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                          >
-                            Add Follow-up
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                <div className="space-y-4">
-                  {followUps.map((followUp) => (
-                    <div key={followUp.id} className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center space-x-2 mb-2">
-                            <span className={`px-2 py-1 text-xs font-medium rounded ${followUp.type === 'Phone Call'
-                              ? 'bg-blue-100 text-blue-800'
-                              : followUp.type === 'Email'
-                                ? 'bg-green-100 text-green-800'
-                                : 'bg-purple-100 text-purple-800'
-                              }`}>
-                              {followUp.type}
-                            </span>
-                            <span className="text-sm text-gray-500">{followUp.date}</span>
-                            {followUp.time && (
-                              <span className="text-sm text-gray-500">{followUp.time}</span>
-                            )}
-                          </div>
-                          <p className="text-sm text-gray-900 mb-2">{followUp.notes}</p>
-                          <div className="flex items-center space-x-2">
-                            <span className="text-xs font-medium text-gray-500">Next Action:</span>
-                            <span className="text-xs font-medium text-blue-600">{followUp.nextAction}</span>
-                          </div>
-                          {followUp.nextFollowUpDate && (
-                            <div className="flex items-center space-x-2 mt-2">
-                              <span className="text-xs font-medium text-gray-500">Next Follow-up:</span>
-                              <span className="text-xs font-medium text-green-600">{followUp.nextFollowUpDate}</span>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
                 </div>
               </div>
             )}
@@ -1296,38 +1050,89 @@ const ClientDetails = () => {
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                      {vendorPayments.map((payment) => (
-                        <tr key={payment.id} className="hover:bg-gray-50">
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {payment.vendorName}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {payment.date}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {payment.amount}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {payment.category}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${payment.status === 'Paid'
-                              ? 'bg-green-100 text-green-800'
-                              : 'bg-yellow-100 text-yellow-800'
-                              }`}>
-                              {payment.status}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {payment.invoiceNumber}
-                          </td>
-                          <td className="px-6 py-4 text-sm text-gray-900">
-                            {payment.description}
+                      {vendorPayments.length > 0 ? (
+                        vendorPayments.map((payment) => (
+                          <tr key={payment.id} className="hover:bg-gray-50">
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{payment.vendorName}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{payment.date}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{payment.amount}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{payment.category}</td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${payment.status === 'Paid' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                                {payment.status}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{payment.invoiceNumber}</td>
+                            <td className="px-6 py-4 text-sm text-gray-900">{payment.description}</td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td colSpan="7" className="px-6 py-4 text-center text-sm text-gray-500">
+                            No vendor payments found.
                           </td>
                         </tr>
-                      ))}
+                      )}
                     </tbody>
                   </table>
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'followups' && (
+              <div>
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-lg font-medium text-gray-900">Follow-ups</h3>
+                  <button
+                    onClick={() => setShowAddFollowUp(true)}
+                    className="flex items-center space-x-2 px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm"
+                  >
+                    <Plus className="h-4 w-4" />
+                    <span>Add Follow-up</span>
+                  </button>
+                </div>
+                <div className="space-y-4">
+                  {followUps.length > 0 ? (
+                    followUps.map((followUp) => (
+                      <div key={followUp.id} className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-sm transition-shadow">
+                        <div className="flex justify-between items-start mb-2">
+                          <div className="flex items-center space-x-2">
+                            <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${followUp.type === 'Call' ? 'bg-blue-100 text-blue-800' :
+                              followUp.type === 'Email' ? 'bg-purple-100 text-purple-800' :
+                                followUp.type === 'Meeting' ? 'bg-green-100 text-green-800' :
+                                  'bg-gray-100 text-gray-800'
+                              }`}>
+                              {followUp.type}
+                            </span>
+                            <span className="text-sm text-gray-500">
+                              {followUp.date} at {followUp.time}
+                            </span>
+                          </div>
+                          <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${followUp.status === 'Completed' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                            }`}>
+                            {followUp.status}
+                          </span>
+                        </div>
+                        <p className="text-gray-900 text-sm mb-2">{followUp.notes}</p>
+                        <div className="flex justify-between items-center text-xs text-gray-500 border-t pt-2 mt-2">
+                          <span>Assigned to: {followUp.assignedTo}</span>
+                          {followUp.nextAction && (
+                            <span>Next Action: {followUp.nextAction}</span>
+                          )}
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-center py-8 text-gray-500 bg-gray-50 rounded-lg">
+                      <p>No follow-ups found.</p>
+                      <button
+                        onClick={() => setShowAddFollowUp(true)}
+                        className="mt-2 text-blue-600 hover:text-blue-800 text-sm font-medium"
+                      >
+                        Schedule your first follow-up
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
