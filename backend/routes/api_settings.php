@@ -130,6 +130,9 @@ Route::middleware('auth:sanctum')->prefix('company-settings')->group(function ()
     // Statistics
     Route::get('/stats', [CompanySettingsController::class, 'getStats']);
 
+    // Subscription details
+    Route::get('/subscription', [CompanySettingsController::class, 'getSubscriptionDetails']);
+
     // Company Mail Settings
     Route::get('/mail-settings', [CompanyMailSettingsController::class, 'show']);
     Route::put('/mail-settings', [CompanyMailSettingsController::class, 'update']);

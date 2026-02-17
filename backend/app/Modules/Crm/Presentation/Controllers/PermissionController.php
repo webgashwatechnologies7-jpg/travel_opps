@@ -19,7 +19,14 @@ class PermissionController extends Controller
     public function getRoles(): JsonResponse
     {
         try {
-            $roles = Role::orderBy('name')->get(['id', 'name']);
+            $query = Role::orderBy('name');
+
+            // Manager Restriction: Hide restricted roles
+            if (request()->user() && request()->user()->hasRole('Manager')) {
+                $query->whereNotIn('name', ['Super Admin', 'Admin', 'Company Admin', 'Manager']);
+            }
+
+            $roles = $query->get(['id', 'name']);
 
             return response()->json([
                 'success' => true,
@@ -114,6 +121,17 @@ class PermissionController extends Controller
     {
         try {
             $role = Role::where('name', $roleName)->first();
+
+            // Manager Restriction: Cannot edit permissions of restricted roles
+            if (request()->user() && request()->user()->hasRole('Manager')) {
+                $restrictedRoles = ['Super Admin', 'Admin', 'Company Admin', 'Manager'];
+                if ($role && in_array($role->name, $restrictedRoles)) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Managers cannot edit permissions of this role.',
+                    ], 403);
+                }
+            }
 
             if (!$role) {
                 return response()->json([

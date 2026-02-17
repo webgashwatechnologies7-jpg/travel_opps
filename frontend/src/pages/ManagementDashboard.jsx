@@ -164,7 +164,9 @@ const ManagementDashboard = () => {
   const totalEmployees = employees.length;
   const activeEmployees = employees.filter((e) => e.is_active !== false).length;
   const totalBranches = branches.length;
-  const employeesWithLeads = Object.keys(leadsByUser).length;
+  const employeesWithLeads = Object.keys(leadsByUser).filter(id =>
+    employees.some(e => String(e.id) === String(id))
+  ).length;
 
   const quickLinks = [
     {

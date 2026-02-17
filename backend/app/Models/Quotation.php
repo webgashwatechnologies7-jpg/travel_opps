@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\User;
+use App\Models\Scopes\ScopeByLeadAccess;
 use App\Modules\Leads\Domain\Entities\Lead;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -110,6 +111,8 @@ class Quotation extends Model
 
     protected static function booted()
     {
+        static::addGlobalScope(new ScopeByLeadAccess);
+
         static::creating(function ($quotation) {
             $quotation->quotation_number = 'QOT-' . date('Y') . '-' . str_pad((static::max('id') + 1), 5, '0', STR_PAD_LEFT);
         });

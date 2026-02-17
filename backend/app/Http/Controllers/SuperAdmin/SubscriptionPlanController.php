@@ -98,6 +98,23 @@ class SubscriptionPlanController extends Controller
 
         $plan->update($request->all());
 
+        // Force logout all users belonging to this plan to ensure they get the updated settings on next login
+        try {
+            $companyIds = \App\Models\Company::where('subscription_plan_id', $plan->id)->pluck('id');
+            if ($companyIds->isNotEmpty()) {
+                \DB::table('personal_access_tokens')
+                    ->whereIn('tokenable_id', function ($query) use ($companyIds) {
+                        $query->select('id')
+                            ->from('users')
+                            ->whereIn('company_id', $companyIds);
+                    })
+                    ->where('tokenable_type', \App\Models\User::class)
+                    ->delete();
+            }
+        } catch (\Exception $e) {
+            \Log::error("Failed to force logout users for plan {$id}: " . $e->getMessage());
+        }
+
         return response()->json([
             'success' => true,
             'message' => 'Subscription plan updated successfully',
@@ -111,7 +128,7 @@ class SubscriptionPlanController extends Controller
     public function destroy($id)
     {
         $plan = SubscriptionPlan::findOrFail($id);
-        
+
         // Check if any companies are using this plan
         if ($plan->companies()->count() > 0) {
             return response()->json([

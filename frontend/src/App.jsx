@@ -4,6 +4,7 @@ import { SettingsProvider } from './contexts/SettingsContext';
 import { ContentProvider } from './contexts/ContentContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import SuperAdminRoute from './components/SuperAdminRoute';
+import FeatureGuard from './components/FeatureGuard';
 import { isMainDomain } from './utils/domainUtils';
 import Login from './pages/Login';
 import ForgotPassword from './pages/ForgotPassword';
@@ -77,6 +78,7 @@ import ManagementDashboard from './pages/ManagementDashboard';
 import CompanyMailSettings from './pages/CompanyMailSettings';
 import CompanyWhatsAppSettings from './pages/CompanyWhatsAppSettings';
 import CallManagement from './pages/CallManagement';
+import SubscriptionDetails from './pages/SubscriptionDetails';
 
 const AppRoutes = () => {
   const { user, loading } = useAuth();
@@ -216,7 +218,9 @@ const AppRoutes = () => {
         path="/sales-reps"
         element={
           <ProtectedRoute>
-            <SalesReps />
+            <FeatureGuard feature="analytics">
+              <SalesReps />
+            </FeatureGuard>
           </ProtectedRoute>
         }
       />
@@ -268,7 +272,9 @@ const AppRoutes = () => {
         path="/itineraries"
         element={
           <ProtectedRoute>
-            <Itineraries />
+            <FeatureGuard feature="itineraries">
+              <Itineraries />
+            </FeatureGuard>
           </ProtectedRoute>
         }
       />
@@ -284,7 +290,9 @@ const AppRoutes = () => {
         path="/itineraries/:id"
         element={
           <ProtectedRoute>
-            <ItineraryDetail />
+            <FeatureGuard feature="itineraries">
+              <ItineraryDetail />
+            </FeatureGuard>
           </ProtectedRoute>
         }
       />
@@ -292,7 +300,9 @@ const AppRoutes = () => {
         path="/mail"
         element={
           <ProtectedRoute>
-            <EmailInbox />
+            <FeatureGuard feature="gmail_integration">
+              <EmailInbox />
+            </FeatureGuard>
           </ProtectedRoute>
         }
       />
@@ -300,7 +310,9 @@ const AppRoutes = () => {
         path="/whatsapp"
         element={
           <ProtectedRoute>
-            <WhatsAppInbox />
+            <FeatureGuard feature="whatsapp">
+              <WhatsAppInbox />
+            </FeatureGuard>
           </ProtectedRoute>
         }
       />
@@ -308,7 +320,9 @@ const AppRoutes = () => {
         path="/performance"
         element={
           <ProtectedRoute>
-            <Performance />
+            <FeatureGuard feature="analytics">
+              <Performance />
+            </FeatureGuard>
           </ProtectedRoute>
         }
       />
@@ -316,7 +330,9 @@ const AppRoutes = () => {
         path="/dashboard/employee-performance"
         element={
           <ProtectedRoute>
-            <Performance />
+            <FeatureGuard feature="analytics">
+              <Performance />
+            </FeatureGuard>
           </ProtectedRoute>
         }
       />
@@ -324,7 +340,9 @@ const AppRoutes = () => {
         path="/analytics"
         element={
           <ProtectedRoute>
-            <Analytics />
+            <FeatureGuard feature="analytics">
+              <Analytics />
+            </FeatureGuard>
           </ProtectedRoute>
         }
       />
@@ -332,7 +350,9 @@ const AppRoutes = () => {
         path="/dashboard/source-roi"
         element={
           <ProtectedRoute>
-            <Analytics />
+            <FeatureGuard feature="analytics">
+              <Analytics />
+            </FeatureGuard>
           </ProtectedRoute>
         }
       />
@@ -340,7 +360,9 @@ const AppRoutes = () => {
         path="/dashboard/destination-performance"
         element={
           <ProtectedRoute>
-            <Analytics />
+            <FeatureGuard feature="analytics">
+              <Analytics />
+            </FeatureGuard>
           </ProtectedRoute>
         }
       />
@@ -381,6 +403,14 @@ const AppRoutes = () => {
         element={
           <ProtectedRoute>
             <Permissions />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/settings/subscription"
+        element={
+          <ProtectedRoute>
+            <SubscriptionDetails />
           </ProtectedRoute>
         }
       />
@@ -512,7 +542,9 @@ const AppRoutes = () => {
         path="/masters/suppliers"
         element={
           <ProtectedRoute>
-            <Suppliers />
+            <FeatureGuard feature="suppliers">
+              <Suppliers />
+            </FeatureGuard>
           </ProtectedRoute>
         }
       />
@@ -520,7 +552,9 @@ const AppRoutes = () => {
         path="/masters/hotel"
         element={
           <ProtectedRoute>
-            <Hotel />
+            <FeatureGuard feature="hotels">
+              <Hotel />
+            </FeatureGuard>
           </ProtectedRoute>
         }
       />
@@ -528,7 +562,9 @@ const AppRoutes = () => {
         path="/masters/activity"
         element={
           <ProtectedRoute>
-            <Activity />
+            <FeatureGuard feature="activities">
+              <Activity />
+            </FeatureGuard>
           </ProtectedRoute>
         }
       />
@@ -536,7 +572,9 @@ const AppRoutes = () => {
         path="/masters/transfer"
         element={
           <ProtectedRoute>
-            <Transfer />
+            <FeatureGuard feature="transfers">
+              <Transfer />
+            </FeatureGuard>
           </ProtectedRoute>
         }
       />
@@ -544,7 +582,9 @@ const AppRoutes = () => {
         path="/masters/day-itinerary"
         element={
           <ProtectedRoute>
-            <DayItinerary />
+            <FeatureGuard feature="day_itineraries">
+              <DayItinerary />
+            </FeatureGuard>
           </ProtectedRoute>
         }
       />
@@ -552,7 +592,9 @@ const AppRoutes = () => {
         path="/masters/destinations"
         element={
           <ProtectedRoute>
-            <Destinations />
+            <FeatureGuard feature="destinations">
+              <Destinations />
+            </FeatureGuard>
           </ProtectedRoute>
         }
       />
@@ -560,7 +602,9 @@ const AppRoutes = () => {
         path="/masters/room-type"
         element={
           <ProtectedRoute>
-            <RoomType />
+            <FeatureGuard feature="hotels">
+              <RoomType />
+            </FeatureGuard>
           </ProtectedRoute>
         }
       />
@@ -568,7 +612,9 @@ const AppRoutes = () => {
         path="/masters/meal-plan"
         element={
           <ProtectedRoute>
-            <MealPlan />
+            <FeatureGuard feature="hotels">
+              <MealPlan />
+            </FeatureGuard>
           </ProtectedRoute>
         }
       />
@@ -616,7 +662,9 @@ const AppRoutes = () => {
         path="/marketing"
         element={
           <ProtectedRoute>
-            <MarketingDashboard />
+            <FeatureGuard feature="campaigns">
+              <MarketingDashboard />
+            </FeatureGuard>
           </ProtectedRoute>
         }
       />
@@ -624,7 +672,9 @@ const AppRoutes = () => {
         path="/marketing/email-campaigns"
         element={
           <ProtectedRoute>
-            <EmailCampaigns />
+            <FeatureGuard feature="campaigns">
+              <EmailCampaigns />
+            </FeatureGuard>
           </ProtectedRoute>
         }
       />
@@ -632,7 +682,9 @@ const AppRoutes = () => {
         path="/marketing/sms-campaigns"
         element={
           <ProtectedRoute>
-            <SmsCampaigns />
+            <FeatureGuard feature="sms_campaigns">
+              <SmsCampaigns />
+            </FeatureGuard>
           </ProtectedRoute>
         }
       />
@@ -640,7 +692,19 @@ const AppRoutes = () => {
         path="/marketing/templates"
         element={
           <ProtectedRoute>
-            <MarketingTemplates />
+            <FeatureGuard feature="email_templates">
+              <MarketingTemplates />
+            </FeatureGuard>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/marketing/whatsapp-templates"
+        element={
+          <ProtectedRoute>
+            <FeatureGuard feature="whatsapp">
+              <MarketingTemplates />
+            </FeatureGuard>
           </ProtectedRoute>
         }
       />
@@ -648,7 +712,9 @@ const AppRoutes = () => {
         path="/marketing/analytics"
         element={
           <ProtectedRoute>
-            <MarketingAnalytics />
+            <FeatureGuard feature="analytics">
+              <MarketingAnalytics />
+            </FeatureGuard>
           </ProtectedRoute>
         }
       />
@@ -656,7 +722,9 @@ const AppRoutes = () => {
         path="/marketing/automation"
         element={
           <ProtectedRoute>
-            <MarketingAutomation />
+            <FeatureGuard feature="marketing_automation">
+              <MarketingAutomation />
+            </FeatureGuard>
           </ProtectedRoute>
         }
       />
@@ -664,7 +732,9 @@ const AppRoutes = () => {
         path="/marketing/landing-pages"
         element={
           <ProtectedRoute>
-            <LandingPages />
+            <FeatureGuard feature="landing_pages">
+              <LandingPages />
+            </FeatureGuard>
           </ProtectedRoute>
         }
       />
@@ -672,7 +742,9 @@ const AppRoutes = () => {
         path="/marketing/landing-pages/:id/edit"
         element={
           <ProtectedRoute>
-            <LandingPageEditor />
+            <FeatureGuard feature="landing_pages">
+              <LandingPageEditor />
+            </FeatureGuard>
           </ProtectedRoute>
         }
       />

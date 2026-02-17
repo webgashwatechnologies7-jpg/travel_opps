@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { useAuth } from '../contexts/AuthContext';
@@ -421,8 +422,8 @@ const UserDetails = () => {
               </button>
               <div className="flex items-center space-x-2">
                 <span className={`px-3 py-1 rounded-full text-sm font-medium ${user.is_active
-                    ? 'bg-green-100 text-green-800'
-                    : 'bg-red-100 text-red-800'
+                  ? 'bg-green-100 text-green-800'
+                  : 'bg-red-100 text-red-800'
                   }`}>
                   {user.is_active ? 'Active' : 'Inactive'}
                 </span>
@@ -738,8 +739,8 @@ const UserDetails = () => {
                     key={range}
                     onClick={() => setSelectedRange(range)}
                     className={`px-3 py-1 text-sm rounded-full border transition-colors ${selectedRange === range
-                        ? 'bg-blue-600 text-white border-blue-600'
-                        : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'
+                      ? 'bg-blue-600 text-white border-blue-600'
+                      : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'
                       }`}
                   >
                     {range.charAt(0).toUpperCase() + range.slice(1)}
@@ -936,8 +937,8 @@ const UserDetails = () => {
                       type="button"
                       onClick={() => openChat(conv.lead_id)}
                       className={`w-full text-left px-4 py-3 rounded-lg border transition-colors ${selectedChatLeadId === conv.lead_id
-                          ? 'bg-green-50 border-green-300 ring-1 ring-green-200'
-                          : 'bg-gray-50 border-gray-200 hover:bg-gray-100'
+                        ? 'bg-green-50 border-green-300 ring-1 ring-green-200'
+                        : 'bg-gray-50 border-gray-200 hover:bg-gray-100'
                         }`}
                     >
                       <div className="font-medium text-gray-900">{conv.client_name || conv.phone || 'Unknown'}</div>

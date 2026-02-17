@@ -26,7 +26,8 @@ const PricingTab = ({
   optionGstSettings = {},
   setOptionGstSettings,
   showToastNotification,
-  onPricingSaveSuccess
+  onPricingSaveSuccess,
+  readOnly = false
 }) => {
 
   // Collect all accommodation events with hotel options (preserve optionIdx for key consistency with FinalTab)
@@ -352,6 +353,7 @@ const PricingTab = ({
                                     placeholder="Net"
                                     min="0"
                                     step="1"
+                                    disabled={readOnly}
                                   />
                                   <input
                                     type="number"
@@ -370,6 +372,7 @@ const PricingTab = ({
                                     placeholder="MUP"
                                     min="0"
                                     step="1"
+                                    disabled={readOnly}
                                   />
                                 </div>
                                 <div className="text-xs font-bold text-blue-600">
@@ -411,6 +414,7 @@ const PricingTab = ({
                           placeholder="Set price"
                           min="0"
                           step="1"
+                          disabled={readOnly}
                         />
                       </div>
                     </div>
@@ -440,6 +444,7 @@ const PricingTab = ({
                           className="w-full px-2 py-1 border border-gray-300 rounded"
                           min="0"
                           step="0.01"
+                          disabled={readOnly}
                         />
                       </div>
                       <div>
@@ -460,6 +465,7 @@ const PricingTab = ({
                           className="w-full px-2 py-1 border border-gray-300 rounded"
                           min="0"
                           step="0.01"
+                          disabled={readOnly}
                         />
                       </div>
                       <div>
@@ -480,6 +486,7 @@ const PricingTab = ({
                           className="w-full px-2 py-1 border border-gray-300 rounded"
                           min="0"
                           step="0.01"
+                          disabled={readOnly}
                         />
                       </div>
                       <div>
@@ -500,6 +507,7 @@ const PricingTab = ({
                           className="w-full px-2 py-1 border border-gray-300 rounded"
                           min="0"
                           step="0.01"
+                          disabled={readOnly}
                         />
                       </div>
                       <div>
@@ -520,17 +528,20 @@ const PricingTab = ({
                           className="w-full px-2 py-1 border border-gray-300 rounded"
                           min="0"
                           step="0.01"
+                          disabled={readOnly}
                         />
                       </div>
                     </div>
                     <div className="mt-2 flex justify-end">
-                      <button
-                        type="button"
-                        onClick={() => handleSaveOptionSettings(optNum)}
-                        className="px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded hover:bg-blue-700"
-                      >
-                        Save GST & Pricing
-                      </button>
+                      {!readOnly && (
+                        <button
+                          type="button"
+                          onClick={() => handleSaveOptionSettings(optNum)}
+                          className="px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded hover:bg-blue-700"
+                        >
+                          Save GST & Pricing
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>

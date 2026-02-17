@@ -49,6 +49,8 @@ class Company extends Model
         'google_redirect_uri',
         'google_enabled',
         'google_status',
+        'dns_status',
+        'dns_verification_token',
     ];
 
     /**

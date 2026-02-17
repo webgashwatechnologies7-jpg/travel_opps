@@ -43,7 +43,7 @@ class Kernel extends HttpKernel
             // \Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful::class,
             \App\Http\Middleware\InputSanitizationMiddleware::class,
             \App\Http\Middleware\IdentifyTenant::class,
-            \Illuminate\Routing\Middleware\ThrottleRequests::class.':180,1', // 180 requests per minute (dashboard makes many calls)
+            \Illuminate\Routing\Middleware\ThrottleRequests::class . ':180,1', // 180 requests per minute (dashboard makes many calls)
             \Illuminate\Routing\Middleware\SubstituteBindings::class,
             \App\Http\Middleware\ApiErrorHandlerMiddleware::class,
             \App\Http\Middleware\SecurityHeadersMiddleware::class,
@@ -75,6 +75,7 @@ class Kernel extends HttpKernel
         'tenant' => \App\Http\Middleware\IdentifyTenant::class,
         'superadmin' => \App\Http\Middleware\EnsureSuperAdmin::class,
         'feature' => \App\Http\Middleware\CheckFeatureAccess::class,
+        'plan.feature' => \App\Http\Middleware\CheckPlanFeature::class,
         'tenant.param' => \App\Http\Middleware\EnsureTenantFromCompanyParam::class,
     ];
 }

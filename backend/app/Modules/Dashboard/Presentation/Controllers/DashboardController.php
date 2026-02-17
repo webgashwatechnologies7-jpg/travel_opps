@@ -11,6 +11,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Auth;
 
 class DashboardController extends Controller
 {
@@ -23,11 +24,13 @@ class DashboardController extends Controller
     public function stats(Request $request): JsonResponse
     {
         try {
+            $currentUser = $request->user();
+            $companyId = $currentUser->company_id;
             $today = now()->toDateString();
             $currentYear = now()->year;
 
             // Calculate statistics
-            $calculateStats = function () use ($today, $currentYear) {
+            $calculateStats = function () use ($today, $currentYear, $companyId) {
                 // Basic statistics
                 $todayQueries = Lead::whereDate('created_at', $today)->count();
                 $totalQueries = Lead::count();
@@ -46,15 +49,15 @@ class DashboardController extends Controller
                 // Revenue growth monthly (last 12 months)
                 $revenueGrowthMonthly = [];
                 $months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-                
+
                 for ($i = 11; $i >= 0; $i--) {
                     $date = now()->subMonths($i);
                     $monthStart = $date->copy()->startOfMonth();
                     $monthEnd = $date->copy()->endOfMonth();
-                    
+
                     $amount = Payment::whereBetween('created_at', [$monthStart, $monthEnd])
                         ->sum('paid_amount') ?? 0;
-                    
+
                     $revenueGrowthMonthly[] = [
                         'month' => $months[$date->month - 1],
                         'amount' => (float) $amount,
@@ -66,12 +69,12 @@ class DashboardController extends Controller
                 for ($month = 1; $month <= 12; $month++) {
                     $monthStart = now()->setYear($currentYear)->setMonth($month)->startOfMonth();
                     $monthEnd = now()->setYear($currentYear)->setMonth($month)->endOfMonth();
-                    
+
                     $queries = Lead::whereBetween('created_at', [$monthStart, $monthEnd])->count();
                     $confirmedCount = Lead::whereBetween('created_at', [$monthStart, $monthEnd])
                         ->where('status', 'confirmed')
                         ->count();
-                    
+
                     $thisYearQueriesConfirmed[] = [
                         'month' => $months[$month - 1],
                         'queries' => $queries,
@@ -81,9 +84,11 @@ class DashboardController extends Controller
 
                 // Upcoming tours (confirmed leads with earliest payment due_date)
                 $upcomingTours = Lead::where('status', 'confirmed')
-                    ->with(['payments' => function ($query) {
-                        $query->orderBy('due_date', 'asc');
-                    }])
+                    ->with([
+                        'payments' => function ($query) {
+                            $query->orderBy('due_date', 'asc');
+                        }
+                    ])
                     ->get()
                     ->map(function ($lead) {
                         $earliestPayment = $lead->payments->where('due_date', '!=', null)->first();
@@ -120,22 +125,74 @@ class DashboardController extends Controller
                     ->toArray();
 
                 // Sales reps (users with assigned leads)
-                $salesReps = DB::table('users')
-                    ->join('leads', 'users.id', '=', 'leads.assigned_to')
-                    ->select(
-                        'users.id as user_id',
-                        'users.name',
-                        DB::raw('COUNT(leads.id) as assigned'),
-                        DB::raw("SUM(CASE WHEN leads.status = 'confirmed' THEN 1 ELSE 0 END) as confirmed")
-                    )
-                    ->groupBy('users.id', 'users.name')
-                    ->get()
+                $salesRepsQuery = User::where('company_id', $companyId)
+                    ->has('leadsAssigned')
+                    ->withCount(['leadsAssigned as assigned'])
+                    ->withCount([
+                        'leadsAssigned as confirmed' => function ($query) {
+                            $query->where('status', 'confirmed');
+                        }
+                    ])
+                    ->withCount([
+                        'leadsAssigned as rejected' => function ($query) {
+                            $query->where('status', 'cancelled');
+                        }
+                    ])
+                    ->withCount([
+                        'leadsAssigned as pending' => function ($query) {
+                            $query->whereNotIn('status', ['confirmed', 'cancelled']);
+                        }
+                    ]);
+
+                // Manager Restriction: Only see subordinates
+                if (Auth::user()->hasRole('Manager')) {
+                    $salesRepsQuery->whereDoesntHave('roles', function ($q) {
+                        $q->whereIn('name', ['Super Admin', 'Admin', 'Company Admin', 'Manager']);
+                    });
+                }
+
+                $salesReps = $salesRepsQuery->get()
                     ->map(function ($user) {
                         return [
-                            'user_id' => $user->user_id,
+                            'user_id' => $user->id,
                             'name' => $user->name,
                             'assigned' => (int) $user->assigned,
                             'confirmed' => (int) $user->confirmed,
+                            'rejected' => (int) $user->rejected,
+                            'pending' => (int) $user->pending,
+                        ];
+                    })
+                    ->toArray();
+
+                // Team Leaders specifically
+                $teamLeaderStats = User::role('Team Leader')
+                    ->where('company_id', $companyId)
+                    ->withCount(['leadsAssigned as assigned'])
+                    ->withCount([
+                        'leadsAssigned as confirmed' => function ($query) {
+                            $query->where('status', 'confirmed');
+                        }
+                    ])
+                    ->withCount([
+                        'leadsAssigned as rejected' => function ($query) {
+                            $query->where('status', 'cancelled');
+                        }
+                    ])
+                    ->withCount([
+                        'leadsAssigned as pending' => function ($query) {
+                            $query->whereNotIn('status', ['confirmed', 'cancelled']);
+                        }
+                    ])
+                    ->get()
+                    ->map(function ($user) {
+                        return [
+                            'id' => $user->id,
+                            'name' => $user->name,
+                            'is_active' => (bool) $user->is_active,
+                            'assigned' => $user->assigned,
+                            'confirmed' => $user->confirmed,
+                            'rejected' => $user->rejected,
+                            'pending' => $user->pending,
                         ];
                     })
                     ->toArray();
@@ -186,18 +243,20 @@ class DashboardController extends Controller
                     'upcoming_tours' => $upcomingTours,
                     'latest_query_notes' => $latestQueryNotes,
                     'sales_reps' => $salesReps,
+                    'team_leader_stats' => $teamLeaderStats,
                     'top_lead_sources' => $topLeadSources,
                     'top_destinations' => $topDestinations,
                 ];
             };
 
-            // Use default cache (file) with 60-second TTL, fallback to array cache if fails
+            // Use default cache (file) with 60-second TTL, fixed key for tenant safety
+            $cacheKey = 'dashboard_stats_v5_' . $currentUser->id;
             try {
-                $stats = Cache::remember('dashboard_stats', 60, $calculateStats);
+                $stats = Cache::remember($cacheKey, 60, $calculateStats);
             } catch (\Exception $e) {
                 // Fallback to array cache if default cache fails
                 try {
-                    $stats = Cache::store('array')->remember('dashboard_stats', 60, $calculateStats);
+                    $stats = Cache::store('array')->remember($cacheKey, 60, $calculateStats);
                 } catch (\Exception $e2) {
                     // If all caching fails, just calculate directly
                     $stats = $calculateStats();

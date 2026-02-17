@@ -1,9 +1,22 @@
 import { useState, useEffect } from 'react';
+import { useAuth } from '../contexts/AuthContext';
+import { toast } from 'react-toastify';
 import Layout from '../components/Layout';
 import { Search, Plus, Edit, X, Trash2, Eye, RefreshCw } from 'lucide-react';
 import { suppliersAPI } from '../services/api';
 
+// Helper for checking permissions
+const hasPermission = (user, permission) => {
+  if (!user) return false;
+  // Super Admin bypass
+  if (user.is_super_admin) return true;
+  // Check granular permission
+  if (user.permissions && user.permissions.includes(permission)) return true;
+  return false;
+};
+
 const Suppliers = () => {
+  const { user } = useAuth();
   const [suppliers, setSuppliers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -97,7 +110,7 @@ const Suppliers = () => {
   const handleSave = async (e) => {
     e.preventDefault();
     setSaving(true);
-    
+
     try {
       const supplierData = {
         city: formData.city,
@@ -134,11 +147,11 @@ const Suppliers = () => {
   const handleEdit = (supplier) => {
     setEditingSupplierId(supplier.id);
     setIsModalOpen(true);
-    
+
     // Extract mobile number and code if mobile contains code
     let mobileNumber = supplier.mobile || '';
     let phoneCode = supplier.phone_code || supplier.code || '+91';
-    
+
     // If mobile already contains code, extract it
     if (mobileNumber && mobileNumber.startsWith('+')) {
       const parts = mobileNumber.split(' ');
@@ -154,7 +167,7 @@ const Suppliers = () => {
         }
       }
     }
-    
+
     // Pre-fill form with supplier data
     setFormData({
       city: supplier.city || '',
@@ -278,13 +291,15 @@ const Suppliers = () => {
               />
             </div>
             {/* Add New Button */}
-            <button
-              onClick={handleAddNew}
-              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2 font-medium"
-            >
-              <Plus className="h-5 w-5" />
-              Add New
-            </button>
+            {hasPermission(user, 'suppliers.create') && (
+              <button
+                onClick={handleAddNew}
+                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2 font-medium"
+              >
+                <Plus className="h-5 w-5" />
+                Add New
+              </button>
+            )}
           </div>
         </div>
 
@@ -316,6 +331,9 @@ const Suppliers = () => {
                     Location
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Status
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Last Update
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -332,11 +350,11 @@ const Suppliers = () => {
                   </tr>
                 ) : (
                   filteredSuppliers.map((supplier) => (
-                  <tr
-                    key={supplier.id}
-                    className="hover:bg-gray-50 cursor-pointer"
-                    onClick={() => handleOpenDetails(supplier, 'yearly')}
-                  >
+                    <tr
+                      key={supplier.id}
+                      className="hover:bg-gray-50 cursor-pointer"
+                      onClick={() => handleOpenDetails(supplier, 'yearly')}
+                    >
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm font-medium text-gray-900">
                           {supplier.company || supplier.company_name || 'N/A'}
@@ -355,6 +373,29 @@ const Suppliers = () => {
                         <div className="text-sm text-gray-900">{formatLocation(supplier)}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
+                        <button
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            if (!hasPermission(user, 'suppliers.status')) return;
+                            try {
+                              const newStatus = (supplier.status === 'active' || !supplier.status) ? 'inactive' : 'active';
+                              await suppliersAPI.update(supplier.id, { ...supplier, status: newStatus });
+                              fetchSuppliers();
+                              toast.success(`Status updated to ${newStatus}`);
+                            } catch (err) {
+                              toast.error('Failed to update status');
+                            }
+                          }}
+                          className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full cursor-pointer ${(supplier.status === 'active' || !supplier.status)
+                            ? 'bg-green-100 text-green-800'
+                            : 'bg-red-100 text-red-800'
+                            }`}
+                          disabled={!hasPermission(user, 'suppliers.status')}
+                        >
+                          {(supplier.status === 'active' || !supplier.status) ? 'Active' : 'Inactive'}
+                        </button>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm text-gray-900">
                           {formatDate(supplier.updated_at || supplier.last_update)}
                         </div>
@@ -370,20 +411,24 @@ const Suppliers = () => {
                         >
                           <Eye className="h-5 w-5" />
                         </button>
-                        <button
-                          onClick={() => handleEdit(supplier)}
-                          className="text-green-600 hover:text-green-900 p-2 hover:bg-green-50 rounded"
-                          title="Edit"
-                        >
-                          <Edit className="h-5 w-5" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(supplier.id)}
-                          className="text-red-600 hover:text-red-900 p-2 hover:bg-red-50 rounded ml-2"
-                          title="Delete"
-                        >
-                          <Trash2 className="h-5 w-5" />
-                        </button>
+                        {hasPermission(user, 'suppliers.edit') && (
+                          <button
+                            onClick={() => handleEdit(supplier)}
+                            className="text-green-600 hover:text-green-900 p-2 hover:bg-green-50 rounded"
+                            title="Edit"
+                          >
+                            <Edit className="h-5 w-5" />
+                          </button>
+                        )}
+                        {hasPermission(user, 'suppliers.delete') && (
+                          <button
+                            onClick={() => handleDelete(supplier.id)}
+                            className="text-red-600 hover:text-red-900 p-2 hover:bg-red-50 rounded ml-2"
+                            title="Delete"
+                          >
+                            <Trash2 className="h-5 w-5" />
+                          </button>
+                        )}
                       </td>
                     </tr>
                   ))
@@ -656,11 +701,10 @@ const Suppliers = () => {
                               setDetailsPeriod(item.key);
                               loadFinancialSummary(selectedSupplier.id, item.key);
                             }}
-                            className={`px-3 py-1.5 border-l first:border-l-0 ${
-                              detailsPeriod === item.key
-                                ? 'bg-blue-600 text-white'
-                                : 'bg-transparent text-gray-700 hover:bg-gray-100'
-                            }`}
+                            className={`px-3 py-1.5 border-l first:border-l-0 ${detailsPeriod === item.key
+                              ? 'bg-blue-600 text-white'
+                              : 'bg-transparent text-gray-700 hover:bg-gray-100'
+                              }`}
                           >
                             {item.label}
                           </button>

@@ -1,9 +1,22 @@
 import { useState, useEffect } from 'react';
+import { useAuth } from '../contexts/AuthContext';
+import { toast } from 'react-toastify';
 import Layout from '../components/Layout';
 import { Search, Plus, Edit, X, Upload, Download, Trash2 } from 'lucide-react';
 import { activitiesAPI } from '../services/api';
 
+// Helper for checking permissions
+const hasPermission = (user, permission) => {
+  if (!user) return false;
+  // Super Admin bypass
+  if (user.is_super_admin) return true;
+  // Check granular permission
+  if (user.permissions && user.permissions.includes(permission)) return true;
+  return false;
+};
+
 const Activity = () => {
+  const { user } = useAuth();
   const [activities, setActivities] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -107,7 +120,7 @@ const Activity = () => {
   const handleSave = async (e) => {
     e.preventDefault();
     setSaving(true);
-    
+
     try {
       const activityData = new FormData();
       activityData.append('name', formData.name);
@@ -139,7 +152,7 @@ const Activity = () => {
   const handleEdit = (activity) => {
     setEditingActivityId(activity.id);
     setIsModalOpen(true);
-    
+
     setFormData({
       name: activity.name || '',
       destination: activity.destination || '',
@@ -210,7 +223,7 @@ const Activity = () => {
     try {
       setError('');
       const response = await activitiesAPI.exportActivities();
-      
+
       if (response.data instanceof Blob) {
         const blob = response.data;
         const url = window.URL.createObjectURL(blob);
@@ -222,8 +235,8 @@ const Activity = () => {
         link.remove();
         window.URL.revokeObjectURL(url);
       } else {
-        const blob = new Blob([response.data], { 
-          type: 'text/csv;charset=utf-8;' 
+        const blob = new Blob([response.data], {
+          type: 'text/csv;charset=utf-8;'
         });
         const url = window.URL.createObjectURL(blob);
         const link = document.createElement('a');
@@ -256,7 +269,7 @@ const Activity = () => {
     try {
       setError('');
       const response = await activitiesAPI.downloadImportFormat();
-      
+
       if (response.data instanceof Blob) {
         const blob = response.data;
         const url = window.URL.createObjectURL(blob);
@@ -268,8 +281,8 @@ const Activity = () => {
         link.remove();
         window.URL.revokeObjectURL(url);
       } else {
-        const blob = new Blob([response.data], { 
-          type: 'text/csv;charset=utf-8;' 
+        const blob = new Blob([response.data], {
+          type: 'text/csv;charset=utf-8;'
         });
         const url = window.URL.createObjectURL(blob);
         const link = document.createElement('a');
@@ -353,7 +366,7 @@ const Activity = () => {
         await activitiesAPI.createPrice(selectedActivity.id, priceFormData);
         await fetchActivities();
       }
-      
+
       await fetchPrices(selectedActivity.id);
       setEditingPriceId(null);
       setPriceFormData({
@@ -446,20 +459,24 @@ const Activity = () => {
               />
             </div>
             {/* Action Buttons */}
-            <button
-              onClick={handleAddNew}
-              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2 font-medium"
-            >
-              <Plus className="h-5 w-5" />
-              Add New
-            </button>
-            <button
-              onClick={handleImport}
-              className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center gap-2 font-medium"
-            >
-              <Upload className="h-5 w-5" />
-              Import
-            </button>
+            {hasPermission(user, 'activities.create') && (
+              <button
+                onClick={handleAddNew}
+                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2 font-medium"
+              >
+                <Plus className="h-5 w-5" />
+                Add New
+              </button>
+            )}
+            {hasPermission(user, 'activities.create') && (
+              <button
+                onClick={handleImport}
+                className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center gap-2 font-medium"
+              >
+                <Upload className="h-5 w-5" />
+                Import
+              </button>
+            )}
             <button
               onClick={handleExport}
               className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center gap-2 font-medium"
@@ -537,13 +554,56 @@ const Activity = () => {
                         </button>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                          activity.status === 'active' 
-                            ? 'bg-green-100 text-green-800' 
+                        <button
+                          onClick={async () => {
+                            if (!hasPermission(user, 'activities.status')) return;
+                            try {
+                              const newStatus = activity.status === 'active' ? 'inactive' : 'active';
+                              // Use FormData since backend might expect that for activities (update handles it?)
+                              // Or simple JSON. ActivitiesAPI.update uses FormData in my view, 
+                              // but let's see if we can just pass object. Usually frontend uses FormData if photos involved.
+                              // Let's create FormData to be safe, or just assume backend handles JSON too.
+                              // Wait, existing handleSave uses FormData.
+                              const formData = new FormData();
+                              formData.append('status', newStatus);
+                              formData.append('_method', 'PUT'); // Laravel sometimes needs this for PUT with FormData
+
+                              // We should ideally preserve other fields but update only status. 
+                              // Backend 'update' likely updates all fields.
+                              // For now, let's assume partial update is supported OR fetch all data.
+                              // Safest is to just send status if backend supports partial.
+                              // If not, we might wipe data.
+
+                              // Actually, let's just use the toggle but if I need to use FormData, I need existing values.
+                              // But 'activity' object here has existing values.
+
+                              // Let's try sending just JSON first if the update endpoint supports it.
+                              // If `activitiesAPI.update` expects id and data.
+                              // If existing code uses FormData, let's use FormData with all existing fields.
+
+                              const submitData = new FormData();
+                              submitData.append('name', activity.name);
+                              submitData.append('destination', activity.destination);
+                              submitData.append('activity_details', activity.activity_details || '');
+                              submitData.append('status', newStatus);
+                              submitData.append('_method', 'PUT');
+
+                              await activitiesAPI.update(activity.id, submitData);
+                              fetchActivities();
+                              toast.success(`Status updated to ${newStatus}`);
+                            } catch (err) {
+                              console.error(err);
+                              toast.error('Failed to update status');
+                            }
+                          }}
+                          className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full cursor-pointer ${activity.status === 'active'
+                            ? 'bg-green-100 text-green-800'
                             : 'bg-red-100 text-red-800'
-                        }`}>
+                            }`}
+                          disabled={!hasPermission(user, 'activities.status')}
+                        >
                           {activity.status === 'active' ? 'Active' : 'Inactive'}
-                        </span>
+                        </button>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm text-gray-900">{activity.created_by_name || 'Travbizz Travel IT Solutions'}</div>
@@ -554,20 +614,24 @@ const Activity = () => {
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <button
-                          onClick={() => handleEdit(activity)}
-                          className="text-green-600 hover:text-green-900 p-2 hover:bg-green-50 rounded"
-                          title="Edit"
-                        >
-                          <Edit className="h-5 w-5" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(activity.id)}
-                          className="text-red-600 hover:text-red-900 p-2 hover:bg-red-50 rounded ml-2"
-                          title="Delete"
-                        >
-                          <Trash2 className="h-5 w-5" />
-                        </button>
+                        {hasPermission(user, 'activities.edit') && (
+                          <button
+                            onClick={() => handleEdit(activity)}
+                            className="text-green-600 hover:text-green-900 p-2 hover:bg-green-50 rounded"
+                            title="Edit"
+                          >
+                            <Edit className="h-5 w-5" />
+                          </button>
+                        )}
+                        {hasPermission(user, 'activities.delete') && (
+                          <button
+                            onClick={() => handleDelete(activity.id)}
+                            className="text-red-600 hover:text-red-900 p-2 hover:bg-red-50 rounded ml-2"
+                            title="Delete"
+                          >
+                            <Trash2 className="h-5 w-5" />
+                          </button>
+                        )}
                       </td>
                     </tr>
                   ))

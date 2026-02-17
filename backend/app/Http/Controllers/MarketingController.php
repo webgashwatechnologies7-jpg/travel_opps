@@ -31,7 +31,7 @@ class MarketingController extends Controller
             $stats = [
                 'total_campaigns' => EmailCampaign::count() + SmsCampaign::count(),
                 'active_campaigns' => EmailCampaign::where('status', 'active')->count() +
-                                     SmsCampaign::where('status', 'active')->count(),
+                    SmsCampaign::where('status', 'active')->count(),
                 'total_sent' => EmailCampaign::sum('sent_count') + SmsCampaign::sum('sent_count'),
                 'total_opens' => EmailCampaign::sum('open_count'),
                 'total_clicks' => EmailCampaign::sum('click_count'),
@@ -51,7 +51,7 @@ class MarketingController extends Controller
                 'user_id' => auth()->id(),
                 'company_id' => auth()->user()?->company_id
             ]);
-            
+
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to retrieve marketing stats',
@@ -316,15 +316,25 @@ class MarketingController extends Controller
         try {
             $campaign = EmailCampaign::findOrFail($id);
 
-            if ($campaign->status === 'sent') {
+            // Atomic check and update to avoid race conditions
+            $affected = EmailCampaign::where('id', $id)
+                ->whereNotIn('status', ['sent', 'sending'])
+                ->update(['status' => 'sending']);
+
+            if ($affected === 0) {
+                // Check if it exists first to give 404, otherwise 400
+                if (!EmailCampaign::find($id)) {
+                    throw new \Illuminate\Database\Eloquent\ModelNotFoundException;
+                }
+
                 return response()->json([
                     'success' => false,
-                    'message' => 'Campaign has already been sent',
+                    'message' => 'Campaign is already being sent or has been completed',
                 ], 400);
             }
 
-            // Move to sending state and process
-            $campaign->update(['status' => 'sending']);
+            // Reload campaign
+            $campaign = EmailCampaign::findOrFail($id);
             $result = $this->processEmailCampaign($campaign->fresh());
 
             if ($result['status'] === 'sent' && $result['sent_count'] > 0) {
@@ -584,10 +594,10 @@ class MarketingController extends Controller
         $totalSent = EmailCampaign::sum('sent_count') + SmsCampaign::sum('sent_count');
         // Simple approximation: count recently created leads as "conversions"
         $totalConversions = Lead::where('created_at', '>=', now()->subDays(30))->count();
-        
+
         return $totalSent > 0 ? round(($totalConversions / $totalSent) * 100, 2) : 0;
     }
-    
+
     private function getRecentCampaigns(): array
     {
         return EmailCampaign::with(['template'])
@@ -625,7 +635,7 @@ class MarketingController extends Controller
                     'template_id' => $campaign->template_id,
                     'error' => $templateError->getMessage()
                 ]);
-                
+
                 $campaign->update(['status' => 'failed']);
                 return [
                     'status' => 'failed',
@@ -633,7 +643,7 @@ class MarketingController extends Controller
                     'reason' => 'Template not found or inaccessible',
                 ];
             }
-            
+
             if (!$template || !$template->is_active || $template->type !== 'email') {
                 \Log::warning('Invalid template for campaign', [
                     'campaign_id' => $campaign->id,
@@ -641,7 +651,7 @@ class MarketingController extends Controller
                     'template_active' => $template?->is_active,
                     'template_type' => $template?->type
                 ]);
-                
+
                 $campaign->update(['status' => 'failed']);
                 return [
                     'status' => 'failed',
@@ -655,14 +665,15 @@ class MarketingController extends Controller
                 $leadIds = (array) $campaign->lead_ids;
                 $leads = Lead::whereIn('id', $leadIds)
                     ->whereNotNull('email')
-                    ->get();
+                    ->get()
+                    ->unique('email');
             } catch (\Exception $leadError) {
                 \Log::error('Error loading campaign leads', [
                     'campaign_id' => $campaign->id,
                     'lead_ids' => $campaign->lead_ids,
                     'error' => $leadError->getMessage()
                 ]);
-                
+
                 $campaign->update(['status' => 'failed']);
                 return [
                     'status' => 'failed',
@@ -677,7 +688,7 @@ class MarketingController extends Controller
                     'requested_lead_ids' => $leadIds,
                     'total_requested' => count($leadIds)
                 ]);
-                
+
                 $campaign->update([
                     'status' => 'failed',
                     'sent_at' => now(),
@@ -712,7 +723,7 @@ class MarketingController extends Controller
                     'campaign_id' => $campaign->id,
                     'error' => $settingsError->getMessage()
                 ]);
-                
+
                 // Use defaults
                 $fromEmail = config('mail.from.address', 'noreply@travelops.com');
                 $fromName = config('mail.from.name', 'TravelOps');
@@ -762,7 +773,7 @@ class MarketingController extends Controller
                         'lead_id' => $lead->id,
                         'email' => $lead->email
                     ]);
-                    
+
                 } catch (\Throwable $e) {
                     // Log and continue with next lead
                     \Log::error('Email campaign send failed for lead', [
@@ -772,7 +783,7 @@ class MarketingController extends Controller
                         'error' => $e->getMessage(),
                         'error_type' => get_class($e)
                     ]);
-                    
+
                     $lastError = $e->getMessage();
                     $failedLeads[] = [
                         'lead_id' => $lead->id,
@@ -813,14 +824,14 @@ class MarketingController extends Controller
                     : ($lastError ?: 'Unknown error while sending emails'),
                 'failed_leads' => $failedLeads
             ];
-            
+
         } catch (\Exception $e) {
             \Log::error('Critical error in email campaign processing', [
                 'campaign_id' => $campaign->id,
                 'error' => $e->getMessage(),
                 'trace' => config('app.debug') ? $e->getTraceAsString() : null
             ]);
-            
+
             try {
                 $campaign->update(['status' => 'failed']);
             } catch (\Exception $updateError) {
@@ -829,7 +840,7 @@ class MarketingController extends Controller
                     'error' => $updateError->getMessage()
                 ]);
             }
-            
+
             return [
                 'status' => 'failed',
                 'sent_count' => 0,
@@ -852,7 +863,7 @@ class MarketingController extends Controller
                     'campaign_id' => $campaign->id,
                     'requested_lead_ids' => $leadIds
                 ]);
-                
+
                 $campaign->update(['status' => 'failed']);
                 return;
             }
@@ -868,7 +879,7 @@ class MarketingController extends Controller
                         'lead_id' => $lead->id,
                         'phone' => $lead->phone
                     ]);
-                    
+
                     $sentCount++;
                 } catch (\Exception $smsError) {
                     \Log::error('Failed to send SMS to lead', [
@@ -881,32 +892,32 @@ class MarketingController extends Controller
             }
 
             $status = $sentCount > 0 ? 'sent' : 'failed';
-            
+
             $campaign->update([
                 'status' => $status,
                 'sent_at' => now(),
                 'sent_count' => $sentCount,
             ]);
-            
+
             // Update lead status
             if ($sentCount > 0) {
                 Lead::whereIn('id', $campaign->lead_ids)
                     ->update(['last_contacted_at' => now()]);
             }
-            
+
             \Log::info('SMS campaign processing completed', [
                 'campaign_id' => $campaign->id,
                 'status' => $status,
                 'sent_count' => $sentCount,
                 'total_leads' => $leads->count()
             ]);
-            
+
         } catch (\Exception $e) {
             \Log::error('Critical error in SMS campaign processing', [
                 'campaign_id' => $campaign->id,
                 'error' => $e->getMessage()
             ]);
-            
+
             $campaign->update(['status' => 'failed']);
         }
     }
@@ -1286,10 +1297,10 @@ class MarketingController extends Controller
     {
         try {
             $companyId = auth()->user()?->company_id;
-            $pages = LandingPage::when($companyId, fn ($q) => $q->where('company_id', $companyId))
+            $pages = LandingPage::when($companyId, fn($q) => $q->where('company_id', $companyId))
                 ->orderBy('created_at', 'desc')
                 ->get()
-                ->map(fn ($p) => [
+                ->map(fn($p) => [
                     'id' => $p->id,
                     'name' => $p->name,
                     'title' => $p->title,
@@ -1435,7 +1446,7 @@ class MarketingController extends Controller
     {
         try {
             $companyId = auth()->user()?->company_id;
-            $page = LandingPage::when($companyId, fn ($q) => $q->where('company_id', $companyId))
+            $page = LandingPage::when($companyId, fn($q) => $q->where('company_id', $companyId))
                 ->findOrFail($id);
 
             $validator = Validator::make($request->all(), [
@@ -1509,7 +1520,7 @@ class MarketingController extends Controller
     {
         try {
             $companyId = auth()->user()?->company_id;
-            $page = LandingPage::when($companyId, fn ($q) => $q->where('company_id', $companyId))
+            $page = LandingPage::when($companyId, fn($q) => $q->where('company_id', $companyId))
                 ->findOrFail($id);
             $page->delete();
 
@@ -1535,7 +1546,7 @@ class MarketingController extends Controller
     {
         try {
             $companyId = auth()->user()?->company_id;
-            $page = LandingPage::when($companyId, fn ($q) => $q->where('company_id', $companyId))
+            $page = LandingPage::when($companyId, fn($q) => $q->where('company_id', $companyId))
                 ->findOrFail($id);
             $page->update(['status' => 'published', 'published_at' => now()]);
 
@@ -1565,7 +1576,7 @@ class MarketingController extends Controller
     {
         try {
             $companyId = auth()->user()?->company_id;
-            $page = LandingPage::when($companyId, fn ($q) => $q->where('company_id', $companyId))
+            $page = LandingPage::when($companyId, fn($q) => $q->where('company_id', $companyId))
                 ->findOrFail($id);
 
             return response()->json([
@@ -1598,7 +1609,7 @@ class MarketingController extends Controller
     {
         try {
             $companyId = auth()->user()?->company_id;
-            $page = LandingPage::when($companyId, fn ($q) => $q->where('company_id', $companyId))
+            $page = LandingPage::when($companyId, fn($q) => $q->where('company_id', $companyId))
                 ->findOrFail($id);
 
             $sections = $page->sections ?? LandingPageTemplateService::getDefaultSections($page->template ?? 'travel-package');
@@ -1741,7 +1752,7 @@ class MarketingController extends Controller
             $clients = $group->leads()
                 ->select('leads.id', 'leads.client_name as name', 'leads.email', 'leads.phone', 'leads.status')
                 ->get()
-                ->map(fn ($l) => [
+                ->map(fn($l) => [
                     'id' => $l->id,
                     'name' => $l->name,
                     'email' => $l->email,

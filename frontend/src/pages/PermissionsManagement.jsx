@@ -21,20 +21,20 @@ const PermissionsManagement = () => {
     try {
       setLoading(true);
       setError('');
-      
+
       // First get available features
       const availableFeaturesResponse = await superAdminAPI.getAvailableFeatures();
-      const availableFeaturesData = availableFeaturesResponse.data.success 
-        ? availableFeaturesResponse.data.data 
+      const availableFeaturesData = availableFeaturesResponse.data.success
+        ? availableFeaturesResponse.data.data
         : {};
       setAvailableFeatures(availableFeaturesData);
-      
+
       // Then get plans (with permissions column)
       const response = await superAdminAPI.getSubscriptionPlans();
       if (response.data.success) {
         const plansData = response.data.data;
         setPlans(plansData);
-        
+
         // Load features for each plan
         const featuresPromises = plansData.map(async (plan) => {
           try {
@@ -45,14 +45,14 @@ const PermissionsManagement = () => {
             const featuresResponse = await superAdminAPI.getPlanFeatures(plan.id);
             if (featuresResponse.data.success && featuresResponse.data.data && Array.isArray(featuresResponse.data.data) && featuresResponse.data.data.length > 0) {
               const features = featuresResponse.data.data;
-              
+
               // Backend already checks permissions column and returns is_enabled correctly
               // Just normalize boolean values
               const normalizedFeatures = features.map(f => ({
                 ...f,
                 is_enabled: f.is_enabled === true || f.is_enabled === 'true' || f.is_enabled === 1 || f.is_enabled === '1'
               }));
-              
+
               return { planId: plan.id, features: normalizedFeatures };
             } else {
               // If no features exist, create from available features
@@ -81,14 +81,14 @@ const PermissionsManagement = () => {
             return { planId: plan.id, features: defaultFeatures };
           }
         });
-        
+
         const featuresResults = await Promise.all(featuresPromises);
         const featuresMap = {};
         featuresResults.forEach(({ planId, features }) => {
           featuresMap[planId] = features;
         });
         setPlanFeatures(featuresMap);
-        
+
         // Set first plan as active tab
         if (plansData.length > 0 && !activeTab) {
           setActiveTab(plansData[0].id);
@@ -120,17 +120,17 @@ const PermissionsManagement = () => {
   const toggleAllFeatures = (planId, enable) => {
     const updated = { ...planFeatures };
     if (!updated[planId]) return;
-    
+
     // Ensure enable is boolean
     const enableBool = enable === true || enable === 'true' || enable === 1;
-    
+
     updated[planId] = updated[planId].map(feature => ({
       ...feature,
       is_enabled: enableBool, // Ensure boolean
       // Reset limit if disabling
       limit_value: enableBool ? feature.limit_value : null,
     }));
-    
+
     setPlanFeatures(updated);
   };
 
@@ -159,19 +159,20 @@ const PermissionsManagement = () => {
       const featuresToSave = planFeatures[planId].map(feature => {
         // Ensure is_enabled is properly converted to boolean
         const isEnabled = feature.is_enabled === true || feature.is_enabled === 'true' || feature.is_enabled === 1;
-        
+
         const featureData = {
+          feature_id: feature.feature_id,
           feature_key: feature.feature_key,
-          is_enabled: isEnabled, // Ensure boolean
+          is_active: isEnabled,
         };
-        
+
         // Only include limit_value if feature has limit and is enabled
         if (feature.has_limit && isEnabled && feature.limit_value) {
           featureData.limit_value = parseInt(feature.limit_value) || null;
         } else {
           featureData.limit_value = null;
         }
-        
+
         return featureData;
       });
 
@@ -188,7 +189,7 @@ const PermissionsManagement = () => {
             ...f,
             is_enabled: f.is_enabled === true || f.is_enabled === 'true' || f.is_enabled === 1 || f.is_enabled === '1'
           }));
-          
+
           // Update features from response
           const updated = { ...planFeatures };
           updated[planId] = normalizedFeatures;
@@ -215,9 +216,9 @@ const PermissionsManagement = () => {
     } catch (err) {
       console.error('Save error details:', err);
       console.error('Error response:', err.response);
-      
+
       let errorMsg = 'Failed to save permissions';
-      
+
       if (err.response?.data) {
         if (err.response.data.message) {
           errorMsg = err.response.data.message;
@@ -233,7 +234,7 @@ const PermissionsManagement = () => {
       } else if (err.message) {
         errorMsg = err.message;
       }
-      
+
       setError(errorMsg);
     } finally {
       setSaving({ ...saving, [planId]: false });
@@ -306,18 +307,16 @@ const PermissionsManagement = () => {
                     <button
                       key={plan.id}
                       onClick={() => setActiveTab(plan.id)}
-                      className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
-                        activeTab === plan.id
+                      className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${activeTab === plan.id
                           ? 'border-blue-500 text-blue-600'
                           : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                      }`}
+                        }`}
                     >
                       {plan.name}
-                      <span className={`ml-2 text-xs px-2 py-1 rounded ${
-                        activeTab === plan.id
+                      <span className={`ml-2 text-xs px-2 py-1 rounded ${activeTab === plan.id
                           ? 'bg-blue-100 text-blue-800'
                           : 'bg-gray-100 text-gray-600'
-                      }`}>
+                        }`}>
                         {getEnabledCount(plan.id)}/{getTotalCount(plan.id)} enabled
                       </span>
                     </button>
@@ -425,11 +424,10 @@ const PermissionsManagement = () => {
                       {planFeatures[plan.id].map((feature, index) => (
                         <div
                           key={feature.feature_key}
-                          className={`border-2 rounded-lg p-4 transition-all cursor-pointer hover:shadow-md ${
-                            (feature.is_enabled === true || feature.is_enabled === 'true' || feature.is_enabled === 1)
+                          className={`border-2 rounded-lg p-4 transition-all cursor-pointer hover:shadow-md ${(feature.is_enabled === true || feature.is_enabled === 'true' || feature.is_enabled === 1)
                               ? 'border-green-400 bg-green-50 shadow-sm'
                               : 'border-gray-200 bg-white hover:border-gray-300'
-                          }`}
+                            }`}
                           onClick={() => toggleFeature(plan.id, index)}
                         >
                           <div className="flex items-start gap-3">

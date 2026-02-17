@@ -2,8 +2,20 @@ import { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
 import { Search, Plus, Edit, X, Upload, Download, Star, Trash2 } from 'lucide-react';
 import { hotelsAPI } from '../services/api';
+import { useAuth } from '../contexts/AuthContext';
+
+// Helper for checking permissions
+const hasPermission = (user, permission) => {
+  if (!user) return false;
+  // Super Admin bypass
+  if (user.is_super_admin) return true;
+  // Check granular permission
+  if (user.permissions && user.permissions.includes(permission)) return true;
+  return false;
+};
 
 const Hotel = () => {
+  const { user } = useAuth();
   const [hotels, setHotels] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -135,7 +147,7 @@ const Hotel = () => {
   const handleSave = async (e) => {
     e.preventDefault();
     setSaving(true);
-    
+
     try {
       const hotelData = new FormData();
       hotelData.append('name', formData.name);
@@ -173,7 +185,7 @@ const Hotel = () => {
   const handleEdit = (hotel) => {
     setEditingHotelId(hotel.id);
     setIsModalOpen(true);
-    
+
     setFormData({
       name: hotel.name || '',
       category: hotel.category || '',
@@ -251,12 +263,12 @@ const Hotel = () => {
     try {
       setError('');
       const response = await hotelsAPI.exportHotels();
-      
+
       // Check if response is actually a blob
       if (response.data instanceof Blob) {
         // Create blob from response
         const blob = response.data;
-        
+
         // Create download link
         const url = window.URL.createObjectURL(blob);
         const link = document.createElement('a');
@@ -268,10 +280,10 @@ const Hotel = () => {
         window.URL.revokeObjectURL(url);
       } else {
         // If not a blob, try to create one from the data
-        const blob = new Blob([response.data], { 
-          type: 'text/csv;charset=utf-8;' 
+        const blob = new Blob([response.data], {
+          type: 'text/csv;charset=utf-8;'
         });
-        
+
         const url = window.URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
@@ -283,7 +295,7 @@ const Hotel = () => {
       }
     } catch (err) {
       let errorMessage = 'Failed to export hotels';
-      
+
       // Try to parse error response if it's a blob
       if (err.response?.data instanceof Blob) {
         try {
@@ -296,7 +308,7 @@ const Hotel = () => {
       } else if (err.response?.data?.message) {
         errorMessage = err.response.data.message;
       }
-      
+
       setError(errorMessage);
       console.error('Export error:', err);
     }
@@ -306,12 +318,12 @@ const Hotel = () => {
     try {
       setError('');
       const response = await hotelsAPI.downloadImportFormat();
-      
+
       // Check if response is actually a blob
       if (response.data instanceof Blob) {
         // Create blob from response
         const blob = response.data;
-        
+
         // Create download link
         const url = window.URL.createObjectURL(blob);
         const link = document.createElement('a');
@@ -323,10 +335,10 @@ const Hotel = () => {
         window.URL.revokeObjectURL(url);
       } else {
         // If not a blob, try to create one from the data
-        const blob = new Blob([response.data], { 
-          type: 'text/csv;charset=utf-8;' 
+        const blob = new Blob([response.data], {
+          type: 'text/csv;charset=utf-8;'
         });
-        
+
         const url = window.URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
@@ -338,7 +350,7 @@ const Hotel = () => {
       }
     } catch (err) {
       let errorMessage = 'Failed to download import format';
-      
+
       // Try to parse error response if it's a blob
       if (err.response?.data instanceof Blob) {
         try {
@@ -351,7 +363,7 @@ const Hotel = () => {
       } else if (err.response?.data?.message) {
         errorMessage = err.response.data.message;
       }
-      
+
       setError(errorMessage);
       console.error('Download error:', err);
     }
@@ -427,7 +439,7 @@ const Hotel = () => {
         await hotelsAPI.createRate(selectedHotel.id, rateFormData);
         await fetchHotels(); // Refresh hotels list to update count
       }
-      
+
       await fetchRates(selectedHotel.id);
       setEditingRateId(null);
       setRateFormData({
@@ -571,20 +583,26 @@ const Hotel = () => {
               />
             </div>
             {/* Action Buttons */}
-            <button
-              onClick={handleAddNew}
-              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2 font-medium"
-            >
-              <Plus className="h-5 w-5" />
-              Add New
-            </button>
-            <button
-              onClick={handleImport}
-              className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center gap-2 font-medium"
-            >
-              <Upload className="h-5 w-5" />
-              Import
-            </button>
+            {hasPermission(user, 'hotels.create') && (
+              <button
+                onClick={handleAddNew}
+                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2 font-medium"
+              >
+                <Plus className="h-5 w-5" />
+                Add New
+              </button>
+            )}
+
+            {hasPermission(user, 'hotels.create') && (
+              <button
+                onClick={handleImport}
+                className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center gap-2 font-medium"
+              >
+                <Upload className="h-5 w-5" />
+                Import
+              </button>
+            )}
+
             <button
               onClick={handleExport}
               className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center gap-2 font-medium"
@@ -592,13 +610,16 @@ const Hotel = () => {
               <Download className="h-5 w-5" />
               Export
             </button>
-            <button
-              onClick={handleDownloadFormat}
-              className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center gap-2 font-medium"
-            >
-              <Download className="h-5 w-5" />
-              Download Import Format
-            </button>
+
+            {hasPermission(user, 'hotels.create') && (
+              <button
+                onClick={handleDownloadFormat}
+                className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center gap-2 font-medium"
+              >
+                <Download className="h-5 w-5" />
+                Download Import Format
+              </button>
+            )}
           </div>
         </div>
 
@@ -660,19 +681,24 @@ const Hotel = () => {
                         <div className="text-sm text-gray-900">{hotel.destination || 'N/A'}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <button
-                          onClick={() => handleUpdatePrice(hotel)}
-                          className="text-sm text-blue-600 hover:text-blue-800 cursor-pointer"
-                        >
-                          Update ({hotel.price_updates_count || 0})
-                        </button>
+                        {hasPermission(user, 'hotels.edit') ? (
+                          <button
+                            onClick={() => handleUpdatePrice(hotel)}
+                            className="text-sm text-blue-600 hover:text-blue-800 cursor-pointer"
+                          >
+                            Update ({hotel.price_updates_count || 0})
+                          </button>
+                        ) : (
+                          <span className="text-sm text-gray-500">
+                            {hotel.price_updates_count || 0} Prices
+                          </span>
+                        )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                          hotel.status === 'active' 
-                            ? 'bg-green-100 text-green-800' 
-                            : 'bg-red-100 text-red-800'
-                        }`}>
+                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${hotel.status === 'active'
+                          ? 'bg-green-100 text-green-800'
+                          : 'bg-red-100 text-red-800'
+                          }`}>
                           {hotel.status === 'active' ? 'Active' : 'Inactive'}
                         </span>
                       </td>
@@ -685,20 +711,26 @@ const Hotel = () => {
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <button
-                          onClick={() => handleEdit(hotel)}
-                          className="text-green-600 hover:text-green-900 p-2 hover:bg-green-50 rounded"
-                          title="Edit"
-                        >
-                          <Edit className="h-5 w-5" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(hotel.id)}
-                          className="text-red-600 hover:text-red-900 p-2 hover:bg-red-50 rounded ml-2"
-                          title="Delete"
-                        >
-                          <Trash2 className="h-5 w-5" />
-                        </button>
+                        <div className="flex items-center gap-2">
+                          {hasPermission(user, 'hotels.edit') && (
+                            <button
+                              onClick={() => handleEdit(hotel)}
+                              className="text-green-600 hover:text-green-900 p-2 hover:bg-green-50 rounded"
+                              title="Edit"
+                            >
+                              <Edit className="h-5 w-5" />
+                            </button>
+                          )}
+                          {hasPermission(user, 'hotels.delete') && (
+                            <button
+                              onClick={() => handleDelete(hotel.id)}
+                              className="text-red-600 hover:text-red-900 p-2 hover:bg-red-50 rounded"
+                              title="Delete"
+                            >
+                              <Trash2 className="h-5 w-5" />
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))

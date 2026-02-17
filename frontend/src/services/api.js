@@ -758,6 +758,7 @@ export const superAdminAPI = {
   updateCompany: (id, data) => api.put(`/super-admin/companies/${id}`, data),
   deleteCompany: (id) => api.delete(`/super-admin/companies/${id}`),
   getCompanyStats: () => api.get('/super-admin/companies/stats'),
+  verifyCompanyDns: (id) => api.post(`/super-admin/companies/${id}/verify-dns`),
   mailHealth: (params = {}) => api.get('/super-admin/mail/health', { params }),
   // Subscription Plans
   getSubscriptionPlans: () => api.get('/super-admin/subscription-plans'),
@@ -812,6 +813,8 @@ export const companySettingsAPI = {
 
   // Statistics
   getStats: () => api.get('/company-settings/stats'),
+  // Subscription details
+  getSubscription: () => api.get('/company-settings/subscription'),
   // Mail settings
   getMailSettings: () => api.get('/company-settings/mail-settings'),
   updateMailSettings: (data) => api.put('/company-settings/mail-settings', data),

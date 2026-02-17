@@ -7,11 +7,34 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use App\Models\SubscriptionPlanFeature;
+use App\Models\SubscriptionFeature;
 
 class SubscriptionPlan extends Model
 {
     use HasFactory, SoftDeletes;
+
+    /**
+     * Get the dynamic features for this subscription plan.
+     */
+    public function planFeatures(): BelongsToMany
+    {
+        return $this->belongsToMany(SubscriptionFeature::class, 'plan_features', 'subscription_plan_id', 'subscription_feature_id')
+            ->withPivot('is_active', 'limit_value')
+            ->withTimestamps();
+    }
+
+    /**
+     * Check if plan has a specific dynamic feature enabled.
+     */
+    public function hasDynamicFeature(string $featureKey): bool
+    {
+        return $this->planFeatures()
+            ->where('key', $featureKey)
+            ->wherePivot('is_active', true)
+            ->exists();
+    }
 
     protected $fillable = [
         'name',
@@ -72,7 +95,7 @@ class SubscriptionPlan extends Model
             ->where('feature_key', $featureKey)
             ->where('is_enabled', true)
             ->first();
-        
+
         return $feature ? $feature->limit_value : null;
     }
 
@@ -118,7 +141,7 @@ class SubscriptionPlan extends Model
         if (empty($featureIds)) {
             return collect();
         }
-        
+
         return SubscriptionPlanFeature::whereIn('id', $featureIds)
             ->where('subscription_plan_id', $this->id)
             ->where('is_enabled', true)

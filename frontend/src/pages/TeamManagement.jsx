@@ -2,9 +2,9 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import Layout from '../components/Layout';
-import { 
-  Users, 
-  Building, 
+import {
+  Users,
+  Building,
   Shield,
   Plus,
   Edit2,
@@ -36,7 +36,7 @@ const TeamManagement = () => {
   const [selectedUser, setSelectedUser] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
-  
+
   // Data states
   const [users, setUsers] = useState([]);
   const [branches, setBranches] = useState([]);
@@ -46,6 +46,8 @@ const TeamManagement = () => {
   const [permissionsList, setPermissionsList] = useState([]);
   const [permissionsLoading, setPermissionsLoading] = useState(false);
   const [selectedPermissions, setSelectedPermissions] = useState([]);
+
+  const isManager = user?.roles?.some(r => (typeof r === 'string' ? r === 'Manager' : r.name === 'Manager'));
 
   // Form data
   const [formData, setFormData] = useState({
@@ -152,7 +154,7 @@ const TeamManagement = () => {
           showNotification('error', 'Password is required for new users.');
           return;
         }
-        
+
         submitData = {
           name: formData.name,
           email: formData.email,
@@ -367,11 +369,10 @@ const TeamManagement = () => {
       {notification.text && (
         <div className="fixed bottom-6 right-6 z-50 max-w-sm w-full">
           <div
-            className={`px-4 py-3 rounded shadow-lg text-sm transition-all duration-300 ${
-              notification.type === 'success'
-                ? 'bg-white border border-green-200 text-gray-900'
-                : 'bg-white border border-red-200 text-gray-900'
-            } ${notification.visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'}`}
+            className={`px-4 py-3 rounded shadow-lg text-sm transition-all duration-300 ${notification.type === 'success'
+              ? 'bg-white border border-green-200 text-gray-900'
+              : 'bg-white border border-red-200 text-gray-900'
+              } ${notification.visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'}`}
           >
             <div className="text-xs text-gray-500">TravelOps</div>
             <div className="flex items-start justify-between gap-2">
@@ -444,11 +445,10 @@ const TeamManagement = () => {
             <nav className="flex space-x-8">
               <button
                 onClick={() => setActiveTab('users')}
-                className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                  activeTab === 'users'
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
+                className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'users'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
               >
                 <div className="flex items-center gap-2">
                   <Users className="h-4 w-4" />
@@ -457,11 +457,10 @@ const TeamManagement = () => {
               </button>
               <button
                 onClick={() => setActiveTab('branches')}
-                className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                  activeTab === 'branches'
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
+                className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'branches'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
               >
                 <div className="flex items-center gap-2">
                   <Building className="h-4 w-4" />
@@ -470,11 +469,10 @@ const TeamManagement = () => {
               </button>
               <button
                 onClick={() => setActiveTab('roles')}
-                className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                  activeTab === 'roles'
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
+                className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'roles'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
               >
                 <div className="flex items-center gap-2">
                   <Shield className="h-4 w-4" />
@@ -511,29 +509,42 @@ const TeamManagement = () => {
                     <option value="inactive">Inactive</option>
                   </select>
                 </div>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => openModal('branch')}
-                    className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2 font-medium"
-                  >
-                    <Plus className="h-4 w-4" />
-                    Add Branch
-                  </button>
-                  <button
-                    onClick={() => openModal('user')}
-                    className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center gap-2 font-medium"
-                  >
-                    <Users className="h-4 w-4" />
-                    Add User
-                  </button>
-                  <button
-                    onClick={() => openModal('role')}
-                    className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 flex items-center gap-2 font-medium"
-                  >
-                    <Shield className="h-4 w-4" />
-                    Add Role
-                  </button>
-                </div>
+                {!isManager && (
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => openModal('branch')}
+                      className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2 font-medium"
+                    >
+                      <Plus className="h-4 w-4" />
+                      Add Branch
+                    </button>
+                    <button
+                      onClick={() => openModal('user')}
+                      className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center gap-2 font-medium"
+                    >
+                      <Users className="h-4 w-4" />
+                      Add User
+                    </button>
+                    <button
+                      onClick={() => openModal('role')}
+                      className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 flex items-center gap-2 font-medium"
+                    >
+                      <Shield className="h-4 w-4" />
+                      Add Role
+                    </button>
+                  </div>
+                )}
+                {isManager && (
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => openModal('user')}
+                      className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center gap-2 font-medium"
+                    >
+                      <Users className="h-4 w-4" />
+                      Add User
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -553,10 +564,10 @@ const TeamManagement = () => {
                 <tbody className="bg-white divide-y divide-gray-200">
                   {branches.filter(branch => {
                     const matchesSearch = branch.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                                         branch.code.toLowerCase().includes(searchTerm.toLowerCase());
-                    const matchesStatus = statusFilter === 'all' || 
-                                         (statusFilter === 'active' && branch.is_active) ||
-                                         (statusFilter === 'inactive' && !branch.is_active);
+                      branch.code.toLowerCase().includes(searchTerm.toLowerCase());
+                    const matchesStatus = statusFilter === 'all' ||
+                      (statusFilter === 'active' && branch.is_active) ||
+                      (statusFilter === 'inactive' && !branch.is_active);
                     return matchesSearch && matchesStatus;
                   }).sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0)).map((branch) => (
                     <tr key={branch.id} className="hover:bg-gray-50">
@@ -575,32 +586,33 @@ const TeamManagement = () => {
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{branch.users_count || 0}</td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span
-                          className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                            branch.is_active
-                              ? 'bg-green-100 text-green-800'
-                              : 'bg-red-100 text-red-800'
-                          }`}
+                          className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${branch.is_active
+                            ? 'bg-green-100 text-green-800'
+                            : 'bg-red-100 text-red-800'
+                            }`}
                         >
                           {branch.is_active ? 'Active' : 'Inactive'}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <div className="flex justify-end gap-2">
-                          <button
-                            onClick={() => handleEdit(branch, 'branch')}
-                            className="p-1 text-blue-600 hover:bg-blue-50 rounded transition-colors"
-                            title="Edit"
-                          >
-                            <Edit2 className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={() => handleDelete(branch, 'branch')}
-                            className="p-1 text-red-600 hover:bg-red-50 rounded transition-colors"
-                            title="Delete"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </div>
+                        {!isManager && (
+                          <div className="flex justify-end gap-2">
+                            <button
+                              onClick={() => handleEdit(branch, 'branch')}
+                              className="p-1 text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                              title="Edit"
+                            >
+                              <Edit2 className="h-4 w-4" />
+                            </button>
+                            <button
+                              onClick={() => handleDelete(branch, 'branch')}
+                              className="p-1 text-red-600 hover:bg-red-50 rounded transition-colors"
+                              title="Delete"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </div>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -661,10 +673,10 @@ const TeamManagement = () => {
                 <tbody className="bg-white divide-y divide-gray-200">
                   {users.filter(user => {
                     const matchesSearch = user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                                         user.email.toLowerCase().includes(searchTerm.toLowerCase());
-                    const matchesStatus = statusFilter === 'all' || 
-                                         (statusFilter === 'active' && user.is_active) ||
-                                         (statusFilter === 'inactive' && !user.is_active);
+                      user.email.toLowerCase().includes(searchTerm.toLowerCase());
+                    const matchesStatus = statusFilter === 'all' ||
+                      (statusFilter === 'active' && user.is_active) ||
+                      (statusFilter === 'inactive' && !user.is_active);
                     return matchesSearch && matchesStatus;
                   }).sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0)).map((user) => (
                     <tr key={user.id} className="hover:bg-gray-50">
@@ -687,11 +699,10 @@ const TeamManagement = () => {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span
-                          className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                            user.is_active
-                              ? 'bg-green-100 text-green-800'
-                              : 'bg-red-100 text-red-800'
-                          }`}
+                          className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${user.is_active
+                            ? 'bg-green-100 text-green-800'
+                            : 'bg-red-100 text-red-800'
+                            }`}
                         >
                           {user.is_active ? 'Active' : 'Inactive'}
                         </span>
@@ -753,13 +764,15 @@ const TeamManagement = () => {
                     />
                   </div>
                 </div>
-                <button
-                  onClick={() => openModal('role')}
-                  className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 flex items-center gap-2 font-medium"
-                >
-                  <Plus className="h-4 w-4" />
-                  Add Role
-                </button>
+                {!isManager && (
+                  <button
+                    onClick={() => openModal('role')}
+                    className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 flex items-center gap-2 font-medium"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Add Role
+                  </button>
+                )}
               </div>
             </div>
 
@@ -776,61 +789,63 @@ const TeamManagement = () => {
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {roles
-                    .filter(role => 
+                    .filter(role =>
                       role.name.toLowerCase().includes(searchTerm.toLowerCase())
                     )
                     .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0))
                     .map((role) => (
-                    <tr key={role.name} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center">
-                          <div className="h-8 w-8 rounded-full bg-purple-100 flex items-center justify-center">
-                            <Shield className="h-4 w-4 text-purple-600" />
+                      <tr key={role.name} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center">
+                            <div className="h-8 w-8 rounded-full bg-purple-100 flex items-center justify-center">
+                              <Shield className="h-4 w-4 text-purple-600" />
+                            </div>
+                            <div className="ml-3">
+                              <div className="text-sm font-medium text-gray-900">{role.name}</div>
+                            </div>
                           </div>
-                          <div className="ml-3">
-                            <div className="text-sm font-medium text-gray-900">{role.name}</div>
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-900">
+                          <div className="flex flex-wrap gap-1">
+                            {role.permissions?.map(permission => (
+                              <span key={permission} className="inline-flex px-2 py-1 text-xs font-medium bg-gray-100 text-gray-800 rounded">
+                                {permission}
+                              </span>
+                            )) || 'No permissions defined'}
                           </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-900">
-                        <div className="flex flex-wrap gap-1">
-                          {role.permissions?.map(permission => (
-                            <span key={permission} className="inline-flex px-2 py-1 text-xs font-medium bg-gray-100 text-gray-800 rounded">
-                              {permission}
-                            </span>
-                          )) || 'No permissions defined'}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {users.filter(user => user.roles?.some(userRole => userRole.name === role.name)).length} users
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <div className="flex justify-end gap-2">
-                          <button
-                            onClick={() => handleEdit(role, 'role')}
-                            className="p-1 text-blue-600 hover:bg-blue-50 rounded transition-colors"
-                            title="Edit"
-                          >
-                            <Edit2 className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={() => openRolePermissions(role)}
-                            className="p-1 text-purple-600 hover:bg-purple-50 rounded transition-colors"
-                            title="Permissions"
-                          >
-                            <Key className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={() => handleDelete(role, 'role')}
-                            className="p-1 text-red-600 hover:bg-red-50 rounded transition-colors"
-                            title="Delete"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {users.filter(user => user.roles?.some(userRole => userRole.name === role.name)).length} users
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                          {!isManager && (
+                            <div className="flex justify-end gap-2">
+                              <button
+                                onClick={() => openRolePermissions(role)}
+                                className="p-1 text-purple-600 hover:bg-purple-50 rounded transition-colors"
+                                title="Permissions"
+                              >
+                                <Key className="h-4 w-4" />
+                              </button>
+                              <button
+                                onClick={() => handleEdit(role, 'role')}
+                                className="p-1 text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                                title="Edit"
+                              >
+                                <Edit2 className="h-4 w-4" />
+                              </button>
+                              <button
+                                onClick={() => handleDelete(role, 'role')}
+                                className="p-1 text-red-600 hover:bg-red-50 rounded transition-colors"
+                                title="Delete"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
                 </tbody>
               </table>
             </div>
@@ -882,21 +897,113 @@ const TeamManagement = () => {
                       <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
                     </div>
                   ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-80 overflow-y-auto">
-                      {permissionsList.map((permission) => (
-                        <label
-                          key={permission.id}
-                          className="flex items-center gap-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer"
-                        >
-                          <input
-                            type="checkbox"
-                            checked={selectedPermissions.includes(permission.id)}
-                            onChange={() => togglePermission(permission.id)}
-                            className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                          />
-                          <span className="text-sm text-gray-700">{permission.name}</span>
-                        </label>
-                      ))}
+                    <div className="max-h-[60vh] overflow-y-auto pr-2">
+                      {(() => {
+                        // Group permissions
+                        const grouped = {};
+                        permissionsList.forEach(p => {
+                          const parts = p.name.split('.');
+                          const groupName = parts[0];
+                          if (!grouped[groupName]) {
+                            grouped[groupName] = [];
+                          }
+                          grouped[groupName].push(p);
+                        });
+
+                        return Object.entries(grouped).map(([group, perms]) => {
+                          // Find the main permission for the group (e.g. "leads_management")
+                          const mainPerm = perms.find(p => p.name === group);
+                          const subPerms = perms.filter(p => p.name !== group);
+
+                          // Sort sub-permissions: create, edit, delete
+                          const sortOrder = { 'create': 1, 'edit': 2, 'delete': 3 };
+                          subPerms.sort((a, b) => {
+                            const actionA = a.name.split('.')[1] || '';
+                            const actionB = b.name.split('.')[1] || '';
+                            return (sortOrder[actionA] || 99) - (sortOrder[actionB] || 99);
+                          });
+
+                          return (
+                            <div key={group} className="mb-6 bg-gray-50 rounded-lg p-4">
+                              <div className="flex items-center justify-between mb-3 border-b border-gray-200 pb-2">
+                                <h4 className="font-semibold text-gray-800 capitalize">
+                                  {group.replace(/_/g, ' ')}
+                                </h4>
+                                {mainPerm && (
+                                  <label className="flex items-center gap-2 cursor-pointer">
+                                    <input
+                                      type="checkbox"
+                                      checked={selectedPermissions.includes(mainPerm.id)}
+                                      onChange={(e) => {
+                                        const isChecked = e.target.checked;
+                                        let newSelected = [...selectedPermissions];
+
+                                        // Toggle main permission
+                                        if (isChecked) {
+                                          if (!newSelected.includes(mainPerm.id)) newSelected.push(mainPerm.id);
+                                          // Auto-select all sub-permissions if checking main
+                                          subPerms.forEach(sp => {
+                                            if (!newSelected.includes(sp.id)) newSelected.push(sp.id);
+                                          });
+                                        } else {
+                                          newSelected = newSelected.filter(id => id !== mainPerm.id);
+                                          // Auto_deselect sub-permissions if unchecking main
+                                          subPerms.forEach(sp => {
+                                            newSelected = newSelected.filter(id => id !== sp.id);
+                                          });
+                                        }
+                                        setSelectedPermissions(newSelected);
+                                      }}
+                                      className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                    />
+                                    <span className="text-sm font-medium text-gray-700">Enable Module</span>
+                                  </label>
+                                )}
+                              </div>
+
+                              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 ml-2">
+                                {subPerms.map((permission) => {
+                                  const action = permission.name.split('.')[1];
+                                  return (
+                                    <label
+                                      key={permission.id}
+                                      className="flex items-center gap-2 p-2 bg-white border border-gray-200 rounded hover:bg-gray-50 cursor-pointer"
+                                    >
+                                      <input
+                                        type="checkbox"
+                                        checked={selectedPermissions.includes(permission.id)}
+                                        onChange={() => togglePermission(permission.id)}
+                                        // Disable sub-permissions if main permission is not checked (optional, but good UX)
+                                        disabled={mainPerm && !selectedPermissions.includes(mainPerm.id)}
+                                        className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 disabled:opacity-50"
+                                      />
+                                      <span className="text-sm text-gray-700 capitalize">
+                                        {action || permission.name}
+                                      </span>
+                                    </label>
+                                  );
+                                })}
+                                {subPerms.length === 0 && !mainPerm && perms.map(p => (
+                                  <label
+                                    key={p.id}
+                                    className="flex items-center gap-2 p-2 bg-white border border-gray-200 rounded hover:bg-gray-50 cursor-pointer"
+                                  >
+                                    <input
+                                      type="checkbox"
+                                      checked={selectedPermissions.includes(p.id)}
+                                      onChange={() => togglePermission(p.id)}
+                                      className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                    />
+                                    <span className="text-sm text-gray-700">
+                                      {p.name}
+                                    </span>
+                                  </label>
+                                ))}
+                              </div>
+                            </div>
+                          );
+                        });
+                      })()}
                     </div>
                   )}
 
@@ -926,315 +1033,315 @@ const TeamManagement = () => {
                   <div>
                     <div className="p-6">
                       {modalType === 'role' ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Role Name *</label>
-                        <input
-                          type="text"
-                          value={formData.name}
-                          onChange={(e) => {
-                            const nextName = e.target.value;
-                            setFormData((prev) => ({
-                              ...prev,
-                              name: nextName,
-                              slug: generateSlug(nextName),
-                            }));
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Role Name *</label>
+                            <input
+                              type="text"
+                              value={formData.name}
+                              onChange={(e) => {
+                                const nextName = e.target.value;
+                                setFormData((prev) => ({
+                                  ...prev,
+                                  name: nextName,
+                                  slug: generateSlug(nextName),
+                                }));
+                              }}
+                              required
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Role Slug *</label>
+                            <input
+                              type="text"
+                              value={formData.slug}
+                              required
+                              readOnly
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-100"
+                            />
+                          </div>
+                        </div>
+                      ) : modalType === 'branch' ? (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Branch Name *</label>
+                            <input
+                              type="text"
+                              value={formData.name}
+                              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                              required
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Branch Address</label>
+                            <input
+                              type="text"
+                              value={formData.address}
+                              onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                          </div>
+                        </div>
+                      ) : modalType === 'user' && selectedUser ? (
+                        <div className="space-y-4">
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">Name *</label>
+                              <input
+                                type="text"
+                                value={formData.name}
+                                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                                required
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">Email *</label>
+                              <input
+                                type="email"
+                                value={formData.email}
+                                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                                required
+                                name="user_email_new"
+                                autoComplete="off"
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
+                              <input
+                                type="tel"
+                                value={formData.phone}
+                                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">Branch</label>
+                              <select
+                                value={formData.branch_id}
+                                onChange={(e) => setFormData({ ...formData, branch_id: e.target.value })}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              >
+                                <option value="">Select Branch</option>
+                                {branches.map(branch => (
+                                  <option key={branch.id} value={branch.id}>{branch.name}</option>
+                                ))}
+                              </select>
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">Roles</label>
+                              <select
+                                multiple
+                                value={formData.roles}
+                                onChange={(e) => setFormData({ ...formData, roles: Array.from(e.target.selectedOptions).map(option => option.value) })}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              >
+                                {roles.map(role => (
+                                  <option key={role.id} value={role.name}>{role.name}</option>
+                                ))}
+                              </select>
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                              <select
+                                value={formData.is_active}
+                                onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              >
+                                <option value="true">Active</option>
+                                <option value="false">Inactive</option>
+                              </select>
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">Employee ID</label>
+                              <input
+                                type="text"
+                                value={formData.employee_id}
+                                onChange={(e) => setFormData({ ...formData, employee_id: e.target.value })}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                              <input
+                                type="password"
+                                value={formData.password}
+                                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                                name="user_password_new"
+                                autoComplete="new-password"
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">Address</label>
+                              <textarea
+                                value={formData.address}
+                                onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                                rows={3}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">City</label>
+                              <input
+                                type="text"
+                                value={formData.city}
+                                onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">State</label>
+                              <input
+                                type="text"
+                                value={formData.state}
+                                onChange={(e) => setFormData({ ...formData, state: e.target.value })}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">Country</label>
+                              <input
+                                type="text"
+                                value={formData.country}
+                                onChange={(e) => setFormData({ ...formData, country: e.target.value })}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">Postal Code</label>
+                              <input
+                                type="text"
+                                value={formData.postal_code}
+                                onChange={(e) => setFormData({ ...formData, postal_code: e.target.value })}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Name *</label>
+                            <input
+                              type="text"
+                              value={formData.name}
+                              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                              required
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Email *</label>
+                            <input
+                              type="email"
+                              value={formData.email}
+                              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                              required
+                              name="user_email_new"
+                              autoComplete="off"
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
+                            <input
+                              type="tel"
+                              value={formData.phone}
+                              onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Branch</label>
+                            <select
+                              value={formData.branch_id}
+                              onChange={(e) => setFormData({ ...formData, branch_id: e.target.value })}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            >
+                              <option value="">Select Branch</option>
+                              {branches.map(branch => (
+                                <option key={branch.id} value={branch.id}>{branch.name}</option>
+                              ))}
+                            </select>
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Roles</label>
+                            <select
+                              multiple
+                              value={formData.roles}
+                              onChange={(e) => setFormData({ ...formData, roles: Array.from(e.target.selectedOptions).map(option => option.value) })}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            >
+                              {roles.map(role => (
+                                <option key={role.id} value={role.name}>{role.name}</option>
+                              ))}
+                            </select>
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                            <select
+                              value={formData.is_active}
+                              onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            >
+                              <option value="true">Active</option>
+                              <option value="false">Inactive</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Employee ID</label>
+                            <input
+                              type="text"
+                              value={formData.employee_id}
+                              onChange={(e) => setFormData({ ...formData, employee_id: e.target.value })}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                            <input
+                              type="password"
+                              value={formData.password}
+                              onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                              name="user_password_new"
+                              autoComplete="new-password"
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                          </div>
+                        </div>
+                      )}
+                      <div className="flex justify-end gap-4 mt-6">
+                        <button
+                          type="submit"
+                          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2 font-medium"
+                        >
+                          {editingItem ? 'Update' : 'Create'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowModal(false);
+                            setEditingItem(null);
+                            resetForm();
                           }}
-                          required
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Role Slug *</label>
-                        <input
-                          type="text"
-                          value={formData.slug}
-                          required
-                          readOnly
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-100"
-                        />
-                      </div>
-                    </div>
-                  ) : modalType === 'branch' ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Branch Name *</label>
-                        <input
-                          type="text"
-                          value={formData.name}
-                          onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                          required
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Branch Address</label>
-                        <input
-                          type="text"
-                          value={formData.address}
-                          onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
-                      </div>
-                    </div>
-                  ) : modalType === 'user' && selectedUser ? (
-                    <div className="space-y-4">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Name *</label>
-                          <input
-                            type="text"
-                            value={formData.name}
-                            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                            required
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Email *</label>
-                          <input
-                            type="email"
-                            value={formData.email}
-                            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                            required
-                            name="user_email_new"
-                            autoComplete="off"
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
-                          <input
-                            type="tel"
-                            value={formData.phone}
-                            onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Branch</label>
-                          <select
-                            value={formData.branch_id}
-                            onChange={(e) => setFormData({ ...formData, branch_id: e.target.value })}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          >
-                            <option value="">Select Branch</option>
-                            {branches.map(branch => (
-                              <option key={branch.id} value={branch.id}>{branch.name}</option>
-                            ))}
-                          </select>
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Roles</label>
-                          <select
-                            multiple
-                            value={formData.roles}
-                            onChange={(e) => setFormData({ ...formData, roles: Array.from(e.target.selectedOptions).map(option => option.value) })}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          >
-                            {roles.map(role => (
-                              <option key={role.id} value={role.name}>{role.name}</option>
-                            ))}
-                          </select>
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-                          <select
-                            value={formData.is_active}
-                            onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          >
-                            <option value="true">Active</option>
-                            <option value="false">Inactive</option>
-                          </select>
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Employee ID</label>
-                          <input
-                            type="text"
-                            value={formData.employee_id}
-                            onChange={(e) => setFormData({ ...formData, employee_id: e.target.value })}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
-                          <input
-                            type="password"
-                            value={formData.password}
-                            onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                            name="user_password_new"
-                            autoComplete="new-password"
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Address</label>
-                          <textarea
-                            value={formData.address}
-                            onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                            rows={3}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">City</label>
-                          <input
-                            type="text"
-                            value={formData.city}
-                            onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">State</label>
-                          <input
-                            type="text"
-                            value={formData.state}
-                            onChange={(e) => setFormData({ ...formData, state: e.target.value })}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Country</label>
-                          <input
-                            type="text"
-                            value={formData.country}
-                            onChange={(e) => setFormData({ ...formData, country: e.target.value })}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Postal Code</label>
-                          <input
-                            type="text"
-                            value={formData.postal_code}
-                            onChange={(e) => setFormData({ ...formData, postal_code: e.target.value })}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Name *</label>
-                        <input
-                          type="text"
-                          value={formData.name}
-                          onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                          required
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Email *</label>
-                        <input
-                          type="email"
-                          value={formData.email}
-                          onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                          required
-                          name="user_email_new"
-                          autoComplete="off"
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
-                        <input
-                          type="tel"
-                          value={formData.phone}
-                          onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Branch</label>
-                        <select
-                          value={formData.branch_id}
-                          onChange={(e) => setFormData({ ...formData, branch_id: e.target.value })}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className="px-4 py-2 text-gray-600 hover:bg-gray-50 rounded-lg"
                         >
-                          <option value="">Select Branch</option>
-                          {branches.map(branch => (
-                            <option key={branch.id} value={branch.id}>{branch.name}</option>
-                          ))}
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Roles</label>
-                        <select
-                          multiple
-                          value={formData.roles}
-                          onChange={(e) => setFormData({ ...formData, roles: Array.from(e.target.selectedOptions).map(option => option.value) })}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        >
-                          {roles.map(role => (
-                            <option key={role.id} value={role.name}>{role.name}</option>
-                          ))}
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-                        <select
-                          value={formData.is_active}
-                          onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        >
-                          <option value="true">Active</option>
-                          <option value="false">Inactive</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Employee ID</label>
-                        <input
-                          type="text"
-                          value={formData.employee_id}
-                          onChange={(e) => setFormData({ ...formData, employee_id: e.target.value })}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
-                        <input
-                          type="password"
-                          value={formData.password}
-                          onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                          name="user_password_new"
-                          autoComplete="new-password"
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
+                          Cancel
+                        </button>
                       </div>
                     </div>
-                  )}
-                  <div className="flex justify-end gap-4 mt-6">
-                    <button
-                      type="submit"
-                      className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2 font-medium"
-                    >
-                      {editingItem ? 'Update' : 'Create'}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowModal(false);
-                        setEditingItem(null);
-                        resetForm();
-                      }}
-                      className="px-4 py-2 text-gray-600 hover:bg-gray-50 rounded-lg"
-                    >
-                      Cancel
-                    </button>
                   </div>
-                </div>
-              </div>
-              </form>
+                </form>
               )}
             </div>
           </div>
         )}
       </div>
-    </Layout>
+    </Layout >
   );
 };
 

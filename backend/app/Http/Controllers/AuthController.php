@@ -161,6 +161,21 @@ class AuthController extends Controller
                     'name' => $user->company->name,
                     'subdomain' => $user->company->subdomain,
                 ];
+
+                // Load plan features
+                $user->load(['company.subscriptionPlan.planFeatures']);
+                $planFeatures = [];
+                if ($user->company->subscriptionPlan) {
+                    foreach ($user->company->subscriptionPlan->planFeatures as $feature) {
+                        if ($feature->pivot->is_active) {
+                            $planFeatures[$feature->key] = [
+                                'enabled' => true,
+                                'limit' => $feature->pivot->limit_value
+                            ];
+                        }
+                    }
+                }
+                $userData['plan_features'] = $planFeatures;
             }
 
             \Log::info('User logged in successfully', [
@@ -324,7 +339,7 @@ class AuthController extends Controller
 
             // Load relationships with error handling
             try {
-                $user->load(['roles', 'company']);
+                $user->load(['roles', 'company.subscriptionPlan.planFeatures']);
             } catch (\Exception $relationError) {
                 \Log::error('Error loading user relationships for profile', [
                     'error' => $relationError->getMessage(),
@@ -347,6 +362,7 @@ class AuthController extends Controller
             ];
 
             // Add company info if available
+            $planFeatures = [];
             if (isset($user->company) && $user->company) {
                 $profileData['company'] = [
                     'id' => $user->company->id,
@@ -354,7 +370,20 @@ class AuthController extends Controller
                     'subdomain' => $user->company->subdomain,
                     'status' => $user->company->status ?? 'unknown'
                 ];
+
+                // Load plan features
+                if ($user->company->subscriptionPlan) {
+                    foreach ($user->company->subscriptionPlan->planFeatures as $feature) {
+                        if ($feature->pivot->is_active) {
+                            $planFeatures[$feature->key] = [
+                                'enabled' => true,
+                                'limit' => $feature->pivot->limit_value
+                            ];
+                        }
+                    }
+                }
             }
+            $profileData['plan_features'] = $planFeatures;
 
             \Log::info('Profile accessed successfully', [
                 'user_id' => $user->id,

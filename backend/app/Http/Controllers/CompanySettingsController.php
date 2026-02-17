@@ -258,11 +258,17 @@ class CompanySettingsController extends Controller
             $query->where('is_active', $request->is_active);
         }
 
-        // Search by name or email
         if ($request->search) {
             $query->where(function ($q) use ($request) {
                 $q->where('name', 'like', '%' . $request->search . '%')
                     ->orWhere('email', 'like', '%' . $request->search . '%');
+            });
+        }
+
+        // Manager Restriction: Only see subordinates
+        if (Auth::user()->hasRole('Manager')) {
+            $query->whereDoesntHave('roles', function ($q) {
+                $q->whereIn('name', ['Super Admin', 'Admin', 'Company Admin', 'Manager']);
             });
         }
 
@@ -307,6 +313,21 @@ class CompanySettingsController extends Controller
             'roles.*' => 'exists:roles,name',
             'is_active' => 'boolean'
         ]);
+
+        // Manager Restriction: Cannot assign restricted roles
+        if (Auth::user()->hasRole('Manager')) {
+            $restrictedRoles = ['Super Admin', 'Admin', 'Company Admin', 'Manager'];
+            if ($request->roles && is_array($request->roles)) {
+                foreach ($request->roles as $roleName) {
+                    if (in_array($roleName, $restrictedRoles)) {
+                        return response()->json([
+                            'success' => false,
+                            'message' => 'Managers cannot assign restricted roles.',
+                        ], 403);
+                    }
+                }
+            }
+        }
 
         try {
             DB::beginTransaction();
@@ -364,6 +385,28 @@ class CompanySettingsController extends Controller
             'is_active' => 'boolean'
         ]);
 
+        // Manager Restriction: Cannot edit restricted users or assign restricted roles
+        if (Auth::user()->hasRole('Manager')) {
+            if ($user->hasRole(['Super Admin', 'Admin', 'Company Admin', 'Manager'])) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Managers cannot edit higher level users or other managers.',
+                ], 403);
+            }
+
+            if ($request->roles && is_array($request->roles)) {
+                $restrictedRoles = ['Super Admin', 'Admin', 'Company Admin', 'Manager'];
+                foreach ($request->roles as $roleName) {
+                    if (in_array($roleName, $restrictedRoles)) {
+                        return response()->json([
+                            'success' => false,
+                            'message' => 'Managers cannot assign restricted roles.',
+                        ], 403);
+                    }
+                }
+            }
+        }
+
         try {
             DB::beginTransaction();
 
@@ -413,6 +456,16 @@ class CompanySettingsController extends Controller
         $user = User::where('company_id', $companyId)
             ->where('is_super_admin', false)
             ->findOrFail($id);
+
+        // Manager Restriction: Cannot delete restricted users
+        if (Auth::user()->hasRole('Manager')) {
+            if ($user->hasRole(['Super Admin', 'Admin', 'Company Admin', 'Manager'])) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Managers cannot delete higher level users or other managers.',
+                ], 403);
+            }
+        }
 
         // Prevent deletion of self
         if ($user->id === Auth::id()) {
@@ -472,6 +525,14 @@ class CompanySettingsController extends Controller
      */
     public function createBranch(Request $request)
     {
+        // Manager Restriction
+        if (Auth::user()->hasRole('Manager')) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Managers cannot create branches.',
+            ], 403);
+        }
+
         $companyId = $this->resolveCompanyId();
         $request->validate([
             'name' => 'required|string|max:255',
@@ -524,6 +585,14 @@ class CompanySettingsController extends Controller
      */
     public function updateBranch(Request $request, $id)
     {
+        // Manager Restriction
+        if (Auth::user()->hasRole('Manager')) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Managers cannot update branches.',
+            ], 403);
+        }
+
         $companyId = $this->resolveCompanyId();
         $branch = Branch::where('company_id', $companyId)->findOrFail($id);
 
@@ -571,6 +640,14 @@ class CompanySettingsController extends Controller
      */
     public function deleteBranch($id)
     {
+        // Manager Restriction
+        if (Auth::user()->hasRole('Manager')) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Managers cannot delete branches.',
+            ], 403);
+        }
+
         $companyId = $this->resolveCompanyId();
         $branch = Branch::where('company_id', $companyId)->findOrFail($id);
 
@@ -601,9 +678,17 @@ class CompanySettingsController extends Controller
     /**
      * Get available roles
      */
+
     public function getRoles()
     {
-        $roles = Role::where('name', '!=', 'Super Admin')->get();
+        $query = Role::where('name', '!=', 'Super Admin');
+
+        // Manager Restriction: Hide restricted roles
+        if (Auth::user()->hasRole('Manager')) {
+            $query->whereNotIn('name', ['Admin', 'Company Admin', 'Manager']);
+        }
+
+        $roles = $query->get();
 
         return response()->json([
             'success' => true,
@@ -616,6 +701,14 @@ class CompanySettingsController extends Controller
      */
     public function createRole(Request $request)
     {
+        // Manager Restriction
+        if (Auth::user()->hasRole('Manager')) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Managers cannot create roles.',
+            ], 403);
+        }
+
         // Debug: Log the incoming request
         \Log::info('Role creation request:', $request->all());
 
@@ -657,6 +750,14 @@ class CompanySettingsController extends Controller
      */
     public function updateRole(Request $request, $id)
     {
+        // Manager Restriction
+        if (Auth::user()->hasRole('Manager')) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Managers cannot update roles.',
+            ], 403);
+        }
+
         $role = Role::findOrFail($id);
 
         $request->validate([
@@ -696,6 +797,14 @@ class CompanySettingsController extends Controller
      */
     public function deleteRole($id)
     {
+        // Manager Restriction
+        if (Auth::user()->hasRole('Manager')) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Managers cannot delete roles.',
+            ], 403);
+        }
+
         $role = Role::findOrFail($id);
 
         try {
@@ -722,18 +831,46 @@ class CompanySettingsController extends Controller
      */
     public function getPermissions()
     {
-        // Seeding logic - simplified and standardized on feature_key
-        if (Permission::count() === 0) {
-            $features = SubscriptionPlanFeature::getAvailableFeatures();
-            foreach ($features as $featureKey => $feature) {
-                Permission::firstOrCreate([
-                    'name' => $featureKey,
-                    'guard_name' => 'web',
-                ]);
-            }
-            // Basic permissions
-            foreach (['view dashboard', 'manage profile'] as $perm) {
-                Permission::firstOrCreate(['name' => $perm, 'guard_name' => 'web']);
+        // Get all available features from config/system/setup
+        $allFeatures = SubscriptionPlanFeature::getAvailableFeatures();
+
+        // Define features that support granular CRUD permissions
+        $crudFeatures = [
+            'leads_management',
+            'followups',
+            'payments',
+            'itineraries',
+            'day_itineraries',
+            'hotels',
+            'activities',
+            'transfers',
+            'suppliers',
+            'destinations',
+            'email_templates',
+            'campaigns',
+            'sms_campaigns',
+            'landing_pages',
+            'targets',
+            'expenses',
+            'user_management',
+            'permissions',
+            'marketing_automation',
+            'ab_testing'
+        ];
+
+        // Ensure basic permissions exist
+        foreach (['view dashboard', 'manage profile'] as $perm) {
+            Permission::firstOrCreate(['name' => $perm, 'guard_name' => 'web']);
+        }
+
+        // Ensure feature permissions and their granular sub-permissions exist
+        foreach ($allFeatures as $featureKey => $feature) {
+            Permission::firstOrCreate(['name' => $featureKey, 'guard_name' => 'web']);
+
+            if (in_array($featureKey, $crudFeatures)) {
+                foreach (['create', 'edit', 'delete'] as $action) {
+                    Permission::firstOrCreate(['name' => "{$featureKey}.{$action}", 'guard_name' => 'web']);
+                }
             }
         }
 
@@ -750,8 +887,29 @@ class CompanySettingsController extends Controller
 
         $company = $user->company;
         if ($company && $company->subscriptionPlan) {
+            // First try to get enabled features from permissions JSON column
             $planFeatures = $company->subscriptionPlan->getEnabledFeaturesFromPermissions();
-            $allowedNames = $allowedNames->merge($planFeatures->pluck('feature_key'));
+            $enabledFeatureKeys = collect();
+
+            // If empty, try the pivot table relationship
+            if ($planFeatures->isEmpty()) {
+                $pivotFeatures = $company->subscriptionPlan->planFeatures()->wherePivot('is_active', true)->get();
+                $enabledFeatureKeys = $pivotFeatures->pluck('key');
+            } else {
+                $enabledFeatureKeys = $planFeatures->pluck('feature_key');
+            }
+
+            // Add base feature permissions
+            $allowedNames = $allowedNames->merge($enabledFeatureKeys);
+
+            // Add granular permissions for enabled features
+            foreach ($enabledFeatureKeys as $key) {
+                if (in_array($key, $crudFeatures)) {
+                    $allowedNames->push("{$key}.create");
+                    $allowedNames->push("{$key}.edit");
+                    $allowedNames->push("{$key}.delete");
+                }
+            }
         }
 
         $permissions = Permission::whereIn('name', $allowedNames)->orderBy('name')->get(['id', 'name']);
@@ -791,13 +949,70 @@ class CompanySettingsController extends Controller
 
         $user = Auth::user();
 
+        // Manager Restriction: Cannot edit permissions of restricted roles
+        if ($user->hasRole('Manager')) {
+            $restrictedRoles = ['Super Admin', 'Admin', 'Company Admin', 'Manager'];
+            if (in_array($role->name, $restrictedRoles)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Managers cannot edit permissions of higher level roles or other managers.',
+                ], 403);
+            }
+        }
+
         // Validate that user is allowed to assign these permissions
         if (!$user->is_super_admin) {
             $allowedNames = collect(['view dashboard', 'manage profile']);
             $company = $user->company;
+
+            // Define features that support granular CRUD permissions (COPY from getPermissions)
+            $crudFeatures = [
+                'leads_management',
+                'followups',
+                'payments',
+                'itineraries',
+                'day_itineraries',
+                'hotels',
+                'activities',
+                'transfers',
+                'suppliers',
+                'destinations',
+                'email_templates',
+                'campaigns',
+                'sms_campaigns',
+                'landing_pages',
+                'targets',
+                'expenses',
+                'user_management',
+                'permissions',
+                'marketing_automation',
+                'ab_testing'
+            ];
+
             if ($company && $company->subscriptionPlan) {
+                // First try to get enabled features from permissions JSON column
                 $planFeatures = $company->subscriptionPlan->getEnabledFeaturesFromPermissions();
-                $allowedNames = $allowedNames->merge($planFeatures->pluck('feature_key'));
+                $enabledFeatureKeys = collect();
+
+                // If empty, try the pivot table relationship
+                if ($planFeatures->isEmpty()) {
+                    $pivotFeatures = $company->subscriptionPlan->planFeatures()->wherePivot('is_active', true)->get();
+                    $enabledFeatureKeys = $pivotFeatures->pluck('key');
+                } else {
+                    $enabledFeatureKeys = $planFeatures->pluck('feature_key');
+                }
+
+                // Add base feature permissions
+                $allowedNames = $allowedNames->merge($enabledFeatureKeys);
+
+                // Add granular permissions for enabled features
+                foreach ($enabledFeatureKeys as $key) {
+                    if (in_array($key, $crudFeatures)) {
+                        $allowedNames->push("{$key}.create");
+                        $allowedNames->push("{$key}.edit");
+                        $allowedNames->push("{$key}.delete");
+                    }
+                }
             }
 
             $allowedIds = Permission::whereIn('name', $allowedNames)->pluck('id')->toArray();
@@ -858,9 +1073,55 @@ class CompanySettingsController extends Controller
         if (!$currentUser->is_super_admin) {
             $allowedNames = collect(['view dashboard', 'manage profile']);
             $company = $currentUser->company;
+
+            // Define features that support granular CRUD permissions (COPY from getPermissions)
+            $crudFeatures = [
+                'leads_management',
+                'followups',
+                'payments',
+                'itineraries',
+                'day_itineraries',
+                'hotels',
+                'activities',
+                'transfers',
+                'suppliers',
+                'destinations',
+                'email_templates',
+                'campaigns',
+                'sms_campaigns',
+                'landing_pages',
+                'targets',
+                'expenses',
+                'user_management',
+                'permissions',
+                'marketing_automation',
+                'ab_testing'
+            ];
+
             if ($company && $company->subscriptionPlan) {
+                // First try to get enabled features from permissions JSON column
                 $planFeatures = $company->subscriptionPlan->getEnabledFeaturesFromPermissions();
-                $allowedNames = $allowedNames->merge($planFeatures->pluck('feature_key'));
+                $enabledFeatureKeys = collect();
+
+                // If empty, try the pivot table relationship
+                if ($planFeatures->isEmpty()) {
+                    $pivotFeatures = $company->subscriptionPlan->planFeatures()->wherePivot('is_active', true)->get();
+                    $enabledFeatureKeys = $pivotFeatures->pluck('key');
+                } else {
+                    $enabledFeatureKeys = $planFeatures->pluck('feature_key');
+                }
+
+                // Add base feature permissions
+                $allowedNames = $allowedNames->merge($enabledFeatureKeys);
+
+                // Add granular permissions for enabled features
+                foreach ($enabledFeatureKeys as $key) {
+                    if (in_array($key, $crudFeatures)) {
+                        $allowedNames->push("{$key}.create");
+                        $allowedNames->push("{$key}.edit");
+                        $allowedNames->push("{$key}.delete");
+                    }
+                }
             }
 
             $allowedIds = Permission::whereIn('name', $allowedNames)->pluck('id')->toArray();
@@ -989,6 +1250,13 @@ class CompanySettingsController extends Controller
             $userQuery->where('branch_id', $branch->id);
         }
 
+        // Manager Restriction: Only include subordinates in report
+        if (Auth::user()->hasRole('Manager')) {
+            $userQuery->whereDoesntHave('roles', function ($q) {
+                $q->whereIn('name', ['Super Admin', 'Admin', 'Company Admin', 'Manager']);
+            });
+        }
+
         $userIds = $userQuery->pluck('id')->all();
 
         $now = Carbon::now();
@@ -1011,6 +1279,44 @@ class CompanySettingsController extends Controller
                 ] : null,
                 'ranges' => $ranges,
             ],
+        ]);
+    }
+    /**
+     * Get current company subscription details
+     */
+    public function getSubscriptionDetails()
+    {
+        $companyId = $this->resolveCompanyId();
+        if (!$companyId) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Company context not resolved',
+            ], 422);
+        }
+
+        $company = Company::with([
+            'subscriptionPlan.features' => function ($query) {
+                $query->where('is_enabled', true);
+            }
+        ])->findOrFail($companyId);
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'company_name' => $company->name,
+                'plan_name' => $company->subscriptionPlan ? $company->subscriptionPlan->name : 'No Active Plan',
+                'plan_description' => $company->subscriptionPlan ? $company->subscriptionPlan->description : '',
+                'price' => $company->subscriptionPlan ? (float) $company->subscriptionPlan->price : 0,
+                'billing_period' => $company->subscriptionPlan ? $company->subscriptionPlan->billing_period : '',
+                'expiry_date' => $company->subscription_end_date ? $company->subscription_end_date->format('Y-m-d') : 'Unlimited',
+                'features' => $company->subscriptionPlan ? $company->subscriptionPlan->features->map(function ($f) {
+                    return [
+                        'name' => $f->feature_name,
+                        'key' => $f->feature_key,
+                        'limit' => $f->limit_value
+                    ];
+                }) : []
+            ]
         ]);
     }
 }

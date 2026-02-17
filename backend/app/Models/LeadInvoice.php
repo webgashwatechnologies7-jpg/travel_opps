@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Modules\Leads\Domain\Entities\Lead;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use App\Models\Scopes\ScopeByLeadAccess;
 
 class LeadInvoice extends Model
 {
@@ -45,5 +46,10 @@ class LeadInvoice extends Model
         $date = now()->format('Ymd');
         $last = self::whereDate('created_at', today())->count() + 1;
         return $prefix . '-' . $date . '-' . str_pad((string) $last, 4, '0', STR_PAD_LEFT);
+    }
+
+    protected static function booted()
+    {
+        static::addGlobalScope(new ScopeByLeadAccess);
     }
 }

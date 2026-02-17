@@ -1,9 +1,22 @@
 import { useState, useEffect } from 'react';
+import { useAuth } from '../contexts/AuthContext';
+import { toast } from 'react-toastify';
 import Layout from '../components/Layout';
 import { Search, Plus, Edit, X, Trash2 } from 'lucide-react';
 import { destinationsAPI } from '../services/api';
 
+// Helper for checking permissions
+const hasPermission = (user, permission) => {
+  if (!user) return false;
+  // Super Admin bypass
+  if (user.is_super_admin) return true;
+  // Check granular permission
+  if (user.permissions && user.permissions.includes(permission)) return true;
+  return false;
+};
+
 const Destinations = () => {
+  const { user } = useAuth();
   const [destinations, setDestinations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -63,7 +76,7 @@ const Destinations = () => {
   const handleSave = async (e) => {
     e.preventDefault();
     setSaving(true);
-    
+
     try {
       if (editingDestinationId) {
         await destinationsAPI.update(editingDestinationId, formData);
@@ -86,7 +99,7 @@ const Destinations = () => {
   const handleEdit = (destination) => {
     setEditingDestinationId(destination.id);
     setIsModalOpen(true);
-    
+
     setFormData({
       name: destination.name || ''
     });
@@ -140,13 +153,15 @@ const Destinations = () => {
               />
             </div>
             {/* Action Button */}
-            <button
-              onClick={handleAddNew}
-              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2 font-medium"
-            >
-              <Plus className="h-5 w-5" />
-              Add New
-            </button>
+            {hasPermission(user, 'destinations.create') && (
+              <button
+                onClick={handleAddNew}
+                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2 font-medium"
+              >
+                <Plus className="h-5 w-5" />
+                Add New
+              </button>
+            )}
           </div>
         </div>
 
@@ -166,6 +181,9 @@ const Destinations = () => {
                     Name
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Status
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Actions
                   </th>
                 </tr>
@@ -183,22 +201,48 @@ const Destinations = () => {
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm font-medium text-gray-900">{destination.name || 'N/A'}</div>
                       </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <button
+                          onClick={async () => {
+                            if (!hasPermission(user, 'destinations.status')) return;
+                            try {
+                              const newStatus = (destination.status === 'active' || !destination.status) ? 'inactive' : 'active';
+                              await destinationsAPI.update(destination.id, { ...destination, status: newStatus });
+                              fetchDestinations();
+                              toast.success(`Status updated to ${newStatus}`);
+                            } catch (err) {
+                              toast.error('Failed to update status');
+                            }
+                          }}
+                          className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full cursor-pointer ${(destination.status === 'active' || !destination.status)
+                            ? 'bg-green-100 text-green-800'
+                            : 'bg-red-100 text-red-800'
+                            }`}
+                          disabled={!hasPermission(user, 'destinations.status')}
+                        >
+                          {(destination.status === 'active' || !destination.status) ? 'Active' : 'Inactive'}
+                        </button>
+                      </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                         <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => handleEdit(destination)}
-                            className="text-green-600 hover:text-green-900 p-2 hover:bg-green-50 rounded-full"
-                            title="Edit"
-                          >
-                            <Edit className="h-5 w-5" />
-                          </button>
-                          <button
-                            onClick={() => handleDelete(destination.id)}
-                            className="text-red-600 hover:text-red-900 p-2 hover:bg-red-50 rounded-full"
-                            title="Delete"
-                          >
-                            <Trash2 className="h-5 w-5" />
-                          </button>
+                          {hasPermission(user, 'destinations.edit') && (
+                            <button
+                              onClick={() => handleEdit(destination)}
+                              className="text-green-600 hover:text-green-900 p-2 hover:bg-green-50 rounded-full"
+                              title="Edit"
+                            >
+                              <Edit className="h-5 w-5" />
+                            </button>
+                          )}
+                          {hasPermission(user, 'destinations.delete') && (
+                            <button
+                              onClick={() => handleDelete(destination.id)}
+                              className="text-red-600 hover:text-red-900 p-2 hover:bg-red-50 rounded-full"
+                              title="Delete"
+                            >
+                              <Trash2 className="h-5 w-5" />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>

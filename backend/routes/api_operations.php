@@ -23,7 +23,7 @@ use Illuminate\Support\Facades\Route;
 */
 
 // Hotels routes - require authentication
-Route::middleware('auth:sanctum')->prefix('hotels')->group(function () {
+Route::middleware(['auth:sanctum', 'plan.feature:hotels'])->prefix('hotels')->group(function () {
     Route::get('/', [HotelController::class, 'index']);
     Route::post('/', [HotelController::class, 'store']);
     Route::get('/search', [HotelController::class, 'search']);
@@ -52,7 +52,7 @@ Route::middleware('auth:sanctum')->prefix('hotels')->group(function () {
 });
 
 // Activities routes - require authentication
-Route::middleware('auth:sanctum')->prefix('activities')->group(function () {
+Route::middleware(['auth:sanctum', 'plan.feature:activities'])->prefix('activities')->group(function () {
     Route::get('/', [ActivityController::class, 'index']);
     Route::post('/', [ActivityController::class, 'store']);
 
@@ -74,7 +74,7 @@ Route::middleware('auth:sanctum')->prefix('activities')->group(function () {
 });
 
 // Transfers routes - require authentication
-Route::middleware('auth:sanctum')->prefix('transfers')->group(function () {
+Route::middleware(['auth:sanctum', 'plan.feature:transfers'])->prefix('transfers')->group(function () {
     Route::get('/', [TransferController::class, 'index']);
     Route::post('/', [TransferController::class, 'store']);
 
@@ -101,7 +101,7 @@ Route::middleware('auth:sanctum')->prefix('transfers')->group(function () {
 });
 
 // Day Itineraries routes - require authentication
-Route::middleware('auth:sanctum')->prefix('day-itineraries')->group(function () {
+Route::middleware(['auth:sanctum', 'plan.feature:day_itineraries'])->prefix('day-itineraries')->group(function () {
     Route::get('/', [DayItineraryController::class, 'index']);
     Route::post('/', [DayItineraryController::class, 'store']);
     Route::get('/{id}', [DayItineraryController::class, 'show']);
@@ -111,7 +111,7 @@ Route::middleware('auth:sanctum')->prefix('day-itineraries')->group(function () 
 });
 
 // Packages/Itineraries routes - require authentication
-Route::middleware('auth:sanctum')->prefix('packages')->group(function () {
+Route::middleware(['auth:sanctum', 'plan.feature:itineraries'])->prefix('packages')->group(function () {
     Route::get('/', [PackageController::class, 'index']);
     Route::post('/', [PackageController::class, 'store']);
     Route::get('/{id}', [PackageController::class, 'show']);
@@ -124,7 +124,7 @@ Route::middleware('auth:sanctum')->prefix('packages')->group(function () {
 });
 
 // Destinations routes - require authentication
-Route::middleware('auth:sanctum')->prefix('destinations')->group(function () {
+Route::middleware(['auth:sanctum', 'plan.feature:destinations'])->prefix('destinations')->group(function () {
     Route::get('/', [DestinationController::class, 'index']);
     Route::post('/', [DestinationController::class, 'store']);
     Route::get('/{id}', [DestinationController::class, 'show']);
@@ -133,7 +133,7 @@ Route::middleware('auth:sanctum')->prefix('destinations')->group(function () {
 });
 
 // Room Types routes - require authentication
-Route::middleware('auth:sanctum')->prefix('room-types')->group(function () {
+Route::middleware(['auth:sanctum', 'plan.feature:hotels'])->prefix('room-types')->group(function () {
     Route::get('/', [RoomTypeController::class, 'index']);
     Route::post('/', [RoomTypeController::class, 'store']);
     Route::get('/{id}', [RoomTypeController::class, 'show']);
@@ -142,7 +142,7 @@ Route::middleware('auth:sanctum')->prefix('room-types')->group(function () {
 });
 
 // Meal Plans routes - require authentication
-Route::middleware('auth:sanctum')->prefix('meal-plans')->group(function () {
+Route::middleware(['auth:sanctum', 'plan.feature:hotels'])->prefix('meal-plans')->group(function () {
     Route::get('/', [MealPlanController::class, 'index']);
     Route::post('/', [MealPlanController::class, 'store']);
     Route::get('/{id}', [MealPlanController::class, 'show']);

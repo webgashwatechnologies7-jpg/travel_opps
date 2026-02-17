@@ -37,15 +37,28 @@ class ProfileController extends Controller
                 ], 403);
             }
 
-            // Load roles
-            $user->load('roles');
-            
+            // Load roles and company plan features
+            $user->load(['roles', 'company.subscriptionPlan.planFeatures']);
+
+            // Prepare plan features
+            $planFeatures = [];
+            if ($user->company && $user->company->subscriptionPlan) {
+                foreach ($user->company->subscriptionPlan->planFeatures as $feature) {
+                    if ($feature->pivot->is_active) {
+                        $planFeatures[$feature->key] = [
+                            'enabled' => true,
+                            'limit' => $feature->pivot->limit_value
+                        ];
+                    }
+                }
+            }
+
             // Get current month target
             $currentMonth = now()->format('Y-m');
             $currentTarget = $user->targets()
                 ->where('month', $currentMonth)
                 ->first();
-            
+
             $targetData = null;
             if ($currentTarget) {
                 $completionPercentage = 0;
@@ -70,6 +83,7 @@ class ProfileController extends Controller
                         'phone' => $user->phone,
                         'is_active' => $user->is_active,
                         'role' => $user->roles->first()?->name,
+                        'plan_features' => $planFeatures,
                         'target' => $targetData,
                         'last_login_at' => $user->last_login_at,
                         'email_verified_at' => $user->email_verified_at,

@@ -5,6 +5,8 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use App\Models\Scopes\ScopeByHierarchy;
+use App\Modules\Leads\Domain\Entities\Lead;
 
 class QueryFollowup extends Model
 {
@@ -82,7 +84,7 @@ class QueryFollowup extends Model
     public function scopeOverdue($query)
     {
         return $query->where('reminder_date', '<', now()->toDateString())
-                    ->where('is_completed', false);
+            ->where('is_completed', false);
     }
 
     /**
@@ -99,5 +101,12 @@ class QueryFollowup extends Model
     public function scopeByPriority($query, $priority)
     {
         return $query->where('priority', $priority);
+    }
+    /**
+     * The "booted" method of the model.
+     */
+    protected static function booted(): void
+    {
+        static::addGlobalScope(new ScopeByHierarchy);
     }
 }

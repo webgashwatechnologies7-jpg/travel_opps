@@ -51,21 +51,21 @@ export const SettingsProvider = ({ children }) => {
 
   const defaultMenuItems = [
     { path: '/dashboard', label: 'Dashboard', icon: 'LayoutDashboard' },
-    { path: '/leads', label: 'Queries', icon: 'MessageSquare' },
-    { path: '/itineraries', label: 'Itineraries', icon: 'FileText' },
-    { path: '/payments', label: 'Payments', icon: 'CreditCard' },
-    { path: '/sales-reps', label: 'Sales Reps', icon: 'Users' },
-    { label: 'Accounts', icon: 'CreditCard', submenu: [{ path: '/accounts/clients', label: 'Clients' }, { path: '/accounts/agents', label: 'Agents' }, { path: '/accounts/corporate', label: 'Corporate' }] },
-    { path: '/whatsapp', label: 'WhatsApp', icon: 'MessageCircle' },
-    { path: '/mail', label: 'Mail', icon: 'Mail' },
-    { label: 'Integrate', icon: 'Link2', submenu: [{ path: '/settings/mail', label: 'Email Integration' }, { path: '/settings/whatsapp', label: 'WhatsApp Integration' }] },
-    { path: '/call-management', label: 'Call Management System', icon: 'Phone' },
-    { path: '/followups', label: 'Followups', icon: 'ClipboardList' },
+    { path: '/leads', label: 'Queries', icon: 'MessageSquare', feature: 'leads_management' },
+    { path: '/itineraries', label: 'Itineraries', icon: 'FileText', feature: 'itineraries' },
+    { path: '/payments', label: 'Payments', icon: 'CreditCard', feature: 'payments' },
+    { path: '/sales-reps', label: 'Sales Reps', icon: 'Users', feature: 'analytics' },
+    { label: 'Accounts', icon: 'CreditCard', feature: 'payments', submenu: [{ path: '/accounts/clients', label: 'Clients' }, { path: '/accounts/agents', label: 'Agents' }, { path: '/accounts/corporate', label: 'Corporate' }] },
+    { path: '/whatsapp', label: 'WhatsApp', icon: 'MessageCircle', feature: 'whatsapp' },
+    { path: '/mail', label: 'Mail', icon: 'Mail', feature: 'gmail_integration' },
+    { label: 'Integrate', icon: 'Link2', submenu: [{ path: '/settings/mail', label: 'Email Integration', feature: 'gmail_integration' }, { path: '/settings/whatsapp', label: 'WhatsApp Integration', feature: 'whatsapp' }] },
+    { path: '/call-management', label: 'Call Management System', icon: 'Phone', feature: 'call_management' },
+    { path: '/followups', label: 'Followups', icon: 'ClipboardList', feature: 'followups' },
     staffManagementItem,
-    { label: 'Reports', icon: 'BarChart3', submenu: [{ path: '/dashboard/employee-performance', label: 'Performance' }, { path: '/dashboard/source-roi', label: 'Source ROI' }, { path: '/dashboard/destination-performance', label: 'Destination' }] },
-    { label: 'Marketing', icon: 'Megaphone', submenu: [{ path: '/marketing', label: 'Dashboard' }, { path: '/client-groups', label: 'Clients Group' }, { path: '/marketing/templates', label: 'Email Templates' }, { path: '/marketing/whatsapp-templates', label: 'WhatsApp Templates' }, { path: '/marketing/email-campaigns', label: 'Campaigns' }, { path: '/marketing/landing-pages', label: 'Landing Pages' }] },
-    { label: 'Company Settings', icon: 'Settings', submenu: [{ path: '/settings/company', label: 'Company Settings' }, { path: '/settings/whatsapp', label: 'WhatsApp Integration' }, { path: '/settings/mail', label: 'Email Integration' }, { path: '/email-templates', label: 'Email Templates' }, { path: '/settings/account-details', label: 'Account Details' }] },
-    { label: 'Masters', icon: 'Grid', submenu: [{ path: '/masters/suppliers', label: 'Suppliers' }, { path: '/masters/hotel', label: 'Hotel' }, { path: '/masters/activity', label: 'Activity' }, { path: '/masters/transfer', label: 'Transfer' }, { path: '/masters/day-itinerary', label: 'Day Itinerary' }, { path: '/masters/destinations', label: 'Destinations' }, { path: '/masters/room-type', label: 'Room Type' }, { path: '/masters/meal-plan', label: 'Meal Plan' }, { path: '/masters/lead-source', label: 'Lead Source' }, { path: '/masters/expense-type', label: 'Expense Type' }, { path: '/masters/package-theme', label: 'Package Theme' }, { path: '/masters/currency', label: 'Currency' }, { path: '/masters/points', label: 'Inclusions & Exclusions' }, { path: '/users', label: 'Users' }, { path: '/targets', label: 'Targets' }, { path: '/permissions', label: 'Permissions' }] },
+    { label: 'Reports', icon: 'BarChart3', feature: 'reports', submenu: [{ path: '/dashboard/employee-performance', label: 'Performance', feature: 'reports' }, { path: '/dashboard/source-roi', label: 'Source ROI', feature: 'reports' }, { path: '/dashboard/destination-performance', label: 'Destination', feature: 'reports' }] },
+    { label: 'Marketing', icon: 'Megaphone', feature: 'campaigns', submenu: [{ path: '/marketing', label: 'Dashboard', feature: 'campaigns' }, { path: '/client-groups', label: 'Clients Group', feature: 'campaigns' }, { path: '/marketing/email-templates', label: 'Email Templates', feature: 'email_templates' }, { path: '/marketing/whatsapp-templates', label: 'WhatsApp Templates', feature: 'whatsapp' }, { path: '/marketing/email-campaigns', label: 'Campaigns', feature: 'campaigns' }, { path: '/marketing/landing-pages', label: 'Landing Pages', feature: 'landing_pages' }] },
+    { label: 'Company Settings', icon: 'Settings', submenu: [{ path: '/settings/company', label: 'Company Settings' }, { path: '/settings/whatsapp', label: 'WhatsApp Integration', feature: 'whatsapp' }, { path: '/settings/mail', label: 'Email Integration', feature: 'gmail_integration' }, { path: '/email-templates', label: 'Email Templates', feature: 'email_templates' }, { path: '/settings/account-details', label: 'Account Details' }] },
+    { label: 'Masters', icon: 'Grid', submenu: [{ path: '/masters/suppliers', label: 'Suppliers', feature: 'suppliers' }, { path: '/masters/hotel', label: 'Hotel', feature: 'hotels' }, { path: '/masters/activity', label: 'Activity', feature: 'activities' }, { path: '/masters/transfer', label: 'Transfer', feature: 'transfers' }, { path: '/masters/day-itinerary', label: 'Day Itinerary', feature: 'day_itineraries' }, { path: '/masters/destinations', label: 'Destinations', feature: 'destinations' }, { path: '/masters/room-type', label: 'Room Type', feature: 'hotels' }, { path: '/masters/meal-plan', label: 'Meal Plan', feature: 'hotels' }, { path: '/masters/lead-source', label: 'Lead Source' }, { path: '/masters/expense-type', label: 'Expense Type', feature: 'expenses' }, { path: '/masters/points', label: 'Inclusions & Exclusions' }, { path: '/targets', label: 'Targets', feature: 'targets' }] },
   ];
 
   const [rawMenuItems, setRawMenuItems] = useState(defaultMenuItems);
@@ -111,6 +111,22 @@ export const SettingsProvider = ({ children }) => {
       .then((res) => {
         if (res.data?.success && Array.isArray(res.data.data) && res.data.data.length > 0) {
           let apiMenu = [...res.data.data];
+
+          // Filter out items user requested to remove from Masters
+          apiMenu = apiMenu.map(item => {
+            if (item.label === 'Masters' && item.submenu) {
+              return {
+                ...item,
+                submenu: item.submenu.filter(sub =>
+                  sub.label !== 'Package Theme' &&
+                  sub.label !== 'Currency' &&
+                  sub.label !== 'Users' &&
+                  sub.label !== 'Permissions'
+                )
+              };
+            }
+            return item;
+          });
 
           // Rename 'Settings' to 'Company Settings' and clean/update its submenu
           apiMenu = apiMenu.map(item => {
@@ -172,8 +188,14 @@ export const SettingsProvider = ({ children }) => {
       return;
     }
 
-    // Admins see everything
-    const isAdmin = user.is_super_admin || user.roles?.some(r => r === 'Admin' || r === 'Company Admin' || r === 'Super Admin');
+    // Admins and Managers see everything in the sidebar structure
+    // (Actual access to screens is handled by FeatureGuard/ProtectedRoute)
+    const isAdmin = user.is_super_admin ||
+      user.roles?.some(r => {
+        const roleName = typeof r === 'object' ? r.name : r;
+        return ['Admin', 'Company Admin', 'Super Admin', 'Manager'].includes(roleName);
+      });
+
     if (isAdmin) {
       setMenuItems(rawMenuItems);
       return;
@@ -187,10 +209,14 @@ export const SettingsProvider = ({ children }) => {
       if (item.label === 'Dashboard') return true;
 
       const label = item.label.toLowerCase();
+      const feature = item.feature ? item.feature.toLowerCase() : null;
 
-      // Flexible matching: check if any permission string is contained in label or label in permission string.
-      // This handles cases like "Activities" permission matching "Activity" menu item, or vice-versa.
-      return userPermissions.some(p => p.includes(label) || label.includes(p));
+      // Flexible matching: check if any permission string matches label or feature
+      return userPermissions.some(p =>
+        p.includes(label) ||
+        label.includes(p) ||
+        (feature && (p.includes(feature) || feature.includes(p)))
+      );
     };
 
     const filterMenu = (items) => {

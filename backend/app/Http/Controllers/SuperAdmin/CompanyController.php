@@ -28,8 +28,8 @@ class CompanyController extends Controller
             $search = $request->search;
             $query->where(function ($q) use ($search) {
                 $q->where('name', 'like', "%{$search}%")
-                  ->orWhere('subdomain', 'like', "%{$search}%")
-                  ->orWhere('email', 'like', "%{$search}%");
+                    ->orWhere('subdomain', 'like', "%{$search}%")
+                    ->orWhere('email', 'like', "%{$search}%");
             });
         }
 
@@ -127,7 +127,7 @@ class CompanyController extends Controller
             try {
                 Mail::to($request->admin_email)->send(
                     new SendUserCredentials(
-                        $request->admin_email, 
+                        $request->admin_email,
                         $request->admin_password,
                         $company->name,
                         $company->crm_url
@@ -196,8 +196,17 @@ class CompanyController extends Controller
         }
 
         $updateData = $request->only([
-            'name', 'subdomain', 'domain', 'email', 'phone', 'address',
-            'status', 'subscription_plan_id', 'subscription_start_date', 'subscription_end_date', 'notes'
+            'name',
+            'subdomain',
+            'domain',
+            'email',
+            'phone',
+            'address',
+            'status',
+            'subscription_plan_id',
+            'subscription_start_date',
+            'subscription_end_date',
+            'notes'
         ]);
 
         if (isset($updateData['subdomain'])) {
@@ -219,7 +228,7 @@ class CompanyController extends Controller
     public function destroy($id)
     {
         $company = Company::findOrFail($id);
-        
+
         // Soft delete the company
         $company->delete();
 
@@ -256,6 +265,40 @@ class CompanyController extends Controller
         return response()->json([
             'success' => true,
             'data' => $stats
+        ]);
+    }
+    /**
+     * Verify company DNS and activate account.
+     */
+    public function verifyDns($id)
+    {
+        $company = Company::findOrFail($id);
+
+        if ($company->dns_status === 'active') {
+            return response()->json([
+                'success' => true,
+                'message' => 'Company is already verified',
+            ]);
+        }
+
+        // Update Status
+        $company->update([
+            'dns_status' => 'active',
+            'status' => 'active',
+            'dns_verification_token' => null, // Clear token
+        ]);
+
+        // Trigger Go Live Email
+        try {
+            Mail::to($company->email)->send(new \App\Mail\GoLiveEmail($company));
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('Failed to send Go Live email: ' . $e->getMessage());
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'DNS verified and company activated successfully. Notification sent.',
+            'data' => $company
         ]);
     }
 }

@@ -37,7 +37,8 @@ class User extends Authenticatable
         'gst_number',
         'city',
         'user_type',
-        'created_by'
+        'created_by',
+        'reports_to',
     ];
 
     /**
@@ -121,6 +122,38 @@ class User extends Authenticatable
     public function pushTokens(): HasMany
     {
         return $this->hasMany(\App\Models\PushToken::class, 'user_id');
+    }
+
+    /**
+     * Get the user that this user reports to.
+     */
+    public function supervisor(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'reports_to');
+    }
+
+    /**
+     * Get the users that report to this user.
+     */
+    public function subordinates(): HasMany
+    {
+        return $this->hasMany(User::class, 'reports_to');
+    }
+
+    /**
+     * Get all subordinate IDs recursively (including self).
+     *
+     * @return array
+     */
+    public function getAllSubordinateIds(): array
+    {
+        $ids = collect([$this->id]);
+
+        foreach ($this->subordinates as $subordinate) {
+            $ids = $ids->merge($subordinate->getAllSubordinateIds());
+        }
+
+        return $ids->unique()->values()->toArray();
     }
 
     /**

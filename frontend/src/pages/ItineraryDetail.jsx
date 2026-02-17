@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import Layout from '../components/Layout';
+import { useAuth } from '../contexts/AuthContext';
 import { getDisplayImageUrl } from '../utils/imageUrl';
 import { packagesAPI, dayItinerariesAPI, hotelsAPI, activitiesAPI, settingsAPI, destinationsAPI, itineraryPricingAPI, transfersAPI, mealPlansAPI } from '../services/api';
 import { searchPexelsPhotos } from '../services/pexels';
@@ -9,7 +10,18 @@ import { ArrowLeft, Camera, Edit, Plus, ChevronRight, FileText, Search, X, Bed, 
 import PricingTab from '../components/PricingTab';
 import FinalTab from '../components/FinalTab';
 
+// Helper for checking permissions
+const hasPermission = (user, permission) => {
+  if (!user) return false;
+  // Super Admin bypass
+  if (user.is_super_admin) return true;
+  // Check granular permission
+  if (user.permissions && user.permissions.includes(permission)) return true;
+  return false;
+};
+
 const ItineraryDetail = () => {
+  const { user } = useAuth();
   const { id } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
@@ -643,7 +655,7 @@ const ItineraryDetail = () => {
         return itinerary;
       });
 
-      setDayItineraries(processedData);
+      setDayItineraries(processedData.filter(d => d.status === 'active'));
     } catch (err) {
       console.error('Failed to fetch day itineraries:', err);
     }
@@ -742,14 +754,14 @@ const ItineraryDetail = () => {
           // Fetch again to get updated list
           const updatedResponse = await destinationsAPI.list();
           const updatedData = updatedResponse.data.data || updatedResponse.data || [];
-          setDestinations(updatedData.map(d => d.name));
+          setDestinations(updatedData.filter(d => d.status === 'active').map(d => d.name));
         } catch (createErr) {
           // If creation fails (maybe already exists), just use the fetched list
           console.error('Failed to create Shimla destination:', createErr);
-          setDestinations(data.map(d => d.name));
+          setDestinations(data.filter(d => d.status === 'active').map(d => d.name));
         }
       } else {
-        setDestinations(data.map(d => d.name));
+        setDestinations(data.filter(d => d.status === 'active').map(d => d.name));
       }
     } catch (err) {
       console.error('Failed to fetch destinations:', err);
@@ -778,7 +790,7 @@ const ItineraryDetail = () => {
         return activity;
       });
 
-      setActivities(processedData);
+      setActivities(processedData.filter(a => a.status === 'active'));
     } catch (err) {
       console.error('Failed to fetch activities:', err);
     } finally {
@@ -836,7 +848,7 @@ const ItineraryDetail = () => {
         };
       });
 
-      setStoredHotels(processedData);
+      setStoredHotels(processedData.filter(h => h.status === 'active'));
     } catch (err) {
       console.error('Failed to fetch stored hotels:', err);
     } finally {
@@ -863,7 +875,7 @@ const ItineraryDetail = () => {
         };
       });
 
-      setStoredTransfers(processed);
+      setStoredTransfers(processed.filter(t => t.status === 'active'));
     } catch (err) {
       console.error('Failed to fetch transfers:', err);
       setStoredTransfers([]);
@@ -1568,21 +1580,25 @@ const ItineraryDetail = () => {
                   />
                 )}
                 <div className="relative z-10 h-full flex flex-col justify-between p-8">
-                  <div className="flex justify-end">
-                    <button
-                      onClick={() => setShowCoverPhotoModal(true)}
-                      className="bg-white/90 backdrop-blur-sm text-gray-800 px-4 py-2 rounded-lg hover:bg-white transition-colors flex items-center gap-2 shadow-lg font-medium"
-                    >
-                      <Camera className="h-4 w-4" />
-                      Change Cover Photo
-                    </button>
-                  </div>
+                  {hasPermission(user, 'itineraries.edit') && (
+                    <div className="flex justify-end">
+                      <button
+                        onClick={() => setShowCoverPhotoModal(true)}
+                        className="bg-white/90 backdrop-blur-sm text-gray-800 px-4 py-2 rounded-lg hover:bg-white transition-colors flex items-center gap-2 shadow-lg font-medium"
+                      >
+                        <Camera className="h-4 w-4" />
+                        Change Cover Photo
+                      </button>
+                    </div>
+                  )}
                   <div className="bg-white/90 backdrop-blur-sm p-4 rounded-lg shadow-lg">
                     <div className="flex items-center gap-3 mb-2">
                       <h1 className="text-4xl font-bold text-gray-900">{itinerary.itinerary_name || 'Untitled'}</h1>
-                      <button className="text-gray-700 hover:text-gray-900">
-                        <Edit className="h-5 w-5" />
-                      </button>
+                      {hasPermission(user, 'itineraries.edit') && (
+                        <button className="text-gray-700 hover:text-gray-900">
+                          <Edit className="h-5 w-5" />
+                        </button>
+                      )}
                     </div>
                     <p className="text-gray-700 text-lg">{itinerary.destinations || 'No destinations'}</p>
                   </div>
@@ -1609,9 +1625,11 @@ const ItineraryDetail = () => {
                               <span className={`font-semibold ${selectedDay === day.day ? 'text-blue-600' : 'text-gray-700'}`}>
                                 DAY {day.day}
                               </span>
-                              <button className="text-gray-400 hover:text-gray-600">
-                                <Edit className="h-4 w-4" />
-                              </button>
+                              {hasPermission(user, 'itineraries.edit') && (
+                                <button className="text-gray-400 hover:text-gray-600">
+                                  <Edit className="h-4 w-4" />
+                                </button>
+                              )}
                             </div>
                             <ChevronRight className={`h-4 w-4 ${selectedDay === day.day ? 'text-blue-600' : 'text-gray-400'}`} />
                           </div>
@@ -1626,6 +1644,7 @@ const ItineraryDetail = () => {
                               }
                             }}
                             onClick={(e) => e.stopPropagation()}
+                            disabled={!hasPermission(user, 'itineraries.edit')}
                           >
                             <option value="">Select Destination</option>
                             {destinations.map((dest) => (
@@ -1665,13 +1684,15 @@ const ItineraryDetail = () => {
                             Day {selectedDay} → {days[selectedDay - 1]?.destination || 'Destination'}
                           </h3>
                           <div className="relative" ref={dropdownRef}>
-                            <button
-                              onClick={() => setShowEventTypeDropdown(!showEventTypeDropdown)}
-                              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2 text-sm font-medium"
-                            >
-                              <Plus className="h-4 w-4" />
-                              New Event
-                            </button>
+                            {hasPermission(user, 'itineraries.edit') && (
+                              <button
+                                onClick={() => setShowEventTypeDropdown(!showEventTypeDropdown)}
+                                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2 text-sm font-medium"
+                              >
+                                <Plus className="h-4 w-4" />
+                                New Event
+                              </button>
+                            )}
 
                             {showEventTypeDropdown && (
                               <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
@@ -1746,7 +1767,11 @@ const ItineraryDetail = () => {
                         <div className="mb-4">
                           <div
                             className="flex items-center gap-2 border border-gray-300 rounded-lg p-3 bg-gray-50 cursor-pointer hover:bg-gray-100 transition-colors"
-                            onClick={() => setShowDayDetailsModal(true)}
+                            onClick={() => {
+                              if (hasPermission(user, 'itineraries.edit')) {
+                                setShowDayDetailsModal(true);
+                              }
+                            }}
                           >
                             <input
                               type="text"
@@ -1761,8 +1786,11 @@ const ItineraryDetail = () => {
                               className="text-gray-400 hover:text-gray-600"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                setShowDayDetailsModal(true);
+                                if (hasPermission(user, 'itineraries.edit')) {
+                                  setShowDayDetailsModal(true);
+                                }
                               }}
+                              disabled={!hasPermission(user, 'itineraries.edit')}
                             >
                               <Edit className="h-4 w-4" />
                             </button>
@@ -1882,63 +1910,67 @@ const ItineraryDetail = () => {
                                       )}
                                     </div>
                                     {/* Edit Button on Right */}
-                                    <button
-                                      className="text-blue-500 hover:text-blue-700 flex-shrink-0"
-                                      onClick={() => {
-                                        setDayDetailsForm({
-                                          subject: event.subject || '',
-                                          details: event.details || '',
-                                          image: event.image || null,
-                                          eventType: event.eventType || '',
-                                          id: event.id || index,
-                                          destination: event.destination || '',
-                                          type: event.type || 'Manual',
-                                          name: event.name || '',
-                                          date: event.date || '',
-                                          startTime: event.startTime || '1:00 PM',
-                                          endTime: event.endTime || '2:00 PM',
-                                          showTime: event.showTime || false,
-                                          hotelOptions: event.hotelOptions || [],
-                                          editingOptionIndex: null,
-                                          hotelName: event.hotelOptions?.[0]?.hotelName || '',
-                                          hotel_id: event.hotelOptions?.[0]?.hotel_id || null,
-                                          category: event.hotelOptions?.[0]?.category || '1',
-                                          roomName: event.hotelOptions?.[0]?.roomName || '',
-                                          mealPlan: event.hotelOptions?.[0]?.mealPlan || '',
-                                          single: event.hotelOptions?.[0]?.single || '',
-                                          double: event.hotelOptions?.[0]?.double || '',
-                                          triple: event.hotelOptions?.[0]?.triple || '',
-                                          quad: event.hotelOptions?.[0]?.quad || '',
-                                          cwb: event.hotelOptions?.[0]?.cwb || '',
-                                          cnb: event.hotelOptions?.[0]?.cnb || '',
-                                          checkIn: event.hotelOptions?.[0]?.checkIn || '',
-                                          checkInTime: event.hotelOptions?.[0]?.checkInTime || '2:00 PM',
-                                          checkOut: event.hotelOptions?.[0]?.checkOut || '',
-                                          checkOutTime: event.hotelOptions?.[0]?.checkOutTime || '11:00',
-                                          transferType: event.transferType || 'Private',
-                                          mealType: event.mealType || 'Breakfast'
-                                        });
-                                        setEventImagePreview(event.image || null);
-                                        setShowDayDetailsModal(true);
-                                      }}
-                                    >
-                                      <Edit className="h-5 w-5" />
-                                    </button>
+                                    {hasPermission(user, 'itineraries.edit') && (
+                                      <button
+                                        className="text-blue-500 hover:text-blue-700 flex-shrink-0"
+                                        onClick={() => {
+                                          setDayDetailsForm({
+                                            subject: event.subject || '',
+                                            details: event.details || '',
+                                            image: event.image || null,
+                                            eventType: event.eventType || '',
+                                            id: event.id || index,
+                                            destination: event.destination || '',
+                                            type: event.type || 'Manual',
+                                            name: event.name || '',
+                                            date: event.date || '',
+                                            startTime: event.startTime || '1:00 PM',
+                                            endTime: event.endTime || '2:00 PM',
+                                            showTime: event.showTime || false,
+                                            hotelOptions: event.hotelOptions || [],
+                                            editingOptionIndex: null,
+                                            hotelName: event.hotelOptions?.[0]?.hotelName || '',
+                                            hotel_id: event.hotelOptions?.[0]?.hotel_id || null,
+                                            category: event.hotelOptions?.[0]?.category || '1',
+                                            roomName: event.hotelOptions?.[0]?.roomName || '',
+                                            mealPlan: event.hotelOptions?.[0]?.mealPlan || '',
+                                            single: event.hotelOptions?.[0]?.single || '',
+                                            double: event.hotelOptions?.[0]?.double || '',
+                                            triple: event.hotelOptions?.[0]?.triple || '',
+                                            quad: event.hotelOptions?.[0]?.quad || '',
+                                            cwb: event.hotelOptions?.[0]?.cwb || '',
+                                            cnb: event.hotelOptions?.[0]?.cnb || '',
+                                            checkIn: event.hotelOptions?.[0]?.checkIn || '',
+                                            checkInTime: event.hotelOptions?.[0]?.checkInTime || '2:00 PM',
+                                            checkOut: event.hotelOptions?.[0]?.checkOut || '',
+                                            checkOutTime: event.hotelOptions?.[0]?.checkOutTime || '11:00',
+                                            transferType: event.transferType || 'Private',
+                                            mealType: event.mealType || 'Breakfast'
+                                          });
+                                          setEventImagePreview(event.image || null);
+                                          setShowDayDetailsModal(true);
+                                        }}
+                                      >
+                                        <Edit className="h-5 w-5" />
+                                      </button>
+                                    )}
                                     {/* Delete Button */}
-                                    <button
-                                      className="text-red-500 hover:text-red-700 flex-shrink-0"
-                                      onClick={() => {
-                                        const allEvents = dayEvents[selectedDay];
-                                        const eventIndex = allEvents.findIndex(e => (e.id && e.id === event.id) || allEvents.indexOf(e) === index);
-                                        const updatedEvents = allEvents.filter((_, i) => i !== eventIndex);
-                                        setDayEvents({
-                                          ...dayEvents,
-                                          [selectedDay]: updatedEvents
-                                        });
-                                      }}
-                                    >
-                                      <X className="h-5 w-5" />
-                                    </button>
+                                    {hasPermission(user, 'itineraries.edit') && (
+                                      <button
+                                        className="text-red-500 hover:text-red-700 flex-shrink-0"
+                                        onClick={() => {
+                                          const allEvents = dayEvents[selectedDay];
+                                          const eventIndex = allEvents.findIndex(e => (e.id && e.id === event.id) || allEvents.indexOf(e) === index);
+                                          const updatedEvents = allEvents.filter((_, i) => i !== eventIndex);
+                                          setDayEvents({
+                                            ...dayEvents,
+                                            [selectedDay]: updatedEvents
+                                          });
+                                        }}
+                                      >
+                                        <X className="h-5 w-5" />
+                                      </button>
+                                    )}
                                   </div>
                                 </div>
                               ));
@@ -2009,32 +2041,36 @@ const ItineraryDetail = () => {
                           >
                             From Database
                           </button>
-                          <button
-                            onClick={() => {
-                              setDataSourceTab('manual');
-                              setShowManualAddModal(true);
-                            }}
-                            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-1 ${dataSourceTab === 'manual'
-                              ? 'border-green-600 text-green-600'
-                              : 'border-transparent text-gray-600 hover:text-gray-900'
-                              }`}
-                          >
-                            <Plus className="h-4 w-4" />
-                            Add Manual
-                          </button>
-                          <button
-                            onClick={() => {
-                              setDataSourceTab('api');
-                              setShowApiSearchModal(true);
-                            }}
-                            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-1 ${dataSourceTab === 'api'
-                              ? 'border-green-600 text-green-600'
-                              : 'border-transparent text-gray-600 hover:text-gray-900'
-                              }`}
-                          >
-                            <Plus className="h-4 w-4" />
-                            From API
-                          </button>
+                          {hasPermission(user, 'itineraries.edit') && (
+                            <button
+                              onClick={() => {
+                                setDataSourceTab('manual');
+                                setShowManualAddModal(true);
+                              }}
+                              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-1 ${dataSourceTab === 'manual'
+                                ? 'border-green-600 text-green-600'
+                                : 'border-transparent text-gray-600 hover:text-gray-900'
+                                }`}
+                            >
+                              <Plus className="h-4 w-4" />
+                              Add Manual
+                            </button>
+                          )}
+                          {hasPermission(user, 'itineraries.edit') && (
+                            <button
+                              onClick={() => {
+                                setDataSourceTab('api');
+                                setShowApiSearchModal(true);
+                              }}
+                              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-1 ${dataSourceTab === 'api'
+                                ? 'border-green-600 text-green-600'
+                                : 'border-transparent text-gray-600 hover:text-gray-900'
+                                }`}
+                            >
+                              <Plus className="h-4 w-4" />
+                              From API
+                            </button>
+                          )}
                         </div>
                       )}
 
@@ -2055,10 +2091,12 @@ const ItineraryDetail = () => {
                                   key={di.id}
                                   className="flex items-start gap-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer"
                                   onClick={() => {
-                                    if (selectedDay) {
-                                      handleAddDayItinerary(di.id);
-                                    } else {
-                                      toast.warning('Please select a day from the left (e.g. DAY 1, DAY 2) first, then add this item.');
+                                    if (hasPermission(user, 'itineraries.edit')) {
+                                      if (selectedDay) {
+                                        handleAddDayItinerary(di.id);
+                                      } else {
+                                        toast.warning('Please select a day from the left (e.g. DAY 1, DAY 2) first, then add this item.');
+                                      }
                                     }
                                   }}
                                 >
@@ -2087,19 +2125,21 @@ const ItineraryDetail = () => {
                                     <h4 className="font-semibold text-gray-900 text-sm mb-1">{di.title || di.destination || 'Day Itinerary'}</h4>
                                     <p className="text-xs text-gray-600 line-clamp-2">{di.details || di.destination || 'No description'}</p>
                                   </div>
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      if (selectedDay) {
-                                        handleAddDayItinerary(di.id);
-                                      } else {
-                                        toast.warning('Please select a day from the left (e.g. DAY 1, DAY 2) first, then add this item.');
-                                      }
-                                    }}
-                                    className="w-8 h-8 bg-black text-white rounded-full flex items-center justify-center hover:bg-gray-800 flex-shrink-0"
-                                  >
-                                    <Plus className="h-4 w-4" />
-                                  </button>
+                                  {hasPermission(user, 'itineraries.edit') && (
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        if (selectedDay) {
+                                          handleAddDayItinerary(di.id);
+                                        } else {
+                                          toast.warning('Please select a day from the left (e.g. DAY 1, DAY 2) first, then add this item.');
+                                        }
+                                      }}
+                                      className="w-8 h-8 bg-black text-white rounded-full flex items-center justify-center hover:bg-gray-800 flex-shrink-0"
+                                    >
+                                      <Plus className="h-4 w-4" />
+                                    </button>
+                                  )}
                                 </div>
                               ))}
                           </>
@@ -2125,6 +2165,7 @@ const ItineraryDetail = () => {
                                     key={activity.id}
                                     className="flex items-start gap-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer"
                                     onClick={() => {
+                                      if (!hasPermission(user, 'itineraries.edit')) return;
                                       if (selectedDay) {
                                         const eventData = {
                                           id: Date.now(),
@@ -2173,35 +2214,37 @@ const ItineraryDetail = () => {
                                       <h4 className="font-semibold text-gray-900 text-sm mb-1">{activity.activity_name || 'Activity'}</h4>
                                       <p className="text-xs text-gray-600 line-clamp-2">{activity.activity_details || activity.destination || 'No description'}</p>
                                     </div>
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        if (selectedDay) {
-                                          const eventData = {
-                                            id: Date.now(),
-                                            subject: activity.activity_name || 'Activity',
-                                            details: activity.activity_details || '',
-                                            destination: activity.destination || '',
-                                            eventType: 'activity',
-                                            image: activity.activity_photo || null,
-                                            type: 'Manual',
-                                            name: activity.activity_name || '',
-                                            date: '',
-                                            startTime: '1:00 PM',
-                                            endTime: '2:00 PM',
-                                            showTime: false,
-                                            hotelOptions: [],
-                                            editingOptionIndex: null,
-                                          };
-                                          saveEvent(eventData);
-                                        } else {
-                                          toast.warning('Please select a day from the left (e.g. DAY 1, DAY 2) first, then add this item.');
-                                        }
-                                      }}
-                                      className="w-8 h-8 bg-black text-white rounded-full flex items-center justify-center hover:bg-gray-800 flex-shrink-0"
-                                    >
-                                      <Plus className="h-4 w-4" />
-                                    </button>
+                                    {hasPermission(user, 'itineraries.edit') && (
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          if (selectedDay) {
+                                            const eventData = {
+                                              id: Date.now(),
+                                              subject: activity.activity_name || 'Activity',
+                                              details: activity.activity_details || '',
+                                              destination: activity.destination || '',
+                                              eventType: 'activity',
+                                              image: activity.activity_photo || null,
+                                              type: 'Manual',
+                                              name: activity.activity_name || '',
+                                              date: '',
+                                              startTime: '1:00 PM',
+                                              endTime: '2:00 PM',
+                                              showTime: false,
+                                              hotelOptions: [],
+                                              editingOptionIndex: null,
+                                            };
+                                            saveEvent(eventData);
+                                          } else {
+                                            toast.warning('Please select a day from the left (e.g. DAY 1, DAY 2) first, then add this item.');
+                                          }
+                                        }}
+                                        className="w-8 h-8 bg-black text-white rounded-full flex items-center justify-center hover:bg-gray-800 flex-shrink-0"
+                                      >
+                                        <Plus className="h-4 w-4" />
+                                      </button>
+                                    )}
                                   </div>
                                 ))
                             )}
@@ -2234,7 +2277,7 @@ const ItineraryDetail = () => {
                                           <div
                                             key={hotel.id}
                                             className="flex items-start gap-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer"
-                                            onClick={() => handleHotelSelect(hotel)}
+                                            onClick={() => hasPermission(user, 'itineraries.edit') && handleHotelSelect(hotel)}
                                           >
                                             <div className="w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center overflow-hidden border border-gray-200 flex-shrink-0">
                                               {hotel.image ? (
@@ -2270,15 +2313,17 @@ const ItineraryDetail = () => {
                                                 <p className="text-xs text-gray-600 line-clamp-2">{hotel.address}</p>
                                               )}
                                             </div>
-                                            <button
-                                              onClick={(e) => {
-                                                e.stopPropagation();
-                                                handleHotelSelect(hotel);
-                                              }}
-                                              className="w-8 h-8 bg-black text-white rounded-full flex items-center justify-center hover:bg-gray-800 flex-shrink-0"
-                                            >
-                                              <Plus className="h-4 w-4" />
-                                            </button>
+                                            {hasPermission(user, 'itineraries.edit') && (
+                                              <button
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  handleHotelSelect(hotel);
+                                                }}
+                                                className="w-8 h-8 bg-black text-white rounded-full flex items-center justify-center hover:bg-gray-800 flex-shrink-0"
+                                              >
+                                                <Plus className="h-4 w-4" />
+                                              </button>
+                                            )}
                                           </div>
                                         ))
                                     ) : (
@@ -2381,12 +2426,14 @@ const ItineraryDetail = () => {
                                                         <div className="text-gray-600">{room.mealPlan}</div>
                                                         <div className="text-gray-900 font-semibold">Rs. {room.price.toLocaleString()}</div>
                                                         <div>
-                                                          <button
-                                                            onClick={() => handleRoomSelect(hotel, room)}
-                                                            className="bg-blue-600 text-white px-4 py-1.5 rounded text-xs font-medium hover:bg-blue-700 transition-colors w-full"
-                                                          >
-                                                            Select
-                                                          </button>
+                                                          {hasPermission(user, 'itineraries.edit') && (
+                                                            <button
+                                                              onClick={() => handleRoomSelect(hotel, room)}
+                                                              className="bg-blue-600 text-white px-4 py-1.5 rounded text-xs font-medium hover:bg-blue-700 transition-colors w-full"
+                                                            >
+                                                              Select
+                                                            </button>
+                                                          )}
                                                         </div>
                                                       </div>
                                                     ))}
@@ -2432,6 +2479,7 @@ const ItineraryDetail = () => {
                                     key={transfer.id}
                                     className="flex items-start gap-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer"
                                     onClick={() => {
+                                      if (!hasPermission(user, 'itineraries.edit')) return;
                                       if (selectedDay) {
                                         const eventData = {
                                           id: Date.now(),
@@ -2482,35 +2530,37 @@ const ItineraryDetail = () => {
                                         {transfer.transfer_details || transfer.destination || 'No description'}
                                       </p>
                                     </div>
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        if (selectedDay) {
-                                          const eventData = {
-                                            id: Date.now(),
-                                            subject: transfer.name || 'Transfer',
-                                            details: transfer.transfer_details || '',
-                                            destination: transfer.destination || '',
-                                            eventType: 'transportation',
-                                            image: transfer.transfer_photo || null,
-                                            type: 'Manual',
-                                            name: transfer.name || '',
-                                            date: '',
-                                            startTime: '1:00 PM',
-                                            endTime: '2:00 PM',
-                                            showTime: false,
-                                            hotelOptions: [],
-                                            editingOptionIndex: null,
-                                          };
-                                          saveEvent(eventData);
-                                        } else {
-                                          toast.warning('Please select a day from the left (e.g. DAY 1, DAY 2) first, then add this item.');
-                                        }
-                                      }}
-                                      className="w-8 h-8 bg-black text-white rounded-full flex items-center justify-center hover:bg-gray-800 flex-shrink-0"
-                                    >
-                                      <Plus className="h-4 w-4" />
-                                    </button>
+                                    {hasPermission(user, 'itineraries.edit') && (
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          if (selectedDay) {
+                                            const eventData = {
+                                              id: Date.now(),
+                                              subject: transfer.name || 'Transfer',
+                                              details: transfer.transfer_details || '',
+                                              destination: transfer.destination || '',
+                                              eventType: 'transportation',
+                                              image: transfer.transfer_photo || null,
+                                              type: 'Manual',
+                                              name: transfer.name || '',
+                                              date: '',
+                                              startTime: '1:00 PM',
+                                              endTime: '2:00 PM',
+                                              showTime: false,
+                                              hotelOptions: [],
+                                              editingOptionIndex: null,
+                                            };
+                                            saveEvent(eventData);
+                                          } else {
+                                            toast.warning('Please select a day from the left (e.g. DAY 1, DAY 2) first, then add this item.');
+                                          }
+                                        }}
+                                        className="w-8 h-8 bg-black text-white rounded-full flex items-center justify-center hover:bg-gray-800 flex-shrink-0"
+                                      >
+                                        <Plus className="h-4 w-4" />
+                                      </button>
+                                    )}
                                   </div>
                                 ))
                             ) : (
@@ -2539,6 +2589,7 @@ const ItineraryDetail = () => {
                                     key={meal.id}
                                     className="flex items-start gap-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer"
                                     onClick={() => {
+                                      if (!hasPermission(user, 'itineraries.edit')) return;
                                       if (selectedDay) {
                                         const eventData = {
                                           id: Date.now(),
@@ -2572,36 +2623,38 @@ const ItineraryDetail = () => {
                                         Meal Plan
                                       </p>
                                     </div>
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        if (selectedDay) {
-                                          const eventData = {
-                                            id: Date.now(),
-                                            subject: meal.name || 'Meal',
-                                            details: '',
-                                            destination: days[selectedDay - 1]?.destination || '',
-                                            eventType: 'meal',
-                                            image: null,
-                                            type: 'Manual',
-                                            name: meal.name || '',
-                                            date: '',
-                                            startTime: '1:00 PM',
-                                            endTime: '2:00 PM',
-                                            showTime: false,
-                                            hotelOptions: [],
-                                            editingOptionIndex: null,
-                                            mealPlan: meal.name || '',
-                                          };
-                                          saveEvent(eventData);
-                                        } else {
-                                          toast.warning('Please select a day from the left (e.g. DAY 1, DAY 2) first, then add this item.');
-                                        }
-                                      }}
-                                      className="w-8 h-8 bg-black text-white rounded-full flex items-center justify-center hover:bg-gray-800 flex-shrink-0"
-                                    >
-                                      <Plus className="h-4 w-4" />
-                                    </button>
+                                    {hasPermission(user, 'itineraries.edit') && (
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          if (selectedDay) {
+                                            const eventData = {
+                                              id: Date.now(),
+                                              subject: meal.name || 'Meal',
+                                              details: '',
+                                              destination: days[selectedDay - 1]?.destination || '',
+                                              eventType: 'meal',
+                                              image: null,
+                                              type: 'Manual',
+                                              name: meal.name || '',
+                                              date: '',
+                                              startTime: '1:00 PM',
+                                              endTime: '2:00 PM',
+                                              showTime: false,
+                                              hotelOptions: [],
+                                              editingOptionIndex: null,
+                                              mealPlan: meal.name || '',
+                                            };
+                                            saveEvent(eventData);
+                                          } else {
+                                            toast.warning('Please select a day from the left (e.g. DAY 1, DAY 2) first, then add this item.');
+                                          }
+                                        }}
+                                        className="w-8 h-8 bg-black text-white rounded-full flex items-center justify-center hover:bg-gray-800 flex-shrink-0"
+                                      >
+                                        <Plus className="h-4 w-4" />
+                                      </button>
+                                    )}
                                   </div>
                                 ))
                             ) : (
@@ -2651,6 +2704,7 @@ const ItineraryDetail = () => {
                 else if (type === 'success') toast.success(text);
                 else toast.info(text);
               }}
+              readOnly={!hasPermission(user, 'itineraries.edit')}
             />
           )}
 

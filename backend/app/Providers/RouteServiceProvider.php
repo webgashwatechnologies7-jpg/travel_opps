@@ -34,14 +34,14 @@ class RouteServiceProvider extends ServiceProvider
             // Storage route without middleware (no session required)
             Route::get('/storage/{folder}/{filename}', function ($folder, $filename) {
                 $path = $folder . '/' . $filename;
-                
+
                 if (!\Illuminate\Support\Facades\Storage::disk('public')->exists($path)) {
                     abort(404);
                 }
-                
+
                 $file = \Illuminate\Support\Facades\Storage::disk('public')->get($path);
                 $type = \Illuminate\Support\Facades\Storage::disk('public')->mimeType($path);
-                
+
                 return \Illuminate\Support\Facades\Response::make($file, 200, [
                     'Content-Type' => $type,
                     'Content-Disposition' => 'inline; filename="' . $filename . '"',
@@ -59,7 +59,7 @@ class RouteServiceProvider extends ServiceProvider
     protected function configureRateLimiting(): void
     {
         RateLimiter::for('api', function (Request $request) {
-            return Limit::perMinute(60)->by($request->user()?->id ?: $request->ip());
+            return Limit::perMinute(1000)->by($request->user()?->id ?: $request->ip());
         });
     }
 }

@@ -7,6 +7,7 @@ use App\Modules\Leads\Domain\Entities\Lead;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use App\Models\Scopes\ScopeByLeadAccess;
 
 class Payment extends Model
 {
@@ -83,6 +84,14 @@ class Payment extends Model
         } else {
             return 'paid';
         }
+    }
+
+    /**
+     * The "booted" method of the model.
+     */
+    protected static function booted(): void
+    {
+        static::addGlobalScope(new ScopeByLeadAccess);
     }
 }
 

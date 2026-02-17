@@ -1,12 +1,24 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
+import { useAuth } from '../contexts/AuthContext';
 import Layout from '../components/Layout';
 import { Search, Plus, Edit, Eye, X, Image as ImageIcon, Hash, MapPin, CalendarDays, Trash, Upload, Camera } from 'lucide-react';
 import { packagesAPI } from '../services/api';
 import { searchPexelsPhotos } from '../services/pexels';
 
+// Helper for checking permissions
+const hasPermission = (user, permission) => {
+  if (!user) return false;
+  // Super Admin bypass
+  if (user.is_super_admin) return true;
+  // Check granular permission
+  if (user.permissions && user.permissions.includes(permission)) return true;
+  return false;
+};
+
 const Itineraries = () => {
+  const { user } = useAuth();
   const navigate = useNavigate();
   const [itineraries, setItineraries] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -373,13 +385,15 @@ const Itineraries = () => {
                 />
               </div>
               {/* Add New Button */}
-              <button
-                onClick={handleAddNew}
-                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2 font-medium shadow-sm"
-              >
-                <Plus className="h-5 w-5" />
-                Add New
-              </button>
+              {hasPermission(user, 'itineraries.create') && (
+                <button
+                  onClick={handleAddNew}
+                  className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2 font-medium shadow-sm"
+                >
+                  <Plus className="h-5 w-5" />
+                  Add New
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -441,28 +455,32 @@ const Itineraries = () => {
                     >
                       <Eye className="h-4 w-4" />
                     </button>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleEdit(itinerary);
-                      }}
-                      className="w-8 h-8 rounded-full bg-white/90 backdrop-blur text-green-600 hover:bg-white flex items-center justify-center shadow-lg"
-                      title="Edit Itinerary"
-                    >
-                      <Edit className="h-4 w-4" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDelete(itinerary);
-                      }}
-                      className="w-8 h-8 rounded-full bg-white/90 backdrop-blur text-red-600 hover:bg-white flex items-center justify-center shadow-lg"
-                      title="Delete Itinerary"
-                    >
-                      <Trash className="h-4 w-4" />
-                    </button>
+                    {hasPermission(user, 'itineraries.edit') && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleEdit(itinerary);
+                        }}
+                        className="w-8 h-8 rounded-full bg-white/90 backdrop-blur text-green-600 hover:bg-white flex items-center justify-center shadow-lg"
+                        title="Edit Itinerary"
+                      >
+                        <Edit className="h-4 w-4" />
+                      </button>
+                    )}
+                    {hasPermission(user, 'itineraries.delete') && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDelete(itinerary);
+                        }}
+                        className="w-8 h-8 rounded-full bg-white/90 backdrop-blur text-red-600 hover:bg-white flex items-center justify-center shadow-lg"
+                        title="Delete Itinerary"
+                      >
+                        <Trash className="h-4 w-4" />
+                      </button>
+                    )}
                   </div>
 
                   {/* Bottom Info Overlay */}
@@ -498,8 +516,11 @@ const Itineraries = () => {
                       type="button"
                       onClick={(e) => {
                         e.stopPropagation();
-                        handleToggleStatus(itinerary);
+                        if (hasPermission(user, 'itineraries.edit')) {
+                          handleToggleStatus(itinerary);
+                        }
                       }}
+                      disabled={!hasPermission(user, 'itineraries.edit')}
                       className={`relative inline-flex h-5 w-10 items-center rounded-full transition-colors focus:outline-none ${itinerary.show_on_website ? "bg-green-500" : "bg-red-500"
                         }`}
                     >

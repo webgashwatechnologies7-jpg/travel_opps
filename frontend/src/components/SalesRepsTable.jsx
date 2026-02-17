@@ -116,10 +116,11 @@ const SalesRepsTable = ({ title = "Sales" }) => {
       </div>
 
       {/* Table Header */}
-      <div className="grid grid-cols-[30px_1fr_60px_70px] gap-2 px-3 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+      <div className="grid grid-cols-[30px_1fr_60px_60px_70px] gap-2 px-3 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">
         <div className="text-left">#</div>
         <div className="text-left">Name</div>
         <div className="text-center">Total</div>
+        <div className="text-center">Pending</div>
         <div className="text-center">Confirm</div>
       </div>
 
@@ -133,7 +134,8 @@ const SalesRepsTable = ({ title = "Sales" }) => {
           salesReps.map((rep, index) => {
             const assigned = rep.assigned || 0;
             const confirmed = rep.confirmed || 0;
-            const total = rep.total ?? assigned + confirmed;
+            const pending = rep.pending || 0;
+            const total = rep.total ?? (assigned); // 'assigned' in backend query is COUNT(id)
             const repId = rep.id || rep.user_id || rep.user?.id || rep.user?.user_id;
             const repName = rep.name || rep.user?.name || rep.user_name || '';
 
@@ -141,7 +143,7 @@ const SalesRepsTable = ({ title = "Sales" }) => {
               <div
                 key={repId || index}
                 className={`
-                  grid grid-cols-[30px_1fr_60px_70px] gap-2
+                  grid grid-cols-[30px_1fr_60px_60px_70px] gap-2
                   items-center px-3 py-3 text-sm border-b last:border-0 border-gray-100
                   ${index % 2 === 0 ? "bg-[#E9ECFF]" : "bg-white"}
                   hover:opacity-90 transition-opacity cursor-pointer
@@ -162,6 +164,9 @@ const SalesRepsTable = ({ title = "Sales" }) => {
                 </div>
                 <div className="text-center font-medium text-gray-700 bg-white/50 rounded py-1">
                   {total}
+                </div>
+                <div className="text-center font-medium text-orange-600 bg-white/50 rounded py-1">
+                  {pending}
                 </div>
                 <div className="text-center font-bold text-green-600 bg-white/80 rounded py-1 shadow-sm border border-green-100">
                   {confirmed}

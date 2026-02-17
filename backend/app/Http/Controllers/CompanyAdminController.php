@@ -53,7 +53,9 @@ class CompanyAdminController extends Controller
                 'address' => $request->company_address,
                 'subdomain' => $request->subdomain ?: Str::slug($request->company_name) . '-' . Str::random(5),
                 'domain' => $request->domain,
-                'status' => 'active',
+                'status' => 'pending', // Pending until activation
+                'dns_status' => 'pending',
+                'dns_verification_token' => Str::random(60),
                 'subscription_plan_id' => $request->subscription_plan_id,
                 'subscription_start_date' => $request->subscription_start_date,
                 'subscription_end_date' => $request->subscription_end_date,
@@ -80,9 +82,17 @@ class CompanyAdminController extends Controller
             $company->load(['subscriptionPlan', 'users']);
             $adminUser->load(['roles', 'permissions', 'company']);
 
+            // Send Welcome Email
+            try {
+                \Illuminate\Support\Facades\Mail::to($request->company_email)->send(new \App\Mail\WelcomeEmail($company, $request->admin_password));
+            } catch (\Exception $e) {
+                // Log email error but don't fail creation
+                \Illuminate\Support\Facades\Log::error('Failed to send welcome email: ' . $e->getMessage());
+            }
+
             return response()->json([
                 'success' => true,
-                'message' => 'Company admin created successfully',
+                'message' => 'Company admin created successfully. Welcome email sent.',
                 'data' => [
                     'company' => [
                         'id' => $company->id,
@@ -178,7 +188,7 @@ class CompanyAdminController extends Controller
     {
         try {
             $user = User::findOrFail($userId);
-            
+
             // Verify user is company admin
             if (!$user->hasRole('Company Admin')) {
                 return response()->json([
@@ -228,7 +238,7 @@ class CompanyAdminController extends Controller
     {
         // Get all permissions from subscription plan
         $featureIds = $plan->getEnabledFeatureIds();
-        
+
         if (empty($featureIds)) {
             return;
         }
@@ -240,10 +250,10 @@ class CompanyAdminController extends Controller
 
         foreach ($features as $feature) {
             $permissionName = $feature->feature_key;
-            
+
             // Create permission if it doesn't exist
             $permission = \Spatie\Permission\Models\Permission::firstOrCreate(['name' => $permissionName]);
-            
+
             // Assign permission to user
             $user->givePermissionTo($permissionName);
         }
@@ -262,12 +272,14 @@ class CompanyAdminController extends Controller
     public function getSubscriptionPlans(): JsonResponse
     {
         try {
-            $plans = SubscriptionPlan::with(['features' => function ($query) {
-                $query->where('is_enabled', true);
-            }])
-            ->where('is_active', true)
-            ->orderBy('sort_order')
-            ->get();
+            $plans = SubscriptionPlan::with([
+                'features' => function ($query) {
+                    $query->where('is_enabled', true);
+                }
+            ])
+                ->where('is_active', true)
+                ->orderBy('sort_order')
+                ->get();
 
             return response()->json([
                 'success' => true,

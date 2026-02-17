@@ -97,6 +97,14 @@ class Lead extends Model
     ];
 
     /**
+     * The "booted" method of the model.
+     */
+    protected static function booted(): void
+    {
+        static::addGlobalScope(new \App\Models\Scopes\ScopeByHierarchy);
+    }
+
+    /**
      * Get the user assigned to this lead.
      *
      * @return BelongsTo

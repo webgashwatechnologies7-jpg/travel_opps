@@ -57,7 +57,7 @@ class SubscriptionPlanFeature extends Model
                 'description' => 'Track and manage payments',
                 'has_limit' => false,
             ],
-            
+
             // Itinerary Features
             'itineraries' => [
                 'name' => 'Itineraries/Packages',
@@ -69,7 +69,7 @@ class SubscriptionPlanFeature extends Model
                 'description' => 'Create detailed day-by-day itineraries',
                 'has_limit' => false,
             ],
-            
+
             // Master Data
             'hotels' => [
                 'name' => 'Hotels Management',
@@ -96,7 +96,7 @@ class SubscriptionPlanFeature extends Model
                 'description' => 'Manage destinations',
                 'has_limit' => false,
             ],
-            
+
             // Communication Features
             'email_templates' => [
                 'name' => 'Email Templates',
@@ -114,7 +114,7 @@ class SubscriptionPlanFeature extends Model
                 'has_limit' => true,
                 'limit_label' => 'Messages per month',
             ],
-            
+
             // Marketing & Automation
             'campaigns' => [
                 'name' => 'Email Campaigns',
@@ -127,7 +127,35 @@ class SubscriptionPlanFeature extends Model
                 'description' => 'Sync data with Google Sheets',
                 'has_limit' => false,
             ],
-            
+            'sms_campaigns' => [
+                'name' => 'SMS Campaigns',
+                'description' => 'Create and run SMS campaigns',
+                'has_limit' => true,
+                'limit_label' => 'Messages per month',
+            ],
+            'landing_pages' => [
+                'name' => 'Landing Pages',
+                'description' => 'Create and host landing pages',
+                'has_limit' => true,
+                'limit_label' => 'Active pages',
+            ],
+            'social_media' => [
+                'name' => 'Social Media Integration',
+                'description' => 'Connect and post to social media',
+                'has_limit' => false,
+            ],
+            'marketing_automation' => [
+                'name' => 'Marketing Automation',
+                'description' => 'Create automated marketing workflows',
+                'has_limit' => true,
+                'limit_label' => 'Active workflows',
+            ],
+            'ab_testing' => [
+                'name' => 'A/B Testing',
+                'description' => 'Run A/B tests for campaigns',
+                'has_limit' => false,
+            ],
+
             // Reports & Analytics
             'reports' => [
                 'name' => 'Reports',
@@ -144,7 +172,7 @@ class SubscriptionPlanFeature extends Model
                 'description' => 'Track employee performance',
                 'has_limit' => false,
             ],
-            
+
             // HR Features
             'targets' => [
                 'name' => 'Targets Management',
@@ -156,7 +184,7 @@ class SubscriptionPlanFeature extends Model
                 'description' => 'Track and manage expenses',
                 'has_limit' => false,
             ],
-            
+
             // Admin Features
             'user_management' => [
                 'name' => 'User Management',
@@ -173,7 +201,7 @@ class SubscriptionPlanFeature extends Model
                 'description' => 'Customize company settings',
                 'has_limit' => false,
             ],
-            
+
             // Advanced Features
             'api_access' => [
                 'name' => 'API Access',

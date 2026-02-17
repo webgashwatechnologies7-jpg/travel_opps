@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import Layout from '../components/Layout';
 import { useContent } from '../contexts/ContentContext';
 import { marketingAPI } from '../services/api';
-import { 
+import {
   Mail,
   MessageSquare,
   BarChart3,
@@ -118,32 +118,7 @@ const MarketingDashboard = () => {
                 <h1 className="text-3xl font-bold text-gray-900">{t('marketing.dashboard.title')}</h1>
                 <p className="text-gray-600 mt-1">{t('marketing.dashboard.subtitle')}</p>
               </div>
-              <div className="flex items-center space-x-4">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                  <input
-                    type="text"
-                    placeholder={t('marketing.dashboard.search_placeholder')}
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  />
-                </div>
-                <select
-                  value={selectedPeriod}
-                  onChange={(e) => setSelectedPeriod(e.target.value)}
-                  className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                >
-                  <option value="today">Today</option>
-                  <option value="week">This Week</option>
-                  <option value="month">This Month</option>
-                  <option value="year">This Year</option>
-                </select>
-                <button className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-                  <Plus className="w-4 h-4" />
-                  <span>{t('marketing.dashboard.new_campaign')}</span>
-                </button>
-              </div>
+              <div></div>
             </div>
           </div>
         </div>
@@ -354,16 +329,15 @@ const MarketingDashboard = () => {
                       <tr key={campaign.id} className="hover:bg-gray-50">
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center">
-                            <div className={`p-2 rounded-lg mr-3 ${
-                              campaign.type === 'email' ? 'bg-blue-100' : 
-                              campaign.type === 'sms' ? 'bg-green-100' : 
-                              'bg-purple-100'
-                            }`}>
-                              {campaign.type === 'email' ? 
-                                <Mail className="w-4 h-4 text-blue-600" /> : 
-                                campaign.type === 'sms' ? 
-                                <MessageSquare className="w-4 h-4 text-green-600" /> :
-                                <MessageSquare className="w-4 h-4 text-purple-600" />
+                            <div className={`p-2 rounded-lg mr-3 ${campaign.type === 'email' ? 'bg-blue-100' :
+                                campaign.type === 'sms' ? 'bg-green-100' :
+                                  'bg-purple-100'
+                              }`}>
+                              {campaign.type === 'email' ?
+                                <Mail className="w-4 h-4 text-blue-600" /> :
+                                campaign.type === 'sms' ?
+                                  <MessageSquare className="w-4 h-4 text-green-600" /> :
+                                  <MessageSquare className="w-4 h-4 text-purple-600" />
                               }
                             </div>
                             <div>
@@ -385,11 +359,10 @@ const MarketingDashboard = () => {
                           <span className="text-sm text-gray-900">{campaign.open_rate || 0}%</span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                            campaign.status === 'active' ? 'bg-green-100 text-green-800' :
-                            campaign.status === 'completed' ? 'bg-blue-100 text-blue-800' :
-                            'bg-yellow-100 text-yellow-800'
-                          }`}>
+                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${campaign.status === 'active' ? 'bg-green-100 text-green-800' :
+                              campaign.status === 'completed' ? 'bg-blue-100 text-blue-800' :
+                                'bg-yellow-100 text-yellow-800'
+                            }`}>
                             {campaign.status}
                           </span>
                         </td>

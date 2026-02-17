@@ -3,7 +3,7 @@
 use App\Http\Controllers\SuperAdmin\CompanyController;
 use App\Http\Controllers\SuperAdmin\MailHealthController;
 use App\Http\Controllers\SuperAdmin\SubscriptionPlanController;
-use App\Http\Controllers\SuperAdmin\SubscriptionPlanFeatureController;
+use App\Http\Controllers\Api\SuperAdmin\FeatureController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -23,16 +23,22 @@ Route::middleware(['auth:sanctum', 'superadmin'])->prefix('super-admin')->group(
         Route::get('/{id}', [CompanyController::class, 'show']);
         Route::put('/{id}', [CompanyController::class, 'update']);
         Route::delete('/{id}', [CompanyController::class, 'destroy']);
+        // DNS Verification Route
+        Route::post('/{id}/verify-dns', [CompanyController::class, 'verifyDns']);
     });
 
     Route::prefix('subscription-plans')->group(function () {
         Route::get('/', [SubscriptionPlanController::class, 'index']);
         Route::post('/', [SubscriptionPlanController::class, 'store']);
-        Route::get('/available-features', [SubscriptionPlanFeatureController::class, 'getAvailableFeatures']);
+        // New Dynamic Features Routes
+        Route::get('/available-features', [FeatureController::class, 'index']);
+
         Route::get('/{id}', [SubscriptionPlanController::class, 'show']);
         Route::put('/{id}', [SubscriptionPlanController::class, 'update']);
         Route::delete('/{id}', [SubscriptionPlanController::class, 'destroy']);
-        Route::get('/{id}/features', [SubscriptionPlanFeatureController::class, 'getPlanFeatures']);
-        Route::put('/{id}/features', [SubscriptionPlanFeatureController::class, 'updatePlanFeatures']);
+
+        // Subscription Plan Features
+        Route::get('/{id}/features', [FeatureController::class, 'getPlanFeatures']);
+        Route::put('/{id}/features', [FeatureController::class, 'updatePlanFeatures']);
     });
 });

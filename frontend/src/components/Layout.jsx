@@ -27,10 +27,12 @@ import {
   Users,
   Phone,
   ClipboardList,
-  Package
+  Package,
+  LogOut
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { settingsAPI, menuAPI } from '../services/api';
+import { toast } from 'react-toastify';
 
 // Icon name (from API) -> Lucide component for dynamic menu
 const MENU_ICON_MAP = {
@@ -60,7 +62,30 @@ const Layout = ({ children, Header, padding = 0 }) => {
   const [isUserDropdownOpen, setIsUserDropdownOpen] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
+  const checkFeatureAccess = (feature) => {
+    if (!feature || user?.is_super_admin) return true;
 
+    const features = user?.plan_features || {};
+    const isEnabled = features[feature]?.enabled === true;
+
+    if (!isEnabled) {
+      toast.info(
+        <div className="flex flex-col gap-1">
+          <span className="font-bold text-lg">Plan Upgrade Required</span>
+          <span className="text-sm">This feature is not included in your current plan. Please upgrade your plan to access this feature.</span>
+        </div>,
+        {
+          position: "top-center",
+          autoClose: 5000,
+          theme: "colored",
+          style: { backgroundColor: '#1e3a8a' },
+          toastId: 'feature-restricted'
+        }
+      );
+      return false;
+    }
+    return true;
+  };
 
   // Check if user is Admin
   const isAdmin = user?.role === 'Admin' || user?.roles?.some(role => role.name === 'Admin') || false;
@@ -171,10 +196,20 @@ ${isSidebarOpen ? 'lg:left-64' : 'lg:left-20'}`}
                   <p className="text-sm font-medium">{user?.name}</p>
                   <p className="text-xs text-gray-500">{user?.email}</p>
                 </div>
+                <div className="py-1">
+                  <Link
+                    to="/settings/subscription"
+                    className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 gap-2"
+                  >
+                    <Package className="h-4 w-4" />
+                    Subscription Plan
+                  </Link>
+                </div>
                 <button
                   onClick={handleLogout}
-                  className="w-full px-4 py-2 text-sm text-left text-red-600 hover:bg-red-50 flex gap-2"
+                  className="w-full px-4 py-2 text-sm text-left text-red-600 hover:bg-red-50 flex gap-2 border-t"
                 >
+                  <LogOut className="h-4 w-4" />
                   Logout
                 </button>
               </div>
@@ -250,7 +285,11 @@ ${isSidebarOpen ? 'lg:left-64' : 'lg:left-20'}`}
                   return (
                     <div key={item.label} className="relative">
                       <button
-                        onClick={() => toggleSubmenu(submenuKey)}
+                        onClick={() => {
+                          if (checkFeatureAccess(item.feature)) {
+                            toggleSubmenu(submenuKey);
+                          }
+                        }}
                         className={`w-full flex items-center px-3 py-3 rounded-lg transition-colors relative ${hasActiveSubmenu
                           ? 'bg-[#3b82f6] text-white'
                           : 'text-blue-100 hover:bg-blue-800/50'
@@ -270,6 +309,11 @@ ${isSidebarOpen ? 'lg:left-64' : 'lg:left-20'}`}
                               <div key={subItem.path} className="relative">
                                 <Link
                                   to={subItem.path}
+                                  onClick={(e) => {
+                                    if (!checkFeatureAccess(subItem.feature)) {
+                                      e.preventDefault();
+                                    }
+                                  }}
                                   className={`flex items-center px-2 py-2 rounded-lg transition-colors ${isSubActive
                                     ? 'bg-[#3b82f6] text-white'
                                     : 'text-blue-200 hover:bg-blue-800/50'
@@ -292,6 +336,11 @@ ${isSidebarOpen ? 'lg:left-64' : 'lg:left-20'}`}
                     <div key={item.path} className="relative">
                       <Link
                         to={item.path}
+                        onClick={(e) => {
+                          if (!checkFeatureAccess(item.feature)) {
+                            e.preventDefault();
+                          }
+                        }}
                         className={`flex items-center px-3 py-3 rounded-lg transition-colors relative ${active
                           ? 'bg-[#3b82f6] text-white'
                           : 'text-blue-100 hover:bg-blue-800/50'
@@ -349,7 +398,11 @@ ${isSidebarOpen ? 'lg:left-64' : 'lg:left-20'}`}
                     return (
                       <div key={item.label}>
                         <button
-                          onClick={() => toggleSubmenu(submenuKey)}
+                          onClick={() => {
+                            if (checkFeatureAccess(item.feature)) {
+                              toggleSubmenu(submenuKey);
+                            }
+                          }}
                           className="w-full flex items-center px-3 py-3 rounded-lg text-blue-100 hover:bg-blue-800/50"
                         >
                           <Icon className="h-6 w-6 flex-shrink-0 text-white" />
@@ -362,7 +415,13 @@ ${isSidebarOpen ? 'lg:left-64' : 'lg:left-20'}`}
                               <Link
                                 key={subItem.path}
                                 to={subItem.path}
-                                onClick={() => setIsMobileSidebarOpen(false)}
+                                onClick={(e) => {
+                                  if (!checkFeatureAccess(subItem.feature)) {
+                                    e.preventDefault();
+                                  } else {
+                                    setIsMobileSidebarOpen(false);
+                                  }
+                                }}
                                 className={`flex items-center px-2 py-2 rounded-lg text-sm ${isActive(subItem.path) ? 'text-white bg-blue-600' : 'text-blue-200 hover:text-white'}`}
                               >
                                 <span>{subItem.label}</span>
@@ -378,7 +437,13 @@ ${isSidebarOpen ? 'lg:left-64' : 'lg:left-20'}`}
                       <Link
                         key={item.path}
                         to={item.path}
-                        onClick={() => setIsMobileSidebarOpen(false)}
+                        onClick={(e) => {
+                          if (!checkFeatureAccess(item.feature)) {
+                            e.preventDefault();
+                          } else {
+                            setIsMobileSidebarOpen(false);
+                          }
+                        }}
                         className={`flex items-center px-3 py-3 rounded-lg transition-colors ${isActive(item.path) ? 'bg-blue-600 text-white' : 'text-blue-100 hover:bg-blue-800/50'}`}
                       >
                         <Icon className="h-6 w-6 flex-shrink-0 text-white" />
@@ -407,7 +472,19 @@ ${isSidebarOpen ? 'lg:left-64' : 'lg:left-20'}`}
           return (
             <button
               key={idx}
-              onClick={() => tab.action ? tab.action() : navigate(tab.path)}
+              onClick={() => {
+                if (tab.action) {
+                  tab.action();
+                } else {
+                  // Find feature key for this path if possible
+                  const menuItem = menuItems.find(m => m.path === tab.path) ||
+                    menuItems.flatMap(m => m.submenu || []).find(sm => sm.path === tab.path);
+
+                  if (checkFeatureAccess(menuItem?.feature)) {
+                    navigate(tab.path);
+                  }
+                }
+              }}
               className={`flex flex-col items-center justify-center p-2 rounded-xl transition-all w-16 ${isActiveTab ? 'text-blue-600 bg-blue-50' : 'text-gray-500 hover:text-gray-700'}`}
             >
               <Icon className={`h-5 w-5 mb-1 ${isActiveTab ? 'fill-blue-600/10' : ''}`} />

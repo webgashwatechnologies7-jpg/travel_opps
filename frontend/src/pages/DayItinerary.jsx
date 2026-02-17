@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useAuth } from '../contexts/AuthContext';
 import Layout from '../components/Layout';
 import { toast } from 'react-toastify';
 import { useSettings } from '../contexts/SettingsContext';
@@ -6,7 +7,18 @@ import { Search, Plus, Edit, X, Image as ImageIcon, Trash2, Camera, Upload } fro
 import { dayItinerariesAPI, packagesAPI } from '../services/api';
 import { searchPexelsPhotos } from '../services/pexels';
 
+// Helper for checking permissions
+const hasPermission = (user, permission) => {
+  if (!user) return false;
+  // Super Admin bypass
+  if (user.is_super_admin) return true;
+  // Check granular permission
+  if (user.permissions && user.permissions.includes(permission)) return true;
+  return false;
+};
+
 const DayItinerary = () => {
+  const { user } = useAuth();
   const { settings } = useSettings();
   const [dayItineraries, setDayItineraries] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -343,13 +355,15 @@ const DayItinerary = () => {
               />
             </div>
             {/* Action Button */}
-            <button
-              onClick={handleAddNew}
-              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2 font-medium"
-            >
-              <Plus className="h-5 w-5" />
-              Add New
-            </button>
+            {hasPermission(user, 'day_itineraries.create') && (
+              <button
+                onClick={handleAddNew}
+                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2 font-medium"
+              >
+                <Plus className="h-5 w-5" />
+                Add New
+              </button>
+            )}
           </div>
         </div>
 
@@ -427,12 +441,26 @@ const DayItinerary = () => {
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${itinerary.status === 'active'
+                        <button
+                          onClick={async () => {
+                            if (!hasPermission(user, 'day_itineraries.status')) return;
+                            try {
+                              const newStatus = itinerary.status === 'active' ? 'inactive' : 'active';
+                              await dayItinerariesAPI.update(itinerary.id, { ...itinerary, status: newStatus, _method: 'PUT' });
+                              fetchDayItineraries();
+                              toast.success(`Status updated to ${newStatus}`);
+                            } catch (err) {
+                              toast.error('Failed to update status');
+                            }
+                          }}
+                          className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full cursor-pointer ${itinerary.status === 'active'
                             ? 'bg-green-100 text-green-800'
                             : 'bg-red-100 text-red-800'
-                          }`}>
+                            }`}
+                          disabled={!hasPermission(user, 'day_itineraries.status')}
+                        >
                           {itinerary.status === 'active' ? 'Active' : 'Inactive'}
-                        </span>
+                        </button>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm text-gray-900">{itinerary.created_by_name || 'Travbizz Travel IT Solutions'}</div>
@@ -444,20 +472,24 @@ const DayItinerary = () => {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                         <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => handleEdit(itinerary)}
-                            className="text-green-600 hover:text-green-900 p-2 hover:bg-green-50 rounded-full"
-                            title="Edit"
-                          >
-                            <Edit className="h-5 w-5" />
-                          </button>
-                          <button
-                            onClick={() => handleDelete(itinerary.id)}
-                            className="text-red-600 hover:text-red-900 p-2 hover:bg-red-50 rounded-full"
-                            title="Delete"
-                          >
-                            <Trash2 className="h-5 w-5" />
-                          </button>
+                          {hasPermission(user, 'day_itineraries.edit') && (
+                            <button
+                              onClick={() => handleEdit(itinerary)}
+                              className="text-green-600 hover:text-green-900 p-2 hover:bg-green-50 rounded-full"
+                              title="Edit"
+                            >
+                              <Edit className="h-5 w-5" />
+                            </button>
+                          )}
+                          {hasPermission(user, 'day_itineraries.delete') && (
+                            <button
+                              onClick={() => handleDelete(itinerary.id)}
+                              className="text-red-600 hover:text-red-900 p-2 hover:bg-red-50 rounded-full"
+                              title="Delete"
+                            >
+                              <Trash2 className="h-5 w-5" />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>

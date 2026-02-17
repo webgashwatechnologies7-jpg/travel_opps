@@ -114,7 +114,12 @@ const SubscriptionManagement = () => {
 
   const handleSaveFeatures = async () => {
     try {
-      await superAdminAPI.updatePlanFeatures(selectedPlanForFeatures.id, planFeatures);
+      const payload = planFeatures.map(f => ({
+        feature_id: f.feature_id,
+        is_active: f.is_enabled,
+        limit_value: f.limit_value
+      }));
+      await superAdminAPI.updatePlanFeatures(selectedPlanForFeatures.id, payload);
       setShowFeaturesModal(false);
       setError('');
       fetchPlans();
@@ -122,8 +127,8 @@ const SubscriptionManagement = () => {
       setError(
         err.response?.data?.message ||
           err.response?.data?.errors
-            ? Object.values(err.response.data.errors).flat().join(', ')
-            : 'Failed to save features'
+          ? Object.values(err.response.data.errors).flat().join(', ')
+          : 'Failed to save features'
       );
     }
   };
@@ -162,8 +167,8 @@ const SubscriptionManagement = () => {
       setError(
         err.response?.data?.message ||
           err.response?.data?.errors
-            ? Object.values(err.response.data.errors).flat().join(', ')
-            : 'Failed to save plan'
+          ? Object.values(err.response.data.errors).flat().join(', ')
+          : 'Failed to save plan'
       );
     }
   };
@@ -241,9 +246,8 @@ const SubscriptionManagement = () => {
               plans.map((plan) => (
                 <div
                   key={plan.id}
-                  className={`bg-white rounded-lg shadow p-6 border-2 ${
-                    plan.is_active ? 'border-blue-200' : 'border-gray-200'
-                  }`}
+                  className={`bg-white rounded-lg shadow p-6 border-2 ${plan.is_active ? 'border-blue-200' : 'border-gray-200'
+                    }`}
                 >
                   <div className="flex justify-between items-start mb-4">
                     <div>
@@ -256,11 +260,10 @@ const SubscriptionManagement = () => {
                       </p>
                     </div>
                     <span
-                      className={`px-2 py-1 text-xs font-semibold rounded ${
-                        plan.is_active
+                      className={`px-2 py-1 text-xs font-semibold rounded ${plan.is_active
                           ? 'bg-green-100 text-green-800'
                           : 'bg-gray-100 text-gray-800'
-                      }`}
+                        }`}
                     >
                       {plan.is_active ? 'Active' : 'Inactive'}
                     </span>

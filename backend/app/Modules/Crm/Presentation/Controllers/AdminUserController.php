@@ -43,6 +43,17 @@ class AdminUserController extends Controller
                 'role.exists' => 'The selected role is invalid.',
             ]);
 
+            // Manager Restriction: Cannot assign restricted roles
+            if ($request->user()->hasRole('Manager')) {
+                $restrictedRoles = ['Super Admin', 'Admin', 'Company Admin', 'Manager'];
+                if (in_array($request->role, $restrictedRoles)) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Managers cannot create users with restricted roles.',
+                    ], 403);
+                }
+            }
+
             if ($validator->fails()) {
                 return response()->json([
                     'success' => false,
@@ -113,10 +124,28 @@ class AdminUserController extends Controller
     {
         try {
             $companyId = $request->user()->company_id;
+            $currentUser = $request->user();
 
-            $users = User::with('roles')
-                ->where('company_id', $companyId)
-                ->select('id', 'name', 'email', 'phone', 'is_active', 'created_at', 'updated_at')
+            $query = User::with('roles')
+                ->where('company_id', $companyId);
+
+            // Manager Restriction: Only see subordinates
+            if ($currentUser->hasRole('Manager')) {
+                $query->whereDoesntHave('roles', function ($q) {
+                    $q->whereIn('name', ['Super Admin', 'Admin', 'Company Admin']);
+                    // Should a Manager see other Managers? User said "apne sath ke managers ... na dekhe".
+                    // So we exclude 'Manager' too unless it's themselves (though index usually lists others).
+                    // The user said "apne sath ke managers ... na dekhe". So exclude 'Manager'.
+                    $q->orWhere('name', 'Manager');
+                });
+                // However, the manager should probably see THEMSELVES? 
+                // Usually yes, but the query above excludes all managers. 
+                // Let's allow seeing themselves if needed, or just subordinates as requested.
+                // "sirrf apne neche ke employue team leaders ko dekhe skta h".
+                // So maybe they don't even see themselves in the list? That's fine.
+            }
+
+            $users = $query->select('id', 'name', 'email', 'phone', 'is_active', 'created_at', 'updated_at')
                 ->get()
                 ->map(function ($user) {
                     return [
@@ -217,7 +246,7 @@ class AdminUserController extends Controller
     public function update(Request $request, int $id): JsonResponse
     {
         try {
-            $user = User::find($id);
+            $user = User::with('roles')->find($id);
 
             if (!$user) {
                 return response()->json([
@@ -244,6 +273,28 @@ class AdminUserController extends Controller
                 'role.required' => 'The role field is required.',
                 'role.exists' => 'The selected role is invalid.',
             ]);
+
+            // Manager Restriction: Cannot edit restricted users or assign restricted roles
+            if ($request->user()->hasRole('Manager')) {
+                // Check if target user is restricted
+                if ($user->hasRole(['Super Admin', 'Admin', 'Company Admin', 'Manager'])) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Managers cannot edit higher level users or other managers.',
+                    ], 403);
+                }
+
+                // Check if new role is restricted
+                if ($request->has('role')) {
+                    $restrictedRoles = ['Super Admin', 'Admin', 'Company Admin', 'Manager'];
+                    if (in_array($request->role, $restrictedRoles)) {
+                        return response()->json([
+                            'success' => false,
+                            'message' => 'Managers cannot assign restricted roles.',
+                        ], 403);
+                    }
+                }
+            }
 
             if ($validator->fails()) {
                 return response()->json([
@@ -323,7 +374,7 @@ class AdminUserController extends Controller
     public function destroy(Request $request, int $id): JsonResponse
     {
         try {
-            $user = User::find($id);
+            $user = User::with('roles')->find($id);
 
             if (!$user) {
                 return response()->json([
@@ -338,6 +389,16 @@ class AdminUserController extends Controller
                     'success' => false,
                     'message' => 'You cannot delete your own account',
                 ], 403);
+            }
+
+            // Manager Restriction: Cannot delete restricted users
+            if ($request->user()->hasRole('Manager')) {
+                if ($user->hasRole(['Super Admin', 'Admin', 'Company Admin', 'Manager'])) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Managers cannot delete higher level users or other managers.',
+                    ], 403);
+                }
             }
 
             // Revoke all tokens
@@ -371,7 +432,7 @@ class AdminUserController extends Controller
     {
         try {
             // Find the user
-            $user = User::find($id);
+            $user = User::with('roles')->find($id);
 
             if (!$user) {
                 return response()->json([
@@ -386,6 +447,16 @@ class AdminUserController extends Controller
                     'success' => false,
                     'message' => 'You cannot change your own status',
                 ], 403);
+            }
+
+            // Manager Restriction: Cannot change status of restricted users
+            if ($request->user()->hasRole('Manager')) {
+                if ($user->hasRole(['Super Admin', 'Admin', 'Company Admin', 'Manager'])) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Managers cannot change status of higher level users or other managers.',
+                    ], 403);
+                }
             }
 
             // Validate the request

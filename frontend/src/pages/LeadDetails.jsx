@@ -2901,7 +2901,7 @@ const LeadDetails = () => {
     const allPolicies = await getAllPolicies();
     const itinerary = qData.itinerary || {};
     const allOptionsRaw = Object.keys(qData.hotelOptions || {}).sort((a, b) => parseInt(a) - parseInt(b));
-    const assignedUser = users.find(u => u.id === lead.assigned_to);
+    const assignedUser = lead.assigned_user || users.find(u => u.id === lead.assigned_to);
     const logoUrl = pdfCompanySettings?.company_logo ? getDisplayImageUrl(pdfCompanySettings.company_logo) : null;
     const companyName = pdfCompanySettings?.company_name || 'TravelOps';
     const companyAddress = pdfCompanySettings?.company_address || 'Delhi, India';
@@ -3964,7 +3964,7 @@ const LeadDetails = () => {
     );
   }
 
-  const assignedUser = users.find(u => u.id === lead.assigned_to);
+  const assignedUser = lead.assigned_user || users.find(u => u.id === lead.assigned_to);
 
 
 
@@ -4089,7 +4089,7 @@ const LeadDetails = () => {
                 <DetailRow
                   icon={<UserCheck className="text-orange-500" size={18} />}
                   label="Assign To"
-                  value={assignedUser?.name || "N/A"}
+                  value={lead.assigned_user?.name || assignedUser?.name || "N/A"}
                 />
 
                 {lead.remark && (
