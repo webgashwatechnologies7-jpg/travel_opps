@@ -17,10 +17,12 @@ class EmailCampaign extends Model
         'subject',
         'template_id',
         'lead_ids',
+        'total_leads',
         'scheduled_at',
         'sent_at',
         'status',
         'sent_count',
+        'failed_count',
         'delivered_count',
         'open_count',
         'click_count',
@@ -31,9 +33,11 @@ class EmailCampaign extends Model
 
     protected $casts = [
         'lead_ids' => 'array',
+        'total_leads' => 'integer',
         'scheduled_at' => 'datetime',
         'sent_at' => 'datetime',
         'sent_count' => 'integer',
+        'failed_count' => 'integer',
         'delivered_count' => 'integer',
         'open_count' => 'integer',
         'click_count' => 'integer',
@@ -73,7 +77,7 @@ class EmailCampaign extends Model
         if ($this->delivered_count == 0) {
             return 0;
         }
-        
+
         return round(($this->open_count / $this->delivered_count) * 100, 2);
     }
 
@@ -85,7 +89,7 @@ class EmailCampaign extends Model
         if ($this->delivered_count == 0) {
             return 0;
         }
-        
+
         return round(($this->click_count / $this->delivered_count) * 100, 2);
     }
 
@@ -97,7 +101,7 @@ class EmailCampaign extends Model
         if ($this->sent_count == 0) {
             return 0;
         }
-        
+
         return round(($this->bounce_count / $this->sent_count) * 100, 2);
     }
 

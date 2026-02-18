@@ -20,8 +20,10 @@ import {
     Users,
     ChevronDown,
     Download,
-    AlertCircle
+    AlertCircle,
+    Loader2
 } from 'lucide-react';
+import CampaignProgressModal from '../components/CampaignProgressModal';
 
 const Campaigns = () => {
     const { error, loading, setError, handleError, clearError, executeWithErrorHandling } = useErrorHandler();
@@ -44,6 +46,13 @@ const Campaigns = () => {
         group_ids: [],
         send_immediately: false,
         scheduled_at: ''
+    });
+
+    const [progressModal, setProgressModal] = useState({
+        isOpen: false,
+        campaignId: null,
+        type: 'email',
+        totalLeads: 0
     });
 
     useEffect(() => {
@@ -111,6 +120,21 @@ const Campaigns = () => {
         if (result.success) {
             fetchInitialData();
             setShowCreateModal(false);
+
+            // If send immediately requested, show progress modal
+            if (formData.send_immediately && result.data?.id) {
+                // Calculate total leads (from individual + groups)
+                const selectedGroups = groups.filter(g => formData.group_ids?.includes(g.id));
+                const groupLeadsCount = selectedGroups.reduce((acc, g) => acc + (g.client_count || 0), 0);
+                const total = (formData.lead_ids?.length || 0) + groupLeadsCount;
+
+                setProgressModal({
+                    isOpen: true,
+                    campaignId: result.data.id,
+                    type: activeTab,
+                    totalLeads: result.data.total_leads || total || 1
+                });
+            }
         }
     };
 
@@ -130,16 +154,26 @@ const Campaigns = () => {
     };
 
     const handleSendCampaign = async (id) => {
-        await executeWithErrorHandling(async () => {
+        const result = await executeWithErrorHandling(async () => {
             const api = activeTab === 'email' ? marketingEmailCampaignsAPI : marketingWhatsappCampaignsAPI;
             const response = await api.send(id);
             if (!response.data.success) throw new Error(response.data.message || 'Failed to send campaign');
             return response.data;
         }, 'Campaign sending started');
 
-        setCampaigns(campaigns.map(c =>
-            c.id === id ? { ...c, status: 'sending' } : c
-        ));
+        if (result && result.success) {
+            setCampaigns(campaigns.map(c =>
+                c.id === id ? { ...c, status: 'sending' } : c
+            ));
+
+            const campaign = campaigns.find(c => c.id === id);
+            setProgressModal({
+                isOpen: true,
+                campaignId: id,
+                type: activeTab,
+                totalLeads: campaign?.total_leads || 1
+            });
+        }
     };
 
     const filteredCampaigns = Array.isArray(campaigns) ? campaigns.filter(campaign =>
@@ -466,6 +500,18 @@ const Campaigns = () => {
                     </div>
                 </div>
             )}
+
+            {/* Campaign Progress Modal */}
+            <CampaignProgressModal
+                isOpen={progressModal.isOpen}
+                onClose={() => {
+                    setProgressModal({ ...progressModal, isOpen: false });
+                    fetchInitialData(); // Refresh list after completion
+                }}
+                campaignId={progressModal.campaignId}
+                type={progressModal.type}
+                totalLeads={progressModal.totalLeads}
+            />
         </Layout>
     );
 };

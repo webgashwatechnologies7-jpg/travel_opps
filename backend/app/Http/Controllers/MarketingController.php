@@ -163,6 +163,7 @@ class MarketingController extends Controller
                 'subject' => $request->subject,
                 'template_id' => $request->template_id,
                 'lead_ids' => $leadIds,
+                'total_leads' => count($leadIds),
                 'scheduled_at' => $request->scheduled_at,
                 'send_immediately' => $request->send_immediately ?? false,
                 'status' => $request->send_immediately ? 'sending' : 'scheduled',
@@ -180,9 +181,11 @@ class MarketingController extends Controller
                 ]);
             }
 
-            // If send immediately, process the campaign
+            // If send immediately, process the campaign after returning response
             if ($request->send_immediately) {
-                $this->processEmailCampaign($campaign);
+                dispatch(function () use ($campaign) {
+                    $this->processEmailCampaign($campaign);
+                })->afterResponse();
             }
 
             return response()->json([
@@ -248,6 +251,7 @@ class MarketingController extends Controller
                 'subject' => $request->subject,
                 'template_id' => $request->template_id,
                 'lead_ids' => $leadIds,
+                'total_leads' => count($leadIds),
                 'scheduled_at' => $request->scheduled_at,
                 'send_immediately' => $request->send_immediately ?? false,
                 // If user edits and chooses "send now", move to sending state
@@ -267,7 +271,9 @@ class MarketingController extends Controller
             }
 
             if ($request->send_immediately) {
-                $this->processEmailCampaign($campaign->fresh());
+                dispatch(function () use ($campaign) {
+                    $this->processEmailCampaign($campaign->fresh());
+                })->afterResponse();
             }
 
             return response()->json([
@@ -583,6 +589,7 @@ class MarketingController extends Controller
                 'name' => $request->name,
                 'template_id' => $request->template_id,
                 'lead_ids' => $leadIds,
+                'total_leads' => count($leadIds),
                 'scheduled_at' => $request->scheduled_at,
                 'status' => $request->send_immediately ? 'sending' : 'scheduled',
                 'created_by' => auth()->id(),
@@ -600,10 +607,12 @@ class MarketingController extends Controller
                 ]);
             }
 
-            // If send immediately, you'd trigger processing here
-            // if ($request->send_immediately) {
-            //     $this->processWhatsappCampaign($campaign);
-            // }
+            // If send immediately, process the campaign after returning response
+            if ($request->send_immediately) {
+                dispatch(function () use ($campaign) {
+                    $this->processWhatsappCampaign($campaign);
+                })->afterResponse();
+            }
 
             return response()->json([
                 'success' => true,
@@ -660,7 +669,10 @@ class MarketingController extends Controller
             $validator = Validator::make($request->all(), [
                 'name' => 'required|string|max:255',
                 'template_id' => 'required|exists:marketing_templates,id',
+                'lead_ids' => 'nullable|array',
+                'group_ids' => 'nullable|array',
                 'scheduled_at' => 'nullable|date',
+                'send_immediately' => 'boolean',
             ]);
 
             if ($validator->fails()) {
@@ -671,11 +683,46 @@ class MarketingController extends Controller
                 ], 422);
             }
 
+            // Collect all lead IDs from individual leads and groups
+            $leadIds = $request->lead_ids ?? [];
+            if ($request->group_ids) {
+                $groupLeads = DB::table('client_group_lead')
+                    ->whereIn('client_group_id', $request->group_ids)
+                    ->pluck('lead_id')
+                    ->toArray();
+                $leadIds = array_unique(array_merge($leadIds, $groupLeads));
+            }
+
+            if (empty($leadIds)) {
+                return response()->json(['success' => false, 'message' => 'No leads selected'], 422);
+            }
+
             $campaign->update([
                 'name' => $request->name,
                 'template_id' => $request->template_id,
+                'lead_ids' => $leadIds,
+                'total_leads' => count($leadIds),
                 'scheduled_at' => $request->scheduled_at,
+                'status' => $request->send_immediately ? 'sending' : $campaign->status,
             ]);
+
+            // Sync pivot table
+            DB::table('campaign_leads')->where('whatsapp_campaign_id', $campaign->id)->delete();
+            foreach ($leadIds as $leadId) {
+                DB::table('campaign_leads')->insert([
+                    'whatsapp_campaign_id' => $campaign->id,
+                    'lead_id' => $leadId,
+                    'status' => 'pending',
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            }
+
+            if ($request->send_immediately) {
+                dispatch(function () use ($campaign) {
+                    $this->processWhatsappCampaign($campaign->fresh());
+                })->afterResponse();
+            }
 
             return response()->json([
                 'success' => true,
@@ -805,7 +852,7 @@ class MarketingController extends Controller
                 'name' => $request->name,
                 'type' => $request->type,
                 'subject' => $request->subject,
-                'content' => $request->content,
+                'content' => $request->input('content'),
                 'variables' => $request->variables ?? [],
                 'is_active' => $request->is_active ?? true,
                 'created_by' => auth()->id(),
@@ -1075,6 +1122,7 @@ class MarketingController extends Controller
             }
 
             $sentCount = 0;
+            $failedCount = 0;
             $lastError = null;
             $failedLeads = [];
 
@@ -1109,6 +1157,8 @@ class MarketingController extends Controller
                     }
 
                     $sentCount++;
+                    $campaign->update(['sent_count' => $sentCount]);
+
                     \Log::info('Campaign email sent successfully', [
                         'campaign_id' => $campaign->id,
                         'lead_id' => $lead->id,
@@ -1116,6 +1166,9 @@ class MarketingController extends Controller
                     ]);
 
                 } catch (\Throwable $e) {
+                    $failedCount++;
+                    $campaign->update(['failed_count' => $failedCount]);
+
                     // Log and continue with next lead
                     \Log::error('Email campaign send failed for lead', [
                         'campaign_id' => $campaign->id,
@@ -2115,6 +2168,66 @@ class MarketingController extends Controller
                 'message' => 'Failed to retrieve group clients',
                 'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
             ], 500);
+        }
+    }
+
+    /**
+     * Process WhatsApp campaign sending
+     */
+    private function processWhatsappCampaign($campaign)
+    {
+        try {
+            $template = $campaign->template;
+            if (!$template) {
+                $campaign->update(['status' => 'failed']);
+                return;
+            }
+
+            $leadIds = (array) $campaign->lead_ids;
+            $leads = Lead::whereIn('id', $leadIds)->whereNotNull('phone')->get();
+
+            $whatsappService = app(\App\Services\WhatsAppService::class);
+            $whatsappService->setCompanyConfig($campaign->company);
+
+            $sentCount = 0;
+            $failedCount = 0;
+
+            foreach ($leads as $lead) {
+                try {
+                    $variables = [
+                        'name' => $lead->client_name ?? 'Valued Customer',
+                        'email' => $lead->email,
+                        'phone' => $lead->phone ?? '',
+                    ];
+
+                    $messageBody = $template->processContent($variables);
+
+                    // Note: Here we'd ideally use template messages if configured, 
+                    // but for a generic campaign we use the text message version.
+                    $result = $whatsappService->sendMessage($lead->phone, $messageBody);
+
+                    if ($result['success']) {
+                        $sentCount++;
+                        $campaign->update(['sent_count' => $sentCount]);
+                    } else {
+                        $failedCount++;
+                        $campaign->update(['failed_count' => $failedCount]);
+                    }
+
+                } catch (\Exception $e) {
+                    $failedCount++;
+                    $campaign->update(['failed_count' => $failedCount]);
+                }
+            }
+
+            $campaign->update([
+                'status' => $sentCount > 0 ? 'sent' : 'failed',
+                'sent_at' => now(),
+            ]);
+
+        } catch (\Exception $e) {
+            \Log::error('WhatsApp campaign processing failed: ' . $e->getMessage());
+            $campaign->update(['status' => 'failed']);
         }
     }
 }

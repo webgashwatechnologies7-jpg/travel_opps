@@ -384,7 +384,6 @@ export const SettingsProvider = ({ children }) => {
       updateSettings,
       resetSettings,
       loadSettings,
-      loadSettings,
       isSidebarOpen,
       toggleSidebar,
       menuItems,

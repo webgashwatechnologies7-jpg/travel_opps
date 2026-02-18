@@ -18,6 +18,7 @@ class WhatsAppCampaign extends Model
         'name',
         'template_id',
         'lead_ids',
+        'total_leads',
         'scheduled_at',
         'sent_at',
         'status',
@@ -31,6 +32,7 @@ class WhatsAppCampaign extends Model
 
     protected $casts = [
         'lead_ids' => 'array',
+        'total_leads' => 'integer',
         'scheduled_at' => 'datetime',
         'sent_at' => 'datetime',
         'sent_count' => 'integer',
