@@ -245,6 +245,7 @@ export const marketingTemplatesAPI = {
   get: (id) => api.get(`/marketing/templates/${id}`),
   update: (id, data) => api.put(`/marketing/templates/${id}`, data),
   delete: (id) => api.delete(`/marketing/templates/${id}`),
+  duplicate: (id) => api.post(`/marketing/templates/${id}/duplicate`),
 };
 
 // Marketing Dashboard

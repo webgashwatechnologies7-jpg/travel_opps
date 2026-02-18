@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import Layout from '../components/Layout';
 import { marketingTemplatesAPI } from '../services/api';
-import { 
+import {
   Mail,
   MessageSquare,
   Plus,
@@ -31,6 +31,8 @@ const MarketingTemplates = () => {
     is_active: true,
   });
   const [formError, setFormError] = useState('');
+  const [isEditing, setIsEditing] = useState(false);
+  const [editingId, setEditingId] = useState(null);
 
   useEffect(() => {
     fetchTemplates();
@@ -38,6 +40,7 @@ const MarketingTemplates = () => {
 
   const fetchTemplates = async () => {
     try {
+      setLoading(true);
       setError('');
       const res = await marketingTemplatesAPI.list();
       if (res.data?.success) {
@@ -50,6 +53,51 @@ const MarketingTemplates = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleEdit = (template) => {
+    setEditingId(template.id);
+    setIsEditing(true);
+    setFormData({
+      name: template.name,
+      type: template.type,
+      subject: template.subject || '',
+      content: template.content,
+      variables: Array.isArray(template.variables) ? template.variables.join(', ') : '',
+      is_active: template.is_active,
+    });
+    setFormError('');
+    setShowCreateModal(true);
+  };
+
+  const handleDelete = async (id) => {
+    if (!window.confirm('Are you sure you want to delete this template?')) return;
+
+    try {
+      const res = await marketingTemplatesAPI.delete(id);
+      if (res.data?.success) {
+        setTemplates(templates.filter(t => t.id !== id));
+      } else {
+        alert(res.data?.message || 'Failed to delete');
+      }
+    } catch (err) {
+      alert(err.response?.data?.message || 'Error deleting template');
+    }
+  };
+
+  const handleCopy = (template) => {
+    setEditingId(null);
+    setIsEditing(false);
+    setFormData({
+      name: `${template.name} (Copy)`,
+      type: template.type,
+      subject: template.subject || '',
+      content: template.content,
+      variables: Array.isArray(template.variables) ? template.variables.join(', ') : '',
+      is_active: template.is_active,
+    });
+    setFormError('');
+    setShowCreateModal(true);
   };
 
   const filteredTemplates = templates.filter(template => {
@@ -77,8 +125,21 @@ const MarketingTemplates = () => {
             <p className="text-gray-600 mt-1">Manage your email and SMS templates</p>
           </div>
           <button
-            onClick={() => setShowCreateModal(true)}
-            className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 flex items-center space-x-2"
+            onClick={() => {
+              setEditingId(null);
+              setIsEditing(false);
+              setFormData({
+                name: '',
+                type: 'email',
+                subject: '',
+                content: '',
+                variables: '',
+                is_active: true,
+              });
+              setFormError('');
+              setShowCreateModal(true);
+            }}
+            className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 flex items-center space-x-2 shadow-md transition-all active:scale-95"
           >
             <Plus className="w-4 h-4" />
             <span>New Template</span>
@@ -124,37 +185,35 @@ const MarketingTemplates = () => {
               <div key={template.id} className="bg-white rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
                 <div className="p-6">
                   <div className="flex items-center justify-between mb-4">
-                    <div className={`p-2 rounded-full ${
-                      template.type === 'email' ? 'bg-blue-100' :
-                      template.type === 'sms' ? 'bg-green-100' :
-                      'bg-purple-100'
-                    }`}>
-                      {template.type === 'email' ? 
+                    <div className={`p-2 rounded-full ${template.type === 'email' ? 'bg-blue-100' :
+                        template.type === 'sms' ? 'bg-green-100' :
+                          'bg-purple-100'
+                      }`}>
+                      {template.type === 'email' ?
                         <Mail className="w-5 h-5 text-blue-600" /> :
                         template.type === 'sms' ?
-                        <MessageSquare className="w-5 h-5 text-green-600" /> :
-                        <MessageSquare className="w-5 h-5 text-purple-600" />
+                          <MessageSquare className="w-5 h-5 text-green-600" /> :
+                          <MessageSquare className="w-5 h-5 text-purple-600" />
                       }
                     </div>
-                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                      template.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-                    }`}>
+                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${template.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                      }`}>
                       {template.is_active ? 'Active' : 'Inactive'}
                     </span>
                   </div>
-                  
+
                   <h3 className="font-semibold text-gray-900 mb-2">{template.name}</h3>
-                  
+
                   {template.type === 'email' && template.subject && (
                     <p className="text-sm text-gray-600 mb-2">
                       <strong>Subject:</strong> {template.subject}
                     </p>
                   )}
-                  
+
                   <p className="text-sm text-gray-600 mb-4 line-clamp-3">
                     {template.content || 'No content preview'}
                   </p>
-                  
+
                   {template.variables && template.variables.length > 0 && (
                     <div className="mb-4">
                       <p className="text-xs text-gray-500 mb-1">Variables:</p>
@@ -167,22 +226,31 @@ const MarketingTemplates = () => {
                       </div>
                     </div>
                   )}
-                  
+
                   <div className="flex items-center justify-between pt-4 border-t border-gray-100">
                     <span className="text-xs text-gray-500">
                       Created {new Date(template.created_at).toLocaleDateString()}
                     </span>
                     <div className="flex items-center space-x-2">
-                      <button className="text-gray-400 hover:text-gray-600">
-                        <Eye className="w-4 h-4" />
-                      </button>
-                      <button className="text-gray-400 hover:text-gray-600">
+                      <button
+                        onClick={() => handleCopy(template)}
+                        className="text-gray-400 hover:text-purple-600 p-1"
+                        title="Duplicate"
+                      >
                         <Copy className="w-4 h-4" />
                       </button>
-                      <button className="text-blue-600 hover:text-blue-900">
+                      <button
+                        onClick={() => handleEdit(template)}
+                        className="text-gray-400 hover:text-blue-600 p-1"
+                        title="Edit"
+                      >
                         <Edit className="w-4 h-4" />
                       </button>
-                      <button className="text-red-600 hover:text-red-900">
+                      <button
+                        onClick={() => handleDelete(template.id)}
+                        className="text-gray-400 hover:text-red-600 p-1"
+                        title="Delete"
+                      >
                         <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
@@ -214,7 +282,7 @@ const MarketingTemplates = () => {
                   ×
                 </button>
               </div>
-              
+
               <form
                 className="space-y-4"
                 onSubmit={async (e) => {
@@ -232,35 +300,23 @@ const MarketingTemplates = () => {
                       is_active: formData.is_active,
                     };
 
-                    const res = await marketingTemplatesAPI.create(payload);
+                    const res = isEditing
+                      ? await marketingTemplatesAPI.update(editingId, payload)
+                      : await marketingTemplatesAPI.create(payload);
+
                     const data = res.data;
 
                     if (!data.success) {
                       const msg =
                         data.errors && typeof data.errors === 'object'
                           ? Object.values(data.errors).flat().join(', ')
-                          : data.message || 'Failed to create template';
+                          : data.message || 'Failed to save template';
                       setFormError(msg);
                       return;
                     }
 
-                    // Append new template and close modal
-                    if (data.data) {
-                      setTemplates([data.data, ...templates]);
-                    } else {
-                      // Fallback: refresh list if API doesn't return created item
-                      fetchTemplates();
-                    }
-
+                    fetchTemplates(); // Refresh to ensure correct state/order
                     setShowCreateModal(false);
-                    setFormData({
-                      name: '',
-                      type: 'email',
-                      subject: '',
-                      content: '',
-                      variables: '',
-                      is_active: true,
-                    });
                   } catch (err) {
                     const apiErrors = err.response?.data?.errors;
                     if (apiErrors && typeof apiErrors === 'object') {
@@ -268,8 +324,8 @@ const MarketingTemplates = () => {
                     } else {
                       setFormError(
                         err.response?.data?.message ||
-                          err.message ||
-                          'Failed to create template'
+                        err.message ||
+                        'Failed to save template'
                       );
                     }
                   }
@@ -390,9 +446,9 @@ const MarketingTemplates = () => {
                   </button>
                   <button
                     type="submit"
-                    className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+                    className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-bold shadow-md"
                   >
-                    Create Template
+                    {isEditing ? 'Update Template' : 'Create Template'}
                   </button>
                 </div>
               </form>

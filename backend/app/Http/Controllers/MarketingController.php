@@ -2225,4 +2225,135 @@ class MarketingController extends Controller
             $campaign->update(['status' => 'failed']);
         }
     }
+
+    /**
+     * Get single marketing template
+     */
+    public function showTemplate(int $id): JsonResponse
+    {
+        try {
+            $template = MarketingTemplate::findOrFail($id);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Template retrieved successfully',
+                'data' => $template,
+            ], 200);
+
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return response()->json(['success' => false, 'message' => 'Template not found'], 404);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to retrieve template',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
+            ], 500);
+        }
+    }
+
+    /**
+     * Update marketing template
+     */
+    public function updateTemplate(Request $request, int $id): JsonResponse
+    {
+        try {
+            $template = MarketingTemplate::findOrFail($id);
+
+            $validator = Validator::make($request->all(), [
+                'name' => 'required|string|max:255',
+                'type' => 'required|in:email,sms,whatsapp',
+                'subject' => 'required_if:type,email|string|max:255',
+                'content' => 'required|string',
+                'variables' => 'nullable|array',
+                'is_active' => 'boolean',
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Validation failed',
+                    'errors' => $validator->errors(),
+                ], 422);
+            }
+
+            $template->update([
+                'name' => $request->name,
+                'type' => $request->type,
+                'subject' => $request->type === 'email' ? $request->subject : null,
+                'content' => $request->input('content'),
+                'variables' => $request->variables ?? [],
+                'is_active' => $request->is_active ?? true,
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Marketing template updated successfully',
+                'data' => $template,
+            ], 200);
+
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return response()->json(['success' => false, 'message' => 'Template not found'], 404);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to update template',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
+            ], 500);
+        }
+    }
+
+    /**
+     * Delete marketing template
+     */
+    public function deleteTemplate(int $id): JsonResponse
+    {
+        try {
+            $template = MarketingTemplate::findOrFail($id);
+            $template->delete();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Marketing template deleted successfully'
+            ], 200);
+
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return response()->json(['success' => false, 'message' => 'Template not found'], 404);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to delete template',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
+            ], 500);
+        }
+    }
+
+    /**
+     * Duplicate marketing template
+     */
+    public function duplicateTemplate(int $id): JsonResponse
+    {
+        try {
+            $original = MarketingTemplate::findOrFail($id);
+            
+            $new = $original->replicate();
+            $new->name = $original->name . ' (Copy)';
+            $new->created_by = auth()->id();
+            $new->save();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Marketing template duplicated successfully',
+                'data' => $new,
+            ], 201);
+
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return response()->json(['success' => false, 'message' => 'Template not found'], 404);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to duplicate template',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
+            ], 500);
+        }
+    }
 }
