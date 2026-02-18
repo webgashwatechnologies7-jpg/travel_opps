@@ -13,76 +13,95 @@
 
         body {
             font-family: 'DejaVu Sans', sans-serif;
-            background-color: #fff;
-            color: #334155;
+            background-color: #ffffff;
+            color: #1e293b;
             margin: 0;
-            padding: 25px;
-            /* Reduced padding */
-            line-height: 1.4;
-            /* Tighter line height */
+            padding: 20px 40px;
+            line-height: 1.5;
             font-size: 11px;
-            /* Slightly smaller base font */
+        }
+
+        /* COLORS */
+        .text-primary {
+            color: #1e3a8a;
+        }
+
+        .text-accent {
+            color: #b45309;
+        }
+
+        .bg-primary {
+            background-color: #1e3a8a;
+        }
+
+        .bg-light {
+            background-color: #f8fafc;
         }
 
         /* HEADER */
+        .header {
+            width: 100%;
+            border-bottom: 3px solid #1e3a8a;
+            padding-bottom: 15px;
+            margin-bottom: 25px;
+        }
+
         .header-table {
             width: 100%;
             border-collapse: collapse;
-            margin-bottom: 20px;
-            border-bottom: 2px solid #1e40af;
-            padding-bottom: 10px;
-        }
-
-        .header-logo-cell {
-            vertical-align: middle;
-            width: 50%;
-        }
-
-        .header-info-cell {
-            vertical-align: middle;
-            width: 50%;
-            text-align: right;
         }
 
         .company-name {
-            font-size: 18px;
+            font-size: 20px;
             font-weight: bold;
-            color: #1e40af;
-            text-transform: uppercase;
+            color: #1e3a8a;
             margin: 0;
-        }
-
-        .company-details {
-            font-size: 10px;
-            color: #64748b;
-            margin-top: 3px;
-        }
-
-        /* HERO */
-        .proposal-title {
-            text-align: center;
-            font-size: 24px;
-            font-weight: bold;
-            color: #1e40af;
-            margin-bottom: 10px;
             text-transform: uppercase;
         }
 
-        .main-img {
-            width: 100%;
-            height: 200px;
-            object-fit: cover;
-            border-radius: 8px;
-            margin-bottom: 15px;
+        .company-info {
+            font-size: 9px;
+            color: #64748b;
+            margin-top: 4px;
         }
 
-        /* INFO BAR (Compact) */
-        .info-bar {
+        /* HERO SECTION */
+        .hero {
+            position: relative;
+            margin-bottom: 30px;
+            border-radius: 12px;
+            overflow: hidden;
+            background: #0f172a;
+        }
+
+        .hero-img {
+            width: 100%;
+            height: 250px;
+            object-fit: cover;
+            opacity: 0.8;
+        }
+
+        .hero-content {
+            padding: 20px;
+            text-align: center;
+        }
+
+        .proposal-title {
+            font-size: 26px;
+            font-weight: bold;
+            color: #1e3a8a;
+            margin: 15px 0;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        /* INFO ISLAND */
+        .info-island {
             background: #f1f5f9;
-            border-radius: 30px;
-            padding: 8px 15px;
-            margin-bottom: 25px;
-            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 30px;
+            border-left: 5px solid #1e3a8a;
         }
 
         .info-table {
@@ -91,178 +110,207 @@
         }
 
         .info-table td {
-            text-align: center;
-            border-right: 1px solid #cbd5e1;
-            padding: 0 8px;
+            padding: 5px 10px;
+            text-align: left;
         }
 
-        .info-table td:last-child {
-            border-right: none;
-        }
-
-        .info-label {
+        .label {
             font-size: 8px;
             color: #64748b;
             text-transform: uppercase;
             display: block;
+            margin-bottom: 2px;
+            font-weight: bold;
         }
 
-        .info-value {
+        .value {
             font-size: 11px;
             font-weight: bold;
             color: #0f172a;
         }
 
-        /* ITINERARY */
-        .section-heading {
-            font-size: 16px;
-            font-weight: bold;
-            color: #0f172a;
-            margin-bottom: 10px;
-            border-bottom: 1px solid #e2e8f0;
-            padding-bottom: 5px;
-        }
-
-        .day-box {
-            margin-bottom: 15px;
-            page-break-inside: avoid;
-        }
-
-        .day-header {
-            background: #1e40af;
+        /* SECTION TITLES */
+        .section-header {
+            background: #1e3a8a;
             color: white;
-            padding: 5px 10px;
+            padding: 8px 15px;
             border-radius: 4px;
+            font-size: 14px;
             font-weight: bold;
-            font-size: 12px;
-            margin-bottom: 5px;
+            margin: 25px 0 15px 0;
+            text-transform: uppercase;
         }
 
-        .day-content {
-            padding-left: 5px;
-        }
-
-        .day-desc {
-            font-size: 11px;
-            color: #334155;
-            margin-bottom: 5px;
-            text-align: justify;
-        }
-
-        .svc-badge {
-            background: #e2e8f0;
-            color: #334155;
-            padding: 2px 6px;
-            border-radius: 3px;
-            font-size: 9px;
-            margin-right: 5px;
-            font-weight: bold;
-        }
-
-        /* POLICIES (Compact) */
-        .policy-section {
-            margin-top: 20px;
+        /* ITINERARY TIMELINE */
+        .day-card {
+            margin-bottom: 20px;
+            border-left: 2px dashed #cbd5e1;
+            padding-left: 25px;
+            position: relative;
             page-break-inside: avoid;
         }
 
-        .inc-exc-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 15px;
-        }
-
-        .inc-exc-table td {
-            vertical-align: top;
-            width: 50%;
-            padding: 10px;
-            border: 1px solid #e2e8f0;
-        }
-
-        .inc-title {
-            font-weight: bold;
-            color: #166534;
-            font-size: 11px;
-            margin-bottom: 5px;
-            display: block;
-        }
-
-        .exc-title {
-            font-weight: bold;
-            color: #991b1b;
-            font-size: 11px;
-            margin-bottom: 5px;
-            display: block;
-        }
-
-        .compact-list {
-            padding-left: 15px;
-            margin: 0;
-            font-size: 10px;
-        }
-
-        .policy-text {
-            font-size: 10px;
-            color: #475569;
-            margin-bottom: 10px;
-            white-space: pre-wrap;
-        }
-
-        /* OPTIONS COMPARISON (Side by Side at Bottom) */
-        .options-section {
-            margin-top: 30px;
-            page-break-inside: avoid;
-            border-top: 2px solid #1e40af;
-            padding-top: 20px;
-        }
-
-        .options-table {
-            width: 100%;
-            border-collapse: separate;
-            border-spacing: 15px 0;
-        }
-
-        .option-col {
-            vertical-align: top;
-            width: 50%;
-            background: #f8fafc;
-            border: 1px solid #cbd5e1;
-            border-radius: 8px;
-            padding: 0;
+        .day-marker {
+            position: absolute;
+            left: -11px;
+            top: -4px;
+            /* Shifted further up to match title baseline */
+            width: 20px;
+            height: 20px;
+            background: #1e3a8a;
+            border-radius: 10px;
+            z-index: 99;
             overflow: hidden;
         }
 
-        .opt-head {
-            background: #1e40af;
+        .day-title {
+            font-size: 13px;
+            font-weight: bold;
+            color: #1e3a8a;
+            margin-bottom: 8px;
+        }
+
+        .day-date {
+            font-size: 10px;
+            color: #64748b;
+            float: right;
+            font-weight: normal;
+        }
+
+        .day-body {
+            background: #fafafa;
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid #f1f5f9;
+        }
+
+        .svc-badge {
+            display: inline-block;
+            background: #e0f2fe;
+            color: #0369a1;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 9px;
+            margin-right: 5px;
+            margin-top: 5px;
+            font-weight: bold;
+        }
+
+        /* INCLUSIONS / EXCLUSIONS */
+        .policy-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .policy-cell {
+            width: 50%;
+            vertical-align: top;
+            padding: 15px;
+            border-radius: 10px;
+        }
+
+        .inc-cell {
+            background: #f0fdf4;
+            border: 1px solid #bbf7d0;
+        }
+
+        .exc-cell {
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+        }
+
+        .policy-title {
+            font-weight: bold;
+            font-size: 12px;
+            margin-bottom: 10px;
+            display: block;
+            text-transform: uppercase;
+        }
+
+        .inc-title {
+            color: #166534;
+        }
+
+        .exc-title {
+            color: #991b1b;
+        }
+
+        ul.policy-list {
+            margin: 0;
+            padding-left: 15px;
+            font-size: 10px;
+        }
+
+        ul.policy-list li {
+            margin-bottom: 5px;
+        }
+
+        /* HOTEL OPTIONS */
+        .option-card {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            margin-bottom: 25px;
+            overflow: hidden;
+            page-break-inside: avoid;
+        }
+
+        .option-header {
+            background: #1e3a8a;
             color: white;
-            padding: 10px;
-            text-align: center;
+            padding: 10px 15px;
             font-weight: bold;
             font-size: 13px;
         }
 
-        .opt-body {
+        .option-content {
             padding: 15px;
-            min-height: 150px;
         }
 
-        .opt-price {
+        .hotel-item {
+            margin-bottom: 15px;
+            border-bottom: 1px solid #e2e8f0;
+            padding-bottom: 15px;
+        }
+
+        .hotel-item:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }
+
+        .hotel-name {
+            font-size: 13px;
+            font-weight: bold;
+            color: #1e3a8a;
+        }
+
+        .hotel-meta {
+            font-size: 10px;
+            color: #64748b;
+            margin-top: 2px;
+        }
+
+        .price-tag {
+            background: #fffbeb;
+            border: 1px solid #fde68a;
+            color: #92400e;
+            padding: 10px;
             text-align: center;
             font-size: 16px;
             font-weight: bold;
-            color: #1e40af;
-            padding: 10px;
-            background: #e0f2fe;
-            border-top: 1px solid #cbd5e1;
+            margin-top: 10px;
+            border-radius: 6px;
         }
 
         /* FOOTER */
         .footer {
-            margin-top: 30px;
-            text-align: center;
-            font-size: 10px;
-            color: #94a3b8;
+            margin-top: 40px;
             border-top: 1px solid #e2e8f0;
-            padding-top: 10px;
+            padding-top: 20px;
+            text-align: center;
+            color: #94a3b8;
+            font-size: 9px;
         }
     </style>
 </head>
@@ -276,7 +324,6 @@
                 try {
                     if (empty($url))
                         return null;
-                    $apiPrefix = config('app.url');
                     $parsed = parse_url($url);
                     $relativePath = $parsed['path'] ?? '';
                     if ($relativePath) {
@@ -286,15 +333,6 @@
                             $type = pathinfo($publicPath, PATHINFO_EXTENSION);
                             $data = file_get_contents($publicPath);
                             return 'data:image/' . $type . ';base64,' . base64_encode($data);
-                        }
-                        if (strpos($relativePath, 'storage/') === 0) {
-                            $innerPath = substr($relativePath, 8);
-                            $storagePath = storage_path('app/public/' . $innerPath);
-                            if (file_exists($storagePath)) {
-                                $type = pathinfo($storagePath, PATHINFO_EXTENSION);
-                                $data = file_get_contents($storagePath);
-                                return 'data:image/' . $type . ';base64,' . base64_encode($data);
-                            }
                         }
                     }
                     $ctx = stream_context_create(['ssl' => ['verify_peer' => false], 'http' => ['timeout' => 5]]);
@@ -314,59 +352,79 @@
     @endphp
 
     <!-- HEADER -->
-    <table class="header-table">
-        <tr>
-            <td class="header-logo-cell">
-                @if($logo)
-                    <img src="{{ $logo }}" style="max-height: 60px;">
-                @elseif($company)
-                    <div class="company-name">{{ $company->name }}</div>
-                @else
-                    <div class="company-name">{{ config('app.name') }}</div>
-                @endif
-            </td>
-            <td class="header-info-cell">
-                @if($company)
-                    <div class="company-name" style="font-size:14px;">{{ $company->name }}</div>
-                    <div class="company-details">
-                        {{ $company->address }}<br>
-                        {{ $company->phone }} @if($company->phone && $company->email) | @endif {{ $company->email }}
+    <div class="header">
+        <table class="header-table">
+            <tr>
+                <td style="width: 60%;">
+                    @if($logo)
+                        <img src="{{ $logo }}" style="max-height: 55px;">
+                    @else
+                        <h1 class="company-name">{{ $company->name ?? config('app.name') }}</h1>
+                    @endif
+                </td>
+                <td style="width: 40%; text-align: right;">
+                    <div class="company-name" style="font-size: 12px;">{{ $company->name ?? '' }}</div>
+                    <div class="company-info">
+                        {{ $company->address ?? '' }}<br>
+                        {{ $company->phone ?? '' }} | {{ $company->email ?? '' }}
                     </div>
-                @endif
-            </td>
-        </tr>
-    </table>
+                </td>
+            </tr>
+        </table>
+    </div>
 
-    <!-- HERO & INFO -->
-    <div class="proposal-title">{{ $quotation->itinerary['itinerary_name'] ?? 'Travel Proposal' }}</div>
-    @if($mainImg) <img src="{{ $mainImg }}" class="main-img"> @endif
+    <!-- PROPOSAL TITLE -->
+    <div class="proposal-title">
+        {!! html_entity_decode(html_entity_decode($quotation->itinerary['itinerary_name'] ?? 'Customized Travel Proposal')) !!}
+    </div>
 
-    <div class="info-bar">
+    <!-- HERO IMAGE -->
+    @if($mainImg)
+        <div class="hero">
+            <img src="{{ $mainImg }}" class="hero-img">
+        </div>
+    @endif
+
+    <!-- QUICK INFO -->
+    <div class="info-island">
         <table class="info-table">
             <tr>
-                <td><span class="info-label">CLIENT</span><span
-                        class="info-value">{{ $quotation->lead->client_name }}</span></td>
-                <td><span class="info-label">DESTINATION</span><span
-                        class="info-value">{{ $quotation->itinerary['destinations'] ?? 'N/A' }}</span></td>
-                <td><span class="info-label">DATES</span><span
-                        class="info-value">{{ $quotation->travel_start_date ? $quotation->travel_start_date->format('M d') : 'TBA' }}</span>
+                <td style="width: 25%;">
+                    <span class="label">Primary Guest</span>
+                    <span class="value">{{ $quotation->lead->client_name }}</span>
                 </td>
-                <td><span class="info-label">DURATION</span><span
-                        class="info-value">{{ $quotation->itinerary['duration'] }}N /
-                        {{ $quotation->itinerary['duration'] + 1 }}D</span></td>
-                <td><span class="info-label">PAX</span><span class="info-value">{{ $quotation->adults }}A,
-                        {{ $quotation->children }}C</span></td>
+                <td style="width: 25%;">
+                    <span class="label">Destination</span>
+                    <span class="value">{{ $quotation->itinerary['destinations'] ?? 'N/A' }}</span>
+                </td>
+                <td style="width: 25%;">
+                    <span class="label">Travel Dates</span>
+                    <span
+                        class="value">{{ $quotation->travel_start_date ? $quotation->travel_start_date->format('d M Y') : 'TBA' }}</span>
+                </td>
+                <td style="width: 25%;">
+                    <span class="label">Pax Details</span>
+                    <span class="value">{{ $quotation->adults }} Adults, {{ $quotation->children }} Children</span>
+                </td>
+            </tr>
+            <tr>
+                <td colspan="4" style="padding-top: 10px; border-top: 1px solid #e2e8f0; margin-top: 5px;">
+                    <span class="label">Duration</span>
+                    <span class="value">{{ $quotation->itinerary['duration'] }} Nights /
+                        {{ $quotation->itinerary['duration'] + 1 }} Days</span>
+                </td>
             </tr>
         </table>
     </div>
 
     <!-- ITINERARY -->
-    <div class="section-heading">Itinerary</div>
+    <div class="section-header">Detailed Itinerary</div>
     @php
         $dayEvents = $quotation->itinerary['day_events'] ?? [];
         $days = array_keys($dayEvents);
         sort($days, SORT_NUMERIC);
     @endphp
+
     @foreach($days as $day)
         @php
             $evts = $dayEvents[$day] ?? [];
@@ -378,21 +436,33 @@
                     $dayTitle = $e['subject'];
                 $t = $e['eventType'] ?? '';
                 if ($t == 'accommodation')
-                    continue; // Skip hotel here, showed in options
+                    continue;
                 elseif ($t == 'meal' || str_contains($t, 'transport') || $t == 'activity')
-                    $svcs[] = ($t == 'activity' ? 'Act' : ($t == 'meal' ? 'Meal' : 'Trans')) . ': ' . $e['subject'];
+                    $svcs[] = ($t == 'activity' ? 'Activity' : ($t == 'meal' ? 'Meal' : 'Transfer')) . ': ' . $e['subject'];
                 else
                     $desc .= $e['details'] . "\n";
             }
         @endphp
-        <div class="day-box">
-            <div class="day-header">DAY {{ $day }} - {{ $dayTitle }} <span
-                    style="float:right; font-weight:normal;">{{ $quotation->travel_start_date ? $quotation->travel_start_date->copy()->addDays($day - 1)->format('D, M d') : '' }}</span>
+        <div class="day-card">
+            <div class="day-marker">
+                <table width="100%" height="20" style="border-collapse: collapse;">
+                    <tr>
+                        <td align="center" valign="middle"
+                            style="color: white; font-size: 10px; font-weight: bold; line-height: 20px;">
+                            {{ $day }}
+                        </td>
+                    </tr>
+                </table>
             </div>
-            <div class="day-content">
-                <div class="day-desc">{!! nl2br(e(trim($desc))) !!}</div>
+            <div class="day-title">
+                {!! html_entity_decode(html_entity_decode($dayTitle)) !!}
+                <span
+                    class="day-date">{{ $quotation->travel_start_date ? $quotation->travel_start_date->copy()->addDays($day - 1)->format('l, d M') : '' }}</span>
+            </div>
+            <div class="day-body">
+                <div style="text-align: justify;">{!! nl2br(e(trim($desc))) !!}</div>
                 @if(!empty($svcs))
-                    <div style="font-size:10px; color:#64748b;">
+                    <div style="margin-top: 10px;">
                         @foreach($svcs as $s) <span class="svc-badge">{{ $s }}</span> @endforeach
                     </div>
                 @endif
@@ -400,91 +470,68 @@
         </div>
     @endforeach
 
-    <!-- POLICIES -->
-    <div class="policy-section">
-        <div class="section-heading">Terms & Inclusions</div>
-        <table class="inc-exc-table">
-            <tr>
-                <td style="background:#f0fdf4; border-color:#bbf7d0;">
-                    <span class="inc-title">INCLUSIONS</span>
-                    <ul class="compact-list">
-                        @if(!empty($quotation->inclusions))
-                            @foreach($quotation->inclusions as $inc) <li>{{ $inc }}</li> @endforeach
-                        @elseif(isset($masterPolicies['inclusion']))
-                            @foreach($masterPolicies['inclusion'] as $mp) <li>{!! $mp->content !!}</li> @endforeach
-                        @else
-                            <li>As per itinerary</li>
-                        @endif
-                    </ul>
-                </td>
-                <td style="background:#fef2f2; border-color:#fecaca;">
-                    <span class="exc-title">EXCLUSIONS</span>
-                    <ul class="compact-list">
-                        @if(!empty($quotation->exclusions))
-                            @foreach($quotation->exclusions as $exc) <li>{{ $exc }}</li> @endforeach
-                        @elseif(isset($masterPolicies['exclusion']))
-                            @foreach($masterPolicies['exclusion'] as $mp) <li>{!! $mp->content !!}</li> @endforeach
-                        @else
-                            <li>As per itinerary</li>
-                        @endif
-                    </ul>
-                </td>
-            </tr>
-        </table>
+    <!-- POLICIES BOX -->
+    <div class="section-header">Terms & Inclusions</div>
+    <table class="policy-table">
+        <tr>
+            <td class="policy-cell inc-cell" style="padding-right: 10px;">
+                <span class="policy-title inc-title">✓ Inclusions</span>
+                <ul class="policy-list">
+                    @if(!empty($quotation->inclusions))
+                        @foreach($quotation->inclusions as $inc) <li>{{ $inc }}</li> @endforeach
+                    @elseif(isset($masterPolicies['inclusion']))
+                        @foreach($masterPolicies['inclusion'] as $mp) <li>{!! strip_tags($mp->content) !!}</li> @endforeach
+                    @endif
+                </ul>
+            </td>
+            <td style="width: 20px;"></td>
+            <td class="policy-cell exc-cell">
+                <span class="policy-title exc-title">✕ Exclusions</span>
+                <ul class="policy-list">
+                    @if(!empty($quotation->exclusions))
+                        @foreach($quotation->exclusions as $exc) <li>{{ $exc }}</li> @endforeach
+                    @elseif(isset($masterPolicies['exclusion']))
+                        @foreach($masterPolicies['exclusion'] as $mp) <li>{!! strip_tags($mp->content) !!}</li> @endforeach
+                    @endif
+                </ul>
+            </td>
+        </tr>
+    </table>
 
-        @php
-            // Policy Fallback Logic: Custom Field -> Master Policy -> Company Default
-            $pols = $quotation->custom_fields['policies'] ?? [];
+    <!-- IMPORTANT POLICIES -->
+    @php
+        $pols = $quotation->custom_fields['policies'] ?? [];
+        $getPol = function ($key) use ($masterPolicies) {
+            return isset($masterPolicies[$key]) ? $masterPolicies[$key]->first()->content : null;
+        };
 
-            $getPol = function ($key) use ($masterPolicies) {
-                return isset($masterPolicies[$key]) ? $masterPolicies[$key]->first()->content : null;
-            };
+        $terms = $pols['termsConditions'] ?? $getPol('terms') ?? $quotation->terms_conditions ?? null;
+        $cancel = $pols['cancellationPolicy'] ?? $getPol('cancellation') ?? null;
 
-            $terms = $pols['termsConditions'] ?? $getPol('terms') ?? $quotation->terms_conditions ?? $company->terms_and_conditions ?? null;
-            $cancel = $pols['cancellationPolicy'] ?? $getPol('cancellation') ?? $company->cancellation_policy ?? null;
-            $confirm = $pols['confirmationPolicy'] ?? $getPol('confirmation') ?? $company->confirmation_policy ?? null;
-            $amend = $pols['amendmentPolicy'] ?? $getPol('amendment') ?? $company->amendment_policy ?? null;
-            $remarks = $pols['remarks'] ?? $getPol('remarks') ?? $company->remarks ?? null;
-            $payment = $pols['paymentPolicy'] ?? $getPol('payment') ?? null;
-            $thankYou = $getPol('thank_you') ?? $getPol('thank_you_message') ?? null;
+        $policyItems = [
+            'Booking Terms & Conditions' => $terms,
+            'Cancellation Policy' => $cancel,
+        ];
+    @endphp
 
-            $bank = $company->bank_details ?? null;
-
-            $displayPolicies = [
-                'Remarks' => $remarks,
-                'Terms & Conditions' => $terms,
-                'Confirmation Policy' => $confirm,
-                'Cancellation Policy' => $cancel,
-                'Amendment Policy' => $amend,
-                'Payment Policy' => $payment,
-                'Thank You Message' => $thankYou,
-            ];
-        @endphp
-
-        @foreach($displayPolicies as $title => $content)
-            @if(!empty($content))
-                <div style="margin-bottom:8px;">
-                    <strong style="font-size:10px; text-decoration:underline; text-transform:uppercase;">{{ $title }}</strong>
-                    <div class="policy-text" style="font-size:10px;">{!! nl2br($content) !!}</div>
+    @foreach($policyItems as $title => $content)
+        @if(!empty($content))
+            <div style="margin-top: 15px;">
+                <div
+                    style="font-weight: bold; color: #1e3a8a; border-bottom: 1px solid #e2e8f0; margin-bottom: 5px; font-size: 10px; text-transform: uppercase;">
+                    {{ $title }}
                 </div>
-            @endif
-        @endforeach
-
-        @if(!empty($bank))
-            <div style="margin-top:10px; padding:10px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:4px;">
-                <strong style="font-size:10px;">BANK DETAILS</strong>
-                <div class="policy-text">{!! nl2br(e($bank)) !!}</div>
+                <div style="font-size: 9px; color: #475569;">{!! nl2br(strip_tags($content)) !!}</div>
             </div>
         @endif
-    </div>
+    @endforeach
 
-    <!-- OPTIONS (Side by Side at Bottom) -->
+    <!-- PACKAGE OPTIONS -->
     @php
         $customFields = is_array($quotation->custom_fields) ? $quotation->custom_fields : [];
         $hotelOptions = $customFields['hotel_options'] ?? [];
         $displayOption = $customFields['display_option'] ?? null;
 
-        // If display_option is set, show only that option. Otherwise show all.
         if ($displayOption && isset($hotelOptions[$displayOption])) {
             $opts = [$displayOption];
         } else {
@@ -494,72 +541,71 @@
     @endphp
 
     @if(!empty($opts))
-        <div class="section-heading" style="margin-top:20px; page-break-before:auto;">
-            @if($displayOption && count($opts) == 1)
-                Confirmed Package
-            @else
-                Package Options
-            @endif
-        </div>
-        <div class="options-section">
-            <table class="options-table">
-                <tr>
-                    @foreach($opts as $optNum)
-                        @php
-                            $hOpts = $hotelOptions[$optNum] ?? [];
-                            $pricing = $quotation->pricing_breakdown ?? [];
-                            $price = isset($pricing[$optNum])
-                                ? (is_array($pricing[$optNum]) ? ($pricing[$optNum]['final'] ?? 0) : $pricing[$optNum])
-                                : collect($hOpts)->sum(function ($h) {
-                                    return $h['price'] ?? 0;
-                                });
-                        @endphp
-                        <td class="option-col"
-                            style="vertical-align:top; border:1px solid #e2e8f0; border-radius:8px; overflow:hidden;">
-                            <div class="opt-head"
-                                style="background:#1e40af; color:white; padding:8px; text-align:center; font-weight:bold;">
-                                @if(count($opts) == 1 && $displayOption)
-                                    Package Details
-                                @else
-                                    Option {{ $optNum }} Package
-                                @endif
-                            </div>
-                            <div class="opt-body" style="padding:10px;">
-                                @foreach($hOpts as $h)
-                                    @php
-                                        $extraStr = implode(' • ', array_filter([$h['roomName'] ?? null, $h['mealPlan'] ?? null]));
-                                        $hImg = !empty($h['image']) ? imageToBase64($h['image']) : null;
-                                     @endphp
-                                    <div style="margin-bottom:12px; border-bottom:1px dashed #eee; padding-bottom:8px;">
-                                        @if($hImg)
-                                            <img src="{{ $hImg }}"
-                                                style="width:100%; height:100px; object-fit:cover; border-radius:4px; margin-bottom:5px;">
-                                        @endif
-                                        <div style="font-weight:bold; color:#1e40af; font-size:12px;">★
-                                            {{ $h['hotelName'] ?? 'Hotel' }}
-                                        </div>
-                                        <div style="font-size:10px; color:#64748b;">{{ $extraStr }}</div>
+        <div class="section-header">Package Pricing & Hotel Options</div>
+        @foreach($opts as $optNum)
+            @php
+                $hOpts = $hotelOptions[$optNum] ?? [];
+                $pricing = $quotation->pricing_breakdown ?? [];
+                $price = isset($pricing[$optNum])
+                    ? (is_array($pricing[$optNum]) ? ($pricing[$optNum]['final'] ?? 0) : $pricing[$optNum])
+                    : collect($hOpts)->sum(function ($h) {
+                        return $h['price'] ?? 0;
+                    });
+            @endphp
+            <div class="option-card">
+                <div class="option-header">
+                    @if(count($opts) == 1 && $displayOption)
+                        CONFIRMED PACKAGE DETAILS
+                    @else
+                        PACKAGE OPTION {{ $optNum }}
+                    @endif
+                </div>
+                <div class="option-content">
+                    <table style="width: 100%; border-collapse: collapse;">
+                        @foreach($hOpts as $h)
+                            <tr class="hotel-item">
+                                <td style="padding: 10px 0;">
+                                    <div class="hotel-name">★
+                                        {!! html_entity_decode(html_entity_decode($h['hotelName'] ?? 'Selected Hotel')) !!}
                                     </div>
-                                @endforeach
-                            </div>
-                            <div class="opt-price"
-                                style="background:#f0f9ff; padding:10px; text-align:center; font-weight:bold; color:#0369a1; border-top:1px solid #e2e8f0;">
-                                {{ $quotation->currency }} {{ number_format($price, 0) }}
-                            </div>
-                        </td>
-                    @endforeach
-                    <!-- Fill empty cell if only 1 option to maintain width -->
-                    @if(count($opts) == 1)
-                    <td width="50%"></td> @endif
-                </tr>
-            </table>
-        </div>
+                                    <div class="hotel-meta">
+                                        {{ $h['roomName'] ?? 'Standard Room' }} • {{ $h['mealPlan'] ?? 'As per Plan' }}
+                                    </div>
+                                </td>
+                            </tr>
+                        @endforeach
+                    </table>
+                    <div class="price-tag">
+                        Total Package Cost: {{ $quotation->currency }} {{ number_format($price, 0) }}
+                    </div>
+                </div>
+            </div>
+        @endforeach
     @endif
 
-    <!-- FOOTER -->
-    <div class="footer">
-        Thank you for choosing {{ $company->name }}!<br>
-        {{ $company->phone }} | {{ $company->email }}
+    <!-- FINAL FOOTER WITH TRIP IMAGE BACKGROUND -->
+    <div
+        style="margin-top: 50px; position: relative; border-radius: 15px; overflow: hidden; background-color: #0f172a; height: 150px;">
+        @if($mainImg)
+            <img src="{{ $mainImg }}" style="width: 100%; height: 150px; object-fit: cover; opacity: 0.3;">
+        @endif
+        <table width="100%" height="150" style="position: absolute; top: 0; left: 0; border-collapse: collapse;">
+            <tr>
+                <td align="center" valign="middle" style="padding: 20px; color: white;">
+                    <p style="font-size: 9px; opacity: 0.7; margin: 0 0 10px 0;">This is a computer-generated proposal.
+                        Quotations are subject to availability at the time of booking.</p>
+                    <h2 style="font-size: 18px; font-weight: bold; margin: 5px 0; color: #facc15;">Thank you for
+                        choosing {{ $company->name ?? 'our services' }}!</h2>
+                    <p style="font-size: 11px; opacity: 0.9; margin: 5px 0;">
+                        {{ $company->phone ?? '' }} @if($company->phone && $company->email) | @endif
+                        {{ $company->email ?? '' }}
+                    </p>
+                    @if($company->website)
+                        <p style="font-size: 11px; opacity: 0.9; margin: 0;">{{ $company->website }}</p>
+                    @endif
+                </td>
+            </tr>
+        </table>
     </div>
 
 </body>

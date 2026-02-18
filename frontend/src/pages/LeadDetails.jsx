@@ -629,7 +629,7 @@ const LeadDetails = () => {
       }
 
       try {
-        const quotationDataForSend = await handleViewQuotation(confirmedProposal);
+        const quotationDataForSend = await handleViewQuotation(confirmedProposal, false);
         if (quotationDataForSend && (lead?.email || lead?.phone)) {
           await autoSendConfirmedToClient(quotationDataForSend, confirmedProposal);
         } else if (!quotationDataForSend) {
@@ -3708,7 +3708,7 @@ const LeadDetails = () => {
     if (!confirmedOption || !quotationData) return '';
 
     // Load quotation data for the confirmed option
-    await handleViewQuotation(confirmedOption);
+    await handleViewQuotation(confirmedOption, false);
 
     const templateId = await getSelectedTemplate();
     const allPolicies = await getAllPolicies();
@@ -3853,7 +3853,7 @@ const LeadDetails = () => {
     }
 
     // Load quotation data for confirmed option
-    await handleViewQuotation(confirmedOption);
+    await handleViewQuotation(confirmedOption, false);
 
     const templateId = await getSelectedTemplate();
     const allPolicies = await getAllPolicies();
@@ -3896,7 +3896,7 @@ const LeadDetails = () => {
     }
 
     // Load quotation data for confirmed option
-    await handleViewQuotation(confirmedOption);
+    await handleViewQuotation(confirmedOption, false);
 
     const phone = lead.phone.replace(/[^0-9]/g, '');
     const confirmedOptionNum = confirmedOption.optionNumber.toString();

@@ -38,7 +38,7 @@ const Settings = () => {
   useEffect(() => {
     if (settings) {
       setFormData({
-        sidebar_color: settings.sidebar_color || '#2765B0',
+        sidebar_color: settings.sidebar_color || settings.sidebar_color1 || '#2765B0',
         dashboard_background_color: settings.dashboard_background_color || '#D8DEF5',
         header_background_color: settings.header_background_color || '#D8DEF5',
       });
@@ -249,6 +249,8 @@ const Settings = () => {
       // Save theme colors to settings table
       const themeSettings = {
         sidebar_color: formData.sidebar_color,
+        sidebar_color1: formData.sidebar_color,
+        sidebar_color2: formData.sidebar_color,
         dashboard_background_color: formData.dashboard_background_color,
         header_background_color: formData.header_background_color,
       };

@@ -51,6 +51,14 @@ class MarketingTemplate extends Model
     }
 
     /**
+     * Get WhatsApp campaigns using this template.
+     */
+    public function whatsappCampaigns(): HasMany
+    {
+        return $this->hasMany(WhatsAppCampaign::class, 'template_id');
+    }
+
+    /**
      * Scope to get email templates.
      */
     public function scopeEmail($query)
@@ -88,11 +96,11 @@ class MarketingTemplate extends Model
     public function processContent(array $variables = []): string
     {
         $content = $this->content;
-        
+
         foreach ($variables as $key => $value) {
             $content = str_replace('{{' . $key . '}}', $value, $content);
         }
-        
+
         return $content;
     }
 
@@ -108,7 +116,7 @@ class MarketingTemplate extends Model
             'company' => 'Example Company',
             'message' => 'This is a sample message content',
         ];
-        
+
         return $this->processContent($sampleData);
     }
 }

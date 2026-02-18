@@ -63,8 +63,8 @@ export const SettingsProvider = ({ children }) => {
     { path: '/followups', label: 'Followups', icon: 'ClipboardList', feature: 'followups' },
     staffManagementItem,
     { label: 'Reports', icon: 'BarChart3', feature: 'reports', submenu: [{ path: '/dashboard/employee-performance', label: 'Performance', feature: 'reports' }, { path: '/dashboard/source-roi', label: 'Source ROI', feature: 'reports' }, { path: '/dashboard/destination-performance', label: 'Destination', feature: 'reports' }] },
-    { label: 'Marketing', icon: 'Megaphone', feature: 'campaigns', submenu: [{ path: '/marketing', label: 'Dashboard', feature: 'campaigns' }, { path: '/client-groups', label: 'Clients Group', feature: 'campaigns' }, { path: '/marketing/email-templates', label: 'Email Templates', feature: 'email_templates' }, { path: '/marketing/whatsapp-templates', label: 'WhatsApp Templates', feature: 'whatsapp' }, { path: '/marketing/email-campaigns', label: 'Campaigns', feature: 'campaigns' }, { path: '/marketing/landing-pages', label: 'Landing Pages', feature: 'landing_pages' }] },
-    { label: 'Company Settings', icon: 'Settings', submenu: [{ path: '/settings/company', label: 'Company Settings' }, { path: '/settings/whatsapp', label: 'WhatsApp Integration', feature: 'whatsapp' }, { path: '/settings/mail', label: 'Email Integration', feature: 'gmail_integration' }, { path: '/email-templates', label: 'Email Templates', feature: 'email_templates' }, { path: '/settings/account-details', label: 'Account Details' }] },
+    { label: 'Marketing', icon: 'Megaphone', feature: 'campaigns', submenu: [{ path: '/marketing', label: 'Dashboard', feature: 'campaigns' }, { path: '/client-groups', label: 'Clients Group', feature: 'campaigns' }, { path: '/marketing/templates', label: 'Email Templates', feature: 'email_templates' }, { path: '/marketing/whatsapp-templates', label: 'WhatsApp Templates', feature: 'whatsapp' }, { path: '/marketing/campaigns', label: 'Campaigns', feature: 'campaigns' }, { path: '/marketing/landing-pages', label: 'Landing Pages', feature: 'landing_pages' }] },
+    { label: 'Company Settings', icon: 'Settings', submenu: [{ path: '/settings/company', label: 'Company Settings' }, { path: '/settings/whatsapp', label: 'WhatsApp Integration', feature: 'whatsapp' }, { path: '/settings/mail', label: 'Email Integration', feature: 'gmail_integration' }, { path: '/settings/account-details', label: 'Account Details' }] },
     { label: 'Masters', icon: 'Grid', submenu: [{ path: '/masters/suppliers', label: 'Suppliers', feature: 'suppliers' }, { path: '/masters/hotel', label: 'Hotel', feature: 'hotels' }, { path: '/masters/activity', label: 'Activity', feature: 'activities' }, { path: '/masters/transfer', label: 'Transfer', feature: 'transfers' }, { path: '/masters/day-itinerary', label: 'Day Itinerary', feature: 'day_itineraries' }, { path: '/masters/destinations', label: 'Destinations', feature: 'destinations' }, { path: '/masters/room-type', label: 'Room Type', feature: 'hotels' }, { path: '/masters/meal-plan', label: 'Meal Plan', feature: 'hotels' }, { path: '/masters/lead-source', label: 'Lead Source' }, { path: '/masters/expense-type', label: 'Expense Type', feature: 'expenses' }, { path: '/masters/points', label: 'Inclusions & Exclusions' }, { path: '/targets', label: 'Targets', feature: 'targets' }] },
   ];
 
@@ -97,7 +97,8 @@ export const SettingsProvider = ({ children }) => {
           ...item,
           submenu: sub.filter(s =>
             s.path !== '/settings/terms-conditions' &&
-            s.path !== '/settings/policies'
+            s.path !== '/settings/policies' &&
+            s.path !== '/email-templates'
           )
         };
       }
@@ -135,7 +136,7 @@ export const SettingsProvider = ({ children }) => {
               if (newItem.submenu && Array.isArray(newItem.submenu)) {
                 // Remove 'Logo' item if present
                 newItem.submenu = newItem.submenu.filter(sub =>
-                  sub.label !== 'Logo' && sub.path !== '/settings/logo'
+                  sub.label !== 'Logo' && sub.path !== '/settings/logo' && sub.label !== 'Email Templates' && sub.path !== '/email-templates'
                 );
                 // Rename 'Settings' child to 'Company Settings' to match parent
                 newItem.submenu = newItem.submenu.map(sub =>

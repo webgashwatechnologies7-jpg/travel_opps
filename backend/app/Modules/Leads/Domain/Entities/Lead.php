@@ -71,7 +71,9 @@ class Lead extends Model
         'company_id',
         'date_of_birth',
         'marriage_anniversary',
-        'pax_details'
+        'pax_details',
+        'contact_person',
+        'designation'
     ];
 
     /**

@@ -84,7 +84,9 @@ class AccountsController extends Controller
                 'company_name',
                 'gst_number',
                 'city',
-                'created_by'
+                'created_by',
+                'created_at',
+                'updated_at'
             ])
                 ->where('company_id', $companyId)
                 ->where(function ($query) {
@@ -142,7 +144,10 @@ class AccountsController extends Controller
                 'created_by',
                 'budget',
                 'client_title as industry',
-                'created_at'
+                'contact_person',
+                'designation',
+                'created_at',
+                'updated_at'
             ])
                 ->where('company_id', $companyId)
                 ->where('client_type', 'corporate')
@@ -159,12 +164,12 @@ class AccountsController extends Controller
                         'id' => $corporate->id,
                         'companyName' => $corporate->companyName,
                         'industry' => $corporate->industry ?: 'N/A',
-                        'contactPerson' => $corporate->companyName,
-                        'designation' => 'Contact Person',
+                        'contactPerson' => $corporate->contact_person ?: 'N/A',
+                        'designation' => $corporate->designation ?: 'N/A',
                         'mobile' => $corporate->mobile,
                         'email' => $corporate->email,
                         'queries' => $corporate->queries,
-                        'lastQuery' => $corporate->updated_at->format('Y-m-d'),
+                        'lastQuery' => $corporate->updated_at ? $corporate->updated_at->format('Y-m-d') : 'N/A',
                         'city' => $corporate->city ?: 'N/A',
                         'creditLimit' => '₹' . number_format($corporate->budget ?: 0, 2),
                         'status' => 'Active'
@@ -178,6 +183,7 @@ class AccountsController extends Controller
             ], 200);
 
         } catch (\Exception $e) {
+            \Log::error('Fetch Corporate Error: ' . $e->getMessage() . ' at ' . $e->getFile() . ':' . $e->getLine());
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to retrieve corporate clients',
@@ -598,6 +604,7 @@ class AccountsController extends Controller
                 'name' => $request->name,
                 'email' => $request->email,
                 'phone' => $request->mobile,
+                'password' => bcrypt('password123'), // Default temporary password
                 'company_name' => $request->company_name,
                 'gst_number' => $request->gst_number,
                 'city' => $request->city,
@@ -614,9 +621,10 @@ class AccountsController extends Controller
             ], 201);
 
         } catch (\Exception $e) {
+            \Log::error('Create Agent Error: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to create agent',
+                'message' => 'Failed to create agent: ' . $e->getMessage(),
                 'error' => config('app.debug') ? $e->getMessage() : 'Internal server error'
             ], 500);
         }
@@ -650,11 +658,14 @@ class AccountsController extends Controller
             $corporate = Lead::create([
                 'client_name' => $request->companyName,
                 'client_title' => $request->industry,
+                'contact_person' => $request->contactPerson,
+                'designation' => $request->designation,
                 'email' => $request->email,
                 'phone' => $request->mobile,
                 'destination' => $request->city,
                 'budget' => $request->creditLimit,
                 'client_type' => 'corporate',
+                'source' => 'Corporate',
                 'status' => 'new',
                 'created_by' => auth()->id(),
                 'company_id' => auth()->user()->company_id,
@@ -667,9 +678,185 @@ class AccountsController extends Controller
             ], 201);
 
         } catch (\Exception $e) {
+            \Log::error('Create Corporate Error: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to create corporate client',
+                'message' => 'Failed to create corporate client: ' . $e->getMessage(),
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error'
+            ], 500);
+        }
+    }
+
+    /**
+     * Update agent
+     */
+    public function updateAgent(Request $request, $id): JsonResponse
+    {
+        try {
+            $agent = User::find($id);
+            if (!$agent || $agent->user_type !== 'agent') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Agent not found'
+                ], 404);
+            }
+
+            $validator = Validator::make($request->all(), [
+                'name' => 'required|string|max:255',
+                'email' => 'required|email|max:255|unique:users,email,' . $id,
+                'mobile' => 'required|string|max:20',
+                'company_name' => 'required|string|max:255',
+                'gst_number' => 'nullable|string|max:255',
+                'city' => 'nullable|string|max:255',
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Validation failed',
+                    'errors' => $validator->errors()
+                ], 422);
+            }
+
+            $agent->update([
+                'name' => $request->name,
+                'email' => $request->email,
+                'phone' => $request->mobile,
+                'company_name' => $request->company_name,
+                'gst_number' => $request->gst_number,
+                'city' => $request->city,
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Agent updated successfully',
+                'data' => $agent
+            ], 200);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to update agent',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error'
+            ], 500);
+        }
+    }
+
+    /**
+     * Delete agent
+     */
+    public function deleteAgent($id): JsonResponse
+    {
+        try {
+            $agent = User::find($id);
+            if (!$agent || $agent->user_type !== 'agent') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Agent not found'
+                ], 404);
+            }
+
+            $agent->delete();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Agent deleted successfully'
+            ], 200);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to delete agent',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error'
+            ], 500);
+        }
+    }
+
+    /**
+     * Update corporate client
+     */
+    public function updateCorporate(Request $request, $id): JsonResponse
+    {
+        try {
+            $corporate = Lead::find($id);
+            if (!$corporate || $corporate->client_type !== 'corporate') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Corporate client not found'
+                ], 404);
+            }
+
+            $validator = Validator::make($request->all(), [
+                'companyName' => 'required|string|max:255',
+                'industry' => 'nullable|string|max:255',
+                'contactPerson' => 'required|string|max:255',
+                'designation' => 'nullable|string|max:255',
+                'email' => 'nullable|email|max:255',
+                'mobile' => 'required|string|max:20',
+                'city' => 'nullable|string|max:255',
+                'creditLimit' => 'nullable|numeric|min:0',
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Validation failed',
+                    'errors' => $validator->errors()
+                ], 422);
+            }
+
+            $corporate->update([
+                'client_name' => $request->companyName,
+                'client_title' => $request->industry,
+                'contact_person' => $request->contactPerson,
+                'designation' => $request->designation,
+                'email' => $request->email,
+                'phone' => $request->mobile,
+                'destination' => $request->city,
+                'budget' => $request->creditLimit,
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Corporate client updated successfully',
+                'data' => $corporate
+            ], 200);
+
+        } catch (\Exception $e) {
+            \Log::error('Update Corporate Error: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to update corporate client: ' . $e->getMessage(),
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error'
+            ], 500);
+        }
+    }
+
+    /**
+     * Delete corporate client
+     */
+    public function deleteCorporate($id): JsonResponse
+    {
+        try {
+            $corporate = Lead::find($id);
+            if (!$corporate || $corporate->client_type !== 'corporate') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Corporate client not found'
+                ], 404);
+            }
+
+            $corporate->delete();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Corporate client deleted successfully'
+            ], 200);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to delete corporate client',
                 'error' => config('app.debug') ? $e->getMessage() : 'Internal server error'
             ], 500);
         }

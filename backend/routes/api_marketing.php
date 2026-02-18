@@ -97,6 +97,10 @@ Route::middleware('auth:sanctum')->prefix('marketing')->group(function () {
     Route::middleware('plan.feature:whatsapp')->group(function () {
         Route::get('/whatsapp/campaigns', [MarketingController::class, 'whatsappCampaigns']);
         Route::post('/whatsapp/campaigns', [MarketingController::class, 'createWhatsappCampaign']);
+        Route::get('/whatsapp/campaigns/{id}', [MarketingController::class, 'showWhatsappCampaign']);
+        Route::put('/whatsapp/campaigns/{id}', [MarketingController::class, 'updateWhatsappCampaign']);
+        Route::delete('/whatsapp/campaigns/{id}', [MarketingController::class, 'deleteWhatsappCampaign']);
+        Route::post('/whatsapp/campaigns/{id}/send', [MarketingController::class, 'sendWhatsappCampaign']);
         Route::post('/whatsapp/send-message', [MarketingController::class, 'sendWhatsappMessage']);
         Route::get('/whatsapp/templates', [MarketingController::class, 'whatsappTemplates']);
         Route::post('/whatsapp/upload-media', [MarketingController::class, 'uploadWhatsappMedia']);

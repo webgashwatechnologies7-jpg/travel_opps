@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useErrorHandler } from '../hooks/useErrorHandler';
 import { toast } from 'react-toastify';
-import { Save, CheckCircle, Smartphone, Settings, Edit2, BarChart3, MessageSquare } from 'lucide-react';
+import { Save, CheckCircle, Smartphone, Settings, Edit2, BarChart3, MessageSquare, RefreshCw, AlertCircle, Phone } from 'lucide-react';
 import { companyWhatsappAPI } from '../services/api';
 
 const CompanyWhatsAppSetup = () => {

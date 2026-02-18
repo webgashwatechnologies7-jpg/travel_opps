@@ -29,10 +29,13 @@ class MarketingController extends Controller
     {
         try {
             $stats = [
-                'total_campaigns' => EmailCampaign::count() + SmsCampaign::count(),
-                'active_campaigns' => EmailCampaign::where('status', 'active')->count() +
-                    SmsCampaign::where('status', 'active')->count(),
-                'total_sent' => EmailCampaign::sum('sent_count') + SmsCampaign::sum('sent_count'),
+                'total_campaigns' => EmailCampaign::count() + SmsCampaign::count() + \App\Models\WhatsAppCampaign::count(),
+                'active_campaigns' => EmailCampaign::active()->count() +
+                    SmsCampaign::active()->count() +
+                    \App\Models\WhatsAppCampaign::active()->count(),
+                'total_sent' => EmailCampaign::sum('sent_count') +
+                    SmsCampaign::sum('sent_count') +
+                    \App\Models\WhatsAppCampaign::sum('sent_count'),
                 'total_opens' => EmailCampaign::sum('open_count'),
                 'total_clicks' => EmailCampaign::sum('click_count'),
                 'conversion_rate' => $this->calculateConversionRate(),
@@ -124,8 +127,8 @@ class MarketingController extends Controller
                 'name' => 'required|string|max:255',
                 'subject' => 'required|string|max:255',
                 'template_id' => 'required|exists:marketing_templates,id',
-                'lead_ids' => 'required|array',
-                'lead_ids.*' => 'exists:leads,id',
+                'lead_ids' => 'nullable|array',
+                'group_ids' => 'nullable|array',
                 'scheduled_at' => 'nullable|date|after:now',
                 'send_immediately' => 'boolean',
             ]);
@@ -138,16 +141,44 @@ class MarketingController extends Controller
                 ], 422);
             }
 
+            // Collect all lead IDs from individual leads and groups
+            $leadIds = $request->lead_ids ?? [];
+            if ($request->group_ids) {
+                $groupLeads = DB::table('client_group_lead')
+                    ->whereIn('client_group_id', $request->group_ids)
+                    ->pluck('lead_id')
+                    ->toArray();
+                $leadIds = array_unique(array_merge($leadIds, $groupLeads));
+            }
+
+            if (empty($leadIds)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No leads selected for the campaign'
+                ], 422);
+            }
+
             $campaign = EmailCampaign::create([
                 'name' => $request->name,
                 'subject' => $request->subject,
                 'template_id' => $request->template_id,
-                'lead_ids' => $request->lead_ids,
+                'lead_ids' => $leadIds,
                 'scheduled_at' => $request->scheduled_at,
                 'send_immediately' => $request->send_immediately ?? false,
                 'status' => $request->send_immediately ? 'sending' : 'scheduled',
                 'created_by' => auth()->id(),
             ]);
+
+            // Pivot table entries
+            foreach ($leadIds as $leadId) {
+                DB::table('campaign_leads')->insert([
+                    'email_campaign_id' => $campaign->id,
+                    'lead_id' => $leadId,
+                    'status' => 'pending',
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            }
 
             // If send immediately, process the campaign
             if ($request->send_immediately) {
@@ -179,8 +210,8 @@ class MarketingController extends Controller
                 'name' => 'required|string|max:255',
                 'subject' => 'required|string|max:255',
                 'template_id' => 'required|exists:marketing_templates,id',
-                'lead_ids' => 'required|array',
-                'lead_ids.*' => 'exists:leads,id',
+                'lead_ids' => 'nullable|array',
+                'group_ids' => 'nullable|array',
                 'scheduled_at' => 'nullable|date|after:now',
                 'send_immediately' => 'boolean',
             ]);
@@ -195,16 +226,45 @@ class MarketingController extends Controller
 
             $campaign = EmailCampaign::findOrFail($id);
 
+            // Collect all lead IDs from individual leads and groups
+            $leadIds = $request->lead_ids ?? [];
+            if ($request->group_ids) {
+                $groupLeads = DB::table('client_group_lead')
+                    ->whereIn('client_group_id', $request->group_ids)
+                    ->pluck('lead_id')
+                    ->toArray();
+                $leadIds = array_unique(array_merge($leadIds, $groupLeads));
+            }
+
+            if (empty($leadIds)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No leads selected for the campaign'
+                ], 422);
+            }
+
             $campaign->update([
                 'name' => $request->name,
                 'subject' => $request->subject,
                 'template_id' => $request->template_id,
-                'lead_ids' => $request->lead_ids,
+                'lead_ids' => $leadIds,
                 'scheduled_at' => $request->scheduled_at,
                 'send_immediately' => $request->send_immediately ?? false,
                 // If user edits and chooses "send now", move to sending state
                 'status' => $request->send_immediately ? 'sending' : $campaign->status,
             ]);
+
+            // Sync pivot table
+            DB::table('campaign_leads')->where('email_campaign_id', $campaign->id)->delete();
+            foreach ($leadIds as $leadId) {
+                DB::table('campaign_leads')->insert([
+                    'email_campaign_id' => $campaign->id,
+                    'lead_id' => $leadId,
+                    'status' => 'pending',
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            }
 
             if ($request->send_immediately) {
                 $this->processEmailCampaign($campaign->fresh());
@@ -446,6 +506,256 @@ class MarketingController extends Controller
     }
 
     /**
+     * Get all WhatsApp campaigns
+     */
+    public function whatsappCampaigns(): JsonResponse
+    {
+        try {
+            $companyId = auth()->user()->company_id;
+            $campaigns = \App\Models\WhatsAppCampaign::where('company_id', $companyId)
+                ->with(['template'])
+                ->orderBy('created_at', 'desc')
+                ->paginate(10);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'WhatsApp campaigns retrieved successfully',
+                'data' => $campaigns,
+            ], 200);
+
+        } catch (\Exception $e) {
+            \Log::error('WhatsApp campaigns retrieval failed: ' . $e->getMessage(), [
+                'exception' => $e
+            ]);
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to retrieve WhatsApp campaigns',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
+            ], 500);
+        }
+    }
+
+    /**
+     * Create new WhatsApp campaign
+     */
+    public function createWhatsappCampaign(Request $request): JsonResponse
+    {
+        try {
+            $validator = Validator::make($request->all(), [
+                'name' => 'required|string|max:255',
+                'template_id' => 'required|exists:marketing_templates,id',
+                'lead_ids' => 'nullable|array',
+                'lead_ids.*' => 'exists:leads,id',
+                'group_ids' => 'nullable|array',
+                'group_ids.*' => 'exists:client_groups,id',
+                'scheduled_at' => 'nullable|date',
+                'send_immediately' => 'boolean',
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Validation failed',
+                    'errors' => $validator->errors(),
+                ], 422);
+            }
+
+            $companyId = auth()->user()->company_id;
+
+            // Collect all lead IDs from individual leads and groups
+            $leadIds = $request->lead_ids ?? [];
+            if ($request->group_ids) {
+                $groupLeads = DB::table('client_group_lead')
+                    ->whereIn('client_group_id', $request->group_ids)
+                    ->pluck('lead_id')
+                    ->toArray();
+                $leadIds = array_unique(array_merge($leadIds, $groupLeads));
+            }
+
+            if (empty($leadIds)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No leads selected for the campaign'
+                ], 422);
+            }
+
+            $campaign = \App\Models\WhatsAppCampaign::create([
+                'name' => $request->name,
+                'template_id' => $request->template_id,
+                'lead_ids' => $leadIds,
+                'scheduled_at' => $request->scheduled_at,
+                'status' => $request->send_immediately ? 'sending' : 'scheduled',
+                'created_by' => auth()->id(),
+                'company_id' => $companyId,
+            ]);
+
+            // Pivot table entries
+            foreach ($leadIds as $leadId) {
+                DB::table('campaign_leads')->insert([
+                    'whatsapp_campaign_id' => $campaign->id,
+                    'lead_id' => $leadId,
+                    'status' => 'pending',
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            }
+
+            // If send immediately, you'd trigger processing here
+            // if ($request->send_immediately) {
+            //     $this->processWhatsappCampaign($campaign);
+            // }
+
+            return response()->json([
+                'success' => true,
+                'message' => 'WhatsApp campaign created successfully',
+                'data' => $campaign->load(['template']),
+            ], 201);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to create WhatsApp campaign',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
+            ], 500);
+        }
+    }
+
+    /**
+     * Show specific WhatsApp campaign
+     */
+    public function showWhatsappCampaign(int $id): JsonResponse
+    {
+        try {
+            $companyId = auth()->user()->company_id;
+            $campaign = \App\Models\WhatsAppCampaign::where('company_id', $companyId)
+                ->with(['template'])
+                ->findOrFail($id);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'WhatsApp campaign retrieved successfully',
+                'data' => $campaign,
+            ], 200);
+
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return response()->json(['success' => false, 'message' => 'Campaign not found'], 404);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to retrieve WhatsApp campaign',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
+            ], 500);
+        }
+    }
+
+    /**
+     * Update WhatsApp campaign
+     */
+    public function updateWhatsappCampaign(Request $request, int $id): JsonResponse
+    {
+        try {
+            $companyId = auth()->user()->company_id;
+            $campaign = \App\Models\WhatsAppCampaign::where('company_id', $companyId)->findOrFail($id);
+
+            $validator = Validator::make($request->all(), [
+                'name' => 'required|string|max:255',
+                'template_id' => 'required|exists:marketing_templates,id',
+                'scheduled_at' => 'nullable|date',
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Validation failed',
+                    'errors' => $validator->errors(),
+                ], 422);
+            }
+
+            $campaign->update([
+                'name' => $request->name,
+                'template_id' => $request->template_id,
+                'scheduled_at' => $request->scheduled_at,
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'WhatsApp campaign updated successfully',
+                'data' => $campaign->load(['template']),
+            ], 200);
+
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return response()->json(['success' => false, 'message' => 'Campaign not found'], 404);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to update WhatsApp campaign',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
+            ], 500);
+        }
+    }
+
+    /**
+     * Delete WhatsApp campaign
+     */
+    public function deleteWhatsappCampaign(int $id): JsonResponse
+    {
+        try {
+            $companyId = auth()->user()->company_id;
+            $campaign = \App\Models\WhatsAppCampaign::where('company_id', $companyId)->findOrFail($id);
+            $campaign->delete();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'WhatsApp campaign deleted successfully',
+            ], 200);
+
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return response()->json(['success' => false, 'message' => 'Campaign not found'], 404);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to delete WhatsApp campaign',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
+            ], 500);
+        }
+    }
+
+    /**
+     * Send WhatsApp campaign
+     */
+    public function sendWhatsappCampaign(int $id): JsonResponse
+    {
+        try {
+            $companyId = auth()->user()->company_id;
+            $campaign = \App\Models\WhatsAppCampaign::where('company_id', $companyId)->findOrFail($id);
+
+            if ($campaign->status === 'sent') {
+                return response()->json(['success' => false, 'message' => 'Campaign already sent'], 422);
+            }
+
+            $campaign->update(['status' => 'sending']);
+
+            // Process sending (async or immediately)
+            // For now, let's just mark it as sent for testing UI
+            // In real app, you'd call processWhatsappCampaign($campaign)
+
+            return response()->json([
+                'success' => true,
+                'message' => 'WhatsApp campaign sending started',
+            ], 200);
+
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return response()->json(['success' => false, 'message' => 'Campaign not found'], 404);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to send WhatsApp campaign',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
+            ], 500);
+        }
+    }
+
+    /**
      * Get marketing templates
      */
     public function templates(): JsonResponse
@@ -591,7 +901,7 @@ class MarketingController extends Controller
     // Private helper methods
     private function calculateConversionRate(): float
     {
-        $totalSent = EmailCampaign::sum('sent_count') + SmsCampaign::sum('sent_count');
+        $totalSent = EmailCampaign::sum('sent_count') + SmsCampaign::sum('sent_count') + \App\Models\WhatsAppCampaign::sum('sent_count');
         // Simple approximation: count recently created leads as "conversions"
         $totalConversions = Lead::where('created_at', '>=', now()->subDays(30))->count();
 
@@ -600,21 +910,52 @@ class MarketingController extends Controller
 
     private function getRecentCampaigns(): array
     {
-        return EmailCampaign::with(['template'])
+        $emails = EmailCampaign::with(['template'])
             ->orderBy('created_at', 'desc')
             ->limit(5)
             ->get()
-            ->map(function ($campaign) {
-                return [
-                    'id' => $campaign->id,
-                    'name' => $campaign->name,
-                    'type' => 'email',
-                    'status' => $campaign->status,
-                    'sent_count' => $campaign->sent_count,
-                    'open_rate' => $campaign->open_rate,
-                    'created_at' => $campaign->created_at->format('Y-m-d H:i'),
-                ];
-            })
+            ->map(fn($c) => [
+                'id' => $c->id,
+                'name' => $c->name,
+                'type' => 'email',
+                'status' => $c->status,
+                'sent_count' => $c->sent_count,
+                'date' => $c->created_at,
+                'created_at' => $c->created_at->format('Y-m-d H:i')
+            ]);
+
+        $sms = SmsCampaign::with(['template'])
+            ->orderBy('created_at', 'desc')
+            ->limit(5)
+            ->get()
+            ->map(fn($c) => [
+                'id' => $c->id,
+                'name' => $c->name,
+                'type' => 'sms',
+                'status' => $c->status,
+                'sent_count' => $c->sent_count,
+                'date' => $c->created_at,
+                'created_at' => $c->created_at->format('Y-m-d H:i')
+            ]);
+
+        $whatsapp = \App\Models\WhatsAppCampaign::with(['template'])
+            ->orderBy('created_at', 'desc')
+            ->limit(5)
+            ->get()
+            ->map(fn($c) => [
+                'id' => $c->id,
+                'name' => $c->name,
+                'type' => 'whatsapp',
+                'status' => $c->status,
+                'sent_count' => $c->sent_count,
+                'date' => $c->created_at,
+                'created_at' => $c->created_at->format('Y-m-d H:i')
+            ]);
+
+        return $emails->merge($sms)->merge($whatsapp)
+            ->sortByDesc('date')
+            ->take(5)
+            ->values()
             ->toArray();
     }
 
@@ -1756,7 +2097,7 @@ class MarketingController extends Controller
                     'id' => $l->id,
                     'name' => $l->name,
                     'email' => $l->email,
-                    'phone' => $l->phone,
+                    'mobile' => $l->phone,
                     'status' => $l->status,
                 ]);
 

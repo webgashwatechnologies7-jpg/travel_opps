@@ -142,7 +142,7 @@ py-2 lg:py-3
 min-h-14 lg:min-h-16 lg:h-16
 transition-all duration-300
 ${isSidebarOpen ? 'lg:left-64' : 'lg:left-20'}`}
-      style={{ backgroundColor: settings?.dashboard_background_color || '#D8DEF5' }}
+      style={{ backgroundColor: settings?.header_background_color || settings?.dashboard_background_color || '#D8DEF5' }}
     >
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-end gap-3 h-full">
 
@@ -230,7 +230,11 @@ ${isSidebarOpen ? 'lg:left-64' : 'lg:left-20'}`}
           boxShadow: '2px 0 20px rgba(0, 0, 0, 0.2)'
         }}>
         {/* Sidebar - Dynamic Color */}
-        <div className="w-full h-full shadow-lg" style={{ background: `linear-gradient(${settings?.sidebar_color1} 20% , ${settings?.sidebar_color2})` }}>
+        <div className="w-full h-full shadow-lg" style={{
+          background: settings?.sidebar_color
+            ? settings.sidebar_color
+            : `linear-gradient(${settings?.sidebar_color1 || '#2765B0'} 20% , ${settings?.sidebar_color2 || '#629DE5'})`
+        }}>
           <div className="flex flex-col h-full">
             {/* Logo and Toggle Button */}
             <div className="p-4 border-b border-blue-800/50 flex items-center justify-between">
@@ -366,7 +370,11 @@ ${isSidebarOpen ? 'lg:left-64' : 'lg:left-20'}`}
         <div className="fixed inset-0 z-50 lg:hidden bg-black/50 backdrop-blur-sm transition-opacity" onClick={() => setIsMobileSidebarOpen(false)}>
           <div
             className={`absolute inset-y-0 left-0 w-64 shadow-2xl transform transition-transform duration-300 ${isMobileSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}
-            style={{ background: `linear-gradient(${settings?.sidebar_color1 || '#1e3a8a'} 20% , ${settings?.sidebar_color2 || '#172554'})` }}
+            style={{
+              background: settings?.sidebar_color
+                ? settings.sidebar_color
+                : `linear-gradient(${settings?.sidebar_color1 || '#1e3a8a'} 20% , ${settings?.sidebar_color2 || '#172554'})`
+            }}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex flex-col h-full">

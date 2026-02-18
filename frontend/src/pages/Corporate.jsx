@@ -1,11 +1,17 @@
 import { useState, useEffect } from 'react';
 import { accountsAPI } from '../services/api';
 import Layout from '../components/Layout';
+import AddCorporateModal from '../components/AddCorporateModal';
+import { toast } from 'react-toastify';
+import { Edit2, Trash2, Plus, Search } from 'lucide-react';
 
 const Corporate = () => {
   const [corporates, setCorporates] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [selectedCorporate, setSelectedCorporate] = useState(null);
 
   useEffect(() => {
     fetchCorporates();
@@ -19,65 +25,91 @@ const Corporate = () => {
       }
     } catch (error) {
       console.error('Failed to fetch corporates:', error);
-      // Fallback to mock data if API fails
-      const mockCorporates = [
-        {
-          id: 1,
-          companyName: 'Tech Solutions Pvt Ltd',
-          industry: 'Information Technology',
-          contactPerson: 'Sanjay Mehta',
-          designation: 'HR Manager',
-          mobile: '+91 98765 43210',
-          email: 'sanjay@techsolutions.com',
-          queries: 25,
-          lastQuery: '2024-01-15',
-          city: 'Pune',
-          createdBy: 'Agent A',
-          creditLimit: '₹5,00,000',
-          status: 'Active'
-        },
-        {
-          id: 2,
-          companyName: 'Global Manufacturing Corp',
-          industry: 'Manufacturing',
-          contactPerson: 'Kavita Reddy',
-          designation: 'Travel Coordinator',
-          mobile: '+91 87654 32109',
-          email: 'kavita@globalmfg.com',
-          queries: 18,
-          lastQuery: '2024-01-14',
-          city: 'Chennai',
-          createdBy: 'Agent B',
-          creditLimit: '₹3,50,000',
-          status: 'Active'
-        },
-        {
-          id: 3,
-          companyName: 'Financial Services Ltd',
-          industry: 'Banking & Finance',
-          contactPerson: 'Amit Bansal',
-          designation: 'Operations Head',
-          mobile: '+91 76543 21098',
-          email: 'amit@finserv.com',
-          queries: 12,
-          lastQuery: '2024-01-13',
-          city: 'Mumbai',
-          createdBy: 'Agent C',
-          creditLimit: '₹7,50,000',
-          status: 'Active'
-        }
-      ];
-      setCorporates(mockCorporates);
+      // Fallback only if no data at all
+      if (corporates.length === 0) {
+        /*
+        const mockCorporates = [
+          {
+            id: 1,
+            companyName: 'Tech Solutions Pvt Ltd',
+            industry: 'Information Technology',
+            contactPerson: 'Sanjay Mehta',
+            designation: 'HR Manager',
+            mobile: '+91 98765 43210',
+            email: 'sanjay@techsolutions.com',
+            queries: 25,
+            lastQuery: '2024-01-15',
+            city: 'Pune',
+            createdBy: 'Agent A',
+            creditLimit: '₹5,00,000',
+            status: 'Active'
+          }
+        ];
+        setCorporates(mockCorporates);
+        */
+      }
     } finally {
       setLoading(false);
     }
   };
 
-  const filteredCorporates = corporates.filter(corporate =>
-    corporate.companyName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    corporate.contactPerson.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    corporate.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    corporate.mobile.includes(searchTerm)
+  const handleAddCorporate = async (corporateData) => {
+    try {
+      const response = await accountsAPI.createCorporate(corporateData);
+      if (response.data.success) {
+        toast.success('Corporate client added successfully');
+        fetchCorporates();
+      } else {
+        toast.error(response.data.message || 'Failed to add corporate client');
+      }
+    } catch (error) {
+      console.error('Error adding corporate:', error);
+      const errorMessage = error.response?.data?.message || 'Something went wrong while adding the corporate client.';
+      toast.error(errorMessage);
+    }
+  };
+
+  const handleUpdateCorporate = async (corporateData) => {
+    try {
+      const response = await accountsAPI.updateCorporate(selectedCorporate.id, corporateData);
+      if (response.data.success) {
+        toast.success('Corporate client updated successfully');
+        fetchCorporates();
+        setShowEditModal(false);
+        setSelectedCorporate(null);
+      } else {
+        toast.error(response.data.message || 'Failed to update corporate client');
+      }
+    } catch (error) {
+      console.error('Error updating corporate:', error);
+      const errorMessage = error.response?.data?.message || 'Something went wrong while updating the corporate client.';
+      toast.error(errorMessage);
+    }
+  };
+
+  const handleDeleteCorporate = async (id) => {
+    if (window.confirm('Are you sure you want to delete this corporate client?')) {
+      try {
+        const response = await accountsAPI.deleteCorporate(id);
+        if (response.data.success) {
+          toast.success('Corporate client deleted successfully');
+          fetchCorporates();
+        } else {
+          toast.error(response.data.message || 'Failed to delete corporate client');
+        }
+      } catch (error) {
+        console.error('Error deleting corporate:', error);
+        const errorMessage = error.response?.data?.message || 'Something went wrong while deleting the corporate client.';
+        toast.error(errorMessage);
+      }
+    }
+  };
+
+  const filteredCorporates = (corporates || []).filter(corporate =>
+    (corporate.companyName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (corporate.contactPerson || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (corporate.email || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (corporate.mobile || '').includes(searchTerm)
   );
 
   if (loading) {
@@ -92,90 +124,151 @@ const Corporate = () => {
 
   return (
     <Layout>
-      <div>
-        <div className="flex justify-between items-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-800">Corporate</h1>
-          <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-            Add New
-          </button>
+      <div className="p-4">
+        {/* Header */}
+        <div className="bg-white shadow-sm rounded-lg mb-6 p-6">
+          <div className="flex justify-between items-center">
+            <h1 className="text-2xl font-bold text-gray-800">Corporate</h1>
+            <button
+              onClick={() => setShowAddModal(true)}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center space-x-2"
+            >
+              <Plus className="h-4 w-4" />
+              <span>Add New</span>
+            </button>
+          </div>
         </div>
 
-        <div className="mb-6">
-          <input
-            type="text"
-            placeholder="Search corporate clients..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full max-w-md px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
+        {/* Search */}
+        <div className="mb-6 flex space-x-4">
+          <div className="relative flex-1 max-w-md">
+            <Search className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search corporate clients..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
         </div>
 
+        {/* Table */}
         <div className="bg-white rounded-lg shadow overflow-hidden">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Company Name</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Industry</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Contact Person</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Designation</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Mobile</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Queries</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Last Query</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">City</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Credit Limit</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {filteredCorporates.map((corporate) => (
-                <tr key={corporate.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4">
-                    <div className="text-sm font-medium text-gray-900">{corporate.companyName}</div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="text-sm text-gray-900">{corporate.industry}</div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="text-sm font-medium text-gray-900">{corporate.contactPerson}</div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="text-sm text-gray-900">{corporate.designation}</div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="text-sm text-gray-900">{corporate.mobile}</div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="text-sm text-gray-900">{corporate.email}</div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="text-sm text-gray-900">{corporate.queries}</div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="text-sm text-gray-900">{corporate.lastQuery}</div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="text-sm text-gray-900">{corporate.city}</div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="text-sm font-medium text-gray-900">{corporate.creditLimit}</div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
-                      {corporate.status}
-                    </span>
-                  </td>
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Company Name</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Industry</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact Person</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Designation</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Mobile</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Queries</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Query</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">City</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Credit Limit</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {filteredCorporates.map((corporate) => (
+                  <tr key={corporate.id} className="hover:bg-gray-50 transition-colors">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm font-medium text-gray-900">{corporate.companyName}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-900">{corporate.industry}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm font-medium text-gray-900">{corporate.contactPerson}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-900">{corporate.designation}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-900">{corporate.mobile}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-900">{corporate.email}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-900">{corporate.queries}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-900">{corporate.lastQuery}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-900">{corporate.city}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm font-medium text-gray-900">{corporate.creditLimit}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
+                        {corporate.status}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                      <div className="flex space-x-2">
+                        <button
+                          onClick={() => {
+                            setSelectedCorporate(corporate);
+                            setShowEditModal(true);
+                          }}
+                          className="p-1 text-blue-600 hover:bg-blue-50 rounded"
+                        >
+                          <Edit2 className="h-4 w-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteCorporate(corporate.id)}
+                          className="p-1 text-red-600 hover:bg-red-50 rounded"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
           {filteredCorporates.length === 0 && (
-            <div className="text-center py-8 text-gray-500">No corporate clients found</div>
+            <div className="text-center py-12 text-gray-500">
+              <div className="mb-2">No corporate clients found</div>
+              <button
+                onClick={() => setShowAddModal(true)}
+                className="text-blue-600 hover:underline"
+              >
+                Add your first corporate client
+              </button>
+            </div>
           )}
         </div>
       </div>
+
+      {/* Modals */}
+      <AddCorporateModal
+        isOpen={showAddModal}
+        onClose={() => setShowAddModal(false)}
+        onSave={handleAddCorporate}
+      />
+
+      <AddCorporateModal
+        isOpen={showEditModal}
+        onClose={() => {
+          setShowEditModal(false);
+          setSelectedCorporate(null);
+        }}
+        onSave={handleUpdateCorporate}
+        editMode={true}
+        initialData={selectedCorporate}
+      />
     </Layout>
   );
 };
 
 export default Corporate;
+

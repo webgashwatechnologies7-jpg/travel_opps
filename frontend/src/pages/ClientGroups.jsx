@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
-import { clientGroupsAPI } from '../services/api';
-import { 
+import { toast } from 'react-toastify';
+import { clientGroupsAPI, accountsAPI } from '../services/api';
+import {
   Users,
   Plus,
   Search,
@@ -49,9 +50,18 @@ const ClientGroups = () => {
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(null);
 
+  // Member management
+  const [groupMembers, setGroupMembers] = useState([]);
+  const [loadingMembers, setLoadingMembers] = useState(false);
+  const [showAddMembersModal, setShowAddMembersModal] = useState(false);
+  const [allClients, setAllClients] = useState([]);
+  const [selectedClientIds, setSelectedClientIds] = useState([]);
+  const [searchingClients, setSearchingClients] = useState(false);
+
   useEffect(() => {
     fetchGroups();
   }, []);
+
 
   const fetchGroups = async () => {
     try {
@@ -132,6 +142,55 @@ const ClientGroups = () => {
       }
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to update');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const fetchGroupMembers = async (groupId) => {
+    setLoadingMembers(true);
+    try {
+      const res = await clientGroupsAPI.getClients(groupId);
+      if (res.data?.success) {
+        setGroupMembers(res.data.data);
+      }
+    } catch (err) {
+      console.error('Failed to fetch members:', err);
+    } finally {
+      setLoadingMembers(false);
+    }
+  };
+
+  const fetchAllClients = async () => {
+    setSearchingClients(true);
+    try {
+      const res = await accountsAPI.getClients();
+      if (res.data?.success) {
+        setAllClients(res.data.data);
+      }
+    } catch (err) {
+      console.error('Failed to fetch clients:', err);
+    } finally {
+      setSearchingClients(false);
+    }
+  };
+
+  const handleAddMembers = async () => {
+    if (selectedClientIds.length === 0) return;
+    setSaving(true);
+    try {
+      const res = await clientGroupsAPI.addClients(selectedGroup.id, selectedClientIds);
+      if (res.data?.success) {
+        toast.success(res.data.message || 'Clients added to group successfully');
+        await fetchGroupMembers(selectedGroup.id);
+        setShowAddMembersModal(false);
+        setSelectedClientIds([]);
+        await fetchGroups(); // Update count
+      } else {
+        toast.error(res.data?.message || 'Failed to add clients');
+      }
+    } catch (err) {
+      console.error('Failed to add members:', err);
     } finally {
       setSaving(false);
     }
@@ -251,7 +310,7 @@ const ClientGroups = () => {
                 <div>
                   <p className="text-purple-100 text-sm font-medium">Total Revenue</p>
                   <p className="text-3xl font-bold mt-2">
-                    ${groups.reduce((sum, g) => sum + (g.total_revenue || 0), 0).toLocaleString()}
+                    ₹{groups.reduce((sum, g) => sum + (g.total_revenue || 0), 0).toLocaleString()}
                   </p>
                   <div className="flex items-center mt-2 text-sm">
                     <TrendingUp className="w-4 h-4 mr-1" />
@@ -269,7 +328,7 @@ const ClientGroups = () => {
                 <div>
                   <p className="text-orange-100 text-sm font-medium">Avg Booking</p>
                   <p className="text-3xl font-bold mt-2">
-                    ${Math.round((groups.reduce((sum, g) => sum + (g.avg_booking_value || 0), 0) / (groups.length || 1)) || 0).toLocaleString()}
+                    ₹{Math.round((groups.reduce((sum, g) => sum + (g.avg_booking_value || 0), 0) / (groups.length || 1)) || 0).toLocaleString()}
                   </p>
                   <div className="flex items-center mt-2 text-sm">
                     <Calendar className="w-4 h-4 mr-1" />
@@ -350,10 +409,10 @@ const ClientGroups = () => {
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <span className="text-sm text-gray-900">${(group.total_revenue || 0).toLocaleString()}</span>
+                          <span className="text-sm text-gray-900">₹{(group.total_revenue || 0).toLocaleString()}</span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <span className="text-sm text-gray-900">${(group.avg_booking_value || 0).toLocaleString()}</span>
+                          <span className="text-sm text-gray-900">₹{(group.avg_booking_value || 0).toLocaleString()}</span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(group.status)}`}>
@@ -368,9 +427,10 @@ const ClientGroups = () => {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                           <div className="flex items-center space-x-2">
-                            <button 
+                            <button
                               onClick={() => {
                                 setSelectedGroup(group);
+                                fetchGroupMembers(group.id);
                                 setShowViewModal(true);
                               }}
                               className="text-blue-600 hover:text-blue-900"
@@ -378,9 +438,9 @@ const ClientGroups = () => {
                             >
                               <Eye className="w-4 h-4" />
                             </button>
-                            <button 
+                            <button
                               onClick={() => handleEdit(group)}
-                              className="text-green-600 hover:text-green-900" 
+                              className="text-green-600 hover:text-green-900"
                               title="Edit"
                             >
                               <Edit className="w-4 h-4" />
@@ -392,9 +452,6 @@ const ClientGroups = () => {
                               title="Delete"
                             >
                               <Trash2 className="w-4 h-4" />
-                            </button>
-                            <button className="text-gray-400 hover:text-gray-600" title="More">
-                              <MoreVertical className="w-4 h-4" />
                             </button>
                           </div>
                         </td>
@@ -429,7 +486,7 @@ const ClientGroups = () => {
                 ×
               </button>
             </div>
-            
+
             <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); handleSaveEdit(); }}>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -438,7 +495,7 @@ const ClientGroups = () => {
                 <input
                   type="text"
                   value={formData.name}
-                  onChange={(e) => setFormData({...formData, name: e.target.value})}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   placeholder="Enter group name"
                   required
@@ -452,7 +509,7 @@ const ClientGroups = () => {
                 <textarea
                   rows={3}
                   value={formData.description}
-                  onChange={(e) => setFormData({...formData, description: e.target.value})}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   placeholder="Enter group description"
                 />
@@ -464,7 +521,7 @@ const ClientGroups = () => {
                 </label>
                 <select
                   value={formData.status}
-                  onChange={(e) => setFormData({...formData, status: e.target.value})}
+                  onChange={(e) => setFormData({ ...formData, status: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 >
                   <option value="active">Active</option>
@@ -571,7 +628,7 @@ const ClientGroups = () => {
                 ×
               </button>
             </div>
-            
+
             <div className="space-y-6">
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -591,23 +648,73 @@ const ClientGroups = () => {
                   <p className="font-medium">{selectedGroup.created_by}</p>
                 </div>
               </div>
-              
+
               <div>
                 <p className="text-sm text-gray-600 mb-2">Description</p>
                 <p className="text-gray-900">{selectedGroup.description || '—'}</p>
               </div>
-              
+
               <div className="grid grid-cols-2 gap-4">
                 <div className="bg-blue-50 p-4 rounded-lg">
                   <p className="text-sm text-blue-600 mb-1">Total Revenue</p>
-                  <p className="text-2xl font-bold text-blue-900">${(selectedGroup.total_revenue || 0).toLocaleString()}</p>
+                  <p className="text-2xl font-bold text-blue-900">₹{(selectedGroup.total_revenue || 0).toLocaleString()}</p>
                 </div>
                 <div className="bg-green-50 p-4 rounded-lg">
                   <p className="text-sm text-green-600 mb-1">Average Booking</p>
-                  <p className="text-2xl font-bold text-green-900">${(selectedGroup.avg_booking_value || 0).toLocaleString()}</p>
+                  <p className="text-2xl font-bold text-green-900">₹{(selectedGroup.avg_booking_value || 0).toLocaleString()}</p>
                 </div>
               </div>
-              
+
+              {/* Group Members Section */}
+              <div className="mt-8">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-lg font-semibold text-gray-900">Group Members</h3>
+                  <button
+                    onClick={() => {
+                      fetchAllClients();
+                      setShowAddMembersModal(true);
+                    }}
+                    className="flex items-center space-x-1 text-sm bg-blue-50 text-blue-600 px-3 py-1 rounded-lg hover:bg-blue-100"
+                  >
+                    <UserPlus className="w-4 h-4" />
+                    <span>Add Members</span>
+                  </button>
+                </div>
+
+                <div className="border border-gray-200 rounded-lg overflow-hidden">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
+                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
+                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Mobile</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {loadingMembers ? (
+                        <tr>
+                          <td colSpan="3" className="px-4 py-4 text-center">
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mx-auto"></div>
+                          </td>
+                        </tr>
+                      ) : groupMembers.length > 0 ? (
+                        groupMembers.map(member => (
+                          <tr key={member.id} className="text-sm">
+                            <td className="px-4 py-2 whitespace-nowrap">{member.name}</td>
+                            <td className="px-4 py-2 whitespace-nowrap">{member.email}</td>
+                            <td className="px-4 py-2 whitespace-nowrap">{member.mobile}</td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td colSpan="3" className="px-4 py-8 text-center text-gray-500">No members in this group</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
               <div className="flex justify-end space-x-3 pt-4">
                 <button
                   onClick={() => setShowViewModal(false)}
@@ -615,7 +722,7 @@ const ClientGroups = () => {
                 >
                   Close
                 </button>
-                <button 
+                <button
                   onClick={() => {
                     setShowViewModal(false);
                     handleEdit(selectedGroup);
@@ -623,6 +730,93 @@ const ClientGroups = () => {
                   className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
                 >
                   Edit Group
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Members Modal */}
+      {showAddMembersModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60]">
+          <div className="bg-white rounded-lg p-6 w-full max-w-xl max-h-[90vh] flex flex-col">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold text-gray-900">Add Members to {selectedGroup?.name}</h2>
+              <button onClick={() => setShowAddMembersModal(false)} className="text-gray-400 hover:text-gray-600">×</button>
+            </div>
+
+            <div className="mb-4 overflow-hidden flex flex-col">
+              <p className="text-sm text-gray-600 mb-2">Select clients to add to this group:</p>
+              <div className="border border-gray-200 rounded-lg overflow-y-auto max-h-[50vh]">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50 sticky top-0">
+                    <tr>
+                      <th className="px-4 py-2 text-left w-10">
+                        <input
+                          type="checkbox"
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedClientIds(allClients.map(c => c.id));
+                            } else {
+                              setSelectedClientIds([]);
+                            }
+                          }}
+                        />
+                      </th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Client Name</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Email/Mobile</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {searchingClients ? (
+                      <tr><td colSpan="3" className="p-4 text-center">Loading clients...</td></tr>
+                    ) : allClients.length > 0 ? (
+                      allClients.map(client => (
+                        <tr key={client.id} className="hover:bg-gray-50">
+                          <td className="px-4 py-2">
+                            <input
+                              type="checkbox"
+                              checked={selectedClientIds.includes(client.id)}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setSelectedClientIds([...selectedClientIds, client.id]);
+                                } else {
+                                  setSelectedClientIds(selectedClientIds.filter(id => id !== client.id));
+                                }
+                              }}
+                            />
+                          </td>
+                          <td className="px-4 py-2 text-sm">{client.name}</td>
+                          <td className="px-4 py-2 text-xs text-gray-500">
+                            {client.email} <br /> {client.mobile}
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr><td colSpan="3" className="p-4 text-center">No clients found</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div className="flex justify-between items-center pt-4 border-t mt-4">
+              <span className="text-sm text-gray-600 font-medium">{selectedClientIds.length} clients selected</span>
+              <div className="flex space-x-3">
+                <button
+                  onClick={() => setShowAddMembersModal(false)}
+                  className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm font-medium"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleAddMembers}
+                  disabled={saving || selectedClientIds.length === 0}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 text-sm font-medium flex items-center space-x-2"
+                >
+                  {saving && <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></div>}
+                  <span>{saving ? 'Adding...' : 'Add Selected'}</span>
                 </button>
               </div>
             </div>

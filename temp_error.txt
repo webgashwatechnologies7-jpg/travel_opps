@@ -1,0 +1,119 @@
+﻿
+> backend\storage\logs\laravel.log:42031:[20
+26-02-18 11:07:35] local.ERROR: Email 
+campaign send failed for lead {"campaign_id"
+:2,"lead_id":6,"email":"webdaassas@yopmail.c
+om","error":"Failed to authenticate on SMTP 
+server with username 
+\"web.gashwatechnologies7@gmail.com\" using 
+the following authenticators: \"LOGIN\", 
+\"PLAIN\", \"XOAUTH2\". Authenticator 
+\"LOGIN\" returned \"Expected response code 
+\"235\" but got code \"535\", with message 
+\"535-5.7.8 Username and Password not 
+accepted. For more information, go to
+  backend\storage\logs\laravel.log:42032:
+  
+backend\storage\logs\laravel.log:42033:535 
+5.7.8  https://support.google.com/mail/?p=Ba
+dCredentials 
+d9443c01a7336-2ad1a6fa326sm142392865ad.1 - 
+gsmtp\".\". Authenticator \"PLAIN\" 
+returned \"Expected response code \"235\" 
+but got code \"535\", with message 
+\"535-5.7.8 Username and Password not 
+accepted. For more information, go to
+  backend\storage\logs\laravel.log:42034:
+  
+backend\storage\logs\laravel.log:42035:535 
+5.7.8  https://support.google.com/mail/?p=Ba
+dCredentials 
+d9443c01a7336-2ad1a6fa326sm142392865ad.1 - 
+gsmtp\".\". Authenticator \"XOAUTH2\" 
+returned \"Expected response code \"235\" 
+but got code \"334\", with message \"334 eyJ
+zdGF0dXMiOiI0MDAiLCJzY2hlbWVzIjoiQmVhcmVyIiw
+ic2NvcGUiOiJodHRwczovL21haWwuZ29vZ2xlLmNvbS8
+ifQ==\".\".","error_type":"Symfony\\Componen
+t\\Mailer\\Exception\\TransportException"} 
+  backend\storage\logs\laravel.log:42036:[20
+26-02-18 11:07:35] local.INFO: Email 
+campaign processing completed {"campaign_id"
+:2,"status":"failed","sent_count":0,"total_l
+eads":3,"failed_count":3} 
+  backend\storage\logs\laravel.log:42037:[20
+26-02-18 11:07:35] local.INFO: API Request {
+"method":"POST","url":"http://127.0.0.1:8000
+/api/marketing/email-campaigns","status":201
+,"user_id":7,"company_id":1} 
+  backend\storage\logs\laravel.log:42038:[20
+26-02-18 11:07:35] local.INFO: API Request {
+"method":"GET","url":"http://127.0.0.1:8000/
+api/marketing/email-campaigns","status":200,
+"user_id":7,"company_id":1} 
+  backend\storage\logs\laravel.log:42039:[20
+26-02-18 11:07:35] local.INFO: API Request {
+"method":"GET","url":"http://127.0.0.1:8000/
+api/marketing/templates","status":200,"user_
+id":7,"company_id":1} 
+  backend\storage\logs\laravel.log:42040:[20
+26-02-18 11:07:36] local.INFO: API Request {
+"method":"GET","url":"http://127.0.0.1:8000/
+api/leads?page=1&per_page=50","status":200,"
+user_id":7,"company_id":1} 
+  backend\storage\logs\laravel.log:42041:[20
+26-02-18 11:07:36] local.INFO: API Request {
+"method":"GET","url":"http://127.0.0.1:8000/
+api/marketing/client-groups","status":200,"u
+ser_id":7,"company_id":1} 
+  backend\storage\logs\laravel.log:42042:[20
+26-02-18 11:07:36] local.INFO: API Request {
+"method":"GET","url":"http://127.0.0.1:8000/
+api/marketing/email-campaigns","status":200,
+"user_id":7,"company_id":1} 
+  backend\storage\logs\laravel.log:42043:[20
+26-02-18 11:07:36] local.INFO: API Request {
+"method":"GET","url":"http://127.0.0.1:8000/
+api/marketing/templates","status":200,"user_
+id":7,"company_id":1} 
+  backend\storage\logs\laravel.log:42044:[20
+26-02-18 11:07:36] local.INFO: API Request {
+"method":"GET","url":"http://127.0.0.1:8000/
+api/leads?page=1&per_page=50","status":200,"
+user_id":7,"company_id":1} 
+  backend\storage\logs\laravel.log:42045:[20
+26-02-18 11:07:36] local.INFO: API Request {
+"method":"GET","url":"http://127.0.0.1:8000/
+api/marketing/client-groups","status":200,"u
+ser_id":7,"company_id":1} 
+  backend\storage\logs\laravel.log:42046:[20
+26-02-18 11:14:14] local.INFO: API Request {
+"method":"GET","url":"http://127.0.0.1:8000/
+api/content","status":200,"user_id":7,"compa
+ny_id":1} 
+  backend\storage\logs\laravel.log:42047:[20
+26-02-18 11:14:14] local.INFO: API Request {
+"method":"GET","url":"http://127.0.0.1:8000/
+api/menu","status":200,"user_id":7,"company_
+id":1} 
+  backend\storage\logs\laravel.log:42048:[20
+26-02-18 11:14:15] local.INFO: All settings 
+retrieved successfully 
+{"settings_count":19,"user_id":7} 
+  backend\storage\logs\laravel.log:42049:[20
+26-02-18 11:14:15] local.INFO: API Request {
+"method":"GET","url":"http://127.0.0.1:8000/
+api/settings","status":200,"user_id":7,"comp
+any_id":1} 
+  backend\storage\logs\laravel.log:42050:[20
+26-02-18 11:14:15] local.INFO: API Request {
+"method":"GET","url":"http://127.0.0.1:8000/
+api/currencies","status":200,"user_id":7,"co
+mpany_id":1} 
+  backend\storage\logs\laravel.log:42051:[20
+26-02-18 11:14:15] local.INFO: API Request {
+"method":"GET","url":"http://127.0.0.1:8000/
+api/marketing/email-campaigns","status":200,
+"user_id":7,"company_id":1} 
+
+

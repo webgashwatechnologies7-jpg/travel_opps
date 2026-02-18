@@ -33,8 +33,7 @@ import Profile from './pages/Profile';
 import Settings from './pages/Settings';
 import EmailTemplates from './pages/EmailTemplates';
 import MarketingDashboard from './pages/MarketingDashboard';
-import EmailCampaigns from './pages/EmailCampaigns';
-import SmsCampaigns from './pages/SmsCampaigns';
+import Campaigns from './pages/Campaigns';
 import MarketingTemplates from './pages/MarketingTemplates';
 import MarketingAnalytics from './pages/MarketingAnalytics';
 import MarketingAutomation from './pages/MarketingAutomation';
@@ -669,21 +668,11 @@ const AppRoutes = () => {
         }
       />
       <Route
-        path="/marketing/email-campaigns"
+        path="/marketing/campaigns"
         element={
           <ProtectedRoute>
             <FeatureGuard feature="campaigns">
-              <EmailCampaigns />
-            </FeatureGuard>
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/marketing/sms-campaigns"
-        element={
-          <ProtectedRoute>
-            <FeatureGuard feature="sms_campaigns">
-              <SmsCampaigns />
+              <Campaigns />
             </FeatureGuard>
           </ProtectedRoute>
         }

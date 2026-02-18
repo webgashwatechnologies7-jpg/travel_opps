@@ -261,6 +261,15 @@ export const marketingEmailCampaignsAPI = {
   send: (id) => api.post(`/marketing/email-campaigns/${id}/send`),
 };
 
+// WhatsApp Campaigns (Marketing)
+export const marketingWhatsappCampaignsAPI = {
+  list: (params = {}) => api.get('/marketing/whatsapp/campaigns', { params }),
+  create: (data) => api.post('/marketing/whatsapp/campaigns', data),
+  update: (id, data) => api.put(`/marketing/whatsapp/campaigns/${id}`, data),
+  delete: (id) => api.delete(`/marketing/whatsapp/campaigns/${id}`),
+  send: (id) => api.post(`/marketing/whatsapp/campaigns/${id}/send`),
+};
+
 // Client Groups (Marketing)
 export const clientGroupsAPI = {
   list: () => api.get('/marketing/client-groups'),

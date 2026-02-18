@@ -1,0 +1,139 @@
+﻿
+backend\storage\logs\laravel.log:40702:[2026
+-02-18 09:42:29] local.ERROR: Failed to 
+send email to client {"lead_id":9,"to_email"
+:"under@yopmail.com","error":"Failed to 
+authenticate on SMTP server with username 
+\"web.gashwatechnologies7@gmail.com\" using 
+the following authenticators: \"LOGIN\", 
+\"PLAIN\", \"XOAUTH2\". Authenticator 
+\"LOGIN\" returned \"Expected response code 
+\"235\" but got code \"535\", with message 
+\"535-5.7.8 Username and Password not 
+accepted. For more information, go to
+backend\storage\logs\laravel.log:40888:[2026
+-02-18 09:50:41] local.ERROR: Failed to 
+send email to client {"lead_id":7,"to_email"
+:"ram@yopmail.com","error":"Failed to 
+authenticate on SMTP server with username 
+\"web.gashwatechnologies7@gmail.com\" using 
+the following authenticators: \"LOGIN\", 
+\"PLAIN\", \"XOAUTH2\". Authenticator 
+\"LOGIN\" returned \"Expected response code 
+\"235\" but got code \"535\", with message 
+\"535-5.7.8 Username and Password not 
+accepted. For more information, go to
+backend\storage\logs\laravel.log:41382:[2026
+-02-18 10:10:36] local.ERROR: The "--table" 
+option does not exist. 
+{"exception":"[object] (Symfony\\Component\\
+Console\\Exception\\RuntimeException(code: 
+0): The \"--table\" option does not exist. 
+at C:/wamp64/www/latest_crm/travel_opps/back
+end/vendor/symfony/console/Input/ArgvInput.p
+hp:223)
+backend\storage\logs\laravel.log:41666:[2026
+-02-18 10:46:50] local.ERROR: 
+SQLSTATE[42S01]: Base table or view already 
+exists: 1050 Table 'whatsapp_campaigns' 
+already exists (Connection: mysql, SQL: 
+create table `whatsapp_campaigns` (`id` 
+bigint unsigned not null auto_increment 
+primary key, `created_at` timestamp null, 
+`updated_at` timestamp null) default 
+character set utf8mb4 collate 
+'utf8mb4_unicode_ci') 
+{"exception":"[object] 
+(Illuminate\\Database\\QueryException(code: 
+42S01): SQLSTATE[42S01]: Base table or view 
+already exists: 1050 Table 
+'whatsapp_campaigns' already exists 
+(Connection: mysql, SQL: create table 
+`whatsapp_campaigns` (`id` bigint unsigned 
+not null auto_increment primary key, 
+`created_at` timestamp null, `updated_at` 
+timestamp null) default character set 
+utf8mb4 collate 'utf8mb4_unicode_ci') at C:/
+wamp64/www/latest_crm/travel_opps/backend/ve
+ndor/laravel/framework/src/Illuminate/Databa
+se/Connection.php:829)
+backend\storage\logs\laravel.log:42004:[2026
+-02-18 11:07:17] local.ERROR: Email 
+campaign send failed for lead {"campaign_id"
+:1,"lead_id":4,"email":"gashwasdasa@yopmail.
+com","error":"Failed to authenticate on 
+SMTP server with username 
+\"web.gashwatechnologies7@gmail.com\" using 
+the following authenticators: \"LOGIN\", 
+\"PLAIN\", \"XOAUTH2\". Authenticator 
+\"LOGIN\" returned \"Expected response code 
+\"235\" but got code \"535\", with message 
+\"535-5.7.8 Username and Password not 
+accepted. For more information, go to
+backend\storage\logs\laravel.log:42009:[2026
+-02-18 11:07:20] local.ERROR: Email 
+campaign send failed for lead {"campaign_id"
+:1,"lead_id":5,"email":"asdasdas@yopmail.com
+","error":"Failed to authenticate on SMTP 
+server with username 
+\"web.gashwatechnologies7@gmail.com\" using 
+the following authenticators: \"LOGIN\", 
+\"PLAIN\", \"XOAUTH2\". Authenticator 
+\"LOGIN\" returned \"Expected response code 
+\"235\" but got code \"535\", with message 
+\"535-5.7.8 Username and Password not 
+accepted. For more information, go to
+backend\storage\logs\laravel.log:42014:[2026
+-02-18 11:07:24] local.ERROR: Email 
+campaign send failed for lead {"campaign_id"
+:1,"lead_id":6,"email":"webdaassas@yopmail.c
+om","error":"Failed to authenticate on SMTP 
+server with username 
+\"web.gashwatechnologies7@gmail.com\" using 
+the following authenticators: \"LOGIN\", 
+\"PLAIN\", \"XOAUTH2\". Authenticator 
+\"LOGIN\" returned \"Expected response code 
+\"235\" but got code \"535\", with message 
+\"535-5.7.8 Username and Password not 
+accepted. For more information, go to
+backend\storage\logs\laravel.log:42021:[2026
+-02-18 11:07:28] local.ERROR: Email 
+campaign send failed for lead {"campaign_id"
+:2,"lead_id":4,"email":"gashwasdasa@yopmail.
+com","error":"Failed to authenticate on 
+SMTP server with username 
+\"web.gashwatechnologies7@gmail.com\" using 
+the following authenticators: \"LOGIN\", 
+\"PLAIN\", \"XOAUTH2\". Authenticator 
+\"LOGIN\" returned \"Expected response code 
+\"235\" but got code \"535\", with message 
+\"535-5.7.8 Username and Password not 
+accepted. For more information, go to
+backend\storage\logs\laravel.log:42026:[2026
+-02-18 11:07:32] local.ERROR: Email 
+campaign send failed for lead {"campaign_id"
+:2,"lead_id":5,"email":"asdasdas@yopmail.com
+","error":"Failed to authenticate on SMTP 
+server with username 
+\"web.gashwatechnologies7@gmail.com\" using 
+the following authenticators: \"LOGIN\", 
+\"PLAIN\", \"XOAUTH2\". Authenticator 
+\"LOGIN\" returned \"Expected response code 
+\"235\" but got code \"535\", with message 
+\"535-5.7.8 Username and Password not 
+accepted. For more information, go to
+backend\storage\logs\laravel.log:42031:[2026
+-02-18 11:07:35] local.ERROR: Email 
+campaign send failed for lead {"campaign_id"
+:2,"lead_id":6,"email":"webdaassas@yopmail.c
+om","error":"Failed to authenticate on SMTP 
+server with username 
+\"web.gashwatechnologies7@gmail.com\" using 
+the following authenticators: \"LOGIN\", 
+\"PLAIN\", \"XOAUTH2\". Authenticator 
+\"LOGIN\" returned \"Expected response code 
+\"235\" but got code \"535\", with message 
+\"535-5.7.8 Username and Password not 
+accepted. For more information, go to
+
+

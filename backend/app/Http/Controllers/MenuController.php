@@ -50,7 +50,7 @@ class MenuController extends Controller
                     ['path' => '/client-groups', 'label' => 'Clients Group'],
                     ['path' => '/marketing/templates', 'label' => 'Email Templates'],
                     ['path' => '/marketing/whatsapp-templates', 'label' => 'WhatsApp Templates'],
-                    ['path' => '/marketing/email-campaigns', 'label' => 'Campaigns'],
+                    ['path' => '/marketing/campaigns', 'label' => 'Campaigns'],
                     ['path' => '/marketing/landing-pages', 'label' => 'Landing Pages'],
                 ],
             ],
