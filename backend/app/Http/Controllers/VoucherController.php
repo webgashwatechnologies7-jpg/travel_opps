@@ -133,10 +133,6 @@ class VoucherController extends Controller
                     ->html($html);
             });
 
-            // Check if email was sent successfully
-            if (Mail::failures()) {
-                throw new \Exception('Failed to send email');
-            }
 
             \Log::info('Voucher sent successfully', [
                 'lead_id' => $leadId,

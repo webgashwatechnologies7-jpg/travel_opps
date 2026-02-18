@@ -241,8 +241,8 @@ class SupplierController extends Controller
                 'first_name' => $request->has('first_name') ? $request->first_name : $supplier->first_name,
                 'last_name' => $request->has('last_name') ? $request->last_name : $supplier->last_name,
                 'email' => $request->has('email') ? $request->email : $supplier->email,
-                'phone_code' => $request->has('phone_code') || $request->has('code') 
-                    ? ($request->phone_code ?? $request->code) 
+                'phone_code' => $request->has('phone_code') || $request->has('code')
+                    ? ($request->phone_code ?? $request->code)
                     : $supplier->phone_code,
                 'mobile' => $request->has('mobile') ? $request->mobile : $supplier->mobile,
                 'address' => $request->has('address') ? $request->address : $supplier->address,
@@ -359,7 +359,7 @@ class SupplierController extends Controller
             if (!empty($request->supplier_ids)) {
                 $suppliers = Supplier::whereIn('id', $request->supplier_ids)->get();
             }
-            
+
             $hotelEmails = $request->hotel_emails ?? [];
             $sentCount = 0;
             $failedCount = 0;
@@ -399,13 +399,13 @@ class SupplierController extends Controller
                                         <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
                                             <tr>
                                                 <td align="center">';
-            
+
             if ($companyLogo) {
                 $emailBody .= '<img src="' . htmlspecialchars($companyLogo) . '" alt="' . htmlspecialchars($companyName) . '" style="max-width: 150px; height: auto; margin-bottom: 15px;" />';
             }
-            
+
             $emailBody .= '<h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: bold;">' . htmlspecialchars($companyName) . '</h1>';
-            
+
             if ($companyEmail || $companyPhone) {
                 $emailBody .= '<p style="margin: 10px 0 0 0; color: #ffffff; font-size: 14px;">';
                 if ($companyEmail) {
@@ -419,7 +419,7 @@ class SupplierController extends Controller
                 }
                 $emailBody .= '</p>';
             }
-            
+
             $emailBody .= '
                                                 </td>
                                             </tr>
@@ -433,11 +433,11 @@ class SupplierController extends Controller
                                         <div style="color: #333333; font-size: 16px; line-height: 1.6;">
                                             ' . nl2br(e($request->body)) . '
                                         </div>';
-            
+
             // Add enquiry details table if available
             if ($request->has('enquiry_details') && is_array($request->enquiry_details)) {
                 $details = $request->enquiry_details;
-                
+
                 $emailBody .= '
                                         <div style="margin-top: 30px;">
                                             <h2 style="color: #667eea; font-size: 20px; margin-bottom: 15px; border-bottom: 2px solid #667eea; padding-bottom: 10px;">Enquiry Details</h2>
@@ -477,34 +477,37 @@ class SupplierController extends Controller
                                         <div style="margin-top: 30px;">
                                             <h2 style="color: #667eea; font-size: 20px; margin-bottom: 15px; border-bottom: 2px solid #667eea; padding-bottom: 10px;">Hotel Requirements</h2>
                                             <div style="background-color: #f9f9f9; border-radius: 6px; padding: 15px;">';
-                    
+
                     foreach ($details['hotels'] as $index => $hotel) {
                         $hotelInfo = [];
-                        if (isset($hotel['hotel_name'])) $hotelInfo[] = htmlspecialchars($hotel['hotel_name']);
-                        if (isset($hotel['room_type'])) $hotelInfo[] = htmlspecialchars($hotel['room_type']);
-                        if (isset($hotel['meal_plan'])) $hotelInfo[] = htmlspecialchars($hotel['meal_plan']);
+                        if (isset($hotel['hotel_name']))
+                            $hotelInfo[] = htmlspecialchars($hotel['hotel_name']);
+                        if (isset($hotel['room_type']))
+                            $hotelInfo[] = htmlspecialchars($hotel['room_type']);
+                        if (isset($hotel['meal_plan']))
+                            $hotelInfo[] = htmlspecialchars($hotel['meal_plan']);
                         $price = isset($hotel['price']) ? '₹' . htmlspecialchars($hotel['price']) : '';
-                        
+
                         $emailBody .= '
                                                 <div style="background-color: #ffffff; padding: 15px; margin-bottom: 10px; border-left: 4px solid #667eea; border-radius: 4px;">
                                                     <div style="font-weight: bold; color: #333333; font-size: 16px; margin-bottom: 5px;">
                                                         ' . ($index + 1) . '. ' . implode(' - ', $hotelInfo) . '
                                                     </div>';
-                        
+
                         if ($price) {
                             $emailBody .= '<div style="color: #667eea; font-weight: bold; font-size: 14px;">Price: ' . $price . '</div>';
                         }
-                        
+
                         $emailBody .= '
                                                 </div>';
                     }
-                    
+
                     $emailBody .= '
                                             </div>
                                         </div>';
                 }
             }
-            
+
             // Close body and add footer
             $emailBody .= '
                                     </td>
@@ -515,20 +518,21 @@ class SupplierController extends Controller
                                     <td style="background-color: #f9f9f9; padding: 20px 30px; text-align: center; border-radius: 0 0 8px 8px; border-top: 1px solid #e0e0e0;">
                                         <p style="margin: 0; color: #666666; font-size: 12px;">
                                             <strong>' . htmlspecialchars($companyName) . '</strong><br>';
-            
+
             if ($companyAddress) {
                 $emailBody .= htmlspecialchars($companyAddress) . '<br>';
             }
-            
+
             if ($companyEmail) {
                 $emailBody .= 'Email: <a href="mailto:' . htmlspecialchars($companyEmail) . '" style="color: #667eea; text-decoration: none;">' . htmlspecialchars($companyEmail) . '</a>';
             }
-            
+
             if ($companyPhone) {
-                if ($companyEmail) $emailBody .= ' | ';
+                if ($companyEmail)
+                    $emailBody .= ' | ';
                 $emailBody .= 'Phone: ' . htmlspecialchars($companyPhone);
             }
-            
+
             $emailBody .= '
                                         </p>
                                         <p style="margin: 10px 0 0 0; color: #999999; font-size: 11px;">
@@ -561,28 +565,24 @@ class SupplierController extends Controller
                     if (!filter_var($supplier->email, FILTER_VALIDATE_EMAIL)) {
                         throw new \Exception('Invalid email address format');
                     }
-                    
+
                     $fromEmail = $companyEmail ?: config('mail.from.address', 'noreply@travelops.com');
                     $fromName = $companyName ?: config('mail.from.name', 'TravelOps');
-                    
+
                     CompanyMailSettingsService::applyIfEnabled();
-                    
+
                     Mail::send([], [], function ($message) use ($supplier, $request, $emailBody, $fromEmail, $fromName) {
                         $message->from($fromEmail, $fromName)
                             ->to($supplier->email)
                             ->subject($request->subject)
                             ->html($emailBody);
-                        
+
                         if ($request->cc_email) {
                             $message->cc($request->cc_email);
                         }
                     });
-                    
-                    // Check for mail failures
-                    if (Mail::failures()) {
-                        throw new \Exception('Mail service returned failure');
-                    }
-                    
+
+
                     $sentCount++;
                     \Log::info('Supplier email sent successfully', [
                         'supplier_id' => $supplier->id,
@@ -590,7 +590,7 @@ class SupplierController extends Controller
                         'subject' => $request->subject,
                         'user_id' => auth()->id()
                     ]);
-                    
+
                 } catch (\Exception $e) {
                     $failedCount++;
                     $errors[] = "Failed to send email to {$supplier->company_name}: " . $e->getMessage();
@@ -617,34 +617,34 @@ class SupplierController extends Controller
                     ]);
                     continue;
                 }
-                
+
                 try {
                     // Validate email address format
                     if (!filter_var($hotel['email'], FILTER_VALIDATE_EMAIL)) {
                         throw new \Exception('Invalid email address format');
                     }
-                    
+
                     $fromEmail = $companyEmail ?: config('mail.from.address', 'noreply@travelops.com');
                     $fromName = $companyName ?: config('mail.from.name', 'TravelOps');
-                    
+
                     CompanyMailSettingsService::applyIfEnabled();
-                    
+
                     Mail::send([], [], function ($message) use ($hotel, $request, $emailBody, $fromEmail, $fromName) {
                         $message->from($fromEmail, $fromName)
                             ->to($hotel['email'])
                             ->subject($request->subject)
                             ->html($emailBody);
-                        
+
                         if ($request->cc_email) {
                             $message->cc($request->cc_email);
                         }
                     });
-                    
+
                     // Check for mail failures
                     if (Mail::failures()) {
                         throw new \Exception('Mail service returned failure');
                     }
-                    
+
                     $sentCount++;
                     \Log::info('Hotel email sent successfully', [
                         'hotel_email' => $hotel['email'],
@@ -652,7 +652,7 @@ class SupplierController extends Controller
                         'subject' => $request->subject,
                         'user_id' => auth()->id()
                     ]);
-                    
+
                 } catch (\Exception $e) {
                     $failedCount++;
                     $hotelName = $hotel['name'] ?? 'Hotel';

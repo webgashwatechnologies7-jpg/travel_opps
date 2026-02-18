@@ -1151,11 +1151,6 @@ class MarketingController extends Controller
                             ->html($emailBody);
                     });
 
-                    // Check for mail failures
-                    if (Mail::failures()) {
-                        throw new \Exception('Mail service returned failure');
-                    }
-
                     $sentCount++;
                     $campaign->update(['sent_count' => $sentCount]);
 
