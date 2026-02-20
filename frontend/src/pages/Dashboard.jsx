@@ -111,7 +111,14 @@ const Dashboard = () => {
       setFollowups(formattedFollowups);
 
       if (user?.id) {
-        const leadsRes = await leadsAPI.list({ assigned_to: user.id, per_page: 1000 });
+        const isAdmin = user.is_super_admin || user.roles?.some(r => {
+          const roleName = typeof r === 'string' ? r : r.name;
+          return ['Admin', 'Company Admin', 'Super Admin', 'Manager'].includes(roleName);
+        });
+
+        // Managers and Employees see scoped data, higher admins see global or as allowed by hierarchy
+        const queryParams = isAdmin ? { per_page: 1000 } : { assigned_to: user.id, per_page: 1000 };
+        const leadsRes = await leadsAPI.list(queryParams);
         const leads = leadsRes.data.data?.leads || [];
         const now = new Date();
         const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -220,20 +227,22 @@ const Dashboard = () => {
 
   const hasAnalytics = user?.plan_features?.analytics?.enabled;
 
-  const hasQueries = isVisible('Queries') || isManager;
-  const hasFollowups = isVisible('Followups') || isManager;
-  const hasItineraries = isVisible('Itineraries') || isManager;
-  const hasPayments = isVisible('Payments') || isManager;
+  // Let core features be always visible on dashboard if authenticated,
+  // or use isVisible for strict feature-level toggling
+  const hasQueries = true; // Dashboard core
+  const hasFollowups = true; // Dashboard core
+  const hasItineraries = isVisible('Itineraries') || isManager || user?.roles?.some(r => (typeof r === 'string' ? ['Employee', 'Sales Rep'].includes(r) : ['Employee', 'Sales Rep'].includes(r.name)));
+  const hasPayments = isVisible('Payments') || isManager || user?.roles?.some(r => (typeof r === 'string' ? ['Employee', 'Sales Rep'].includes(r) : ['Employee', 'Sales Rep'].includes(r.name)));
   const hasReports = (isVisible('Reports') || isManager) && hasAnalytics;
   const hasSales = (isVisible('Sales Reps') || isManager) && hasAnalytics;
 
   return (
     <Layout>
-      <div className="p-4 overflow-x-auto">
-        <div className="min-w-[1280px] grid grid-cols-12 gap-6 items-stretch">
+      <div className="p-0">
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-4 lg:gap-6 items-stretch">
           {/* Row 1: 3-6-3 Summary */}
           {hasQueries && (
-            <div className="col-span-3 flex h-[350px]">
+            <div className="col-span-12 md:col-span-12 lg:col-span-3 flex lg:h-[350px]">
               <div className="w-full">
                 <TodayQueriesCard
                   queries={todayQueries}
@@ -251,7 +260,7 @@ const Dashboard = () => {
           )}
 
           {hasQueries && (
-            <div className="col-span-6 flex h-[350px]">
+            <div className="col-span-12 md:col-span-12 lg:col-span-6 flex lg:h-[350px]">
               <div className="w-full">
                 <DashboardStatsCards
                   stats={{
@@ -270,7 +279,7 @@ const Dashboard = () => {
           )}
 
           {hasFollowups && (
-            <div className="col-span-3 flex h-[350px]">
+            <div className="col-span-12 md:col-span-12 lg:col-span-3 flex lg:h-[350px]">
               <div className="w-full">
                 <TaskFollowups
                   followups={followups}
@@ -289,19 +298,19 @@ const Dashboard = () => {
           {isManager ? (
             <>
               {/* Upcoming Tours (3) */}
-              <div className="col-span-3 flex h-[350px]">
+              <div className="col-span-12 md:col-span-6 lg:col-span-3 flex lg:h-[350px]">
                 <div className="w-full">
                   <UpcomingTours data={upcomingTours} />
                 </div>
               </div>
               {/* Team Leader Stats (6) */}
-              <div className="col-span-6 flex h-[350px]">
+              <div className="col-span-12 md:col-span-12 lg:col-span-6 flex lg:h-[350px]">
                 <div className="w-full">
                   <TeamLeaderStatsTable data={stats?.team_leader_stats || []} loading={loading} />
                 </div>
               </div>
               {/* Payment Collection (3) */}
-              <div className="col-span-3 flex h-[350px]">
+              <div className="col-span-12 md:col-span-6 lg:col-span-3 flex lg:h-[350px]">
                 <div className="w-full">
                   <PaymentCollectionTable />
                 </div>
@@ -311,21 +320,21 @@ const Dashboard = () => {
             // Standard layout for other roles
             <>
               {hasItineraries && (
-                <div className="col-span-3 flex h-[300px]">
+                <div className="col-span-12 md:col-span-6 lg:col-span-3 flex lg:h-[300px]">
                   <div className="w-full">
                     <UpcomingTours data={upcomingTours} />
                   </div>
                 </div>
               )}
               {hasReports && (
-                <div className="col-span-6 flex h-[300px]">
+                <div className="col-span-12 md:col-span-12 lg:col-span-6 flex lg:h-[300px]">
                   <div className="w-full">
                     <RevenueChart revenueData={revenueData} />
                   </div>
                 </div>
               )}
               {hasPayments && (
-                <div className="col-span-3 flex h-[300px]">
+                <div className="col-span-12 md:col-span-6 lg:col-span-3 flex lg:h-[300px]">
                   <div className="w-full">
                     <PaymentCollectionTable />
                   </div>
@@ -338,19 +347,19 @@ const Dashboard = () => {
           {isManager ? (
             <>
               {/* Top Destinations (3) */}
-              <div className="col-span-3 flex h-[350px]">
+              <div className="col-span-12 md:col-span-6 lg:col-span-3 flex lg:h-[350px]">
                 <div className="w-full">
                   <TopDestinationAndPerformance />
                 </div>
               </div>
               {/* Top Lead Source (6) */}
-              <div className="col-span-6 flex h-[350px]">
+              <div className="col-span-12 md:col-span-12 lg:col-span-6 flex lg:h-[350px]">
                 <div className="w-full">
                   <TopLeadSource leadData={stats?.top_lead_sources || []} />
                 </div>
               </div>
               {/* Latest Queries (3) */}
-              <div className="col-span-3 flex h-[350px]">
+              <div className="col-span-12 md:col-span-6 lg:col-span-3 flex lg:h-[350px]">
                 <div className="w-full">
                   <LatestQuery latestNotes={latestNotes} />
                 </div>
@@ -360,7 +369,7 @@ const Dashboard = () => {
             // Standard Row 3
             <>
               {hasReports && (
-                <div className="col-span-3 flex h-[300px]">
+                <div className="col-span-12 md:col-span-6 lg:col-span-3 flex lg:h-[300px]">
                   <div className="w-full">
                     <RevenueGrowthCard
                       title="Revenue Growth"
@@ -372,7 +381,7 @@ const Dashboard = () => {
                 </div>
               )}
               {hasReports && (
-                <div className="col-span-6 flex h-[300px]">
+                <div className="col-span-12 md:col-span-12 lg:col-span-6 flex lg:h-[300px]">
                   <div className="w-full">
                     <YearQueriesChart
                       title="This Year Queries / Confirmed"
@@ -382,7 +391,7 @@ const Dashboard = () => {
                 </div>
               )}
               {hasSales && (
-                <div className="col-span-3 flex h-[300px]">
+                <div className="col-span-12 md:col-span-6 lg:col-span-3 flex lg:h-[300px]">
                   <div className="w-full">
                     <SalesRepsTable title={"Sales"} />
                   </div>
@@ -395,21 +404,21 @@ const Dashboard = () => {
           {!isManager && (
             <>
               {hasQueries && (
-                <div className="col-span-3 flex h-[300px]">
+                <div className="col-span-12 md:col-span-6 lg:col-span-3 flex lg:h-[300px]">
                   <div className="w-full">
                     <LatestQuery latestNotes={latestNotes} />
                   </div>
                 </div>
               )}
               {hasReports && (
-                <div className="col-span-6 flex h-[300px]">
+                <div className="col-span-12 md:col-span-12 lg:col-span-6 flex lg:h-[300px]">
                   <div className="w-full">
                     <TopLeadSource leadData={stats?.top_lead_sources || []} />
                   </div>
                 </div>
               )}
               {hasReports && (
-                <div className="col-span-3 flex h-[300px]">
+                <div className="col-span-12 md:col-span-6 lg:col-span-3 flex lg:h-[300px]">
                   <div className="w-full">
                     <TopDestinationAndPerformance />
                   </div>

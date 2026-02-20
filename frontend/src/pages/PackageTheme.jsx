@@ -2,8 +2,10 @@ import { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
 import { Search, Plus, Edit, X, Trash2 } from 'lucide-react';
 import { packageThemesAPI } from '../services/api';
+import { useAuth } from '../contexts/AuthContext';
 
 const PackageTheme = () => {
+  const { user } = useAuth();
   const [packageThemes, setPackageThemes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -77,7 +79,7 @@ const PackageTheme = () => {
         setError('Please select an image file');
         return;
       }
-      
+
       // Validate file size (max 2MB)
       if (file.size > 2 * 1024 * 1024) {
         setError('Image size should be less than 2MB');
@@ -88,7 +90,7 @@ const PackageTheme = () => {
         ...prev,
         icon: file
       }));
-      
+
       // Create preview
       const reader = new FileReader();
       reader.onloadend = () => {
@@ -102,7 +104,7 @@ const PackageTheme = () => {
   const handleSave = async (e) => {
     e.preventDefault();
     setSaving(true);
-    
+
     try {
       const themeData = new FormData();
       themeData.append('name', formData.name);
@@ -139,7 +141,7 @@ const PackageTheme = () => {
   const handleEdit = (packageTheme) => {
     setEditingPackageThemeId(packageTheme.id);
     setIsModalOpen(true);
-    
+
     setFormData({
       name: packageTheme.name || '',
       icon: null,
@@ -258,8 +260,8 @@ const PackageTheme = () => {
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center gap-3">
                           {packageTheme.icon && (
-                            <img 
-                              src={packageTheme.icon} 
+                            <img
+                              src={packageTheme.icon}
                               alt={packageTheme.name}
                               className="w-8 h-8 object-cover rounded"
                               onError={(e) => {
@@ -271,11 +273,10 @@ const PackageTheme = () => {
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                          packageTheme.status === 'active' 
-                            ? 'bg-green-100 text-green-800' 
+                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${packageTheme.status === 'active'
+                            ? 'bg-green-100 text-green-800'
                             : 'bg-red-100 text-red-800'
-                        }`}>
+                          }`}>
                           {packageTheme.status === 'active' ? 'Active' : 'Inactive'}
                         </span>
                       </td>
@@ -296,13 +297,15 @@ const PackageTheme = () => {
                           >
                             <Edit className="h-5 w-5" />
                           </button>
-                          <button
-                            onClick={() => handleDelete(packageTheme.id)}
-                            className="text-red-600 hover:text-red-900 p-2 hover:bg-red-50 rounded-full"
-                            title="Delete"
-                          >
-                            <Trash2 className="h-5 w-5" />
-                          </button>
+                          {(user?.is_super_admin || user?.roles?.some(r => ['Admin', 'Company Admin', 'Super Admin'].includes(typeof r === 'string' ? r : r.name))) && (
+                            <button
+                              onClick={() => handleDelete(packageTheme.id)}
+                              className="text-red-600 hover:text-red-900 p-2 hover:bg-red-50 rounded-full"
+                              title="Delete"
+                            >
+                              <Trash2 className="h-5 w-5" />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -364,8 +367,8 @@ const PackageTheme = () => {
                       </div>
                       {iconPreview && (
                         <div className="w-16 h-16 border border-gray-300 rounded-lg overflow-hidden">
-                          <img 
-                            src={iconPreview} 
+                          <img
+                            src={iconPreview}
                             alt="Icon preview"
                             className="w-full h-full object-cover"
                           />

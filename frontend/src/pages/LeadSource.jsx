@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
 import { Search, Plus, Edit, X, Trash2 } from 'lucide-react';
 import { leadSourcesAPI } from '../services/api';
+import { useAuth } from '../contexts/AuthContext';
 
 const LeadSource = () => {
   const [leadSources, setLeadSources] = useState([]);
@@ -15,6 +16,11 @@ const LeadSource = () => {
     status: 'active'
   });
   const [saving, setSaving] = useState(false);
+  const { user } = useAuth();
+  const isAdmin = user?.is_super_admin || user?.roles?.some(r => {
+    const roleName = typeof r === 'string' ? r : r.name;
+    return ['Admin', 'Company Admin', 'Super Admin'].includes(roleName);
+  });
 
   useEffect(() => {
     fetchLeadSources();
@@ -66,7 +72,7 @@ const LeadSource = () => {
   const handleSave = async (e) => {
     e.preventDefault();
     setSaving(true);
-    
+
     try {
       if (editingLeadSourceId) {
         await leadSourcesAPI.update(editingLeadSourceId, formData);
@@ -89,7 +95,7 @@ const LeadSource = () => {
   const handleEdit = (leadSource) => {
     setEditingLeadSourceId(leadSource.id);
     setIsModalOpen(true);
-    
+
     setFormData({
       name: leadSource.name || '',
       status: leadSource.status || 'active'
@@ -207,11 +213,10 @@ const LeadSource = () => {
                         <div className="text-sm font-medium text-gray-900">{leadSource.name || 'N/A'}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                          leadSource.status === 'active' 
-                            ? 'bg-green-100 text-green-800' 
+                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${leadSource.status === 'active'
+                            ? 'bg-green-100 text-green-800'
                             : 'bg-red-100 text-red-800'
-                        }`}>
+                          }`}>
                           {leadSource.status === 'active' ? 'Active' : 'Inactive'}
                         </span>
                       </td>
@@ -232,13 +237,15 @@ const LeadSource = () => {
                           >
                             <Edit className="h-5 w-5" />
                           </button>
-                          <button
-                            onClick={() => handleDelete(leadSource.id)}
-                            className="text-red-600 hover:text-red-900 p-2 hover:bg-red-50 rounded-full"
-                            title="Delete"
-                          >
-                            <Trash2 className="h-5 w-5" />
-                          </button>
+                          {isAdmin && (
+                            <button
+                              onClick={() => handleDelete(leadSource.id)}
+                              className="text-red-600 hover:text-red-900 p-2 hover:bg-red-50 rounded-full"
+                              title="Delete"
+                            >
+                              <Trash2 className="h-5 w-5" />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>

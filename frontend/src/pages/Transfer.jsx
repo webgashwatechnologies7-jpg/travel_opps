@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
 import { Search, Plus, Edit, X, Upload, Download, Trash2 } from 'lucide-react';
 import { transfersAPI } from '../services/api';
+import { useAuth } from '../contexts/AuthContext';
 
 const Transfer = () => {
   const [transfers, setTransfers] = useState([]);
@@ -31,6 +32,11 @@ const Transfer = () => {
     from_date: '',
     to_date: '',
     price: ''
+  });
+  const { user } = useAuth();
+  const isAdmin = user?.is_super_admin || user?.roles?.some(r => {
+    const roleName = typeof r === 'string' ? r : r.name;
+    return ['Admin', 'Company Admin', 'Super Admin'].includes(roleName);
   });
 
   useEffect(() => {
@@ -107,7 +113,7 @@ const Transfer = () => {
   const handleSave = async (e) => {
     e.preventDefault();
     setSaving(true);
-    
+
     try {
       const transferData = new FormData();
       transferData.append('name', formData.name);
@@ -139,7 +145,7 @@ const Transfer = () => {
   const handleEdit = (transfer) => {
     setEditingTransferId(transfer.id);
     setIsModalOpen(true);
-    
+
     setFormData({
       name: transfer.name || '',
       destination: transfer.destination || '',
@@ -208,7 +214,7 @@ const Transfer = () => {
     try {
       setError('');
       const response = await transfersAPI.exportTransfers();
-      
+
       if (response.data instanceof Blob) {
         const blob = response.data;
         const url = window.URL.createObjectURL(blob);
@@ -220,8 +226,8 @@ const Transfer = () => {
         link.remove();
         window.URL.revokeObjectURL(url);
       } else {
-        const blob = new Blob([response.data], { 
-          type: 'text/csv;charset=utf-8;' 
+        const blob = new Blob([response.data], {
+          type: 'text/csv;charset=utf-8;'
         });
         const url = window.URL.createObjectURL(blob);
         const link = document.createElement('a');
@@ -254,7 +260,7 @@ const Transfer = () => {
     try {
       setError('');
       const response = await transfersAPI.downloadImportFormat();
-      
+
       if (response.data instanceof Blob) {
         const blob = response.data;
         const url = window.URL.createObjectURL(blob);
@@ -266,8 +272,8 @@ const Transfer = () => {
         link.remove();
         window.URL.revokeObjectURL(url);
       } else {
-        const blob = new Blob([response.data], { 
-          type: 'text/csv;charset=utf-8;' 
+        const blob = new Blob([response.data], {
+          type: 'text/csv;charset=utf-8;'
         });
         const url = window.URL.createObjectURL(blob);
         const link = document.createElement('a');
@@ -351,7 +357,7 @@ const Transfer = () => {
         await transfersAPI.createPrice(selectedTransfer.id, priceFormData);
         await fetchTransfers();
       }
-      
+
       await fetchPrices(selectedTransfer.id);
       setEditingPriceId(null);
       setPriceFormData({
@@ -535,11 +541,10 @@ const Transfer = () => {
                         </button>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                          transfer.status === 'active' 
-                            ? 'bg-green-100 text-green-800' 
-                            : 'bg-red-100 text-red-800'
-                        }`}>
+                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${transfer.status === 'active'
+                          ? 'bg-green-100 text-green-800'
+                          : 'bg-red-100 text-red-800'
+                          }`}>
                           {transfer.status === 'active' ? 'Active' : 'Inactive'}
                         </span>
                       </td>
@@ -560,13 +565,15 @@ const Transfer = () => {
                           >
                             <Edit className="h-5 w-5" />
                           </button>
-                          <button
-                            onClick={() => handleDelete(transfer.id)}
-                            className="text-red-600 hover:text-red-900 p-2 hover:bg-red-50 rounded"
-                            title="Delete"
-                          >
-                            <Trash2 className="h-5 w-5" />
-                          </button>
+                          {isAdmin && (
+                            <button
+                              onClick={() => handleDelete(transfer.id)}
+                              className="text-red-600 hover:text-red-900 p-2 hover:bg-red-50 rounded"
+                              title="Delete"
+                            >
+                              <Trash2 className="h-5 w-5" />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -808,12 +815,14 @@ const Transfer = () => {
                                   >
                                     Edit
                                   </button>
-                                  <button
-                                    onClick={() => handleDeletePrice(price.id)}
-                                    className="text-red-600 hover:text-red-900"
-                                  >
-                                    Delete
-                                  </button>
+                                  {isAdmin && (
+                                    <button
+                                      onClick={() => handleDeletePrice(price.id)}
+                                      className="text-red-500 hover:text-red-700"
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </button>
+                                  )}
                                 </div>
                               </td>
                             </tr>

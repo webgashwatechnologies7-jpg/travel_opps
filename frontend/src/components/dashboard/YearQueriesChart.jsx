@@ -43,8 +43,8 @@ const YearQueriesChart = ({
             const confirmedHeight = total > 0 ? (confirmed / total) * barHeight : 0;
 
             return (
-              <div key={index} className="flex  items-end w-[38px]">
-                <div className="w-full flex relative flex-col justify-end rounded overflow-hidden">
+              <div key={index} className="flex items-end flex-initial w-full max-w-[38px]">
+                <div className="w-[80%] mx-auto flex relative flex-col justify-end rounded overflow-hidden">
                   {/* Confirmed */}
                   <div
                     className="bg-emerald-500"

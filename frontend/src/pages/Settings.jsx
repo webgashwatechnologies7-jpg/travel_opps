@@ -3,7 +3,7 @@ import { useSettings } from '../contexts/SettingsContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useContent } from '../contexts/ContentContext';
 import Layout from '../components/Layout';
-import { Settings as SettingsIcon, RotateCcw, Save, Hotel, Mail, Bell, Upload, X, Building, Phone, MapPin, Globe, Image as ImageIcon } from 'lucide-react';
+import { Settings as SettingsIcon, RotateCcw, Save, Hotel, Mail, Bell, Upload, X, Building, Phone, MapPin, Globe, Image as ImageIcon, Copy } from 'lucide-react';
 import api, { settingsAPI, googleMailAPI, notificationsAPI } from '../services/api';
 
 const Settings = () => {
@@ -34,6 +34,9 @@ const Settings = () => {
   const [maxHotelOptions, setMaxHotelOptions] = useState(4);
   const [savingItinerarySettings, setSavingItinerarySettings] = useState(false);
   const [sendingTestPush, setSendingTestPush] = useState(false);
+  const [apiKey, setApiKey] = useState('');
+  const [testingWebToLead, setTestingWebToLead] = useState(false);
+
 
   useEffect(() => {
     if (settings) {
@@ -91,6 +94,9 @@ const Settings = () => {
             faviconEl.href = company.favicon;
           }
         }
+        if (company.api_key) {
+          setApiKey(company.api_key);
+        }
       }
     } catch (err) {
       console.error('Failed to fetch company details:', err);
@@ -115,6 +121,43 @@ const Settings = () => {
     }
   };
 
+  const testWebToLeadAPI = async () => {
+    try {
+      setTestingWebToLead(true);
+      const testData = {
+        api_key: apiKey,
+        name: "Test Name",
+        phone: "+91-9000000000",
+        destination: "Test Destination",
+        email: "test@example.com",
+        source: "CRM Settings Test",
+        campaign_name: "API Integration Test",
+        remark: "This is an automated test lead from the CRM Settings."
+      };
+
+      const response = await fetch(`${window.location.origin}/api/leads/web-to-lead`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(testData)
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        toast.success(`API Test Successful! Lead Created (ID: ${result.data.lead_id})`);
+      } else {
+        toast.error(`API Error: ${result.message}`);
+      }
+    } catch (error) {
+      console.error('API Test Error:', error);
+      toast.error('Failed to connect to API endpoint.');
+    } finally {
+      setTestingWebToLead(false);
+    }
+  };
+
 
 
   const handleChange = (field, value) => {
@@ -127,9 +170,15 @@ const Settings = () => {
 
   const handleCompanyChange = (e) => {
     const { name, value } = e.target;
+    let finalValue = value;
+
+    if (name === 'company_phone') {
+      finalValue = value.replace(/\D/g, '').slice(0, 10);
+    }
+
     setCompanyForm(prev => ({
       ...prev,
-      [name]: value
+      [name]: finalValue
     }));
   };
 
@@ -832,6 +881,199 @@ const Settings = () => {
                 <Save className="w-4 h-4" />
                 {savingItinerarySettings ? t('settings.saving') : t('settings.save_itinerary_settings')}
               </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Webhook Developer Settings */}
+        <div className="p-6 mt-6 bg-white rounded-lg shadow">
+          <div className="flex items-center gap-2 mb-4">
+            <Globe className="w-6 h-6 text-indigo-600" />
+            <h2 className="text-lg font-semibold text-gray-800">Website Integration (Web-to-Lead API)</h2>
+          </div>
+          <p className="mb-4 text-sm text-gray-600">
+            Copy the API endpoint and keys below to connect your landing pages, ads, or external logic straight to the CRM.
+            All incoming leads will automatically flow into the CRM.
+          </p>
+
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Your Unique API Key</label>
+              <div className="flex items-center">
+                <input
+                  type="text"
+                  readOnly
+                  value={apiKey || 'Generating...'}
+                  className="w-full bg-gray-50 border border-gray-300 text-gray-700 text-sm rounded-l-lg focus:ring-indigo-500 focus:border-indigo-500 block p-2.5"
+                />
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(apiKey);
+                    toast.success('API Key copied to clipboard!');
+                  }}
+                  className="p-2.5 bg-indigo-600 text-white rounded-none rounded-r-lg hover:bg-indigo-700 flex items-center justify-center border border-indigo-600"
+                >
+                  <Copy className="h-5 w-5" />
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">API Endpoint URL (POST)</label>
+              <div className="flex items-center">
+                <input
+                  type="text"
+                  readOnly
+                  value={`${window.location.origin}/api/leads/web-to-lead`}
+                  className="w-full bg-gray-50 border border-gray-300 text-gray-700 text-sm rounded-l-lg focus:ring-indigo-500 focus:border-indigo-500 block p-2.5"
+                />
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(`${window.location.origin}/api/leads/web-to-lead`);
+                    toast.success('Endpoint copied!');
+                  }}
+                  className="p-2.5 bg-indigo-600 text-white rounded-none rounded-r-lg hover:bg-indigo-700 flex items-center justify-center border border-indigo-600"
+                >
+                  <Copy className="h-5 w-5" />
+                </button>
+              </div>
+            </div>
+
+            <div className="pt-2 border-t mt-4 flex items-center justify-between">
+              <span className="text-sm text-gray-600">You can trigger a test API request to check if leads are flowing successfully.</span>
+              <button
+                onClick={testWebToLeadAPI}
+                disabled={testingWebToLead || !apiKey}
+                className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                title="Sends a dummy lead to verify connection"
+              >
+                {testingWebToLead ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    Testing...
+                  </>
+                ) : (
+                  <>
+                    <Globe className="w-4 h-4" />
+                    Test Connection (Create Test Lead)
+                  </>
+                )}
+              </button>
+            </div>
+
+            <div className="mt-8 border border-gray-200 rounded-lg overflow-hidden">
+              <div className="bg-gray-50 px-4 py-3 border-b border-gray-200 font-semibold text-gray-800">
+                API Payload Parameters (JSON)
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm text-left text-gray-600">
+                  <thead className="text-xs text-gray-700 uppercase bg-gray-100">
+                    <tr>
+                      <th className="px-4 py-3">Parameter Name</th>
+                      <th className="px-4 py-3">Data Type</th>
+                      <th className="px-4 py-3">Status</th>
+                      <th className="px-4 py-3">Description</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr className="border-b bg-white">
+                      <td className="px-4 py-3 font-mono font-bold text-gray-800">api_key</td>
+                      <td className="px-4 py-3 text-blue-600">String</td>
+                      <td className="px-4 py-3"><span className="bg-red-100 text-red-800 text-xs font-semibold px-2 py-0.5 rounded">Required</span></td>
+                      <td className="px-4 py-3">Your unique API Key provided above. Used for authentication.</td>
+                    </tr>
+                    <tr className="border-b bg-gray-50">
+                      <td className="px-4 py-3 font-mono font-bold text-gray-800">name</td>
+                      <td className="px-4 py-3 text-blue-600">String</td>
+                      <td className="px-4 py-3"><span className="bg-red-100 text-red-800 text-xs font-semibold px-2 py-0.5 rounded">Required</span></td>
+                      <td className="px-4 py-3">Full name of the customer/lead.</td>
+                    </tr>
+                    <tr className="border-b bg-white">
+                      <td className="px-4 py-3 font-mono font-bold text-gray-800">phone</td>
+                      <td className="px-4 py-3 text-blue-600">String</td>
+                      <td className="px-4 py-3"><span className="bg-red-100 text-red-800 text-xs font-semibold px-2 py-0.5 rounded">Required</span></td>
+                      <td className="px-4 py-3">Phone or WhatsApp number of the customer.</td>
+                    </tr>
+                    <tr className="border-b bg-gray-50">
+                      <td className="px-4 py-3 font-mono font-bold text-gray-800">destination</td>
+                      <td className="px-4 py-3 text-blue-600">String</td>
+                      <td className="px-4 py-3"><span className="bg-red-100 text-red-800 text-xs font-semibold px-2 py-0.5 rounded">Required</span></td>
+                      <td className="px-4 py-3">The location the customer wants to travel to (e.g., "Shimla", "Dubai").</td>
+                    </tr>
+                    <tr className="border-b bg-white">
+                      <td className="px-4 py-3 font-mono font-bold text-gray-800">email</td>
+                      <td className="px-4 py-3 text-blue-600">String</td>
+                      <td className="px-4 py-3"><span className="bg-gray-100 text-gray-800 text-xs font-semibold px-2 py-0.5 rounded">Optional</span></td>
+                      <td className="px-4 py-3">Email address of the customer.</td>
+                    </tr>
+                    <tr className="border-b bg-gray-50">
+                      <td className="px-4 py-3 font-mono font-bold text-gray-800 text-purple-600">source</td>
+                      <td className="px-4 py-3 text-blue-600">String</td>
+                      <td className="px-4 py-3"><span className="bg-gray-100 text-gray-800 text-xs font-semibold px-2 py-0.5 rounded">Optional</span></td>
+                      <td className="px-4 py-3">Source of lead. <br /><span className="text-xs text-gray-500">Examples: "Facebook Ads", "Instagram", "Website", "WhatsApp Bot".</span></td>
+                    </tr>
+                    <tr className="border-b bg-white">
+                      <td className="px-4 py-3 font-mono font-bold text-gray-800 text-purple-600">campaign_name</td>
+                      <td className="px-4 py-3 text-blue-600">String</td>
+                      <td className="px-4 py-3"><span className="bg-gray-100 text-gray-800 text-xs font-semibold px-2 py-0.5 rounded">Optional</span></td>
+                      <td className="px-4 py-3">Name of your active marketing campaign. <br /><span className="text-xs text-gray-500">Example: "Summer Sale 2026".</span></td>
+                    </tr>
+                    <tr className="border-b bg-gray-50">
+                      <td className="px-4 py-3 font-mono font-bold text-gray-800">remark</td>
+                      <td className="px-4 py-3 text-blue-600">String</td>
+                      <td className="px-4 py-3"><span className="bg-gray-100 text-gray-800 text-xs font-semibold px-2 py-0.5 rounded">Optional</span></td>
+                      <td className="px-4 py-3">Any extra message, note, or details provided by the customer.</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Platform Guides */}
+            <div className="mt-8">
+              <h3 className="text-base font-semibold text-gray-800 mb-3 border-b pb-2">How to map Lead Source? (Integration Examples)</h3>
+
+              <div className="grid grid-cols-1 gap-4">
+                <div className="bg-blue-50 border border-blue-100 p-4 rounded-lg">
+                  <h4 className="font-bold text-blue-800 flex items-center gap-2 mb-2">
+                    <div className="w-2 h-2 rounded-full bg-blue-600"></div>
+                    For Custom Website / Landing Pages (HTML, React, Wordpress)
+                  </h4>
+                  <p className="text-sm text-blue-900 mb-2">When sending data via your frontend Javascript or PHP Backend to our API endpoint, simply include the <code>source</code> and <code>campaign_name</code> parameters in your API request body JSON.</p>
+                  <pre className="text-xs bg-white p-2 rounded border border-blue-200 text-gray-700 overflow-x-auto">
+                    {`{
+  "api_key": "your_api_key_here",
+  "name": "John Doe",
+  "phone": "+919876543210",
+  "destination": "Goa",
+  "source": "Website Landing Page",
+  "campaign_name": "Goa Package Offer"
+}`}
+                  </pre>
+                </div>
+
+                <div className="bg-purple-50 border border-purple-100 p-4 rounded-lg">
+                  <h4 className="font-bold text-purple-800 flex items-center gap-2 mb-2">
+                    <div className="w-2 h-2 rounded-full bg-purple-600"></div>
+                    For Facebook / Instagram Lead Ads (via Zapier / Webhooks)
+                  </h4>
+                  <p className="text-sm text-purple-900 mb-2">
+                    If you use tools like Zapier or Make.com to catch Facebook Leads:
+                    Configure your "Webhooks by Zapier" (POST method). Map Facebook's "Campaign Name" to our <code>campaign_name</code> parameter, and set a static text "Facebook Leads" or "Instagram Ads" in the <code>source</code> parameter.
+                  </p>
+                </div>
+
+                <div className="bg-green-50 border border-green-100 p-4 rounded-lg">
+                  <h4 className="font-bold text-green-800 flex items-center gap-2 mb-2">
+                    <div className="w-2 h-2 rounded-full bg-green-600"></div>
+                    For WhatsApp Chatbots (e.g. Wati, Interakt, Manychat)
+                  </h4>
+                  <p className="text-sm text-green-900 mb-2">
+                    In your Chatbot's flow builder, use the "HTTP Request / API Call" block.
+                    Send the collected customer answers to our endpoint and statically set <code>source: "WhatsApp Chatbot"</code> in the request payload.
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
         </div>

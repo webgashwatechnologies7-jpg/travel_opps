@@ -39,7 +39,7 @@ class PerformanceController extends Controller
 
             // Use provided month or default to current month
             $month = $request->input('month', now()->format('Y-m'));
-            
+
             // Validate month format and extract year and month
             $monthParts = explode('-', $month);
             $year = (int) $monthParts[0];
@@ -56,8 +56,16 @@ class PerformanceController extends Controller
             $startDate = \Carbon\Carbon::createFromDate($year, $monthNum, 1)->startOfMonth();
             $endDate = $startDate->copy()->endOfMonth();
 
-            // Get all active users
-            $users = User::where('is_active', true)->get();
+            // Filter users based on hierarchy
+            $currentUser = auth()->user();
+            $query = User::where('is_active', true);
+
+            if (!$currentUser->is_super_admin && !$currentUser->hasRole(['Company Admin', 'Admin'])) {
+                $subordinateIds = $currentUser->getAllSubordinateIds();
+                $query->whereIn('id', $subordinateIds);
+            }
+
+            $users = $query->get();
 
             $performanceData = [];
 

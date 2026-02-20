@@ -33,7 +33,7 @@ Route::middleware('auth:sanctum')->prefix('suppliers')->group(function () {
     Route::post('/{supplierId}/financial-transactions/{transactionId}/payment', [SupplierFinancialController::class, 'recordSupplierTransactionPayment']);
     Route::get('/{id}', [SupplierController::class, 'show']);
     Route::put('/{id}', [SupplierController::class, 'update']);
-    Route::delete('/{id}', [SupplierController::class, 'destroy']);
+    Route::delete('/{id}', [SupplierController::class, 'destroy'])->middleware('role:Admin|Company Admin');
 });
 
 // Settings routes - require authentication
@@ -45,6 +45,7 @@ Route::middleware('auth:sanctum')->prefix('settings')->group(function () {
     Route::post('/upload-logo', [SettingsController::class, 'uploadLogo']);
     Route::get('/company', [SettingsController::class, 'getCompanyDetails']);
     Route::put('/company', [SettingsController::class, 'updateCompanyDetails']);
+    Route::get('/my-team', [CompanySettingsController::class, 'getMyTeam']);
 });
 
 // Sidebar menu - dynamic (from settings or default)
@@ -65,7 +66,7 @@ Route::middleware('auth:sanctum')->prefix('lead-sources')->group(function () {
     Route::post('/', [LeadSourceController::class, 'store']);
     Route::get('/{id}', [LeadSourceController::class, 'show']);
     Route::put('/{id}', [LeadSourceController::class, 'update']);
-    Route::delete('/{id}', [LeadSourceController::class, 'destroy']);
+    Route::delete('/{id}', [LeadSourceController::class, 'destroy'])->middleware('role:Admin|Company Admin');
 });
 
 // Expense Types routes - require authentication
@@ -74,7 +75,7 @@ Route::middleware('auth:sanctum')->prefix('expense-types')->group(function () {
     Route::post('/', [ExpenseTypeController::class, 'store']);
     Route::get('/{id}', [ExpenseTypeController::class, 'show']);
     Route::put('/{id}', [ExpenseTypeController::class, 'update']);
-    Route::delete('/{id}', [ExpenseTypeController::class, 'destroy']);
+    Route::delete('/{id}', [ExpenseTypeController::class, 'destroy'])->middleware('role:Admin|Company Admin');
 });
 
 // Package Themes routes - require authentication
@@ -83,7 +84,7 @@ Route::middleware('auth:sanctum')->prefix('package-themes')->group(function () {
     Route::post('/', [PackageThemeController::class, 'store']);
     Route::get('/{id}', [PackageThemeController::class, 'show']);
     Route::put('/{id}', [PackageThemeController::class, 'update']);
-    Route::delete('/{id}', [PackageThemeController::class, 'destroy']);
+    Route::delete('/{id}', [PackageThemeController::class, 'destroy'])->middleware('role:Admin|Company Admin');
 });
 
 // Currencies routes - require authentication
@@ -94,15 +95,16 @@ Route::middleware('auth:sanctum')->prefix('currencies')->group(function () {
     Route::post('/', [CurrencyController::class, 'store']);
     Route::get('/{id}', [CurrencyController::class, 'show']);
     Route::put('/{id}', [CurrencyController::class, 'update']);
-    Route::delete('/{id}', [CurrencyController::class, 'destroy']);
+    Route::delete('/{id}', [CurrencyController::class, 'destroy'])->middleware('role:Admin|Company Admin');
 });
 
 // Company Settings routes - require authentication
-Route::middleware('auth:sanctum')->prefix('company-settings')->group(function () {
+Route::middleware(['auth:sanctum', 'role:Admin|Company Admin'])->prefix('company-settings')->group(function () {
     // Users management
     Route::get('/users', [CompanySettingsController::class, 'getUsers']);
-    Route::get('/users/{id}', [CompanySettingsController::class, 'getUserDetails']);
-    Route::get('/users/{id}/performance', [CompanySettingsController::class, 'getUserPerformance']);
+
+    // Moved detailed user routes to a broader permission group below
+
     Route::get('/team-reports', [CompanySettingsController::class, 'getTeamReport']);
     Route::post('/users', [CompanySettingsController::class, 'createUser']);
     Route::put('/users/{id}', [CompanySettingsController::class, 'updateUser']);
@@ -152,4 +154,13 @@ Route::middleware('auth:sanctum')->prefix('company/whatsapp')->group(function ()
 Route::middleware('auth:sanctum')->prefix('company/google')->group(function () {
     Route::get('/settings', [\App\Http\Controllers\CompanyGoogleController::class, 'getSettings']);
     Route::put('/settings', [\App\Http\Controllers\CompanyGoogleController::class, 'updateSettings']);
+});
+
+// User Details & Team Management - accessible to Admin, Company Admin, Manager, Team Leader
+Route::middleware(['auth:sanctum', 'role:Admin|Company Admin|Manager|Team Leader'])->prefix('company-settings')->group(function () {
+    Route::get('/users/{id}', [CompanySettingsController::class, 'getUserDetails']);
+    Route::get('/users/{id}/detailed-stats', [CompanySettingsController::class, 'getDetailedUserStats']);
+    Route::get('/users/{id}/logs', [CompanySettingsController::class, 'getUserLogs']);
+    Route::get('/users/{id}/communications', [CompanySettingsController::class, 'getUserCommunications']);
+    Route::get('/users/{id}/performance', [CompanySettingsController::class, 'getUserPerformance']);
 });

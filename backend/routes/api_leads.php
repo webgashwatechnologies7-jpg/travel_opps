@@ -15,6 +15,10 @@ use Illuminate\Support\Facades\Route;
 |--------------------------------------------------------------------------
 */
 
+// Public Lead Webhook API - Rate limited to 5 requests per minute to prevent spam
+Route::post('/leads/web-to-lead', [\App\Http\Controllers\WebToLeadController::class, 'store'])
+    ->middleware([\App\Http\Middleware\PublicCors::class, 'throttle:5,1']);
+
 // Leads routes - require authentication
 Route::middleware('auth:sanctum')->prefix('leads')->group(function () {
     // Import routes (must come before /{id} routes)
@@ -26,6 +30,7 @@ Route::middleware('auth:sanctum')->prefix('leads')->group(function () {
     Route::get('/{leadId}/invoices/{invoiceId}/preview', [LeadInvoiceController::class, 'preview']);
     Route::get('/{leadId}/invoices/{invoiceId}/download', [LeadInvoiceController::class, 'download']);
     Route::post('/{leadId}/invoices/{invoiceId}/send', [LeadInvoiceController::class, 'send']);
+    Route::delete('/{leadId}/invoices/{invoiceId}', [LeadInvoiceController::class, 'destroy']);
     Route::get('/{id}', [LeadsController::class, 'show']);
     Route::post('/{id}/confirm-option', LeadConfirmOptionController::class);
     Route::get('/{id}/calls', [CallController::class, 'leadHistory']);

@@ -481,7 +481,7 @@ const DayItinerary = () => {
                               <Edit className="h-5 w-5" />
                             </button>
                           )}
-                          {hasPermission(user, 'day_itineraries.delete') && (
+                          {hasPermission(user, 'day_itineraries.delete') && (user?.is_super_admin || user?.roles?.some(r => ['Admin', 'Company Admin', 'Super Admin'].includes(typeof r === 'string' ? r : r.name))) && (
                             <button
                               onClick={() => handleDelete(itinerary.id)}
                               className="text-red-600 hover:text-red-900 p-2 hover:bg-red-50 rounded-full"

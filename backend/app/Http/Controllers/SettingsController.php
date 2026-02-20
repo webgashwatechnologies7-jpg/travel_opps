@@ -465,6 +465,7 @@ class SettingsController extends Controller
                     'subdomain' => $company->subdomain,
                     'domain' => $company->domain,
                     'status' => $company->status,
+                    'api_key' => $company->api_key,
                 ],
             ], 200);
         } catch (\Exception $e) {

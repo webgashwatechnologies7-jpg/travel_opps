@@ -721,7 +721,7 @@ const Hotel = () => {
                               <Edit className="h-5 w-5" />
                             </button>
                           )}
-                          {hasPermission(user, 'hotels.delete') && (
+                          {hasPermission(user, 'hotels.delete') && (user?.is_super_admin || user?.roles?.some(r => ['Admin', 'Company Admin', 'Super Admin'].includes(typeof r === 'string' ? r : r.name))) && (
                             <button
                               onClick={() => handleDelete(hotel.id)}
                               className="text-red-600 hover:text-red-900 p-2 hover:bg-red-50 rounded"

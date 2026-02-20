@@ -46,13 +46,17 @@ class LeadRepository implements LeadRepositoryInterface
             $query->where('priority', $filters['priority']);
         }
 
+        if (isset($filters['created_by']) && $filters['created_by']) {
+            $query->where('created_by', $filters['created_by']);
+        }
+
         // Add search functionality with indexed columns
         if (isset($filters['search']) && $filters['search']) {
             $search = $filters['search'];
             $query->where(function ($q) use ($search) {
                 $q->where('client_name', 'like', '%' . $search . '%')
-                  ->orWhere('email', 'like', '%' . $search . '%')
-                  ->orWhere('phone', 'like', '%' . $search . '%');
+                    ->orWhere('email', 'like', '%' . $search . '%')
+                    ->orWhere('phone', 'like', '%' . $search . '%');
             });
         }
 

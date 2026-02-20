@@ -42,7 +42,7 @@ Route::middleware(['auth:sanctum', 'plan.feature:hotels'])->prefix('hotels')->gr
     Route::get('/{id}', [HotelController::class, 'show']);
     Route::post('/{id}', [HotelController::class, 'update']);
     Route::put('/{id}', [HotelController::class, 'update']);
-    Route::delete('/{id}', [HotelController::class, 'destroy']);
+    Route::delete('/{id}', [HotelController::class, 'destroy'])->middleware('role:Admin|Company Admin');
 
     // Hotel rates routes
     Route::get('/{hotelId}/rates', [HotelRateController::class, 'index']);
@@ -64,7 +64,7 @@ Route::middleware(['auth:sanctum', 'plan.feature:activities'])->prefix('activiti
     Route::get('/{id}', [ActivityController::class, 'show']);
     Route::post('/{id}', [ActivityController::class, 'update']);
     Route::put('/{id}', [ActivityController::class, 'update']);
-    Route::delete('/{id}', [ActivityController::class, 'destroy']);
+    Route::delete('/{id}', [ActivityController::class, 'destroy'])->middleware('role:Admin|Company Admin');
 
     // Activity prices routes
     Route::get('/{activityId}/prices', [ActivityPriceController::class, 'index']);
@@ -91,7 +91,7 @@ Route::middleware(['auth:sanctum', 'plan.feature:transfers'])->prefix('transfers
     Route::get('/{id}', [TransferController::class, 'show']);
     Route::post('/{id}', [TransferController::class, 'update']);
     Route::put('/{id}', [TransferController::class, 'update']);
-    Route::delete('/{id}', [TransferController::class, 'destroy']);
+    Route::delete('/{id}', [TransferController::class, 'destroy'])->middleware('role:Admin|Company Admin');
 
     // Transfer prices routes
     Route::get('/{transferId}/prices', [TransferPriceController::class, 'index']);
@@ -107,7 +107,7 @@ Route::middleware(['auth:sanctum', 'plan.feature:day_itineraries'])->prefix('day
     Route::get('/{id}', [DayItineraryController::class, 'show']);
     Route::put('/{id}', [DayItineraryController::class, 'update']);
     Route::post('/{id}', [DayItineraryController::class, 'update']);
-    Route::delete('/{id}', [DayItineraryController::class, 'destroy']);
+    Route::delete('/{id}', [DayItineraryController::class, 'destroy'])->middleware('role:Admin|Company Admin');
 });
 
 // Packages/Itineraries routes - require authentication
@@ -116,7 +116,7 @@ Route::middleware(['auth:sanctum', 'plan.feature:itineraries'])->prefix('package
     Route::post('/', [PackageController::class, 'store']);
     Route::get('/{id}', [PackageController::class, 'show']);
     Route::put('/{id}', [PackageController::class, 'update']);
-    Route::delete('/{id}', [PackageController::class, 'destroy']);
+    Route::delete('/{id}', [PackageController::class, 'destroy'])->middleware('role:Admin|Company Admin');
 
     // Itinerary pricing routes
     Route::get('/{id}/pricing', [ItineraryPricingController::class, 'show']);
@@ -129,7 +129,7 @@ Route::middleware(['auth:sanctum', 'plan.feature:destinations'])->prefix('destin
     Route::post('/', [DestinationController::class, 'store']);
     Route::get('/{id}', [DestinationController::class, 'show']);
     Route::put('/{id}', [DestinationController::class, 'update']);
-    Route::delete('/{id}', [DestinationController::class, 'destroy']);
+    Route::delete('/{id}', [DestinationController::class, 'destroy'])->middleware('role:Admin|Company Admin');
 });
 
 // Room Types routes - require authentication
@@ -138,7 +138,7 @@ Route::middleware(['auth:sanctum', 'plan.feature:hotels'])->prefix('room-types')
     Route::post('/', [RoomTypeController::class, 'store']);
     Route::get('/{id}', [RoomTypeController::class, 'show']);
     Route::put('/{id}', [RoomTypeController::class, 'update']);
-    Route::delete('/{id}', [RoomTypeController::class, 'destroy']);
+    Route::delete('/{id}', [RoomTypeController::class, 'destroy'])->middleware('role:Admin|Company Admin');
 });
 
 // Meal Plans routes - require authentication
@@ -147,5 +147,5 @@ Route::middleware(['auth:sanctum', 'plan.feature:hotels'])->prefix('meal-plans')
     Route::post('/', [MealPlanController::class, 'store']);
     Route::get('/{id}', [MealPlanController::class, 'show']);
     Route::put('/{id}', [MealPlanController::class, 'update']);
-    Route::delete('/{id}', [MealPlanController::class, 'destroy']);
+    Route::delete('/{id}', [MealPlanController::class, 'destroy'])->middleware('role:Admin|Company Admin');
 });

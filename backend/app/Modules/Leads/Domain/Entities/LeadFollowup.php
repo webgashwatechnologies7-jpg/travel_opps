@@ -47,6 +47,14 @@ class LeadFollowup extends Model
     ];
 
     /**
+     * The "booted" method of the model.
+     */
+    protected static function booted(): void
+    {
+        static::addGlobalScope(new \App\Models\Scopes\ScopeByHierarchy('user_id'));
+    }
+
+    /**
      * Get the lead that this followup belongs to.
      *
      * @return BelongsTo

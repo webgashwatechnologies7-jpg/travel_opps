@@ -1,0 +1,10 @@
+export { default as WhatsAppTab } from './WhatsAppTab';
+export { default as MailsTab } from './MailsTab';
+export { default as FollowupsTab } from './FollowupsTab';
+export { default as BillingTab } from './BillingTab';
+export { default as HistoryTab } from './HistoryTab';
+export { default as SuppCommTab } from './SuppCommTab';
+export { default as PostSalesTab } from './PostSalesTab';
+export { default as VoucherTab } from './VoucherTab';
+export { default as DocsTab } from './DocsTab';
+export { default as InvoiceTab } from './InvoiceTab';

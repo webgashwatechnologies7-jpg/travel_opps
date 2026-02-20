@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
 import { Search, Plus, Edit, X, Trash2 } from 'lucide-react';
 import { roomTypesAPI } from '../services/api';
+import { useAuth } from '../contexts/AuthContext';
 
 const RoomType = () => {
   const [roomTypes, setRoomTypes] = useState([]);
@@ -15,6 +16,11 @@ const RoomType = () => {
     status: 'active'
   });
   const [saving, setSaving] = useState(false);
+  const { user } = useAuth();
+  const isAdmin = user?.is_super_admin || user?.roles?.some(r => {
+    const roleName = typeof r === 'string' ? r : r.name;
+    return ['Admin', 'Company Admin', 'Super Admin'].includes(roleName);
+  });
 
   useEffect(() => {
     fetchRoomTypes();
@@ -66,7 +72,7 @@ const RoomType = () => {
   const handleSave = async (e) => {
     e.preventDefault();
     setSaving(true);
-    
+
     try {
       if (editingRoomTypeId) {
         await roomTypesAPI.update(editingRoomTypeId, formData);
@@ -89,7 +95,7 @@ const RoomType = () => {
   const handleEdit = (roomType) => {
     setEditingRoomTypeId(roomType.id);
     setIsModalOpen(true);
-    
+
     setFormData({
       name: roomType.name || '',
       status: roomType.status || 'active'
@@ -207,11 +213,10 @@ const RoomType = () => {
                         <div className="text-sm font-medium text-gray-900">{roomType.name || 'N/A'}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                          roomType.status === 'active' 
-                            ? 'bg-green-100 text-green-800' 
+                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${roomType.status === 'active'
+                            ? 'bg-green-100 text-green-800'
                             : 'bg-red-100 text-red-800'
-                        }`}>
+                          }`}>
                           {roomType.status === 'active' ? 'Active' : 'Inactive'}
                         </span>
                       </td>
@@ -232,13 +237,15 @@ const RoomType = () => {
                           >
                             <Edit className="h-5 w-5" />
                           </button>
-                          <button
-                            onClick={() => handleDelete(roomType.id)}
-                            className="text-red-600 hover:text-red-900 p-2 hover:bg-red-50 rounded-full"
-                            title="Delete"
-                          >
-                            <Trash2 className="h-5 w-5" />
-                          </button>
+                          {isAdmin && (
+                            <button
+                              onClick={() => handleDelete(roomType.id)}
+                              className="text-red-600 hover:text-red-900 p-2 hover:bg-red-50 rounded-full"
+                              title="Delete"
+                            >
+                              <Trash2 className="h-5 w-5" />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>

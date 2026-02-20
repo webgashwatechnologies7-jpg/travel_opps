@@ -31,6 +31,7 @@ class AdminUserController extends Controller
                 'password' => 'required|string|min:6',
                 'role' => 'required|string|exists:roles,name',
                 'is_active' => 'boolean',
+                'reports_to' => 'nullable|exists:users,id',
             ], [
                 'name.required' => 'The name field is required.',
                 'email.required' => 'The email field is required.',
@@ -68,11 +69,17 @@ class AdminUserController extends Controller
                 'email' => $request->email,
                 'phone' => $request->phone,
                 'password' => Hash::make($request->password),
+                'company_id' => $request->user()->company_id,
+                'branch_id' => $request->branch_id,
                 'is_active' => $request->boolean('is_active', true),
+                'reports_to' => $request->reports_to,
             ]);
 
-            // Assign role
-            $user->assignRole($request->role);
+            // Assign role - handle both 'role' (string) and 'roles' (array)
+            $roleToAssign = $request->role ?: (is_array($request->roles) ? ($request->roles[0] ?? null) : $request->roles);
+            if ($roleToAssign) {
+                $user->assignRole($roleToAssign);
+            }
 
             // Send credentials email
             try {
@@ -99,7 +106,8 @@ class AdminUserController extends Controller
                         'email' => $user->email,
                         'phone' => $user->phone,
                         'is_active' => $user->is_active,
-                        'role' => $user->roles->first()?->name,
+                        'roles' => $user->roles,
+                        'reports_to' => $user->reports_to,
                         'created_at' => $user->created_at,
                     ],
                 ],
@@ -129,23 +137,24 @@ class AdminUserController extends Controller
             $query = User::with('roles')
                 ->where('company_id', $companyId);
 
-            // Manager Restriction: Only see subordinates
-            if ($currentUser->hasRole('Manager')) {
-                $query->whereDoesntHave('roles', function ($q) {
-                    $q->whereIn('name', ['Super Admin', 'Admin', 'Company Admin']);
-                    // Should a Manager see other Managers? User said "apne sath ke managers ... na dekhe".
-                    // So we exclude 'Manager' too unless it's themselves (though index usually lists others).
-                    // The user said "apne sath ke managers ... na dekhe". So exclude 'Manager'.
-                    $q->orWhere('name', 'Manager');
-                });
-                // However, the manager should probably see THEMSELVES? 
-                // Usually yes, but the query above excludes all managers. 
-                // Let's allow seeing themselves if needed, or just subordinates as requested.
-                // "sirrf apne neche ke employue team leaders ko dekhe skta h".
-                // So maybe they don't even see themselves in the list? That's fine.
+            // Manager/TL Restriction: Only see subordinates
+            if ($currentUser->hasRole(['Manager', 'Team Leader'])) {
+                $subordinateIds = $currentUser->getAllSubordinateIds();
+                $query->whereIn('id', $subordinateIds);
+
+                // Exclude higher roles just in case
+                if ($currentUser->hasRole('Team Leader')) {
+                    $query->whereDoesntHave('roles', function ($q) {
+                        $q->whereIn('name', ['Super Admin', 'Admin', 'Company Admin', 'Manager']);
+                    });
+                } else if ($currentUser->hasRole('Manager')) {
+                    $query->whereDoesntHave('roles', function ($q) {
+                        $q->whereIn('name', ['Super Admin', 'Admin', 'Company Admin']);
+                    });
+                }
             }
 
-            $users = $query->select('id', 'name', 'email', 'phone', 'is_active', 'created_at', 'updated_at')
+            $users = $query->select('id', 'name', 'email', 'phone', 'is_active', 'reports_to', 'created_at', 'updated_at')
                 ->get()
                 ->map(function ($user) {
                     return [
@@ -154,7 +163,8 @@ class AdminUserController extends Controller
                         'email' => $user->email,
                         'phone' => $user->phone,
                         'is_active' => $user->is_active,
-                        'role' => $user->roles->first()?->name,
+                        'roles' => $user->roles,
+                        'reports_to' => $user->reports_to,
                         'created_at' => $user->created_at,
                         'updated_at' => $user->updated_at,
                     ];
@@ -219,7 +229,8 @@ class AdminUserController extends Controller
                         'email' => $user->email,
                         'phone' => $user->phone,
                         'is_active' => $user->is_active,
-                        'role' => $user->roles->first()?->name,
+                        'roles' => $user->roles,
+                        'reports_to' => $user->reports_to,
                         'targets' => $targets,
                         'created_at' => $user->created_at,
                         'updated_at' => $user->updated_at,
@@ -263,6 +274,7 @@ class AdminUserController extends Controller
                 'password' => 'sometimes|string|min:6',
                 'role' => 'sometimes|required|string|exists:roles,name',
                 'is_active' => 'sometimes|boolean',
+                'reports_to' => 'nullable|exists:users,id',
             ], [
                 'name.required' => 'The name field is required.',
                 'email.required' => 'The email field is required.',
@@ -312,12 +324,6 @@ class AdminUserController extends Controller
             if ($request->has('email')) {
                 $updateData['email'] = $request->email;
             }
-            if ($request->has('phone')) {
-                $updateData['phone'] = $request->phone;
-            }
-            if ($request->has('password')) {
-                $updateData['password'] = Hash::make($request->password);
-            }
             if ($request->has('is_active')) {
                 $updateData['is_active'] = $request->boolean('is_active');
 
@@ -326,14 +332,27 @@ class AdminUserController extends Controller
                     $user->tokens()->delete();
                 }
             }
+            if ($request->has('phone')) {
+                $updateData['phone'] = $request->phone;
+            }
+            if ($request->has('password')) {
+                $updateData['password'] = Hash::make($request->password);
+            }
+            if ($request->exists('reports_to')) {
+                $updateData['reports_to'] = $request->reports_to;
+            }
+            if ($request->exists('branch_id')) {
+                $updateData['branch_id'] = $request->branch_id;
+            }
 
             if (!empty($updateData)) {
                 $user->update($updateData);
             }
 
-            // Update role if provided
-            if ($request->has('role')) {
-                $user->syncRoles([$request->role]);
+            // Update role if provided - handle both 'role' and 'roles'
+            $newRole = $request->role ?: (is_array($request->roles) ? ($request->roles[0] ?? null) : $request->roles);
+            if ($newRole) {
+                $user->syncRoles([$newRole]);
             }
 
             // Load role for response
@@ -349,7 +368,8 @@ class AdminUserController extends Controller
                         'email' => $user->email,
                         'phone' => $user->phone,
                         'is_active' => $user->is_active,
-                        'role' => $user->roles->first()?->name,
+                        'roles' => $user->roles,
+                        'reports_to' => $user->reports_to,
                         'updated_at' => $user->updated_at,
                     ],
                 ],

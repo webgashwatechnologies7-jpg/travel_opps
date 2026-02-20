@@ -43,7 +43,7 @@ class Kernel extends HttpKernel
             // \Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful::class,
             \App\Http\Middleware\InputSanitizationMiddleware::class,
             \App\Http\Middleware\IdentifyTenant::class,
-            \Illuminate\Routing\Middleware\ThrottleRequests::class . ':180,1', // 180 requests per minute (dashboard makes many calls)
+            \Illuminate\Routing\Middleware\ThrottleRequests::class . ':1000,1', // 1000 requests per minute (dashboard makes many calls)
             \Illuminate\Routing\Middleware\SubstituteBindings::class,
             \App\Http\Middleware\ApiErrorHandlerMiddleware::class,
             \App\Http\Middleware\SecurityHeadersMiddleware::class,

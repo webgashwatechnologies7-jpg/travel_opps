@@ -1,8 +1,20 @@
 import { useNavigate } from "react-router-dom";
 import Layout from "../components/Layout";
+import { useAuth } from "../contexts/AuthContext";
 
 const Reports = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
+
+  const isAdmin = user?.is_super_admin || user?.roles?.some(r => {
+    const roleName = typeof r === 'string' ? r : r.name;
+    return ['Admin', 'Company Admin', 'Super Admin'].includes(roleName);
+  });
+
+  const isManager = user?.roles?.some(r => {
+    const roleName = typeof r === 'string' ? r : r.name;
+    return ['Manager', 'Team Leader'].includes(roleName);
+  });
 
   const cards = [
     {
@@ -37,6 +49,17 @@ const Reports = () => {
     },
   ];
 
+  // Filter cards based on permissions
+  const filteredCards = cards.filter(card => {
+    if (card.badge === "Analytics" || card.badge === "Management") {
+      return isAdmin;
+    }
+    if (card.badge === "Team") {
+      return isAdmin || isManager;
+    }
+    return true;
+  });
+
   return (
     <Layout>
       <div className="p-6 md:p-8 lg:p-10" style={{ backgroundColor: "#D8DEF5", minHeight: "100vh" }}>
@@ -54,7 +77,7 @@ const Reports = () => {
 
         {/* Cards */}
         <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-          {cards.map((card, index) => (
+          {filteredCards.map((card, index) => (
             <button
               key={index}
               type="button"

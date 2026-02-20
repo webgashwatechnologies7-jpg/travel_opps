@@ -790,7 +790,7 @@ const ItineraryDetail = () => {
         return activity;
       });
 
-      setActivities(processedData.filter(a => a.status === 'active'));
+      setActivities(processedData.filter(a => (a.status || '').toLowerCase() === 'active'));
     } catch (err) {
       console.error('Failed to fetch activities:', err);
     } finally {
@@ -837,6 +837,7 @@ const ItineraryDetail = () => {
           }
         }
         return {
+          ...hotel,
           id: hotel.id,
           name: hotel.name,
           hotelName: hotel.name,
@@ -845,10 +846,11 @@ const ItineraryDetail = () => {
           image: hotel.hotel_photo || null,
           destination: hotel.destination || '',
           category: hotel.category || '1',
+          status: hotel.status || 'active'
         };
       });
 
-      setStoredHotels(processedData.filter(h => h.status === 'active'));
+      setStoredHotels(processedData.filter(h => (h.status || '').toLowerCase() === 'active'));
     } catch (err) {
       console.error('Failed to fetch stored hotels:', err);
     } finally {
@@ -875,7 +877,7 @@ const ItineraryDetail = () => {
         };
       });
 
-      setStoredTransfers(processed.filter(t => t.status === 'active'));
+      setStoredTransfers(processed.filter(t => (t.status || '').toLowerCase() === 'active'));
     } catch (err) {
       console.error('Failed to fetch transfers:', err);
       setStoredTransfers([]);
@@ -2267,11 +2269,24 @@ const ItineraryDetail = () => {
                                     {storedHotels.length > 0 ? (
                                       storedHotels
                                         .filter(hotel => {
-                                          if (!searchQuery) return true;
-                                          const query = searchQuery.toLowerCase();
-                                          return (hotel.hotelName || hotel.name || '').toLowerCase().includes(query) ||
-                                            (hotel.address || '').toLowerCase().includes(query) ||
-                                            (hotel.destination || '').toLowerCase().includes(query);
+                                          const dayDest = (days[selectedDay - 1]?.destination || '').toLowerCase().trim();
+                                          const hotelDest = (hotel.destination || '').toLowerCase().trim();
+                                          const hotelAddr = (hotel.address || '').toLowerCase().trim();
+
+                                          // 1. If searching, match by name, address or destination
+                                          if (searchQuery) {
+                                            const query = searchQuery.toLowerCase();
+                                            return (hotel.hotelName || hotel.name || '').toLowerCase().includes(query) ||
+                                              hotelAddr.includes(query) ||
+                                              hotelDest.includes(query);
+                                          }
+
+                                          // 2. If not searching, filter by current day destination for "Suggestions"
+                                          if (dayDest) {
+                                            return hotelDest === dayDest || hotelDest.includes(dayDest) || hotelAddr.includes(dayDest);
+                                          }
+
+                                          return true;
                                         })
                                         .map((hotel) => (
                                           <div

@@ -3,6 +3,7 @@ import Layout from '../components/Layout';
 import { Plus, Edit, X, Trash2, Check, AlertCircle } from 'lucide-react';
 import { masterPointsAPI } from '../services/api';
 import SimpleEditor from '../components/SimpleEditor';
+import { useAuth } from '../contexts/AuthContext';
 
 const TABS = [
     { id: 'inclusion', label: 'Inclusions', color: 'green', colorClass: 'text-green-800 bg-green-100 border-green-200', btnClass: 'bg-green-600 hover:bg-green-700' },
@@ -17,6 +18,7 @@ const TABS = [
 ];
 
 const MasterPoints = () => {
+    const { user } = useAuth();
     const [activeTab, setActiveTab] = useState('inclusion');
     const [points, setPoints] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -147,7 +149,9 @@ const MasterPoints = () => {
                                     </div>
                                     <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                         <button onClick={() => handleEdit(point)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded"><Edit size={16} /></button>
-                                        <button onClick={() => handleDelete(point.id)} className="p-1.5 text-red-600 hover:bg-red-50 rounded"><Trash2 size={16} /></button>
+                                        {(user?.is_super_admin || user?.roles?.some(r => ['Admin', 'Company Admin', 'Super Admin'].includes(typeof r === 'string' ? r : r.name))) && (
+                                            <button onClick={() => handleDelete(point.id)} className="p-1.5 text-red-600 hover:bg-red-50 rounded"><Trash2 size={16} /></button>
+                                        )}
                                     </div>
                                 </div>
                             ))}

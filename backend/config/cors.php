@@ -17,6 +17,9 @@ return [
 
     'paths' => ['api/*', 'sanctum/csrf-cookie', 'storage/*', 'public/*'],
 
+    // We will handle 'web-to-lead' manually to allow wildcard origins, 
+    // since the default cors middleware supports credentials block wildcard.
+
     'allowed_methods' => ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
 
     'allowed_origins' => [
@@ -28,8 +31,8 @@ return [
         'http://127.0.0.1:5174',
         'http://gashwa.localhost:3000',
         // Production domain - replace with your actual domain
-	'http://145.223.23.45',
-	'http://crm.gashwatechnologies.com/'
+        'http://145.223.23.45',
+        'http://crm.gashwatechnologies.com/'
     ],
 
     'allowed_origins_patterns' => [

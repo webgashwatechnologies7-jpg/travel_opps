@@ -3,8 +3,10 @@ import Layout from '../components/Layout';
 import { Search, Plus, Edit, X, Trash2, Star } from 'lucide-react';
 import { currenciesAPI } from '../services/api';
 import { toast } from 'react-toastify';
+import { useAuth } from '../contexts/AuthContext';
 
 const Currency = () => {
+  const { user } = useAuth();
   const [currencies, setCurrencies] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -273,13 +275,15 @@ const Currency = () => {
                           >
                             <Edit className="h-5 w-5" />
                           </button>
-                          <button
-                            onClick={() => handleDelete(currency.id)}
-                            className="text-red-600 hover:text-red-900 p-2 hover:bg-red-50 rounded-full"
-                            title="Delete"
-                          >
-                            <Trash2 className="h-5 w-5" />
-                          </button>
+                          {(user?.is_super_admin || user?.roles?.some(r => ['Admin', 'Company Admin', 'Super Admin'].includes(typeof r === 'string' ? r : r.name))) && (
+                            <button
+                              onClick={() => handleDelete(currency.id)}
+                              className="text-red-600 hover:text-red-900 p-2 hover:bg-red-50 rounded-full"
+                              title="Delete"
+                            >
+                              <Trash2 className="h-5 w-5" />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>

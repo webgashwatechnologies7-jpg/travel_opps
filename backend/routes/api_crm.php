@@ -19,8 +19,8 @@ Route::middleware(['auth:sanctum', 'active'])->prefix('profile')->group(function
     Route::put('/password', [ProfileController::class, 'updatePassword']);
 });
 
-// Admin routes - require authentication and Admin or Company Admin role
-Route::middleware(['auth:sanctum', 'role:Admin|Company Admin|Manager'])->prefix('admin')->group(function () {
+// Admin routes - require authentication and Admin, Company Admin, Manager or Team Leader role
+Route::middleware(['auth:sanctum', 'role:Admin|Company Admin|Manager|Team Leader'])->prefix('admin')->group(function () {
     // User management routes
     Route::prefix('users')->group(function () {
         Route::post('/', [AdminUserController::class, 'store']);

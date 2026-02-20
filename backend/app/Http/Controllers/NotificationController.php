@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Validator;
 use App\Services\CompanyMailSettingsService;
+use App\Models\User;
 
 class NotificationController extends Controller
 {
@@ -564,5 +565,103 @@ class NotificationController extends Controller
             </table>
         </body>
         </html>';
+    }
+
+    /**
+     * Get user's recent notifications
+     */
+    public function index(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        $notifications = $user->notifications()
+            ->orderBy('created_at', 'desc')
+            ->limit(50)
+            ->get()
+            ->map(function ($notification) {
+                return [
+                    'id' => $notification->id,
+                    'type' => $notification->data['type'] ?? 'system',
+                    'title' => $notification->data['title'] ?? 'Notification',
+                    'message' => $notification->data['message'] ?? '',
+                    'action_url' => $notification->data['action_url'] ?? null,
+                    'is_read' => !is_null($notification->read_at),
+                    'created_at' => $notification->created_at->toISOString(),
+                ];
+            });
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'notifications' => $notifications,
+                'unread_count' => $user->unreadNotifications()->count(),
+            ]
+        ]);
+    }
+
+    /**
+     * Mark a notification as read
+     */
+    public function markAsRead(Request $request, string $id): JsonResponse
+    {
+        $notification = $request->user()->notifications()->find($id);
+        if ($notification) {
+            $notification->markAsRead();
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Notification marked as read'
+        ]);
+    }
+
+    /**
+     * Mark all user notifications as read
+     */
+    public function markAllAsRead(Request $request): JsonResponse
+    {
+        $request->user()->unreadNotifications->markAsRead();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'All notifications marked as read'
+        ]);
+    }
+
+    /**
+     * Delete a notification (Only Admins allowed)
+     */
+    public function destroy(Request $request, string $id): JsonResponse
+    {
+        $user = $request->user();
+
+        // Define admin roles
+        $isAdmin = $user->is_super_admin ?? false;
+        if (!$isAdmin && method_exists($user, 'hasAnyRole')) {
+            $isAdmin = $user->hasAnyRole(['Admin', 'Company Admin', 'Super Admin']);
+        } else if (!$isAdmin && method_exists($user, 'roles')) {
+            // fallback
+            $isAdmin = $user->roles()->whereIn('name', ['Admin', 'Company Admin', 'Super Admin'])->exists();
+        }
+
+        if (!$isAdmin) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Only admins can delete notifications'
+            ], 403);
+        }
+
+        $notification = $user->notifications()->find($id);
+        if ($notification) {
+            $notification->delete();
+            return response()->json([
+                'success' => true,
+                'message' => 'Notification deleted successfully'
+            ]);
+        }
+
+        return response()->json([
+            'success' => false,
+            'message' => 'Notification not found'
+        ], 404);
     }
 }

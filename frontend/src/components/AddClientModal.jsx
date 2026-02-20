@@ -86,9 +86,16 @@ const AddClientModal = ({ isOpen, onClose, onSave, editMode = false, initialData
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
+    let finalValue = value;
+
+    // Sanitize mobile numbers
+    if (name === 'mobile' || name === 'mobile2') {
+      finalValue = value.replace(/\D/g, '').slice(0, 10);
+    }
+
     setFormData(prev => ({
       ...prev,
-      [name]: value
+      [name]: finalValue
     }));
   };
 

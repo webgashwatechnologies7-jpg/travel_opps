@@ -70,7 +70,7 @@ class SubscriptionPlan extends Model
     /**
      * Get the features for this subscription plan.
      */
-    public function features(): HasMany
+    public function subscriptionFeatures(): HasMany
     {
         return $this->hasMany(SubscriptionPlanFeature::class);
     }
@@ -80,7 +80,7 @@ class SubscriptionPlan extends Model
      */
     public function hasFeature(string $featureKey): bool
     {
-        return $this->features()
+        return $this->subscriptionFeatures()
             ->where('feature_key', $featureKey)
             ->where('is_enabled', true)
             ->exists();
@@ -91,7 +91,7 @@ class SubscriptionPlan extends Model
      */
     public function getFeatureLimit(string $featureKey): ?int
     {
-        $feature = $this->features()
+        $feature = $this->subscriptionFeatures()
             ->where('feature_key', $featureKey)
             ->where('is_enabled', true)
             ->first();

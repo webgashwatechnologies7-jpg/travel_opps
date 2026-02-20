@@ -52,21 +52,80 @@ class LeadConfirmOptionController extends Controller
             $totalAmount = (float) $request->total_amount;
             $itineraryName = $request->input('itinerary_name', '');
 
-            // 1) Create invoice for confirmed option
-            $invoice = LeadInvoice::create([
-                'lead_id' => $lead->id,
-                'option_number' => $optionNumber,
-                'total_amount' => $totalAmount,
-                'currency' => 'INR',
-                'itinerary_name' => $itineraryName,
-                'invoice_number' => LeadInvoice::generateInvoiceNumber(),
-                'status' => 'sent',
-                'metadata' => [
-                    'confirmed_at' => now()->toIso8601String(),
-                    'confirmed_by' => $user->id,
-                ],
-                'created_by' => $user->id,
-            ]);
+            // 1) Create or Update invoice for confirmed option
+            // Get ALL invoices for this option (there may be duplicates from previous saves)
+            $allInvoices = LeadInvoice::where('lead_id', $lead->id)
+                ->where('option_number', $optionNumber)
+                ->orderBy('id', 'desc') // Latest first
+                ->get();
+
+            if ($allInvoices->count() > 1) {
+                // Keep the latest invoice, delete the rest (cleanup duplicates)
+                $idsToDelete = $allInvoices->skip(1)->pluck('id');
+                LeadInvoice::whereIn('id', $idsToDelete)->delete();
+            }
+
+            $invoice = $allInvoices->first(); // Latest invoice (or null if none)
+
+            if ($invoice) {
+                // Update existing invoice with the current confirmed amount
+                $invoice->update([
+                    'total_amount' => $totalAmount,
+                    'itinerary_name' => $itineraryName,
+                    'currency' => 'INR',
+                    'metadata' => array_merge($invoice->metadata ?? [], [
+                        'last_confirmed_at' => now()->toIso8601String(),
+                        'last_confirmed_by' => $user->id,
+                        'previous_amount' => $invoice->total_amount,
+                    ]),
+                ]);
+
+                // Log invoice updated
+                QueryHistoryLog::logActivity([
+                    'lead_id' => $lead->id,
+                    'activity_type' => 'invoice_updated',
+                    'activity_description' => "Invoice {$invoice->invoice_number} updated for Option {$optionNumber} - New Amount: ₹" . number_format($totalAmount, 2),
+                    'module' => 'invoice',
+                    'record_id' => $invoice->id,
+                    'metadata' => [
+                        'invoice_number' => $invoice->invoice_number,
+                        'option_number' => $optionNumber,
+                        'total_amount' => $totalAmount,
+                        'previous_amount' => $invoice->getOriginal('total_amount'),
+                    ],
+                ]);
+
+            } else {
+                // No invoice exists yet — create a fresh one
+                $invoice = LeadInvoice::create([
+                    'lead_id' => $lead->id,
+                    'option_number' => $optionNumber,
+                    'total_amount' => $totalAmount,
+                    'currency' => 'INR',
+                    'itinerary_name' => $itineraryName,
+                    'invoice_number' => LeadInvoice::generateInvoiceNumber(),
+                    'status' => 'sent',
+                    'metadata' => [
+                        'confirmed_at' => now()->toIso8601String(),
+                        'confirmed_by' => $user->id,
+                    ],
+                    'created_by' => $user->id,
+                ]);
+
+                // Log invoice created
+                QueryHistoryLog::logActivity([
+                    'lead_id' => $lead->id,
+                    'activity_type' => 'invoice_created',
+                    'activity_description' => "Invoice {$invoice->invoice_number} created for Option {$optionNumber} - ₹" . number_format($totalAmount, 2),
+                    'module' => 'invoice',
+                    'record_id' => $invoice->id,
+                    'metadata' => [
+                        'invoice_number' => $invoice->invoice_number,
+                        'option_number' => $optionNumber,
+                        'total_amount' => $totalAmount,
+                    ],
+                ]);
+            }
 
             // 2) Log option confirmed
             QueryHistoryLog::logActivity([
@@ -81,20 +140,6 @@ class LeadConfirmOptionController extends Controller
                     'itinerary_name' => $itineraryName,
                     'invoice_id' => $invoice->id,
                     'invoice_number' => $invoice->invoice_number,
-                ],
-            ]);
-
-            // 3) Log invoice created
-            QueryHistoryLog::logActivity([
-                'lead_id' => $lead->id,
-                'activity_type' => 'invoice_created',
-                'activity_description' => "Invoice {$invoice->invoice_number} created for Option {$optionNumber} - ₹" . number_format($totalAmount, 2),
-                'module' => 'invoice',
-                'record_id' => $invoice->id,
-                'metadata' => [
-                    'invoice_number' => $invoice->invoice_number,
-                    'option_number' => $optionNumber,
-                    'total_amount' => $totalAmount,
                 ],
             ]);
 

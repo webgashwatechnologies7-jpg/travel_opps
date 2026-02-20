@@ -9,6 +9,9 @@ use App\Services\PushNotificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
+use App\Models\User;
+use App\Notifications\GenericNotification;
+use Illuminate\Support\Facades\Notification;
 
 class LeadsController extends Controller
 {
@@ -40,6 +43,7 @@ class LeadsController extends Controller
                 'company_id' => function_exists('tenant') ? tenant('id') : $request->user()?->company_id,
                 'status' => $request->get('status'),
                 'assigned_to' => $request->get('assigned_to'),
+                'created_by' => $request->get('created_by'),
                 'source' => $request->get('source'),
                 'destination' => $request->get('destination'),
                 'priority' => $request->get('priority'),
@@ -219,6 +223,27 @@ class LeadsController extends Controller
             $data['priority'] = $data['priority'] ?? 'warm';
 
             $lead = $this->leadRepository->create($data);
+
+            // Notify assigned user or admins about the new query
+            $userIdsToNotify = collect();
+            if ($lead->assigned_to && $lead->assigned_to != $request->user()->id) {
+                $userIdsToNotify->push($lead->assigned_to);
+            }
+            // Always notify admins about new queries unless they created it
+            $admins = User::whereHas('roles', function ($q) {
+                $q->whereIn('name', ['Admin', 'Company Admin', 'Super Admin']);
+            })->where('id', '!=', $request->user()->id)->pluck('id');
+            $userIdsToNotify = $userIdsToNotify->merge($admins);
+
+            $usersToNotify = User::whereIn('id', $userIdsToNotify->unique())->get();
+            if ($usersToNotify->isNotEmpty()) {
+                Notification::send($usersToNotify, new GenericNotification([
+                    'type' => 'new_query',
+                    'title' => 'New Query Received',
+                    'message' => 'Query from ' . $lead->client_name . ' for ' . ($lead->destination ?? 'Unknown'),
+                    'action_url' => '/leads/' . $lead->id
+                ]));
+            }
 
             return response()->json([
                 'success' => true,
@@ -400,12 +425,24 @@ class LeadsController extends Controller
             }
 
             $lead = $this->leadRepository->findById($id);
+            $currentUser = $request->user();
 
             if (!$lead) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Lead not found',
                 ], 404);
+            }
+
+            // Check if assigner has permission to assign to the target user
+            if (!$currentUser->hasRole(['Admin', 'Company Admin', 'Super Admin'])) {
+                $subordinateIds = $currentUser->getAllSubordinateIds();
+                if (!in_array((int) $request->assigned_to, $subordinateIds)) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'You do not have permission to assign leads to this user.',
+                    ], 403);
+                }
             }
 
             // Save old assigned_to

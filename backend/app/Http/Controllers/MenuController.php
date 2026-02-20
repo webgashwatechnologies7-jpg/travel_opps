@@ -16,6 +16,7 @@ class MenuController extends Controller
     {
         return [
             ['path' => '/dashboard', 'label' => 'Dashboard', 'icon' => 'LayoutDashboard'],
+            ['path' => '/notifications', 'label' => 'Notifications', 'icon' => 'Bell'],
             ['path' => '/leads', 'label' => 'Queries', 'icon' => 'MessageSquare'],
             ['path' => '/itineraries', 'label' => 'Itineraries', 'icon' => 'FileText'],
             ['path' => '/payments', 'label' => 'Payments', 'icon' => 'CreditCard'],

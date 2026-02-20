@@ -18,9 +18,11 @@ import {
   Mail,
   Phone,
   User as UserIcon,
-  Key,
-  Info,
-  Eye
+  Eye,
+  GitBranch,
+  ChevronRight,
+  UserCheck,
+  Key
 } from 'lucide-react';
 import { companySettingsAPI } from '../services/api';
 
@@ -66,7 +68,8 @@ const TeamManagement = () => {
     state: '',
     country: '',
     postal_code: '',
-    permissions: []
+    permissions: [],
+    reports_to: ''
   });
 
   useEffect(() => {
@@ -77,7 +80,7 @@ const TeamManagement = () => {
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const tab = params.get('tab');
-    if (tab && ['users', 'branches', 'roles'].includes(tab)) {
+    if (tab && ['users', 'branches', 'roles', 'teams'].includes(tab)) {
       setActiveTab(tab);
     }
   }, [location.search]);
@@ -121,7 +124,8 @@ const TeamManagement = () => {
       state: '',
       country: '',
       postal_code: '',
-      permissions: []
+      permissions: [],
+      reports_to: ''
     });
   };
 
@@ -164,6 +168,9 @@ const TeamManagement = () => {
           roles: formData.roles || [],
           is_active: formData.is_active,
           password: formData.password,
+          reports_to: formData.reports_to || null,
+          role: formData.roles?.[0] || null, // Send primary role as 'role' for backend
+          roles: formData.roles || [],
         };
         if (editingItem) {
           response = await companySettingsAPI.updateUser(editingItem.id, submitData);
@@ -221,7 +228,8 @@ const TeamManagement = () => {
       roles: item.roles?.map(r => r.name) || [],
       is_active: item.is_active ?? true,
       password: '',
-      address: item.address || ''
+      address: item.address || '',
+      reports_to: item.reports_to || ''
     });
     setShowModal(true);
   };
@@ -453,6 +461,18 @@ const TeamManagement = () => {
                 <div className="flex items-center gap-2">
                   <Users className="h-4 w-4" />
                   Users
+                </div>
+              </button>
+              <button
+                onClick={() => setActiveTab('teams')}
+                className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'teams'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+              >
+                <div className="flex items-center gap-2">
+                  <GitBranch className="h-4 w-4" />
+                  All Team
                 </div>
               </button>
               <button
@@ -743,6 +763,181 @@ const TeamManagement = () => {
                   ))}
                 </tbody>
               </table>
+            </div>
+          </div>
+        )}
+
+        {/* Teams Tab Content (Hierarchical View) */}
+        {activeTab === 'teams' && (
+          <div className="space-y-6">
+            {users
+              .filter(u => u.roles?.some(r => (typeof r === 'string' ? r === 'Manager' : r.name === 'Manager')))
+              .map(manager => (
+                <div key={manager.id} className="bg-white rounded-xl shadow-sm border border-blue-100 overflow-hidden">
+                  {/* Manager Header */}
+                  <div className="bg-blue-600 p-4 flex items-center justify-between text-white">
+                    <div className="flex items-center gap-4">
+                      <div className="bg-white/20 p-2 rounded-lg">
+                        <UserCheck className="h-6 w-6" />
+                      </div>
+                      <div>
+                        <h3 className="font-bold text-lg">{manager.name}</h3>
+                        <p className="text-blue-100 text-xs uppercase tracking-wider font-semibold">Manager</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <div className="text-right mr-4">
+                        <p className="text-xs text-blue-200 uppercase">Team Summary</p>
+                        <p className="text-sm font-medium">
+                          {users.filter(u => u.reports_to == manager.id).length} TLs |
+                          {users.filter(u => {
+                            const tlIds = users.filter(usr => usr.reports_to == manager.id).map(usr => usr.id);
+                            return tlIds.includes(parseInt(u.reports_to));
+                          }).length} Members
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => handleEdit(manager, 'user')}
+                        className="p-2 hover:bg-white/10 rounded-lg transition-colors border border-white/20"
+                      >
+                        <Edit2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Team Leaders Section */}
+                  <div className="p-4 bg-gray-50/50">
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      {users
+                        .filter(u => u.reports_to == manager.id && u.roles?.some(r => (typeof r === 'string' ? r === 'Team Leader' : r.name === 'Team Leader')))
+                        .map(tl => (
+                          <div key={tl.id} className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden flex flex-col">
+                            {/* TL Info */}
+                            <div className="p-4 border-b border-gray-100 bg-gradient-to-r from-blue-50 to-white flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 border border-blue-200 shadow-sm font-bold">
+                                  {tl.name.charAt(0)}
+                                </div>
+                                <div>
+                                  <h4 className="font-bold text-gray-800">{tl.name}</h4>
+                                  <p className="text-xs text-gray-500 font-medium tracking-wide">TEAM LEADER</p>
+                                </div>
+                              </div>
+                              <div className="flex gap-1">
+                                <button
+                                  onClick={() => handleEdit(tl, 'user')}
+                                  className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                  title="Change Manager/Details"
+                                >
+                                  <Edit2 className="h-4 w-4" />
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* Employees under this TL */}
+                            <div className="p-4 flex-1">
+                              <div className="flex items-center justify-between mb-3">
+                                <span className="text-xs font-bold text-gray-400 uppercase tracking-widest flex items-center gap-2">
+                                  <Users className="h-3 w-3" />
+                                  Team Members ({users.filter(u => u.reports_to == tl.id).length})
+                                </span>
+                              </div>
+                              <div className="space-y-2">
+                                {users
+                                  .filter(u => u.reports_to == tl.id)
+                                  .map(emp => (
+                                    <div key={emp.id} className="flex items-center justify-between p-2.5 rounded-lg hover:bg-gray-50 border border-transparent hover:border-gray-100 transition-all group">
+                                      <div className="flex items-center gap-3">
+                                        <div className="h-8 w-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 text-xs font-semibold">
+                                          {emp.name.charAt(0)}
+                                        </div>
+                                        <div>
+                                          <p className="text-sm font-medium text-gray-700">{emp.name}</p>
+                                          <p className="text-[10px] text-gray-400 font-medium uppercase tracking-tighter">
+                                            {emp.roles?.map(r => r.name).join(', ')}
+                                          </p>
+                                        </div>
+                                      </div>
+                                      <button
+                                        onClick={() => handleEdit(emp, 'user')}
+                                        className="opacity-0 group-hover:opacity-100 p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
+                                        title="Change Team Leader/Details"
+                                      >
+                                        <Edit2 className="h-3.5 w-3.5" />
+                                      </button>
+                                    </div>
+                                  ))}
+                                {users.filter(u => u.reports_to == tl.id).length === 0 && (
+                                  <div className="py-4 text-center border-2 border-dashed border-gray-100 rounded-xl">
+                                    <p className="text-xs text-gray-400 italic">No members assigned</p>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+
+                      {users.filter(u => u.reports_to == manager.id && u.roles?.some(r => (typeof r === 'string' ? r === 'Team Leader' : r.name === 'Team Leader'))).length === 0 && (
+                        <div className="lg:col-span-2 py-8 text-center bg-white rounded-xl border-2 border-dashed border-gray-200">
+                          <Users className="h-8 w-8 text-gray-300 mx-auto mb-2" />
+                          <p className="text-gray-400 text-sm">No Team Leaders assigned to {manager.name}</p>
+                          <button
+                            onClick={() => openModal('user')}
+                            className="mt-3 text-blue-600 text-sm font-semibold hover:underline"
+                          >
+                            Assign a Team Leader
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+
+            {/* Unassigned Staff Section */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+              <div className="bg-gray-100 p-4 border-b border-gray-200 flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="bg-gray-200 p-2 rounded-lg">
+                    <Users className="h-6 w-6 text-gray-500" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-gray-700">Unassigned Staff</h3>
+                    <p className="text-gray-500 text-xs">Users not reporting to anyone</p>
+                  </div>
+                </div>
+              </div>
+              <div className="p-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  {users
+                    .filter(u => !u.reports_to && !u.roles?.some(r => (typeof r === 'string' ? ['Super Admin', 'Admin', 'Company Admin', 'Manager'].includes(r) : ['Super Admin', 'Admin', 'Company Admin', 'Manager'].includes(r.name))))
+                    .map(emp => (
+                      <div key={emp.id} className="p-4 border border-gray-200 rounded-xl hover:border-blue-200 hover:bg-blue-50/30 transition-all flex items-center justify-between group">
+                        <div className="flex items-center gap-3">
+                          <div className="h-10 w-10 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 font-bold border border-gray-200">
+                            {emp.name.charAt(0)}
+                          </div>
+                          <div>
+                            <p className="text-sm font-bold text-gray-800">{emp.name}</p>
+                            <p className="text-[10px] text-gray-400 font-bold uppercase">{emp.roles?.map(r => r.name).join(', ')}</p>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => handleEdit(emp, 'user')}
+                          className="p-2 text-gray-300 hover:text-blue-600 hover:bg-blue-50 rounded-lg group-hover:opacity-100 opacity-0 transition-all"
+                          title="Assign Supervisor"
+                        >
+                          <Edit2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    ))}
+                  {users.filter(u => !u.reports_to && !u.roles?.some(r => (typeof r === 'string' ? ['Super Admin', 'Admin', 'Company Admin', 'Manager'].includes(r) : ['Super Admin', 'Admin', 'Company Admin', 'Manager'].includes(r.name)))).length === 0 && (
+                    <div className="col-span-full py-4 text-center text-gray-400 text-sm italic">
+                      All staff members are assigned to a team.
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
         )}
@@ -1220,6 +1415,28 @@ const TeamManagement = () => {
                                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                               />
                             </div>
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">
+                                {formData.roles?.includes('Employee') || formData.roles?.includes('Sales Rep')
+                                  ? 'Reports To (Team Leader)'
+                                  : 'Reports To (Supervisor)'}
+                              </label>
+                              <select
+                                value={formData.reports_to}
+                                onChange={(e) => setFormData({ ...formData, reports_to: e.target.value })}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              >
+                                <option value="">None (Top Level)</option>
+                                {users.filter(u => {
+                                  if (u.id === editingItem?.id) return false;
+                                  const isStaff = formData.roles?.includes('Employee') || formData.roles?.includes('Sales Rep');
+                                  const roleToMatch = isStaff ? 'Team Leader' : 'Manager';
+                                  return u.roles?.some(r => (typeof r === 'string' ? r === roleToMatch : r.name === roleToMatch));
+                                }).map(u => (
+                                  <option key={u.id} value={u.id}>{u.name} ({u.roles?.map(r => typeof r === 'string' ? r : r.name).join(', ')})</option>
+                                ))}
+                              </select>
+                            </div>
                           </div>
                         </div>
                       ) : (
@@ -1311,6 +1528,28 @@ const TeamManagement = () => {
                               autoComplete="new-password"
                               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                             />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                              {formData.roles?.includes('Employee') || formData.roles?.includes('Sales Rep')
+                                ? 'Reports To (Team Leader)'
+                                : 'Reports To (Supervisor)'}
+                            </label>
+                            <select
+                              value={formData.reports_to}
+                              onChange={(e) => setFormData({ ...formData, reports_to: e.target.value })}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            >
+                              <option value="">None (Top Level)</option>
+                              {users.filter(u => {
+                                if (u.id === editingItem?.id) return false;
+                                const isStaff = formData.roles?.includes('Employee') || formData.roles?.includes('Sales Rep');
+                                const roleToMatch = isStaff ? 'Team Leader' : 'Manager';
+                                return u.roles?.some(r => (typeof r === 'string' ? r === roleToMatch : r.name === roleToMatch));
+                              }).map(u => (
+                                <option key={u.id} value={u.id}>{u.name} ({u.roles?.map(r => typeof r === 'string' ? r : r.name).join(', ')})</option>
+                              ))}
+                            </select>
                           </div>
                         </div>
                       )}

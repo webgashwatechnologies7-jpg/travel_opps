@@ -12,6 +12,15 @@ class Company extends Model
 {
     use HasFactory, SoftDeletes;
 
+    protected static function booted()
+    {
+        static::creating(function ($company) {
+            if (empty($company->api_key)) {
+                $company->api_key = 'sk_test_' . \Illuminate\Support\Str::random(32);
+            }
+        });
+    }
+
     /**
      * The attributes that are mass assignable.
      *
@@ -27,6 +36,7 @@ class Company extends Model
         'logo',
         'favicon',
         'status',
+        'api_key',
         'subscription_plan_id',
         'subscription_start_date',
         'subscription_end_date',

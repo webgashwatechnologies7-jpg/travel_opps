@@ -51,6 +51,18 @@ const Leads = () => {
   const [assignedNameFilter, setAssignedNameFilter] = useState('');
   const [openActionMenu, setOpenActionMenu] = useState(null); // Track which row's action menu is open
   const [formData, setFormData] = useState(getDefaultFormData);
+  // Pagination state
+  const [pagination, setPagination] = useState({
+    current_page: 1,
+    last_page: 1,
+    per_page: 20,
+    total: 0,
+  });
+  const [currentPage, setCurrentPage] = useState(1);
+
+  const userRoles = currentUser?.roles?.map(r => typeof r === 'string' ? r : r.name) || [];
+  const canAssign = userRoles.some(r => ['Admin', 'Company Admin', 'Super Admin', 'Manager', 'Team Leader'].includes(r));
+  const isEmployee = userRoles.some(r => ['Employee', 'Sales Rep'].includes(r));
 
   useEffect(() => {
     fetchLeadSources();
@@ -159,16 +171,19 @@ const Leads = () => {
     };
   }, [showOptionsDropdown, openActionMenu]);
 
-  const fetchLeads = async (filters = {}) => {
+  const fetchLeads = async (filters = {}, page = 1) => {
     try {
       setLoading(true);
-      const response = await leadsAPI.list(filters);
+      const params = { ...filters, per_page: 20, page };
+      const response = await leadsAPI.list(params);
 
       // Handle different response structures
       let leadsData = [];
+      let paginationData = null;
       if (response.data?.data?.leads) {
         // Standard paginated response: { success: true, data: { leads: [...], pagination: {...} } }
         leadsData = response.data.data.leads;
+        paginationData = response.data.data.pagination;
       } else if (response.data?.data && Array.isArray(response.data.data)) {
         // Direct array response: { success: true, data: [...] }
         leadsData = response.data.data;
@@ -181,6 +196,10 @@ const Leads = () => {
       }
 
       setLeads(leadsData);
+      if (paginationData) {
+        setPagination(paginationData);
+      }
+      setCurrentPage(page);
     } catch {
       setLeads([]);
     } finally {
@@ -634,45 +653,96 @@ const Leads = () => {
             <p className="text-gray-400 text-sm">Click "+ Add New" to create your first lead</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {filteredLeads.map((lead) => {
-              // Get assigned user name from various possible fields
-              // Backend returns assignedUser relationship or assigned_user object
-              const assignedUserName =
-                lead.assignedUser?.name ||
-                lead.assigned_user?.name ||
-                lead.assigned_to?.name ||
-                lead.assigned_to_name ||
-                lead.assigned_user_name ||
-                null;
+          <>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {filteredLeads.map((lead) => {
+                // Get assigned user name from various possible fields
+                // Backend returns assignedUser relationship or assigned_user object
+                const assignedUserName =
+                  lead.assignedUser?.name ||
+                  lead.assigned_user?.name ||
+                  lead.assigned_to?.name ||
+                  lead.assigned_to_name ||
+                  lead.assigned_user_name ||
+                  null;
 
-              return (
-                <LeadCard
-                  id={lead.id}
-                  key={lead.id}
-                  name={lead.client_name}
-                  phone={lead.phone || "N/A"}
-                  email={lead.email}
-                  tag={
-                    lead.status === "confirmed"
-                      ? "Confirmed"
-                      : lead.status === "new"
-                        ? "New"
-                        : ""
-                  }
-                  location={lead.destination || "N/A"}
-                  date={formatDate(lead.created_at)}
-                  amount={lead.amount || 0}
-                  status={lead.status}
-                  assignedTo={lead.assignedUser || lead.assigned_user || lead.assigned_to}
-                  assignedUserName={assignedUserName}
-                  onAssign={handleOpenAssignModal}
-                  onStatusChange={handleOpenStatusModal}
-                  onDelete={handleDelete}
-                />
-              );
-            })}
-          </div>
+                return (
+                  <LeadCard
+                    id={lead.id}
+                    key={lead.id}
+                    name={lead.client_name}
+                    phone={lead.phone || "N/A"}
+                    email={lead.email}
+                    tag={
+                      lead.status === "confirmed"
+                        ? "Confirmed"
+                        : lead.status === "new"
+                          ? "New"
+                          : ""
+                    }
+                    location={lead.destination || "N/A"}
+                    date={formatDate(lead.created_at)}
+                    amount={lead.amount || 0}
+                    status={lead.status}
+                    assignedTo={lead.assignedUser || lead.assigned_user || lead.assigned_to}
+                    assignedUserName={assignedUserName}
+                    onAssign={canAssign ? handleOpenAssignModal : null}
+                    onStatusChange={handleOpenStatusModal}
+                    onDelete={handleDelete}
+                  />
+                );
+              })}
+            </div>
+
+            {/* Pagination Controls */}
+            {pagination.last_page > 1 && (
+              <div className="flex items-center justify-between mt-6 bg-white rounded-lg shadow px-4 py-3">
+                <p className="text-sm text-gray-600">
+                  Showing <span className="font-semibold">{((currentPage - 1) * pagination.per_page) + 1}</span>–<span className="font-semibold">{Math.min(currentPage * pagination.per_page, pagination.total)}</span> of <span className="font-semibold">{pagination.total}</span> leads
+                </p>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => { fetchLeads({}, currentPage - 1); }}
+                    disabled={currentPage === 1}
+                    className="px-3 py-1.5 text-sm border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    ← Prev
+                  </button>
+                  {Array.from({ length: Math.min(5, pagination.last_page) }, (_, i) => {
+                    let page;
+                    if (pagination.last_page <= 5) {
+                      page = i + 1;
+                    } else if (currentPage <= 3) {
+                      page = i + 1;
+                    } else if (currentPage >= pagination.last_page - 2) {
+                      page = pagination.last_page - 4 + i;
+                    } else {
+                      page = currentPage - 2 + i;
+                    }
+                    return (
+                      <button
+                        key={page}
+                        onClick={() => fetchLeads({}, page)}
+                        className={`px-3 py-1.5 text-sm border rounded-md ${page === currentPage
+                            ? 'bg-blue-600 text-white border-blue-600'
+                            : 'border-gray-300 hover:bg-gray-50'
+                          }`}
+                      >
+                        {page}
+                      </button>
+                    );
+                  })}
+                  <button
+                    onClick={() => { fetchLeads({}, currentPage + 1); }}
+                    disabled={currentPage === pagination.last_page}
+                    className="px-3 py-1.5 text-sm border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    Next →
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
         )}
 
         {/* ADD QUERY Modal */}
@@ -718,7 +788,10 @@ const Leads = () => {
                       type="text"
                       placeholder="Phone / Mobile"
                       value={formData.phone}
-                      onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                      onChange={(e) => {
+                        const val = e.target.value.replace(/\D/g, '').slice(0, 10);
+                        setFormData({ ...formData, phone: val });
+                      }}
                       required
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
@@ -930,26 +1003,28 @@ const Leads = () => {
                   </div>
 
                   {/* ASSIGN TO * */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      ASSIGN TO *
-                    </label>
-                    <select
-                      value={formData.assigned_to || (currentUser?.id || '')}
-                      onChange={(e) => setFormData({ ...formData, assigned_to: e.target.value })}
-                      required
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value={currentUser?.id || ''}>
-                        Assign to me {currentUser ? `(${currentUser.id})` : ''}
-                      </option>
-                      {users.filter(u => u.id !== currentUser?.id).map((user) => (
-                        <option key={user.id} value={user.id}>
-                          {user.name} ({user.id})
+                  {!userRoles.some(r => ['Employee', 'Sales Rep'].includes(r)) && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        ASSIGN TO *
+                      </label>
+                      <select
+                        value={formData.assigned_to || (currentUser?.id || '')}
+                        onChange={(e) => setFormData({ ...formData, assigned_to: e.target.value })}
+                        required
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value={currentUser?.id || ''}>
+                          Assign to me {currentUser ? `(${currentUser.id})` : ''}
                         </option>
-                      ))}
-                    </select>
-                  </div>
+                        {users.filter(u => u.id !== currentUser?.id).map((user) => (
+                          <option key={user.id} value={user.id}>
+                            {user.name} ({user.id})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
 
                   {/* SERVICE */}
                   <div>

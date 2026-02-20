@@ -4,6 +4,7 @@ import { SettingsProvider } from './contexts/SettingsContext';
 import { ContentProvider } from './contexts/ContentContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import SuperAdminRoute from './components/SuperAdminRoute';
+import AdminRoute from './components/AdminRoute';
 import FeatureGuard from './components/FeatureGuard';
 import { isMainDomain } from './utils/domainUtils';
 import Login from './pages/Login';
@@ -21,6 +22,7 @@ import Followups from './pages/Followups';
 import Payments from './pages/Payments';
 import SalesReps from './pages/SalesReps';
 import Notes from './pages/Notes';
+import Notifications from './pages/Notifications';
 import WhatsAppInbox from './pages/WhatsAppInbox';
 import EmailInbox from './pages/EmailInbox';
 import Performance from './pages/Performance';
@@ -78,6 +80,8 @@ import CompanyMailSettings from './pages/CompanyMailSettings';
 import CompanyWhatsAppSettings from './pages/CompanyWhatsAppSettings';
 import CallManagement from './pages/CallManagement';
 import SubscriptionDetails from './pages/SubscriptionDetails';
+import MyTeam from './pages/MyTeam';
+import MyTeamDetails from './pages/MyTeamDetails';
 
 const AppRoutes = () => {
   const { user, loading } = useAuth();
@@ -138,6 +142,14 @@ const AppRoutes = () => {
         element={
           <ProtectedRoute>
             <CallManagement />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/notifications"
+        element={
+          <ProtectedRoute>
+            <Notifications />
           </ProtectedRoute>
         }
       />
@@ -249,7 +261,7 @@ const AppRoutes = () => {
       />
       <Route
         path="/staff-management/teams"
-        element={<Navigate to="/company-settings/team-management?tab=branches" replace />}
+        element={<Navigate to="/company-settings/team-management?tab=teams" replace />}
       />
       <Route
         path="/staff-management/branches"
@@ -319,9 +331,11 @@ const AppRoutes = () => {
         path="/performance"
         element={
           <ProtectedRoute>
-            <FeatureGuard feature="analytics">
-              <Performance />
-            </FeatureGuard>
+            <AdminRoute allowManager={true}>
+              <FeatureGuard feature="analytics">
+                <Performance />
+              </FeatureGuard>
+            </AdminRoute>
           </ProtectedRoute>
         }
       />
@@ -339,9 +353,11 @@ const AppRoutes = () => {
         path="/analytics"
         element={
           <ProtectedRoute>
-            <FeatureGuard feature="analytics">
-              <Analytics />
-            </FeatureGuard>
+            <AdminRoute>
+              <FeatureGuard feature="analytics">
+                <Analytics />
+              </FeatureGuard>
+            </AdminRoute>
           </ProtectedRoute>
         }
       />
@@ -349,9 +365,11 @@ const AppRoutes = () => {
         path="/dashboard/source-roi"
         element={
           <ProtectedRoute>
-            <FeatureGuard feature="analytics">
-              <Analytics />
-            </FeatureGuard>
+            <AdminRoute>
+              <FeatureGuard feature="analytics">
+                <Analytics />
+              </FeatureGuard>
+            </AdminRoute>
           </ProtectedRoute>
         }
       />
@@ -359,9 +377,11 @@ const AppRoutes = () => {
         path="/dashboard/destination-performance"
         element={
           <ProtectedRoute>
-            <FeatureGuard feature="analytics">
-              <Analytics />
-            </FeatureGuard>
+            <AdminRoute>
+              <FeatureGuard feature="analytics">
+                <Analytics />
+              </FeatureGuard>
+            </AdminRoute>
           </ProtectedRoute>
         }
       />
@@ -393,7 +413,9 @@ const AppRoutes = () => {
         path="/targets"
         element={
           <ProtectedRoute>
-            <Targets />
+            <AdminRoute>
+              <Targets />
+            </AdminRoute>
           </ProtectedRoute>
         }
       />
@@ -430,10 +452,28 @@ const AppRoutes = () => {
         }
       />
       <Route
+        path="/my-team"
+        element={
+          <ProtectedRoute>
+            <MyTeam />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/my-team/:id"
+        element={
+          <ProtectedRoute>
+            <MyTeamDetails />
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/company-settings/team-reports"
         element={
           <ProtectedRoute>
-            <TeamReports />
+            <AdminRoute>
+              <TeamReports />
+            </AdminRoute>
           </ProtectedRoute>
         }
       />
@@ -469,7 +509,9 @@ const AppRoutes = () => {
         path="/employee-dashboard/:id"
         element={
           <ProtectedRoute>
-            <EmployeeManagement />
+            <AdminRoute allowManager={true}>
+              <EmployeeManagement />
+            </AdminRoute>
           </ProtectedRoute>
         }
       />

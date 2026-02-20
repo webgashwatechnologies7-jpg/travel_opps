@@ -40,6 +40,7 @@ export const SettingsProvider = ({ children }) => {
   const staffManagementItem = {
     label: 'Staff Management',
     icon: 'Users',
+    adminOnly: true,
     submenu: [
       { path: '/staff-management/dashboard', label: 'Dashboard' },
       { path: '/staff-management/users', label: 'All Users' },
@@ -51,21 +52,23 @@ export const SettingsProvider = ({ children }) => {
 
   const defaultMenuItems = [
     { path: '/dashboard', label: 'Dashboard', icon: 'LayoutDashboard' },
+    { path: '/notifications', label: 'Notifications', icon: 'Bell' },
     { path: '/leads', label: 'Queries', icon: 'MessageSquare', feature: 'leads_management' },
     { path: '/itineraries', label: 'Itineraries', icon: 'FileText', feature: 'itineraries' },
     { path: '/payments', label: 'Payments', icon: 'CreditCard', feature: 'payments' },
-    { path: '/sales-reps', label: 'Sales Reps', icon: 'Users', feature: 'analytics' },
+    { path: '/sales-reps', label: 'Sales Reps', icon: 'Users', feature: 'analytics', adminOnly: true },
     { label: 'Accounts', icon: 'CreditCard', feature: 'payments', submenu: [{ path: '/accounts/clients', label: 'Clients' }, { path: '/accounts/agents', label: 'Agents' }, { path: '/accounts/corporate', label: 'Corporate' }] },
     { path: '/whatsapp', label: 'WhatsApp', icon: 'MessageCircle', feature: 'whatsapp' },
     { path: '/mail', label: 'Mail', icon: 'Mail', feature: 'gmail_integration' },
     { label: 'Integrate', icon: 'Link2', submenu: [{ path: '/settings/mail', label: 'Email Integration', feature: 'gmail_integration' }, { path: '/settings/whatsapp', label: 'WhatsApp Integration', feature: 'whatsapp' }] },
     { path: '/call-management', label: 'Call Management System', icon: 'Phone', feature: 'call_management' },
+    { path: '/my-team', label: 'My Team Members', icon: 'Users' },
     { path: '/followups', label: 'Followups', icon: 'ClipboardList', feature: 'followups' },
     staffManagementItem,
     { label: 'Reports', icon: 'BarChart3', feature: 'reports', submenu: [{ path: '/dashboard/employee-performance', label: 'Performance', feature: 'reports' }, { path: '/dashboard/source-roi', label: 'Source ROI', feature: 'reports' }, { path: '/dashboard/destination-performance', label: 'Destination', feature: 'reports' }] },
     { label: 'Marketing', icon: 'Megaphone', feature: 'campaigns', submenu: [{ path: '/marketing', label: 'Dashboard', feature: 'campaigns' }, { path: '/client-groups', label: 'Clients Group', feature: 'campaigns' }, { path: '/marketing/templates', label: 'Email Templates', feature: 'email_templates' }, { path: '/marketing/whatsapp-templates', label: 'WhatsApp Templates', feature: 'whatsapp' }, { path: '/marketing/campaigns', label: 'Campaigns', feature: 'campaigns' }, { path: '/marketing/landing-pages', label: 'Landing Pages', feature: 'landing_pages' }] },
-    { label: 'Company Settings', icon: 'Settings', submenu: [{ path: '/settings/company', label: 'Company Settings' }, { path: '/settings/whatsapp', label: 'WhatsApp Integration', feature: 'whatsapp' }, { path: '/settings/mail', label: 'Email Integration', feature: 'gmail_integration' }, { path: '/settings/account-details', label: 'Account Details' }] },
-    { label: 'Masters', icon: 'Grid', submenu: [{ path: '/masters/suppliers', label: 'Suppliers', feature: 'suppliers' }, { path: '/masters/hotel', label: 'Hotel', feature: 'hotels' }, { path: '/masters/activity', label: 'Activity', feature: 'activities' }, { path: '/masters/transfer', label: 'Transfer', feature: 'transfers' }, { path: '/masters/day-itinerary', label: 'Day Itinerary', feature: 'day_itineraries' }, { path: '/masters/destinations', label: 'Destinations', feature: 'destinations' }, { path: '/masters/room-type', label: 'Room Type', feature: 'hotels' }, { path: '/masters/meal-plan', label: 'Meal Plan', feature: 'hotels' }, { path: '/masters/lead-source', label: 'Lead Source' }, { path: '/masters/expense-type', label: 'Expense Type', feature: 'expenses' }, { path: '/masters/points', label: 'Inclusions & Exclusions' }, { path: '/targets', label: 'Targets', feature: 'targets' }] },
+    { label: 'Company Settings', icon: 'Settings', adminOnly: true, submenu: [{ path: '/settings/company', label: 'Company Settings' }, { path: '/settings/whatsapp', label: 'WhatsApp Integration', feature: 'whatsapp' }, { path: '/settings/mail', label: 'Email Integration', feature: 'gmail_integration' }, { path: '/settings/account-details', label: 'Account Details' }] },
+    { label: 'Masters', icon: 'Grid', submenu: [{ path: '/masters/suppliers', label: 'Suppliers', feature: 'suppliers' }, { path: '/masters/hotel', label: 'Hotel', feature: 'hotels' }, { path: '/masters/activity', label: 'Activity', feature: 'activities' }, { path: '/masters/transfer', label: 'Transfer', feature: 'transfers' }, { path: '/masters/day-itinerary', label: 'Day Itinerary', feature: 'day_itineraries' }, { path: '/masters/destinations', label: 'Destinations', feature: 'destinations' }, { path: '/masters/room-type', label: 'Room Type', feature: 'hotels' }, { path: '/masters/meal-plan', label: 'Meal Plan', feature: 'hotels' }, { path: '/masters/lead-source', label: 'Lead Source' }, { path: '/masters/expense-type', label: 'Expense Type', feature: 'expenses' }, { path: '/masters/points', label: 'Inclusions & Exclusions' }, { path: '/targets', label: 'Targets', feature: 'targets', adminOnly: true }] },
   ];
 
   const [rawMenuItems, setRawMenuItems] = useState(defaultMenuItems);
@@ -159,18 +162,44 @@ export const SettingsProvider = ({ children }) => {
               apiMenu.push(staffManagementItem);
             }
           }
+
+          // Inject 'My Team Members' if missing
+          const hasMyTeam = apiMenu.some(item => item.path === '/my-team');
+          if (!hasMyTeam) {
+            const callIndex = apiMenu.findIndex(item => item.path === '/call-management');
+            const myTeamItem = { path: '/my-team', label: 'My Team Members', icon: 'Users' };
+            if (callIndex >= 0) {
+              apiMenu.splice(callIndex + 1, 0, myTeamItem);
+            } else {
+              const reportsIndex = apiMenu.findIndex((item) => item.label === 'Reports');
+              if (reportsIndex >= 0) apiMenu.splice(reportsIndex, 0, myTeamItem);
+              else apiMenu.push(myTeamItem);
+            }
+          }
+
           apiMenu = ensureSettingsIntegrationItems(apiMenu);
 
-          // Ensure 'Terms & Points' is in Masters
+          // Ensure 'Terms & Points' is in Masters and 'Targets' is adminOnly
           apiMenu = apiMenu.map(item => {
             if (item.label === 'Masters' && item.submenu) {
               const hasPoints = item.submenu.some(s => s.path === '/masters/points');
+              let newSubmenu = [...item.submenu];
+
+              // Ensure Targets is adminOnly
+              newSubmenu = newSubmenu.map(sub =>
+                sub.label === 'Targets' || sub.path === '/targets'
+                  ? { ...sub, adminOnly: true }
+                  : sub
+              );
+
               if (!hasPoints) {
-                return {
-                  ...item,
-                  submenu: [...item.submenu, { path: '/masters/points', label: 'Inclusions & Exclusions' }]
-                };
+                newSubmenu.push({ path: '/masters/points', label: 'Inclusions & Exclusions' });
               }
+
+              return {
+                ...item,
+                submenu: newSubmenu
+              };
             }
             return item;
           });
@@ -184,60 +213,70 @@ export const SettingsProvider = ({ children }) => {
   // Filter Menu based on Permissions
   useEffect(() => {
     if (!user) {
-      // If no user (e.g. login page), clear menu
       setMenuItems([]);
       return;
     }
 
-    // Admins and Managers see everything in the sidebar structure
-    // (Actual access to screens is handled by FeatureGuard/ProtectedRoute)
-    const isAdmin = user.is_super_admin ||
-      user.roles?.some(r => {
-        const roleName = typeof r === 'object' ? r.name : r;
-        return ['Admin', 'Company Admin', 'Super Admin', 'Manager'].includes(roleName);
-      });
-
-    if (isAdmin) {
-      setMenuItems(rawMenuItems);
-      return;
-    }
+    const roleNames = (user.roles || []).map(r => typeof r === 'object' ? r.name : r);
+    const isRealAdmin = user.is_super_admin || roleNames.some(r => ['Admin', 'Company Admin', 'Super Admin'].includes(r));
+    const isManager = roleNames.includes('Manager');
+    const isStaff = roleNames.some(r => ['Employee', 'Sales Rep', 'Team Leader'].includes(r));
 
     const userPermissions = (user.permissions || []).map(p => p.toLowerCase());
 
     // Helper to check if item is allowed
     const isAllowed = (item) => {
-      // ALWAYS allow Dashboard
-      if (item.label === 'Dashboard') return true;
-
       const label = item.label.toLowerCase();
-      const feature = item.feature ? item.feature.toLowerCase() : null;
 
-      // Flexible matching: check if any permission string matches label or feature
-      return userPermissions.some(p =>
-        p.includes(label) ||
-        label.includes(p) ||
-        (feature && (p.includes(feature) || feature.includes(p)))
-      );
+      // 1. ALWAYS allow Dashboard and Notifications
+      if (label === 'dashboard' || label === 'notifications') return true;
+
+      // 2. Strict Admin Only check (Hardcoded for safety + property check)
+      const strictAdminLabels = ['targets', 'staff management', 'company settings', 'sales reps', 'permissions'];
+      if (strictAdminLabels.includes(label) || item.adminOnly) {
+        return isRealAdmin;
+      }
+
+      // 3. Managers see everything that is not explicitly adminOnly
+      if (isManager) return true;
+
+      // 4. Staff see core items by default
+      const coreFeatures = ['queries', 'itineraries', 'followups', 'payments', 'whatsapp', 'mail', 'accounts', 'masters', 'call management system'];
+      if (isStaff && coreFeatures.includes(label)) return true;
+
+      // Special check for 'My Team'
+      if (label === 'my team members') {
+        return roleNames.includes('Manager') || roleNames.includes('Team Leader');
+      }
+
+      // 5. Permission based check (flexible matching)
+      if (userPermissions.length > 0) {
+        const feature = item.feature ? item.feature.toLowerCase() : null;
+        if (userPermissions.some(p =>
+          p.includes(label) ||
+          label.includes(p) ||
+          (feature && (p.includes(feature) || feature.includes(p)))
+        )) return true;
+      }
+
+      // 6. Default: Allow if not adminOnly and user is staff/admin/manager
+      return (isRealAdmin || isManager || isStaff);
     };
 
     const filterMenu = (items) => {
       return items.reduce((acc, item) => {
-        const newItem = { ...item }; // Create a shallow copy to avoid direct mutation of rawMenuItems
+        if (isAllowed(item)) {
+          const newItem = { ...item };
 
-        if (newItem.submenu) {
-          const filteredSub = filterMenu(newItem.submenu);
-          if (filteredSub.length > 0) {
-            newItem.submenu = filteredSub;
-            acc.push(newItem);
-          } else {
-            // If a parent has no permitted children, it should only be shown if it's a direct link AND allowed
-            if (newItem.path && isAllowed(newItem)) {
+          if (newItem.submenu) {
+            const filteredSub = filterMenu(newItem.submenu);
+            if (filteredSub.length > 0) {
+              newItem.submenu = filteredSub;
+              acc.push(newItem);
+            } else if (newItem.path) {
               acc.push(newItem);
             }
-            // If it's just a folder (no path) and no children are allowed, hide it.
-          }
-        } else {
-          if (isAllowed(newItem)) {
+          } else {
             acc.push(newItem);
           }
         }
@@ -245,7 +284,7 @@ export const SettingsProvider = ({ children }) => {
       }, []);
     };
 
-    // Deep copy rawMenuItems to ensure no mutation side effects on the original state
+    // Deep copy rawMenuItems to ensure no mutation side effects
     const deepCopiedMenu = JSON.parse(JSON.stringify(rawMenuItems));
     const filtered = filterMenu(deepCopiedMenu);
     setMenuItems(filtered);

@@ -173,16 +173,22 @@ export default function LeadCard({
       </div>
 
       <div className="px-4 py-3 flex items-center justify-between">
-        <button
-          onClick={(e) => { e.stopPropagation(); onAssign?.(id); }}
-          className="border rounded-lg px-4 py-2 text-sm text-gray-600 flex items-center gap-2 hover:bg-gray-50 transition-colors"
-        >
-          {assignedUserName || assignedTo?.name ? (
-            <><span className="text-blue-600 font-medium">{assignedUserName || assignedTo?.name}</span><span className="text-blue-500">▼</span></>
-          ) : (
-            <>Assign Now <span className="text-blue-500">▼</span></>
-          )}
-        </button>
+        {onAssign ? (
+          <button
+            onClick={(e) => { e.stopPropagation(); onAssign?.(id); }}
+            className="border rounded-lg px-4 py-2 text-sm text-gray-600 flex items-center gap-2 hover:bg-gray-50 transition-colors"
+          >
+            {assignedUserName || assignedTo?.name ? (
+              <><span className="text-blue-600 font-medium">{assignedUserName || assignedTo?.name}</span><span className="text-blue-500">▼</span></>
+            ) : (
+              <>Assign Now <span className="text-blue-500">▼</span></>
+            )}
+          </button>
+        ) : (
+          <div className="px-4 py-2 text-sm text-gray-500 bg-gray-50 rounded-lg border border-gray-100 flex items-center gap-2">
+            <span className="font-medium">{assignedUserName || assignedTo?.name || "Unassigned"}</span>
+          </div>
+        )}
         <div className="flex items-center gap-2">
           <button onClick={handleWhatsAppClick} className="bg-green-500 text-white p-2.5 rounded-lg hover:bg-green-600" title="WhatsApp"><MessageCircle className="h-5 w-5" /></button>
           <button onClick={handleEmailClick} className="bg-blue-500 text-white p-2.5 rounded-lg hover:bg-blue-600" title="Email"><Mail className="h-5 w-5" /></button>

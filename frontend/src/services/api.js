@@ -213,6 +213,7 @@ export const leadInvoicesAPI = {
   preview: (leadId, invoiceId) => api.get(`/leads/${leadId}/invoices/${invoiceId}/preview`, { responseType: 'blob' }),
   download: (leadId, invoiceId) => api.get(`/leads/${leadId}/invoices/${invoiceId}/download`, { responseType: 'blob' }),
   send: (leadId, invoiceId, data = {}) => api.post(`/leads/${leadId}/invoices/${invoiceId}/send`, data),
+  delete: (leadId, invoiceId) => api.delete(`/leads/${leadId}/invoices/${invoiceId}`),
 };
 
 // Follow-up API (for client details)
@@ -799,6 +800,10 @@ export const companySettingsAPI = {
   getUserDetails: (id) => api.get(`/company-settings/users/${id}`),
   getUserPerformance: (id) => api.get(`/company-settings/users/${id}/performance`),
   getTeamReport: (params = {}) => api.get('/company-settings/team-reports', { params }),
+  getMyTeam: (params = {}) => api.get('/settings/my-team', { params }), // Use the correct prefix 'settings'
+  getDetailedUserStats: (id) => api.get(`/company-settings/users/${id}/detailed-stats`),
+  getUserLogs: (id, params = {}) => api.get(`/company-settings/users/${id}/logs`, { params }),
+  getUserCommunications: (id) => api.get(`/company-settings/users/${id}/communications`),
   createUser: (data) => api.post('/company-settings/users', data),
   updateUser: (id, data) => api.put(`/company-settings/users/${id}`, data),
   deleteUser: (id) => api.delete(`/company-settings/users/${id}`),
@@ -861,6 +866,11 @@ export const notificationsAPI = {
     }
     return api.post('/notifications/email', data);
   },
+  // In-app notifications
+  getInApp: () => api.get('/notifications'),
+  markAsRead: (id) => api.post(`/notifications/${id}/read`),
+  markAllAsRead: () => api.post('/notifications/read-all'),
+  delete: (id) => api.delete(`/notifications/${id}`),
 };
 
 // Quotations APIs

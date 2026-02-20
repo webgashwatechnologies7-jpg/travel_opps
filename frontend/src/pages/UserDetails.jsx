@@ -361,9 +361,15 @@ const UserDetails = () => {
 
   const handleEditFormChange = (e) => {
     const { name, value, type, checked } = e.target;
+    let finalValue = value;
+
+    if (name === 'phone') {
+      finalValue = value.replace(/\D/g, '').slice(0, 10);
+    }
+
     setEditForm(prev => ({
       ...prev,
-      [name]: type === 'checkbox' ? checked : value
+      [name]: type === 'checkbox' ? checked : finalValue
     }));
   };
 

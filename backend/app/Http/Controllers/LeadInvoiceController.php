@@ -77,6 +77,25 @@ class LeadInvoiceController extends Controller
         }
     }
 
+    public function destroy(Request $request, int $leadId, int $invoiceId): \Illuminate\Http\JsonResponse
+    {
+        $invoice = $this->resolveInvoice($request, $leadId, $invoiceId);
+        if (!$invoice) {
+            return response()->json(['success' => false, 'message' => 'Invoice not found'], 404);
+        }
+
+        try {
+            $invoice->delete();
+            return response()->json(['success' => true, 'message' => 'Invoice deleted successfully']);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to delete invoice',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
+            ], 500);
+        }
+    }
+
     private function resolveInvoice(Request $request, int $leadId, int $invoiceId): ?LeadInvoice
     {
         $user = $request->user();

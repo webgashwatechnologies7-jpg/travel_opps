@@ -8,6 +8,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Laravel\Sanctum\HasApiTokens;
 use Spatie\Permission\Traits\HasRoles;
 
@@ -142,18 +144,31 @@ class User extends Authenticatable
 
     /**
      * Get all subordinate IDs recursively (including self).
+     * OPTIMIZED: Uses single DB query with iterative BFS instead of recursive N+1 queries.
+     * Cached per user for 10 minutes to avoid repeated hierarchy lookups.
      *
      * @return array
      */
     public function getAllSubordinateIds(): array
     {
-        $ids = collect([$this->id]);
+        return Cache::remember("user_subordinates_{$this->id}", 600, function () {
+            $allIds = [$this->id];
+            $toSearch = [$this->id];
 
-        foreach ($this->subordinates as $subordinate) {
-            $ids = $ids->merge($subordinate->getAllSubordinateIds());
-        }
+            // BFS: one query per level instead of one query per user
+            while (!empty($toSearch)) {
+                $children = DB::table('users')
+                    ->whereIn('reports_to', $toSearch)
+                    ->pluck('id')
+                    ->toArray();
 
-        return $ids->unique()->values()->toArray();
+                $newChildren = array_diff($children, $allIds); // avoid infinite loops
+                $allIds = array_merge($allIds, $newChildren);
+                $toSearch = $newChildren;
+            }
+
+            return array_unique($allIds);
+        });
     }
 
     /**

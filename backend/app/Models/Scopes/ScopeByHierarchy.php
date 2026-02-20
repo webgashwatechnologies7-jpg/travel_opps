@@ -32,30 +32,21 @@ class ScopeByHierarchy implements Scope
         }
 
         // 2. Company Admin / Admin sees everything within their company
-        // (Company ID filtering is usually handled by a separate TenantScope, 
-        //  but here we just ensure we don't restrict by 'assigned_to')
-        if ($user->hasRole('Company Admin') || $user->hasRole('Admin')) {
+        // (Company ID filtering is handled by HasCompany trait / global scope)
+        if ($user->hasRole(['Company Admin', 'Admin'])) {
             return;
         }
 
-        // 3. Manager Restriction: ONLY see leads assigned to self or created by self
-        if ($user->hasRole('Manager')) {
-            $builder->where(function ($q) use ($user) {
-                $q->where('assigned_to', $user->id)
-                    ->orWhere('created_by', $user->id);
-            });
-            return;
-        }
-
-        // 4. Hierarchy Logic (TLs, Agents)
-        // Get all subordinates + self
+        // 3. Everyone else sees their own + subordinates' data
+        // This includes Managers, Team Leaders, and Employees.
+        // Employees have no subordinates, so they only see their own.
         $subordinateIds = $user->getAllSubordinateIds();
 
         if (count($subordinateIds) > 1) {
-            // User has a team (TL) - Show Team's Data
+            // User has a team (Manager/TL) - Show Team's Data
             $builder->whereIn($this->column, $subordinateIds);
         } else {
-            // User is alone (Agent) - Show Only Self Data
+            // User is alone (Employee/Agent) - Show Only Self Data
             $builder->where($this->column, $user->id);
         }
     }

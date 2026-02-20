@@ -17,6 +17,7 @@ use App\Modules\Leads\Domain\Entities\Lead;
 use App\Modules\Leads\Domain\Entities\LeadFollowup;
 use App\Modules\Leads\Domain\Entities\LeadStatusLog;
 use App\Models\QueryHistoryLog;
+use App\Models\LeadEmail;
 use Carbon\Carbon;
 
 class CompanySettingsController extends Controller
@@ -233,6 +234,71 @@ class CompanySettingsController extends Controller
     }
 
     /**
+     * Get users for the current authenticated user's team
+     */
+    public function getMyTeam(Request $request)
+    {
+        $user = Auth::user();
+        if (!$user) {
+            return response()->json(['success' => false, 'message' => 'Unauthenticated'], 401);
+        }
+
+        $query = User::with(['branch', 'roles'])
+            ->where('company_id', $user->company_id)
+            ->where('is_active', true);
+
+        // Logic based on roles
+        if ($user->hasRole(['Admin', 'Company Admin', 'Super Admin'])) {
+            // Admins see everyone (or maybe just admins shouldn't use this endpoint? User said "agr user tl h... agr manager h...")
+            // Let's assume admins see everyone for now, or returns empty if strictly for "my team".
+            // But usually admins consider the whole company their team.
+            // For now, let's just return all users for admins to be safe, or maybe filtered.
+            // The prompt says "agr user tl h... agr user manager h... agr employee h too option ni ayega".
+            // It doesn't explicitly say what to do for Admin. I'll return all users for Admin.
+        } elseif ($user->hasRole('Manager')) {
+            // Manager: See all users who report to this manager (Direct Reports + potentially heirarchy)
+            // For "Hierarchy", we might need recursive check.
+            // But for simple "My Team", let's get direct reports (TLs) AND their subordinates?
+            // User said: "manager h too uske ander ke sare users" (all users under him).
+            // Let's find IDs of direct reports (TLs) and their direct reports (Employees).
+            // 1. Get direct reports
+            $directReports = User::where('reports_to', $user->id)->pluck('id');
+            // 2. Get reports of those direct reports
+            $grandReports = User::whereIn('reports_to', $directReports)->pluck('id');
+
+            // Combined list of IDs
+            $teamIds = $directReports->merge($grandReports)->push($user->id)->unique();
+
+            $query->whereIn('id', $teamIds)->where('id', '!=', $user->id); // Exclude self
+
+        } elseif ($user->hasRole('Team Leader')) {
+            // Team Leader: See direct reports
+            $query->where('reports_to', $user->id);
+        } else {
+            // Employee or other: No team
+            return response()->json([
+                'success' => true,
+                'data' => []
+            ]);
+        }
+
+        // Search
+        if ($request->search) {
+            $query->where(function ($q) use ($request) {
+                $q->where('name', 'like', '%' . $request->search . '%')
+                    ->orWhere('email', 'like', '%' . $request->search . '%');
+            });
+        }
+
+        $users = $query->orderBy('name')->get();
+
+        return response()->json([
+            'success' => true,
+            'data' => $users
+        ]);
+    }
+
+    /**
      * Get company users
      */
     public function getUsers(Request $request)
@@ -272,6 +338,9 @@ class CompanySettingsController extends Controller
             });
         }
 
+        // Current user should not see themselves in the team list (they are the manager/owner)
+        $query->where('id', '!=', Auth::id());
+
         $users = $query->orderBy('name')->get();
 
         return response()->json([
@@ -283,9 +352,38 @@ class CompanySettingsController extends Controller
     /**
      * Get user details
      */
+    private function checkHierarchyAccess($targetUserId)
+    {
+        $currentUser = Auth::user();
+        if ($currentUser->hasRole(['Admin', 'Company Admin', 'Super Admin'])) {
+            return true;
+        }
+
+        // Allow user to view their own details
+        if ($currentUser->id == $targetUserId) {
+            return true;
+        }
+
+        // Check subordinates
+        $subordinateIds = $currentUser->getAllSubordinateIds();
+        if (in_array((int) $targetUserId, $subordinateIds)) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Get user details
+     */
     public function getUserDetails($id)
     {
         $companyId = $this->resolveCompanyId();
+
+        if (!$this->checkHierarchyAccess($id)) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized access'], 403);
+        }
+
         $user = User::with(['branch', 'roles'])
             ->where('company_id', $companyId)
             ->where('is_super_admin', false)
@@ -311,7 +409,8 @@ class CompanySettingsController extends Controller
             'branch_id' => 'nullable|exists:branches,id,company_id,' . $companyId,
             'roles' => 'nullable|array',
             'roles.*' => 'exists:roles,name',
-            'is_active' => 'boolean'
+            'is_active' => 'boolean',
+            'reports_to' => 'nullable|exists:users,id'
         ]);
 
         // Manager Restriction: Cannot assign restricted roles
@@ -341,6 +440,7 @@ class CompanySettingsController extends Controller
                 'branch_id' => $request->branch_id,
                 'is_active' => $request->is_active ?? true,
                 'employee_id' => $request->employee_id,
+                'reports_to' => $request->reports_to,
             ]);
 
             // Assign roles if provided
@@ -382,7 +482,8 @@ class CompanySettingsController extends Controller
             'branch_id' => 'nullable|exists:branches,id,company_id,' . $companyId,
             'roles' => 'nullable|array',
             'roles.*' => 'exists:roles,name',
-            'is_active' => 'boolean'
+            'is_active' => 'boolean',
+            'reports_to' => 'nullable|exists:users,id'
         ]);
 
         // Manager Restriction: Cannot edit restricted users or assign restricted roles
@@ -410,13 +511,19 @@ class CompanySettingsController extends Controller
         try {
             DB::beginTransaction();
 
-            $user->update([
+            $updateData = [
                 'name' => $request->name,
                 'email' => $request->email,
                 'phone' => $request->phone,
                 'branch_id' => $request->branch_id,
                 'is_active' => $request->is_active ?? $user->is_active,
-            ]);
+            ];
+
+            if ($request->exists('reports_to')) {
+                $updateData['reports_to'] = $request->reports_to;
+            }
+
+            $user->update($updateData);
 
             // Update password if provided
             if ($request->password) {
@@ -681,11 +788,11 @@ class CompanySettingsController extends Controller
 
     public function getRoles()
     {
-        $query = Role::where('name', '!=', 'Super Admin');
+        $query = Role::whereNotIn('name', ['Super Admin', 'Company Admin']);
 
         // Manager Restriction: Hide restricted roles
         if (Auth::user()->hasRole('Manager')) {
-            $query->whereNotIn('name', ['Admin', 'Company Admin', 'Manager']);
+            $query->whereNotIn('name', ['Admin', 'Manager']);
         }
 
         $roles = $query->get();
@@ -695,6 +802,7 @@ class CompanySettingsController extends Controller
             'data' => $roles
         ]);
     }
+
 
     /**
      * Create a new role
@@ -1183,6 +1291,10 @@ class CompanySettingsController extends Controller
      */
     public function getUserPerformance(Request $request, $id)
     {
+        if (!$this->checkHierarchyAccess($id)) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized access'], 403);
+        }
+
         $companyId = $this->resolveCompanyId();
         $user = User::where('company_id', $companyId)
             ->where('is_super_admin', false)
@@ -1295,8 +1407,9 @@ class CompanySettingsController extends Controller
         }
 
         $company = Company::with([
-            'subscriptionPlan.features' => function ($query) {
-                $query->where('is_enabled', true);
+            'subscriptionPlan.planFeatures' => function ($query) {
+                // Filter only actve features from the pivot table
+                $query->wherePivot('is_active', true);
             }
         ])->findOrFail($companyId);
 
@@ -1309,14 +1422,153 @@ class CompanySettingsController extends Controller
                 'price' => $company->subscriptionPlan ? (float) $company->subscriptionPlan->price : 0,
                 'billing_period' => $company->subscriptionPlan ? $company->subscriptionPlan->billing_period : '',
                 'expiry_date' => $company->subscription_end_date ? $company->subscription_end_date->format('Y-m-d') : 'Unlimited',
-                'features' => $company->subscriptionPlan ? $company->subscriptionPlan->features->map(function ($f) {
+                'features' => $company->subscriptionPlan ? $company->subscriptionPlan->planFeatures->map(function ($f) {
                     return [
-                        'name' => $f->feature_name,
-                        'key' => $f->feature_key,
-                        'limit' => $f->limit_value
+                        'name' => $f->name,
+                        'key' => $f->key,
+                        'limit' => $f->pivot->limit_value
                     ];
                 }) : []
             ]
+        ]);
+    }
+
+    /**
+     * Get detailed user statistics (assigned, created, status breakdown).
+     */
+    public function getDetailedUserStats($id)
+    {
+        if (!$this->checkHierarchyAccess($id)) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized access'], 403);
+        }
+
+        $companyId = $this->resolveCompanyId();
+        // Allow access if user is admin/manager or viewing own stats? 
+        // For now, assuming auth middleware handles basic access, but we should ensure company scope.
+        $user = User::where('company_id', $companyId)->findOrFail($id);
+
+        $ranges = ['week', 'month', 'year'];
+        $data = [];
+
+        foreach ($ranges as $range) {
+            $now = Carbon::now();
+            $start = $now->copy();
+            $end = $now->copy();
+
+            if ($range === 'week') {
+                $start->startOfWeek();
+                $end->endOfWeek();
+            } elseif ($range === 'month') {
+                $start->startOfMonth();
+                $end->endOfMonth();
+            } elseif ($range === 'year') {
+                $start->startOfYear();
+                $end->endOfYear();
+            }
+
+            // Leads Assigned TO this user
+            // Note: Filter by created_at in range for simplicity as 'assigned' date
+            $assignedCounts = Lead::where('assigned_to', $user->id)
+                ->whereBetween('created_at', [$start, $end])
+                ->select('status', DB::raw('count(*) as total'))
+                ->groupBy('status')
+                ->pluck('total', 'status');
+
+            // Leads Created BY this user
+            $createdCounts = Lead::where('created_by', $user->id)
+                ->whereBetween('created_at', [$start, $end])
+                ->select('status', DB::raw('count(*) as total'))
+                ->groupBy('status')
+                ->pluck('total', 'status');
+
+            $data[$range] = [
+                'assigned' => $assignedCounts,
+                'created' => $createdCounts,
+                'total_assigned' => $assignedCounts->sum(),
+                'total_created' => $createdCounts->sum()
+            ];
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => $data
+        ]);
+    }
+
+    /**
+     * Get user activity logs (QueryHistoryLog).
+     */
+    public function getUserLogs($id)
+    {
+        if (!$this->checkHierarchyAccess($id)) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized access'], 403);
+        }
+
+        $companyId = $this->resolveCompanyId();
+        $user = User::where('company_id', $companyId)->findOrFail($id);
+
+        // Paginate logs
+        $logs = QueryHistoryLog::where('user_id', $user->id)
+            ->with([
+                'lead' => function ($q) {
+                    $q->select('id', 'client_name', 'destination', 'status');
+                }
+            ])
+            ->orderBy('created_at', 'desc')
+            ->paginate(20);
+
+        return response()->json([
+            'success' => true,
+            'data' => $logs
+        ]);
+    }
+
+    /**
+     * Get user communication logs (WhatsApp & Email).
+     */
+    public function getUserCommunications($id)
+    {
+        if (!$this->checkHierarchyAccess($id)) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized access'], 403);
+        }
+
+        $companyId = $this->resolveCompanyId();
+        $user = User::where('company_id', $companyId)->findOrFail($id);
+
+        // Fetch WhatsApp Logs (Outbound by this user)
+        $whatsappLogs = DB::table('whatsapp_messages')
+            ->where('user_id', $user->id)
+            ->orderBy('created_at', 'desc')
+            ->take(100)
+            ->get()
+            ->map(function ($log) {
+                // Manually fetch lead info if lead_id is present
+                $lead = null;
+                if ($log->lead_id) {
+                    $lead = Lead::select('id', 'client_name', 'destination')->find($log->lead_id);
+                }
+                $log->lead = $lead;
+                $log->type = 'whatsapp';
+                return $log;
+            });
+
+        // Fetch Email Logs (Sent by this user)
+        $emailLogs = LeadEmail::where('user_id', $user->id)
+            ->with(['lead:id,client_name,destination'])
+            ->orderBy('created_at', 'desc')
+            ->take(100)
+            ->get()
+            ->map(function ($log) {
+                $log->type = 'email';
+                return $log;
+            });
+
+        // Merge and sort
+        $communications = $whatsappLogs->merge($emailLogs)->sortByDesc('created_at')->values();
+
+        return response()->json([
+            'success' => true,
+            'data' => $communications
         ]);
     }
 }

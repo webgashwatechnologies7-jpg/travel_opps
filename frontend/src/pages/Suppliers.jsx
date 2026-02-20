@@ -101,9 +101,13 @@ const Suppliers = () => {
   };
 
   const handleInputChange = (field, value) => {
+    let finalValue = value;
+    if (field === 'mobile') {
+      finalValue = value.replace(/\D/g, '').slice(0, 10);
+    }
     setFormData(prev => ({
       ...prev,
-      [field]: value
+      [field]: finalValue
     }));
   };
 
@@ -420,7 +424,7 @@ const Suppliers = () => {
                             <Edit className="h-5 w-5" />
                           </button>
                         )}
-                        {hasPermission(user, 'suppliers.delete') && (
+                        {hasPermission(user, 'suppliers.delete') && (user?.is_super_admin || user?.roles?.some(r => ['Admin', 'Company Admin', 'Super Admin'].includes(typeof r === 'string' ? r : r.name))) && (
                           <button
                             onClick={() => handleDelete(supplier.id)}
                             className="text-red-600 hover:text-red-900 p-2 hover:bg-red-50 rounded ml-2"
