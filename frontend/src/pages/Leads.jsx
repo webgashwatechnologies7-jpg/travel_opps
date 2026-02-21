@@ -560,91 +560,65 @@ const Leads = () => {
       </Layout>
     );
   }
-  const FinalHeader = () => {
-    return (
-      <div className="flex items-center justify-between px-4 py-3 bg-white border-b border-gray-200 shadow-sm">
-        <h1 className="text-xl font-semibold text-gray-900">Queries</h1>
-        <button
-          type="button"
-          onClick={() => { setFormData(getDefaultFormData()); setShowModal(true); }}
-          className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium"
-        >
-          <Plus size={18} />
-          Add Query
-        </button>
-      </div>
-    )
-  }
-
-
-  const handleRefresh = () => {
-    setActiveFilter("total");
-    setDestinationFilter('');
-    setAssignedToFilter('');
-    setAssignedNameFilter('');
-    fetchLeads();
-  }
-
   return (
-    <Layout Header={FinalHeader}>
-      <div className="p-6 mt-2 rounded-md" style={{ minHeight: 'fit-content' }}>
-        {/* Header Section */}
-
-
-        {/* Summary Cards */}
-        <div className="w-full ">
-          <div className="flex md:p-1 gap-3 overflow-x-auto custom-scroll pb-3 mb-6">
-            {[
-              { key: "total", label: "Total Queries", value: stats.total, bg: "bg-blue-800" },
-              { key: "today", label: "Today", value: stats.today, bg: "bg-blue-600" },
-              { key: "new", label: "New", value: stats.new, bg: "bg-orange-400" },
-              { key: "proposalSent", label: "Proposal sent", value: stats.proposalSent, bg: "bg-teal-500" },
-              { key: "noConnect", label: "No Connect", value: stats.noConnect, bg: "bg-red-500" },
-              { key: "hotLead", label: "Hot Lead", value: stats.hotLead, bg: "bg-purple-500" },
-              { key: "proposalConfirmed", label: "Proposal Conn.", value: stats.proposalConfirmed, bg: "bg-teal-600" },
-              { key: "cancel", label: "Cancel", value: stats.cancel, bg: "bg-blue-900" },
-              { key: "followUp", label: "Follow ups", value: stats.followUp, bg: "bg-red-400" },
-              { key: "confirmed", label: "Confirmed", value: stats.confirmed, bg: "bg-purple-600" },
-              { key: "postponed", label: "Postponed", value: stats.postponed, bg: "bg-orange-400" },
-              { key: "invalid", label: "Invalid", value: stats.invalid, bg: "bg-teal-500" },
-            ].map(item => (
-              <div
-                key={item.key}
-                onClick={() => setActiveFilter(item.key)}
-                className={`
-                  ${item.bg} text-white
-                  min-w-[60px] h-[60px]
-                  md:w-[80px] md:h-[80px]
-                  lg:min-w-[100px] lg:h-[100px]
-                  flex flex-col items-center justify-center
-                  rounded-xl cursor-pointer
-                  text-center px-2
-                  transition-all duration-200
-                  hover:scale-105
-                  ${activeFilter === item.key ? "ring-4 ring-blue-300 scale-105" : ""}
-                `}
-              >
-                <div className=" text-sm md:text-xl lg:text-3xl font-bold leading-none">
-                  {item.value}
-                </div>
-                <div className="text-xs mt-1 whitespace-nowrap">
-                  {item.label}
-                </div>
-              </div>
-            ))}
-          </div>
+    <Layout>
+      <div className="p-6">
+        <div className="flex justify-between items-center mb-6">
+          <h1 className="text-3xl font-bold text-gray-800">Queries</h1>
+          <button
+            type="button"
+            onClick={() => { setFormData(getDefaultFormData()); setShowModal(true); }}
+            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium shadow-sm"
+          >
+            <Plus size={18} />
+            Add Query
+          </button>
         </div>
 
-        {/* Queries Section */}
-        <div className='flex justify-between items-center mb-6'>
-          <div className='flex items-center gap-2'>
-            <h2 className="text-lg font-bold">Queries</h2>
-            <span className="text-lg font-bold">• All</span>
+        {/* Filters */}
+        <div className="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+          <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
+            <div className="relative flex-1 min-w-[220px]">
+              <input
+                type="text"
+                value={destinationFilter}
+                onChange={(e) => {
+                  setDestinationFilter(e.target.value);
+                  setActiveFilter(e.target.value ? 'destination' : 'total');
+                }}
+                placeholder="Search by destination"
+                className="w-full pl-3 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <select
+              value={activeFilter}
+              onChange={(e) => setActiveFilter(e.target.value)}
+              className="w-full sm:w-48 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="total">All Queries ({stats.total})</option>
+              <option value="today">Today ({stats.today})</option>
+              <option value="new">New ({stats.new})</option>
+              <option value="proposalSent">Proposal Sent ({stats.proposalSent})</option>
+              <option value="noConnect">No Connect ({stats.noConnect})</option>
+              <option value="hotLead">Hot Lead ({stats.hotLead})</option>
+              <option value="proposalConfirmed">Proposal Conn. ({stats.proposalConfirmed})</option>
+              <option value="cancel">Cancel ({stats.cancel})</option>
+              <option value="followUp">Follow ups ({stats.followUp})</option>
+              <option value="confirmed">Confirmed ({stats.confirmed})</option>
+              <option value="postponed">Postponed ({stats.postponed})</option>
+              <option value="invalid">Invalid ({stats.invalid})</option>
+            </select>
           </div>
-          <button className="flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-md" onClick={handleRefresh}>
-            <History size={20} />
-            Refresh
-          </button>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={handleRefresh}
+              className="flex items-center gap-2 px-4 py-2 text-sm border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+            >
+              <History size={16} />
+              Refresh
+            </button>
+          </div>
         </div>
 
         {filteredLeads.length === 0 ? (
@@ -724,8 +698,8 @@ const Leads = () => {
                         key={page}
                         onClick={() => fetchLeads({}, page)}
                         className={`px-3 py-1.5 text-sm border rounded-md ${page === currentPage
-                            ? 'bg-blue-600 text-white border-blue-600'
-                            : 'border-gray-300 hover:bg-gray-50'
+                          ? 'bg-blue-600 text-white border-blue-600'
+                          : 'border-gray-300 hover:bg-gray-50'
                           }`}
                       >
                         {page}
