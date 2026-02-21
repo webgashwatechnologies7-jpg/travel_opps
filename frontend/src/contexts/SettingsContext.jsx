@@ -33,7 +33,11 @@ export const SettingsProvider = ({ children }) => {
     if (initialSettings.company_favicon) {
       const faviconEl = document.getElementById('favicon');
       if (faviconEl) {
-        faviconEl.href = initialSettings.company_favicon;
+        let faviconUrl = initialSettings.company_favicon;
+        if (window.location.protocol === 'https:' && faviconUrl.startsWith('http://')) {
+          faviconUrl = faviconUrl.replace('http://', 'https://');
+        }
+        faviconEl.href = faviconUrl;
       }
     }
 
@@ -324,7 +328,11 @@ export const SettingsProvider = ({ children }) => {
     if (settings?.company_favicon) {
       const faviconEl = document.getElementById('favicon');
       if (faviconEl) {
-        faviconEl.href = settings.company_favicon;
+        let faviconUrl = settings.company_favicon;
+        if (window.location.protocol === 'https:' && faviconUrl.startsWith('http://')) {
+          faviconUrl = faviconUrl.replace('http://', 'https://');
+        }
+        faviconEl.href = faviconUrl;
       }
     }
     if (settings?.company_name) {
@@ -379,7 +387,11 @@ export const SettingsProvider = ({ children }) => {
           if (company.favicon) {
             const faviconEl = document.getElementById('favicon');
             if (faviconEl) {
-              faviconEl.href = company.favicon;
+              let faviconUrl = company.favicon;
+              if (window.location.protocol === 'https:' && faviconUrl.startsWith('http://')) {
+                faviconUrl = faviconUrl.replace('http://', 'https://');
+              }
+              faviconEl.href = faviconUrl;
             }
           }
 

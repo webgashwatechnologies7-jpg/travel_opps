@@ -95,7 +95,7 @@ export default function Notifications() {
                         </button>
                     )}
                 </div>
-                <div className="max-w-4xl mx-auto w-full">
+                <div className="w-full">
                     {/* Content Section */}
                     <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden relative min-h-[70vh] flex flex-col mt-4">
 

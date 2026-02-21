@@ -551,6 +551,14 @@ const Leads = () => {
     }
   };
 
+  const handleRefresh = () => {
+    setActiveFilter("total");
+    setDestinationFilter('');
+    setAssignedToFilter('');
+    setAssignedNameFilter('');
+    fetchLeads();
+  };
+
   if (loading) {
     return (
       <Layout>

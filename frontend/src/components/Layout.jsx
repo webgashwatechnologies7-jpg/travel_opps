@@ -352,7 +352,7 @@ transition-all duration-300 border-b border-gray-200/50 shadow-sm`}
                   {settings?.company_logo ? (
                     <>
                       <img
-                        src={settings.company_logo}
+                        src={settings.company_logo && window.location.protocol === 'https:' && settings.company_logo.startsWith('http://') ? settings.company_logo.replace('http://', 'https://') : settings.company_logo}
                         alt="Company Logo"
                         className={`h-8 object-contain transition-all duration-300 ${isSidebarOpen ? 'opacity-100 max-w-[180px]' : 'opacity-100 w-8'}`}
                         onError={(e) => {
@@ -491,7 +491,7 @@ transition-all duration-300 border-b border-gray-200/50 shadow-sm`}
               <div className="p-4 border-b border-blue-800/50 flex items-center justify-between">
                 <div className="flex items-center">
                   {settings?.company_logo ? (
-                    <img src={settings.company_logo} alt="Logo" className="h-8 object-contain max-w-[140px]" />
+                    <img src={settings.company_logo && window.location.protocol === 'https:' && settings.company_logo.startsWith('http://') ? settings.company_logo.replace('http://', 'https://') : settings.company_logo} alt="Logo" className="h-8 object-contain max-w-[140px]" />
                   ) : (
                     <span className="text-white font-bold text-xl">TravelOps</span>
                   )}
