@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { useAuth } from './AuthContext';
 import { contentAPI } from '../services/api';
 
 const ContentContext = createContext(null);
@@ -91,10 +92,16 @@ const DEFAULT_CONTENT = {
 };
 
 export const ContentProvider = ({ children }) => {
+  const { user } = useAuth();
   const [content, setContent] = useState({ ...DEFAULT_CONTENT });
   const [loading, setLoading] = useState(true);
 
   const loadContent = useCallback(async () => {
+    if (!user) {
+      setLoading(false);
+      return;
+    }
+
     try {
       const response = await contentAPI.getAll();
       if (response.data?.success && response.data.data && typeof response.data.data === 'object') {
@@ -110,7 +117,7 @@ export const ContentProvider = ({ children }) => {
 
   useEffect(() => {
     loadContent();
-  }, [loadContent]);
+  }, [loadContent, user]);
 
   /**
    * t(key) - get content by key. Returns value from API, or fallback, or key itself.

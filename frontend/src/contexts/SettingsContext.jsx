@@ -24,7 +24,20 @@ export const SettingsProvider = ({ children }) => {
       dashboard_background_color: '#D8DEF5',
       header_background_color: '#D8DEF5',
     };
-    return saved ? { ...defaultSettings, ...JSON.parse(saved) } : defaultSettings;
+    const initialSettings = saved ? { ...defaultSettings, ...JSON.parse(saved) } : defaultSettings;
+
+    // Instantly apply saved title and favicon on load
+    if (initialSettings.company_name) {
+      document.title = initialSettings.company_name;
+    }
+    if (initialSettings.company_favicon) {
+      const faviconEl = document.getElementById('favicon');
+      if (faviconEl) {
+        faviconEl.href = initialSettings.company_favicon;
+      }
+    }
+
+    return initialSettings;
   });
 
   const [currency, setCurrency] = useState(() => {
@@ -111,6 +124,8 @@ export const SettingsProvider = ({ children }) => {
 
   // Load Menu Structure from API
   useEffect(() => {
+    if (!user) return;
+
     menuAPI.get()
       .then((res) => {
         if (res.data?.success && Array.isArray(res.data.data) && res.data.data.length > 0) {
@@ -306,16 +321,23 @@ export const SettingsProvider = ({ children }) => {
   };
 
   useEffect(() => {
-    // Apply favicon from localStorage/initial state immediately to prevent flicker
     if (settings?.company_favicon) {
       const faviconEl = document.getElementById('favicon');
       if (faviconEl) {
         faviconEl.href = settings.company_favicon;
       }
     }
-    loadSettings();
-    loadPrimaryCurrency();
-  }, []);
+    if (settings?.company_name) {
+      document.title = settings.company_name;
+    }
+
+    if (user) {
+      loadSettings();
+      loadPrimaryCurrency();
+    } else {
+      setLoading(false);
+    }
+  }, [user]);
 
   const loadPrimaryCurrency = async () => {
     try {
@@ -359,6 +381,11 @@ export const SettingsProvider = ({ children }) => {
             if (faviconEl) {
               faviconEl.href = company.favicon;
             }
+          }
+
+          // Apply company name to browser title
+          if (company.name) {
+            document.title = company.name;
           }
         }
 

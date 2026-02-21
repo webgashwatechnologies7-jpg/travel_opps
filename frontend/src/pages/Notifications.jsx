@@ -82,15 +82,17 @@ export default function Notifications() {
 
     const FinalHeader = () => {
         return (
-            <div className="flex items-center justify-between px-4 py-3 bg-white border-b border-gray-200 shadow-sm">
-                <h1 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
-                    <Bell className="h-5 w-5 text-blue-600" />
+            <div className="flex items-center justify-between px-6 py-4 bg-white border-b border-gray-200 z-10 relative shadow-sm">
+                <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
+                    <div className="p-2 bg-blue-50 rounded-lg">
+                        <Bell className="h-6 w-6 text-blue-600" />
+                    </div>
                     Notifications
                 </h1>
                 {notifications.length > 0 && notifications.some(n => !n.is_read) && (
                     <button
                         onClick={handleMarkAllRead}
-                        className="flex items-center gap-2 bg-blue-50 text-blue-600 hover:bg-blue-100 hover:text-blue-700 px-4 py-2 rounded-lg text-sm font-medium transition-colors border border-blue-200"
+                        className="flex items-center gap-2 bg-white text-blue-600 hover:bg-blue-50 px-4 py-2 rounded-xl text-sm font-semibold transition-all border border-blue-200 shadow-sm hover:shadow"
                     >
                         <Check size={18} />
                         Mark all as read
@@ -102,30 +104,30 @@ export default function Notifications() {
 
     return (
         <Layout Header={FinalHeader}>
-            <div className="p-4 md:p-6 mt-2 rounded-md h-full min-h-screen">
+            <div className="max-w-4xl mx-auto w-full">
                 {/* Content Section */}
-                <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden relative">
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden relative min-h-[70vh] flex flex-col mt-4">
 
                     {/* Top Accent Gradient Border */}
-                    <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-400 via-blue-600 to-indigo-600"></div>
+                    <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-500 to-indigo-600"></div>
 
                     {loading ? (
-                        <div className="p-16 flex flex-col items-center justify-center">
+                        <div className="flex-1 flex flex-col items-center justify-center p-16">
                             <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mb-4"></div>
                             <p className="text-gray-500 font-medium tracking-wide animate-pulse">Fetching your notifications...</p>
                         </div>
                     ) : notifications.length === 0 ? (
-                        <div className="p-16 text-center flex flex-col items-center justify-center">
-                            <div className="bg-gray-50 p-6 rounded-full mb-5 border border-gray-100 shadow-inner">
-                                <Bell className="h-12 w-12 text-gray-300" />
+                        <div className="flex-1 flex flex-col items-center justify-center p-16 text-center">
+                            <div className="bg-blue-50 p-6 rounded-full mb-5 ring-8 ring-blue-50/50">
+                                <Bell className="h-12 w-12 text-blue-400" />
                             </div>
-                            <h3 className="text-xl font-semibold text-gray-800 mb-2">No notifications yet</h3>
-                            <p className="text-gray-500 text-sm max-w-sm">
+                            <h3 className="text-xl font-semibold text-gray-900 mb-2">No notifications yet</h3>
+                            <p className="text-gray-500 text-sm max-w-sm mx-auto">
                                 You're all caught up! When there's new activity or a lead assigned to you, it will appear right here.
                             </p>
                         </div>
                     ) : (
-                        <div className="divide-y divide-gray-100 pt-1">
+                        <div className="divide-y divide-gray-100 pt-1 flex-1">
                             {Object.entries(groupedNotifications).map(([date, notifs]) => (
                                 <div key={date}>
                                     {/* Date Header */}
