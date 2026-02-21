@@ -452,6 +452,12 @@ class SettingsController extends Controller
                 ], 404);
             }
 
+            // Auto-generate API key if it's missing for older companies
+            if (empty($company->api_key)) {
+                $company->api_key = \Illuminate\Support\Str::random(32);
+                $company->save();
+            }
+
             return response()->json([
                 'success' => true,
                 'data' => [
