@@ -304,15 +304,17 @@ transition-all duration-300 border-b border-gray-200/50 shadow-sm`}
                     <p className="text-sm font-medium">{user?.name}</p>
                     <p className="text-xs text-gray-500">{user?.email}</p>
                   </div>
-                  <div className="py-1">
-                    <Link
-                      to="/settings/subscription"
-                      className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 gap-2"
-                    >
-                      <Package className="h-4 w-4" />
-                      Subscription Plan
-                    </Link>
-                  </div>
+                  {isAdmin && (
+                    <div className="py-1">
+                      <Link
+                        to="/settings/subscription"
+                        className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 gap-2"
+                      >
+                        <Package className="h-4 w-4" />
+                        Subscription Plan
+                      </Link>
+                    </div>
+                  )}
                   <button
                     onClick={handleLogout}
                     className="w-full px-4 py-2 text-sm text-left text-red-600 hover:bg-red-50 flex gap-2 border-t"
