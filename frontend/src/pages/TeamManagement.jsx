@@ -165,7 +165,6 @@ const TeamManagement = () => {
           phone: formData.phone,
           employee_id: formData.employee_id,
           branch_id: formData.branch_id || null,
-          roles: formData.roles || [],
           is_active: formData.is_active,
           password: formData.password,
           reports_to: formData.reports_to || null,
