@@ -578,12 +578,17 @@ class NotificationController extends Controller
             ->limit(50)
             ->get()
             ->map(function ($notification) {
+                $data = $notification->data;
+                if (is_string($data)) {
+                    $data = json_decode($data, true) ?: [];
+                }
+
                 return [
                     'id' => $notification->id,
-                    'type' => $notification->data['type'] ?? 'system',
-                    'title' => $notification->data['title'] ?? 'Notification',
-                    'message' => $notification->data['message'] ?? '',
-                    'action_url' => $notification->data['action_url'] ?? null,
+                    'type' => $data['type'] ?? 'system',
+                    'title' => $data['title'] ?? 'Notification',
+                    'message' => $data['message'] ?? '',
+                    'action_url' => $data['action_url'] ?? null,
                     'is_read' => !is_null($notification->read_at),
                     'created_at' => $notification->created_at->toISOString(),
                 ];

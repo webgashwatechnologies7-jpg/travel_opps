@@ -1,5 +1,6 @@
 import axios from 'axios';
-import { API_BASE_URL } from './apiBase';
+import { API_BASE_URL, ASSET_URL } from './apiBase';
+export { ASSET_URL };
 const api = axios.create({
   baseURL: API_BASE_URL,
   headers: {
@@ -781,6 +782,55 @@ export const superAdminAPI = {
   getAvailableFeatures: () => api.get('/super-admin/subscription-plans/available-features'),
   getPlanFeatures: (planId) => api.get(`/super-admin/subscription-plans/${planId}/features`),
   updatePlanFeatures: (planId, features) => api.put(`/super-admin/subscription-plans/${planId}/features`, { features }),
+  // Support Tickets
+  getTickets: () => api.get('/super-admin/tickets'),
+  getTicket: (id) => api.get(`/super-admin/tickets/${id}`),
+  updateTicketStatus: (id, status) => api.put(`/super-admin/tickets/${id}/status`, { status }),
+  sendTicketMessage: (id, data) => {
+    if (data.attachment) {
+      const formData = new FormData();
+      formData.append('message', data.message);
+      formData.append('attachment', data.attachment);
+      if (data.parent_id) formData.append('parent_id', data.parent_id);
+      return api.post(`/super-admin/tickets/${id}/messages`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+    }
+    return api.post(`/super-admin/tickets/${id}/messages`, {
+      message: data.message,
+      parent_id: data.parent_id
+    });
+  },
+};
+
+// Support APIs for Clients
+export const supportAPI = {
+  getTickets: () => api.get('/admin/support/tickets'),
+  createTicket: (data) => {
+    const formData = new FormData();
+    formData.append('description', data.description);
+    if (data.subject) formData.append('subject', data.subject);
+    if (data.screenshot) formData.append('screenshot', data.screenshot);
+    return api.post('/admin/support/tickets', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+  },
+  getTicket: (id) => api.get(`/admin/support/tickets/${id}`),
+  sendMessage: (id, data) => {
+    if (data.attachment) {
+      const formData = new FormData();
+      formData.append('message', data.message);
+      formData.append('attachment', data.attachment);
+      if (data.parent_id) formData.append('parent_id', data.parent_id);
+      return api.post(`/admin/support/tickets/${id}/messages`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+    }
+    return api.post(`/admin/support/tickets/${id}/messages`, {
+      message: data.message,
+      parent_id: data.parent_id
+    });
+  },
 };
 
 // Services APIs

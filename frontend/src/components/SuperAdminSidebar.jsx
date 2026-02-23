@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Building2, CreditCard, Users, LogOut, Shield, Mail } from 'lucide-react';
+import { LayoutDashboard, Building2, CreditCard, Users, LogOut, Shield, Mail, MessageSquare } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
 const SuperAdminSidebar = () => {
@@ -32,6 +32,11 @@ const SuperAdminSidebar = () => {
       icon: Shield,
       path: '/super-admin/permissions',
     },
+    {
+      name: 'Tickets',
+      icon: MessageSquare,
+      path: '/super-admin/tickets',
+    },
   ];
 
   const handleLogout = async () => {
@@ -53,16 +58,15 @@ const SuperAdminSidebar = () => {
           {menuItems.map((item) => {
             const Icon = item.icon;
             const isActive = location.pathname === item.path;
-            
+
             return (
               <li key={item.path}>
                 <Link
                   to={item.path}
-                  className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                    isActive
-                      ? 'bg-blue-600 text-white'
-                      : 'text-gray-300 hover:bg-gray-800 hover:text-white'
-                  }`}
+                  className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${isActive
+                    ? 'bg-blue-600 text-white'
+                    : 'text-gray-300 hover:bg-gray-800 hover:text-white'
+                    }`}
                 >
                   <Icon className="w-5 h-5" />
                   <span>{item.name}</span>
@@ -97,4 +101,3 @@ const SuperAdminSidebar = () => {
 };
 
 export default SuperAdminSidebar;
-

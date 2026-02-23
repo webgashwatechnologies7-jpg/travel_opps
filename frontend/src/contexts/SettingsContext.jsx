@@ -85,6 +85,7 @@ export const SettingsProvider = ({ children }) => {
     { label: 'Reports', icon: 'BarChart3', feature: 'reports', submenu: [{ path: '/dashboard/employee-performance', label: 'Performance', feature: 'reports' }, { path: '/dashboard/source-roi', label: 'Source ROI', feature: 'reports' }, { path: '/dashboard/destination-performance', label: 'Destination', feature: 'reports' }] },
     { label: 'Marketing', icon: 'Megaphone', feature: 'campaigns', submenu: [{ path: '/marketing', label: 'Dashboard', feature: 'campaigns' }, { path: '/client-groups', label: 'Clients Group', feature: 'campaigns' }, { path: '/marketing/templates', label: 'Email Templates', feature: 'email_templates' }, { path: '/marketing/whatsapp-templates', label: 'WhatsApp Templates', feature: 'whatsapp' }, { path: '/marketing/campaigns', label: 'Campaigns', feature: 'campaigns' }, { path: '/marketing/landing-pages', label: 'Landing Pages', feature: 'landing_pages' }] },
     { label: 'Company Settings', icon: 'Settings', adminOnly: true, submenu: [{ path: '/settings/whatsapp', label: 'WhatsApp Integration', feature: 'whatsapp' }, { path: '/settings/mail', label: 'Email Integration', feature: 'gmail_integration' }, { path: '/settings/account-details', label: 'Account Details' }] },
+    { path: '/support', label: 'Support', icon: 'MessageSquare' },
     { label: 'Masters', icon: 'Grid', submenu: [{ path: '/masters/suppliers', label: 'Suppliers', feature: 'suppliers' }, { path: '/masters/hotel', label: 'Hotel', feature: 'hotels' }, { path: '/masters/activity', label: 'Activity', feature: 'activities' }, { path: '/masters/transfer', label: 'Transfer', feature: 'transfers' }, { path: '/masters/day-itinerary', label: 'Day Itinerary', feature: 'day_itineraries' }, { path: '/masters/destinations', label: 'Destinations', feature: 'destinations' }, { path: '/masters/room-type', label: 'Room Type', feature: 'hotels' }, { path: '/masters/meal-plan', label: 'Meal Plan', feature: 'hotels' }, { path: '/masters/lead-source', label: 'Lead Source' }, { path: '/masters/expense-type', label: 'Expense Type', feature: 'expenses' }, { path: '/masters/points', label: 'Inclusions & Exclusions' }, { path: '/targets', label: 'Targets', feature: 'targets', adminOnly: true }] },
   ];
 
@@ -259,7 +260,10 @@ export const SettingsProvider = ({ children }) => {
         return isRealAdmin;
       }
 
-      // 3. Managers see everything that is not explicitly adminOnly
+      // 3. Managers see everything that is not explicitly adminOnly (except Support which we check here)
+      if (label === 'support') {
+        return isRealAdmin || isManager;
+      }
       if (isManager) return true;
 
       // 4. Staff see core items by default
@@ -370,8 +374,8 @@ export const SettingsProvider = ({ children }) => {
       // Fetch settings from settings table
       const response = await settingsAPI.getAll();
 
-      // Fetch company details from companies table
-      const companyResponse = await settingsAPI.getCompany();
+      // Fetch company details for logo/favicon from companies table (only for company users)
+      const companyResponse = !user.is_super_admin ? await settingsAPI.getCompany() : { data: { success: false } };
 
       if (response.data?.success && response.data?.data) {
         const raw = response.data.data;
@@ -380,7 +384,7 @@ export const SettingsProvider = ({ children }) => {
           : raw;
 
         // Merge company logo and favicon from companies table
-        if (companyResponse.data?.success && companyResponse.data?.data) {
+        if (!user.is_super_admin && companyResponse.data?.success && companyResponse.data?.data) {
           const company = companyResponse.data.data;
           obj.company_logo = company.logo; // Override with companies table logo
           obj.company_name = company.name;

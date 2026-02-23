@@ -41,4 +41,12 @@ Route::middleware(['auth:sanctum', 'superadmin'])->prefix('super-admin')->group(
         Route::get('/{id}/features', [FeatureController::class, 'getPlanFeatures']);
         Route::put('/{id}/features', [FeatureController::class, 'updatePlanFeatures']);
     });
+
+    // Support Tickets
+    Route::prefix('tickets')->group(function () {
+        Route::get('/', [\App\Http\Controllers\SuperAdmin\SupportTicketController::class, 'index']);
+        Route::get('/{id}', [\App\Http\Controllers\SuperAdmin\SupportTicketController::class, 'show']);
+        Route::put('/{id}/status', [\App\Http\Controllers\SuperAdmin\SupportTicketController::class, 'updateStatus']);
+        Route::post('/{id}/messages', [\App\Http\Controllers\SuperAdmin\SupportTicketController::class, 'sendMessage']);
+    });
 });

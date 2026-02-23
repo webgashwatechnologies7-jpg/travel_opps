@@ -45,4 +45,12 @@ Route::middleware(['auth:sanctum', 'role:Admin|Company Admin|Manager|Team Leader
         Route::put('/', [CompanySettingsController::class, 'update']);
         Route::post('/reset', [CompanySettingsController::class, 'reset']);
     });
+
+    // Support Tickets
+    Route::prefix('support')->group(function () {
+        Route::get('/tickets', [\App\Http\Controllers\SupportController::class, 'index']);
+        Route::post('/tickets', [\App\Http\Controllers\SupportController::class, 'store']);
+        Route::get('/tickets/{id}', [\App\Http\Controllers\SupportController::class, 'show']);
+        Route::post('/tickets/{id}/messages', [\App\Http\Controllers\SupportController::class, 'sendMessage']);
+    });
 });

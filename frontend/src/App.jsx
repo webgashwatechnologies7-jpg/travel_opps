@@ -82,6 +82,8 @@ import CallManagement from './pages/CallManagement';
 import SubscriptionDetails from './pages/SubscriptionDetails';
 import MyTeam from './pages/MyTeam';
 import MyTeamDetails from './pages/MyTeamDetails';
+import Support from './pages/Support';
+import SuperAdminTickets from './pages/SuperAdminTickets';
 
 const AppRoutes = () => {
   const { user, loading } = useAuth();
@@ -468,6 +470,22 @@ const AppRoutes = () => {
         }
       />
       <Route
+        path="/support"
+        element={
+          <ProtectedRoute>
+            <Support />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/support/tickets/:id"
+        element={
+          <ProtectedRoute>
+            <Support />
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/company-settings/team-reports"
         element={
           <ProtectedRoute>
@@ -817,6 +835,22 @@ const AppRoutes = () => {
         element={
           <SuperAdminRoute>
             <SuperAdminMailStatus />
+          </SuperAdminRoute>
+        }
+      />
+      <Route
+        path="/super-admin/tickets"
+        element={
+          <SuperAdminRoute>
+            <SuperAdminTickets />
+          </SuperAdminRoute>
+        }
+      />
+      <Route
+        path="/super-admin/tickets/:id"
+        element={
+          <SuperAdminRoute>
+            <SuperAdminTickets />
           </SuperAdminRoute>
         }
       />

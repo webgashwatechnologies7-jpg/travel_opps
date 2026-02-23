@@ -15,3 +15,4 @@ export const getApiBaseUrl = () => {
 };
 
 export const API_BASE_URL = getApiBaseUrl();
+export const ASSET_URL = API_BASE_URL.replace(/\/api$/, '');
