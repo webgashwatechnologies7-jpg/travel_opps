@@ -36,6 +36,11 @@ class Hotel extends Model
     ];
 
     /**
+     * Eager-load creator on every query to prevent N+1 issues.
+     */
+    protected $with = ['creator'];
+
+    /**
      * The attributes that should be cast.
      *
      * @var array<string, string>

@@ -1,9 +1,9 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, memo } from 'react';
 import { useNavigate } from "react-router-dom";
 import { toast } from 'react-toastify';
 import { MoreVertical, Trash2, MapPin, MessageCircle, Mail } from 'lucide-react';
 
-export default function LeadCard({
+function LeadCard({
   name,
   phone,
   tag,
@@ -208,3 +208,5 @@ export default function LeadCard({
     </div>
   );
 }
+
+export default memo(LeadCard);

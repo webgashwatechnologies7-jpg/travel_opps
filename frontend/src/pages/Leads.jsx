@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { leadsAPI, leadSourcesAPI, usersAPI } from '../services/api';
 import { toast } from 'react-toastify';
@@ -171,7 +171,7 @@ const Leads = () => {
     };
   }, [showOptionsDropdown, openActionMenu]);
 
-  const fetchLeads = async (filters = {}, page = 1) => {
+  const fetchLeads = useCallback(async (filters = {}, page = 1) => {
     try {
       setLoading(true);
       const params = { ...filters, per_page: 20, page };
@@ -205,9 +205,9 @@ const Leads = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const fetchLeadSources = async () => {
+  const fetchLeadSources = useCallback(async () => {
     try {
       const response = await leadSourcesAPI.list();
       const sources = response.data.data || response.data || [];
@@ -217,18 +217,18 @@ const Leads = () => {
     } catch (err) {
       console.error('Failed to fetch lead sources:', err);
     }
-  };
+  }, []);
 
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async () => {
     try {
       const response = await usersAPI.list();
       setUsers(response.data.data.users || []);
     } catch (err) {
       console.error('Failed to fetch users:', err);
     }
-  };
+  }, []);
 
-  const handleCreate = async (e) => {
+  const handleCreate = useCallback(async (e) => {
     e.preventDefault();
     try {
       // Map form data to API format (travel_start_date, travel_end_date so Query detail shows From/To Date & Travel Month)
@@ -257,9 +257,9 @@ const Leads = () => {
       toast.error('Failed to create lead');
       console.error(err);
     }
-  };
+  }, [formData, currentUser, fetchLeads]);
 
-  const handleAssign = async (leadId, assignedTo) => {
+  const handleAssign = useCallback(async (leadId, assignedTo) => {
     try {
       await leadsAPI.assign(leadId, parseInt(assignedTo));
       fetchLeads();
@@ -269,15 +269,15 @@ const Leads = () => {
     } catch (err) {
       toast.error('Failed to assign lead');
     }
-  };
+  }, [fetchLeads]);
 
-  const handleOpenAssignModal = (leadId) => {
+  const handleOpenAssignModal = useCallback((leadId) => {
     const lead = leads.find(l => l.id === leadId);
     setSelectedLead(lead);
     setShowAssignModal(true);
-  };
+  }, [leads]);
 
-  const handleStatusChange = async (leadId, status) => {
+  const handleStatusChange = useCallback(async (leadId, status) => {
     try {
       // Only send allowed backend statuses
       const allowedStatuses = ['proposal', 'followup', 'confirmed', 'cancelled'];
@@ -292,15 +292,15 @@ const Leads = () => {
     } catch (err) {
       toast.error('Failed to update status');
     }
-  };
+  }, [fetchLeads]);
 
-  const handleOpenStatusModal = (leadId) => {
+  const handleOpenStatusModal = useCallback((leadId) => {
     const lead = leads.find(l => l.id === leadId);
     setSelectedLead(lead);
     setShowStatusModal(true);
-  };
+  }, [leads]);
 
-  const handleDelete = async (leadId) => {
+  const handleDelete = useCallback(async (leadId) => {
     try {
       await leadsAPI.delete(leadId);
       fetchLeads();
@@ -309,9 +309,9 @@ const Leads = () => {
       toast.error('Failed to delete lead');
       console.error(err);
     }
-  };
+  }, [fetchLeads]);
 
-  const getStatusColor = (status) => {
+  const getStatusColor = useCallback((status) => {
     const colors = {
       new: 'bg-blue-100 text-blue-800',
       proposal: 'bg-yellow-100 text-yellow-800',
@@ -320,19 +320,19 @@ const Leads = () => {
       cancelled: 'bg-red-100 text-red-800',
     };
     return colors[status] || 'bg-gray-100 text-gray-800';
-  };
+  }, []);
 
-  const getPriorityColor = (priority) => {
+  const getPriorityColor = useCallback((priority) => {
     const colors = {
       hot: 'bg-red-100 text-red-800',
       warm: 'bg-yellow-100 text-yellow-800',
       cold: 'bg-blue-100 text-blue-800',
     };
     return colors[priority] || 'bg-gray-100 text-gray-800';
-  };
+  }, []);
 
-  // Calculate summary statistics
-  const calculateStats = () => {
+  // Calculate summary statistics — memoized to avoid recalculation on unrelated renders
+  const stats = useMemo(() => {
     const today = new Date();
     const isSameDay = (date) => {
       const d = new Date(date);
@@ -366,12 +366,10 @@ const Leads = () => {
       invalid: 0, // Not in current data model
     };
     return stats;
-  };
+  }, [leads]);
 
-  const stats = calculateStats();
-
-  // Filter leads based on active filter
-  const getFilteredLeads = () => {
+  // Filter leads based on active filter — memoized so it only recalculates when leads or filter changes
+  const filteredLeads = useMemo(() => {
     if (activeFilter === 'assigned_name') {
       const target = (assignedNameFilter || '').toLowerCase().trim();
       if (!target) return leads;
@@ -453,9 +451,7 @@ const Leads = () => {
       return []; // Not implemented yet
     }
     return leads;
-  };
-
-  const filteredLeads = getFilteredLeads();
+  }, [leads, activeFilter, assignedNameFilter, assignedToFilter, destinationFilter]);
 
   // Format date helper
   const formatDate = (dateString) => {

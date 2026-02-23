@@ -32,149 +32,48 @@ class LeadsController extends Controller
 
     /**
      * Get paginated leads with filters.
-     *
-     * @param Request $request
-     * @return JsonResponse
      */
     public function index(Request $request): JsonResponse
     {
         try {
-            $filters = [
-                'company_id' => function_exists('tenant') ? tenant('id') : $request->user()?->company_id,
-                'status' => $request->get('status'),
-                'assigned_to' => $request->get('assigned_to'),
-                'created_by' => $request->get('created_by'),
-                'source' => $request->get('source'),
-                'destination' => $request->get('destination'),
-                'priority' => $request->get('priority'),
-            ];
+            $filters = $request->only(['status', 'assigned_to', 'created_by', 'source', 'destination', 'priority']);
+            $filters['company_id'] = function_exists('tenant') ? tenant('id') : $request->user()?->company_id;
 
             $perPage = $request->get('per_page', 15);
-
             $leads = $this->leadRepository->getPaginated($filters, $perPage);
 
-            return response()->json([
-                'success' => true,
-                'message' => 'Leads retrieved successfully',
-                'data' => [
-                    'leads' => $leads->items(),
-                    'pagination' => [
-                        'current_page' => $leads->currentPage(),
-                        'last_page' => $leads->lastPage(),
-                        'per_page' => $leads->perPage(),
-                        'total' => $leads->total(),
-                        'from' => $leads->firstItem(),
-                        'to' => $leads->lastItem(),
-                    ],
+            return $this->successResponse([
+                'leads' => array_map([$this, 'formatLeadBasic'], $leads->items()),
+                'pagination' => [
+                    'current_page' => $leads->currentPage(),
+                    'last_page' => $leads->lastPage(),
+                    'per_page' => $leads->perPage(),
+                    'total' => $leads->total(),
                 ],
-            ], 200);
-
+            ], 'Leads retrieved successfully');
         } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'An error occurred while retrieving leads',
-                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
-            ], 500);
+            return $this->serverErrorResponse('An error occurred while retrieving leads', $e);
         }
     }
 
     /**
      * Get a single lead by ID.
-     *
-     * @param int $id
-     * @return JsonResponse
      */
     public function show(int $id): JsonResponse
     {
         try {
             $lead = $this->leadRepository->findById($id);
+            if (!$lead)
+                return $this->notFoundResponse('Lead not found');
 
-            if (!$lead) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Lead not found',
-                ], 404);
-            }
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Lead retrieved successfully',
-                'data' => [
-                    'lead' => [
-                        'id' => $lead->id,
-                        'client_name' => $lead->client_name,
-                        'email' => $lead->email,
-                        'phone' => $lead->phone,
-                        'source' => $lead->source,
-                        'destination' => $lead->destination,
-                        'status' => $lead->status,
-                        'priority' => $lead->priority,
-                        'assigned_to' => $lead->assigned_to,
-                        'travel_start_date' => $lead->travel_start_date ? $lead->travel_start_date->format('Y-m-d') : null,
-                        'travel_end_date' => $lead->travel_end_date ? $lead->travel_end_date->format('Y-m-d') : null,
-                        'adult' => $lead->adult ?? 1,
-                        'child' => $lead->child ?? 0,
-                        'infant' => $lead->infant ?? 0,
-                        'remark' => $lead->remark ?? null,
-                        'pax_details' => $lead->pax_details,
-                        'assigned_user' => $lead->assignedUser ? [
-                            'id' => $lead->assignedUser->id,
-                            'name' => $lead->assignedUser->name,
-                            'email' => $lead->assignedUser->email,
-                        ] : null,
-                        'created_by' => $lead->created_by,
-                        'creator' => $lead->creator ? [
-                            'id' => $lead->creator->id,
-                            'name' => $lead->creator->name,
-                            'email' => $lead->creator->email,
-                        ] : null,
-                        'followups' => $lead->followups->map(function ($followup) {
-                            return [
-                                'id' => $followup->id,
-                                'remark' => $followup->remark,
-                                'reminder_date' => $followup->reminder_date,
-                                'reminder_time' => $followup->reminder_time,
-                                'is_completed' => $followup->is_completed,
-                                'user' => $followup->user ? [
-                                    'id' => $followup->user->id,
-                                    'name' => $followup->user->name,
-                                ] : null,
-                                'created_at' => $followup->created_at,
-                            ];
-                        }),
-                        'status_logs' => $lead->statusLogs->map(function ($log) {
-                            return [
-                                'id' => $log->id,
-                                'old_status' => $log->old_status,
-                                'new_status' => $log->new_status,
-                                'changed_by' => $log->changed_by,
-                                'changed_by_user' => $log->changedBy ? [
-                                    'id' => $log->changedBy->id,
-                                    'name' => $log->changedBy->name,
-                                ] : null,
-                                'created_at' => $log->created_at,
-                            ];
-                        }),
-                        'created_at' => $lead->created_at,
-                        'updated_at' => $lead->updated_at,
-                    ],
-                ],
-            ], 200);
-
+            return $this->successResponse(['lead' => $this->formatLeadFull($lead)], 'Lead retrieved successfully');
         } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'An error occurred while retrieving lead',
-                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
-            ], 500);
+            return $this->serverErrorResponse('Failed to retrieve lead', $e);
         }
     }
 
     /**
      * Create a new lead.
-     *
-     * @param Request $request
-     * @return JsonResponse
      */
     public function store(Request $request): JsonResponse
     {
@@ -190,448 +89,207 @@ class LeadsController extends Controller
                 'priority' => 'nullable|in:hot,warm,cold',
                 'travel_start_date' => 'nullable|date',
                 'travel_end_date' => 'nullable|date|after_or_equal:travel_start_date',
-                'adult' => 'nullable|integer|min:0|max:99',
-                'child' => 'nullable|integer|min:0|max:99',
-                'infant' => 'nullable|integer|min:0|max:99',
-                'remark' => 'nullable|string',
                 'pax_details' => 'nullable|array',
-            ], [
-                'client_name.required' => 'Client name is required.',
-                'source.required' => 'Source is required.',
-                'status.in' => 'Status must be one of: new, proposal, followup, confirmed, cancelled.',
-                'priority.in' => 'Priority must be one of: hot, warm, cold.',
-                'assigned_to.exists' => 'The selected assigned user does not exist.',
             ]);
 
-            if ($validator->fails()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Validation failed',
-                    'errors' => $validator->errors(),
-                ], 422);
-            }
+            if ($validator->fails())
+                return $this->validationErrorResponse($validator);
 
             $data = $validator->validated();
-            if (isset($data['travel_start_date']) && $data['travel_start_date'] === '') {
-                $data['travel_start_date'] = null;
-            }
-            if (isset($data['travel_end_date']) && $data['travel_end_date'] === '') {
-                $data['travel_end_date'] = null;
-            }
             $data['created_by'] = $request->user()->id;
             $data['status'] = $data['status'] ?? 'new';
-            $data['priority'] = $data['priority'] ?? 'warm';
 
             $lead = $this->leadRepository->create($data);
 
-            // Notify assigned user or admins about the new query
-            $userIdsToNotify = collect();
-            if ($lead->assigned_to && $lead->assigned_to != $request->user()->id) {
-                $userIdsToNotify->push($lead->assigned_to);
-            }
-            // Always notify admins about new queries unless they created it
-            $admins = User::whereHas('roles', function ($q) {
-                $q->whereIn('name', ['Admin', 'Company Admin', 'Super Admin']);
-            })->where('id', '!=', $request->user()->id)->pluck('id');
-            $userIdsToNotify = $userIdsToNotify->merge($admins);
+            // Notification logic
+            $this->notifyLeadCreation($lead, $request->user());
 
-            $usersToNotify = User::whereIn('id', $userIdsToNotify->unique())->get();
-            if ($usersToNotify->isNotEmpty()) {
-                Notification::send($usersToNotify, new GenericNotification([
-                    'type' => 'new_query',
-                    'title' => 'New Query Received',
-                    'message' => 'Query from ' . $lead->client_name . ' for ' . ($lead->destination ?? 'Unknown'),
-                    'action_url' => '/leads/' . $lead->id
-                ]));
-            }
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Lead created successfully',
-                'data' => [
-                    'lead' => [
-                        'id' => $lead->id,
-                        'client_name' => $lead->client_name,
-                        'email' => $lead->email,
-                        'phone' => $lead->phone,
-                        'source' => $lead->source,
-                        'destination' => $lead->destination,
-                        'status' => $lead->status,
-                        'priority' => $lead->priority,
-                        'assigned_to' => $lead->assigned_to,
-                        'created_by' => $lead->created_by,
-                        'travel_start_date' => $lead->travel_start_date ? $lead->travel_start_date->format('Y-m-d') : null,
-                        'travel_end_date' => $lead->travel_end_date ? $lead->travel_end_date->format('Y-m-d') : null,
-                        'adult' => $lead->adult,
-                        'child' => $lead->child,
-                        'infant' => $lead->infant,
-                        'remark' => $lead->remark,
-                        'pax_details' => $lead->pax_details,
-                        'created_at' => $lead->created_at,
-                        'updated_at' => $lead->updated_at,
-                    ],
-                ],
-            ], 201);
-
+            return $this->createdResponse(['lead' => $this->formatLeadBasic($lead)], 'Lead created successfully');
         } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'An error occurred while creating lead',
-                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
-            ], 500);
+            return $this->serverErrorResponse('Failed to create lead', $e);
         }
     }
 
     /**
      * Update a lead.
-     *
-     * @param Request $request
-     * @param int $id
-     * @return JsonResponse
      */
     public function update(Request $request, int $id): JsonResponse
     {
         try {
             $validator = Validator::make($request->all(), [
                 'client_name' => 'sometimes|required|string|max:255',
-                'email' => 'nullable|email|max:255',
-                'phone' => 'nullable|string|max:20',
-                'source' => 'sometimes|required|string|max:50',
-                'destination' => 'nullable|string|max:255',
                 'status' => 'nullable|in:new,proposal,followup,confirmed,cancelled',
-                'assigned_to' => 'nullable|exists:users,id',
                 'priority' => 'nullable|in:hot,warm,cold',
-                'travel_start_date' => 'nullable|date',
-                'travel_end_date' => 'nullable|date|after_or_equal:travel_start_date',
-                'adult' => 'nullable|integer|min:0|max:99',
-                'child' => 'nullable|integer|min:0|max:99',
-                'infant' => 'nullable|integer|min:0|max:99',
-                'remark' => 'nullable|string',
-                'pax_details' => 'nullable|array',
-            ], [
-                'status.in' => 'Status must be one of: new, proposal, followup, confirmed, cancelled.',
-                'priority.in' => 'Priority must be one of: hot, warm, cold.',
-                'assigned_to.exists' => 'The selected assigned user does not exist.',
+                'assigned_to' => 'nullable|exists:users,id',
             ]);
 
-            if ($validator->fails()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Validation failed',
-                    'errors' => $validator->errors(),
-                ], 422);
-            }
+            if ($validator->fails())
+                return $this->validationErrorResponse($validator);
 
             $lead = $this->leadRepository->update($id, $validator->validated());
+            if (!$lead)
+                return $this->notFoundResponse('Lead not found');
 
-            if (!$lead) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Lead not found',
-                ], 404);
-            }
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Lead updated successfully',
-                'data' => [
-                    'lead' => [
-                        'id' => $lead->id,
-                        'client_name' => $lead->client_name,
-                        'email' => $lead->email,
-                        'phone' => $lead->phone,
-                        'source' => $lead->source,
-                        'destination' => $lead->destination,
-                        'status' => $lead->status,
-                        'priority' => $lead->priority,
-                        'assigned_to' => $lead->assigned_to,
-                        'travel_start_date' => $lead->travel_start_date ? $lead->travel_start_date->format('Y-m-d') : null,
-                        'travel_end_date' => $lead->travel_end_date ? $lead->travel_end_date->format('Y-m-d') : null,
-                        'adult' => $lead->adult ?? 1,
-                        'child' => $lead->child ?? 0,
-                        'infant' => $lead->infant ?? 0,
-                        'remark' => $lead->remark ?? null,
-                        'pax_details' => $lead->pax_details,
-                        'created_by' => $lead->created_by,
-                        'updated_at' => $lead->updated_at,
-                    ],
-                ],
-            ], 200);
-
+            return $this->updatedResponse(['lead' => $this->formatLeadBasic($lead)], 'Lead updated successfully');
         } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'An error occurred while updating lead',
-                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
-            ], 500);
+            return $this->serverErrorResponse('Failed to update lead', $e);
         }
     }
 
     /**
      * Soft delete a lead.
-     *
-     * @param int $id
-     * @return JsonResponse
      */
     public function destroy(int $id): JsonResponse
     {
         try {
             $deleted = $this->leadRepository->delete($id);
+            if (!$deleted)
+                return $this->notFoundResponse('Lead not found');
 
-            if (!$deleted) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Lead not found',
-                ], 404);
-            }
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Lead deleted successfully',
-            ], 200);
-
+            return $this->deletedResponse('Lead deleted successfully');
         } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'An error occurred while deleting lead',
-                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
-            ], 500);
+            return $this->serverErrorResponse('Failed to delete lead', $e);
         }
     }
 
     /**
      * Assign a lead to a user.
-     *
-     * @param Request $request
-     * @param int $id
-     * @return JsonResponse
      */
     public function assign(Request $request, int $id): JsonResponse
     {
         try {
-            $validator = Validator::make($request->all(), [
-                'assigned_to' => 'required|exists:users,id',
-            ], [
-                'assigned_to.required' => 'The assigned_to field is required.',
-                'assigned_to.exists' => 'The selected assigned user does not exist.',
-            ]);
-
-            if ($validator->fails()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Validation failed',
-                    'errors' => $validator->errors(),
-                ], 422);
-            }
+            $validator = Validator::make($request->all(), ['assigned_to' => 'required|exists:users,id']);
+            if ($validator->fails())
+                return $this->validationErrorResponse($validator);
 
             $lead = $this->leadRepository->findById($id);
-            $currentUser = $request->user();
+            if (!$lead)
+                return $this->notFoundResponse('Lead not found');
 
-            if (!$lead) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Lead not found',
-                ], 404);
-            }
-
-            // Check if assigner has permission to assign to the target user
-            if (!$currentUser->hasRole(['Admin', 'Company Admin', 'Super Admin'])) {
-                $subordinateIds = $currentUser->getAllSubordinateIds();
-                if (!in_array((int) $request->assigned_to, $subordinateIds)) {
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'You do not have permission to assign leads to this user.',
-                    ], 403);
+            if (!$request->user()->hasRole(['Admin', 'Company Admin', 'Super Admin'])) {
+                if (!in_array((int) $request->assigned_to, $request->user()->getAllSubordinateIds())) {
+                    return $this->errorResponse('Permission denied', 403);
                 }
             }
 
-            // Save old assigned_to
             $oldAssignedTo = $lead->assigned_to;
-            $currentStatus = $lead->status;
+            $lead->update(['assigned_to' => $request->assigned_to]);
 
-            // Update lead assignment
-            $lead->update([
-                'assigned_to' => $request->assigned_to,
-            ]);
-
-            // Log assignment into lead_status_logs
             LeadStatusLog::create([
                 'lead_id' => $lead->id,
-                'old_status' => $currentStatus,
+                'old_status' => $lead->status,
                 'new_status' => 'assigned',
                 'changed_by' => $request->user()->id,
-                'created_at' => now(),
             ]);
 
-            // Refresh lead with relationships
-            $lead->refresh();
-            $lead->load(['assignedUser', 'creator', 'followups', 'statusLogs']);
-
-            // Notify assigned user via push notification
-            $assignedUserId = (int) $request->assigned_to;
-            if ($assignedUserId && $assignedUserId !== (int) $oldAssignedTo) {
-                $dest = $lead->destination ?: 'Query';
+            if ((int) $request->assigned_to !== (int) $oldAssignedTo) {
                 PushNotificationService::sendToUsers(
-                    [$assignedUserId],
-                    'New lead assigned to you',
-                    'Lead #' . $lead->id . ' – ' . $dest . ' has been assigned to you.',
+                    [(int) $request->assigned_to],
+                    'New lead assigned',
+                    'Lead #' . $lead->id . ' has been assigned to you.',
                     ['lead_id' => (string) $lead->id]
                 );
             }
 
-            return response()->json([
-                'success' => true,
-                'message' => 'Lead assigned successfully',
-                'data' => [
-                    'lead' => [
-                        'id' => $lead->id,
-                        'client_name' => $lead->client_name,
-                        'email' => $lead->email,
-                        'phone' => $lead->phone,
-                        'source' => $lead->source,
-                        'destination' => $lead->destination,
-                        'status' => $lead->status,
-                        'priority' => $lead->priority,
-                        'assigned_to' => $lead->assigned_to,
-                        'assigned_user' => $lead->assignedUser ? [
-                            'id' => $lead->assignedUser->id,
-                            'name' => $lead->assignedUser->name,
-                            'email' => $lead->assignedUser->email,
-                        ] : null,
-                        'old_assigned_to' => $oldAssignedTo,
-                        'status_logs' => $lead->statusLogs->map(function ($log) {
-                            return [
-                                'id' => $log->id,
-                                'old_status' => $log->old_status,
-                                'new_status' => $log->new_status,
-                                'changed_by' => $log->changed_by,
-                                'changed_by_user' => $log->changedBy ? [
-                                    'id' => $log->changedBy->id,
-                                    'name' => $log->changedBy->name,
-                                ] : null,
-                                'created_at' => $log->created_at,
-                            ];
-                        }),
-                        'updated_at' => $lead->updated_at,
-                    ],
-                ],
-            ], 200);
-
+            return $this->successResponse(['lead' => $this->formatLeadFull($lead->fresh())], 'Lead assigned successfully');
         } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'An error occurred while assigning lead',
-                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
-            ], 500);
+            return $this->serverErrorResponse('Failed to assign lead', $e);
         }
     }
 
     /**
      * Update lead status.
-     *
-     * @param Request $request
-     * @param int $id
-     * @return JsonResponse
      */
     public function updateStatus(Request $request, int $id): JsonResponse
     {
         try {
-            $validator = Validator::make($request->all(), [
-                'status' => 'required|in:proposal,followup,confirmed,cancelled',
-            ], [
-                'status.required' => 'The status field is required.',
-                'status.in' => 'Status must be one of: proposal, followup, confirmed, cancelled.',
-            ]);
-
-            if ($validator->fails()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Validation failed',
-                    'errors' => $validator->errors(),
-                ], 422);
-            }
+            $validator = Validator::make($request->all(), ['status' => 'required|in:proposal,followup,confirmed,cancelled']);
+            if ($validator->fails())
+                return $this->validationErrorResponse($validator);
 
             $lead = $this->leadRepository->findById($id);
+            if (!$lead)
+                return $this->notFoundResponse('Lead not found');
 
-            if (!$lead) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Lead not found',
-                ], 404);
-            }
-
-            // Save old status
             $oldStatus = $lead->status;
-            $newStatus = $request->status;
+            $lead->update(['status' => $request->status]);
 
-            // Update lead status
-            $lead->update([
-                'status' => $newStatus,
-            ]);
-
-            // Log status change into lead_status_logs
             LeadStatusLog::create([
                 'lead_id' => $lead->id,
                 'old_status' => $oldStatus,
-                'new_status' => $newStatus,
+                'new_status' => $request->status,
                 'changed_by' => $request->user()->id,
-                'created_at' => now(),
             ]);
 
-            // Refresh lead with relationships
-            $lead->refresh();
-            $lead->load(['assignedUser', 'creator', 'followups', 'statusLogs']);
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Lead status updated successfully',
-                'data' => [
-                    'lead' => [
-                        'id' => $lead->id,
-                        'client_name' => $lead->client_name,
-                        'email' => $lead->email,
-                        'phone' => $lead->phone,
-                        'source' => $lead->source,
-                        'destination' => $lead->destination,
-                        'status' => $lead->status,
-                        'priority' => $lead->priority,
-                        'assigned_to' => $lead->assigned_to,
-                        'assigned_user' => $lead->assignedUser ? [
-                            'id' => $lead->assignedUser->id,
-                            'name' => $lead->assignedUser->name,
-                            'email' => $lead->assignedUser->email,
-                        ] : null,
-                        'created_by' => $lead->created_by,
-                        'creator' => $lead->creator ? [
-                            'id' => $lead->creator->id,
-                            'name' => $lead->creator->name,
-                            'email' => $lead->creator->email,
-                        ] : null,
-                        'status_logs' => $lead->statusLogs->map(function ($log) {
-                            return [
-                                'id' => $log->id,
-                                'old_status' => $log->old_status,
-                                'new_status' => $log->new_status,
-                                'changed_by' => $log->changed_by,
-                                'changed_by_user' => $log->changedBy ? [
-                                    'id' => $log->changedBy->id,
-                                    'name' => $log->changedBy->name,
-                                ] : null,
-                                'created_at' => $log->created_at,
-                            ];
-                        }),
-                        'updated_at' => $lead->updated_at,
-                    ],
-                ],
-            ], 200);
-
+            return $this->successResponse(['lead' => $this->formatLeadFull($lead->fresh())], 'Lead status updated successfully');
         } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'An error occurred while updating lead status',
-                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
-            ], 500);
+            return $this->serverErrorResponse('Failed to update status', $e);
+        }
+    }
+
+    // ─── Helpers ──────────────────────────────────────────────────────────────────
+
+    private function formatLeadBasic($lead)
+    {
+        return [
+            'id' => $lead->id,
+            'client_name' => $lead->client_name,
+            'email' => $lead->email,
+            'phone' => $lead->phone,
+            'source' => $lead->source,
+            'destination' => $lead->destination,
+            'status' => $lead->status,
+            'priority' => $lead->priority,
+            'assigned_to' => $lead->assigned_to,
+            'updated_at' => $lead->updated_at,
+        ];
+    }
+
+    private function formatLeadFull($lead)
+    {
+        return array_merge($this->formatLeadBasic($lead), [
+            'travel_start_date' => optional($lead->travel_start_date)->format('Y-m-d'),
+            'travel_end_date' => optional($lead->travel_end_date)->format('Y-m-d'),
+            'adult' => $lead->adult ?? 1,
+            'child' => $lead->child ?? 0,
+            'infant' => $lead->infant ?? 0,
+            'pax_details' => $lead->pax_details,
+            'assigned_user' => $lead->assignedUser ? ['id' => $lead->assignedUser->id, 'name' => $lead->assignedUser->name] : null,
+            'creator' => $lead->creator ? ['id' => $lead->creator->id, 'name' => $lead->creator->name] : null,
+            'followups' => $lead->followups->map(fn($f) => [
+                'id' => $f->id,
+                'remark' => $f->remark,
+                'reminder_date' => $f->reminder_date,
+                'is_completed' => $f->is_completed,
+            ]),
+            'status_logs' => $lead->statusLogs->map(fn($l) => [
+                'id' => $l->id,
+                'old_status' => $l->old_status,
+                'new_status' => $l->new_status,
+                'changed_by_name' => $l->changedBy?->name,
+            ]),
+            'created_at' => $lead->created_at,
+        ]);
+    }
+
+    private function notifyLeadCreation($lead, $creator)
+    {
+        $userIds = collect();
+        if ($lead->assigned_to && $lead->assigned_to != $creator->id)
+            $userIds->push($lead->assigned_to);
+
+        $admins = User::whereHas('roles', fn($q) => $q->whereIn('name', ['Admin', 'Company Admin', 'Super Admin']))
+            ->where('id', '!=', $creator->id)
+            ->pluck('id');
+
+        $users = User::whereIn('id', $userIds->merge($admins)->unique())->get();
+        if ($users->isNotEmpty()) {
+            Notification::send($users, new GenericNotification([
+                'type' => 'new_query',
+                'title' => 'New Query Received',
+                'message' => 'Query from ' . $lead->client_name,
+                'action_url' => '/leads/' . $lead->id
+            ]));
         }
     }
 }
-

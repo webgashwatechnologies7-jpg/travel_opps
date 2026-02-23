@@ -36,7 +36,7 @@ class CheckPlanFeature
         if (!$plan || !$plan->hasDynamicFeature($featureKey)) {
             return response()->json([
                 'success' => false,
-                'message' => 'This feature is not available in your subscription plan (' . $featureKey . ').',
+                'message' => 'To use this feature, you need to upgrade your current plan.',
                 'error_code' => 'FEATURE_NOT_IN_PLAN'
             ], 403);
         }

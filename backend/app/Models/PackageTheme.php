@@ -30,6 +30,8 @@ class PackageTheme extends Model
         'created_by',
     ];
 
+    protected $with = ['creator'];
+
     /**
      * The attributes that should be cast.
      *

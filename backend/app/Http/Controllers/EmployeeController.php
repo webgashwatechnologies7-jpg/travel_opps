@@ -12,10 +12,12 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Carbon\Carbon;
-use Barryvdh\DomPDF\Facade as PDF;
+use Barryvdh\DomPDF\Facade\Pdf;
 
 class EmployeeController extends Controller
 {
+    use \App\Traits\FinancialPeriodTrait;
+
     /**
      * Get comprehensive employee details.
      *
@@ -61,12 +63,12 @@ class EmployeeController extends Controller
                 ->first();
 
             // Get profit/loss from leads
-            $totalRevenue = Payment::whereHas('lead', function($query) use ($employeeId) {
+            $totalRevenue = Payment::whereHas('lead', function ($query) use ($employeeId) {
                 $query->where('assigned_to', $employeeId)->where('status', 'confirmed');
             })->sum('amount');
-            
+
             // Get current month performance
-            $monthlyRevenue = Payment::whereHas('lead', function($query) use ($employeeId) {
+            $monthlyRevenue = Payment::whereHas('lead', function ($query) use ($employeeId) {
                 $query->where('assigned_to', $employeeId)
                     ->where('status', 'confirmed')
                     ->whereMonth('created_at', now()->month)
@@ -126,31 +128,9 @@ class EmployeeController extends Controller
                 ], 422);
             }
 
-            $period = $request->input('period');
+            list($startDate, $endDate) = $this->getPeriodDates($request);
+            $period = $request->input('period', 'monthly');
             $employee = User::findOrFail($employeeId);
-
-            $startDate = $request->input('start_date');
-            $endDate = $request->input('end_date');
-
-            if (!$startDate || !$endDate) {
-                switch ($period) {
-                    case 'weekly':
-                        $startDate = now()->startOfWeek();
-                        $endDate = now()->endOfWeek();
-                        break;
-                    case 'monthly':
-                        $startDate = now()->startOfMonth();
-                        $endDate = now()->endOfMonth();
-                        break;
-                    case 'yearly':
-                        $startDate = now()->startOfYear();
-                        $endDate = now()->endOfYear();
-                        break;
-                }
-            }
-
-            $startDate = Carbon::parse($startDate);
-            $endDate = Carbon::parse($endDate);
 
             // Get leads data for the period
             $leadsQuery = Lead::where('assigned_to', $employeeId)
@@ -162,12 +142,12 @@ class EmployeeController extends Controller
             $pendingLeads = $leadsQuery->whereIn('status', ['new', 'proposal', 'followup'])->count();
 
             // Get revenue from lead payments for confirmed leads
-            $totalRevenue = Payment::whereHas('lead', function($query) use ($employeeId, $startDate, $endDate) {
+            $totalRevenue = Payment::whereHas('lead', function ($query) use ($employeeId, $startDate, $endDate) {
                 $query->where('assigned_to', $employeeId)
                     ->where('status', 'confirmed')
                     ->whereBetween('created_at', [$startDate, $endDate]);
             })->sum('amount');
-            
+
             $averageLeadValue = $confirmedLeads > 0 ? $totalRevenue / $confirmedLeads : 0;
 
             // Get daily breakdown for charts
@@ -182,7 +162,7 @@ class EmployeeController extends Controller
 
             // Add revenue data to daily breakdown
             foreach ($dailyData as $day) {
-                $dayRevenue = Payment::whereHas('lead', function($query) use ($employeeId, $day) {
+                $dayRevenue = Payment::whereHas('lead', function ($query) use ($employeeId, $day) {
                     $query->where('assigned_to', $employeeId)
                         ->where('status', 'confirmed')
                         ->whereDate('created_at', $day->date);
@@ -251,8 +231,7 @@ class EmployeeController extends Controller
      * Download employee report as PDF.
      *
      * @param Request $request
-     * @param int $employeeId
-     * @return \Illuminate\Http\Response
+     * @return \Illuminate\Http\Response|JsonResponse
      */
     public function downloadEmployeeReportPDF(Request $request, $employeeId)
     {
@@ -282,10 +261,10 @@ class EmployeeController extends Controller
             $data = $reportData['data'];
 
             // Generate PDF
-            $pdf = PDF::loadView('pdf.employee-report', compact('data'));
-            
+            $pdf = Pdf::loadView('pdf.employee-report', compact('data'));
+
             $filename = 'employee-report-' . $data['employee']['name'] . '-' . $data['period'] . '-' . now()->format('Y-m-d') . '.pdf';
-            
+
             return $pdf->download($filename);
         } catch (\Exception $e) {
             return response()->json([
@@ -349,37 +328,11 @@ class EmployeeController extends Controller
             }
 
             $employee = User::findOrFail($employeeId);
-            $period = $request->input('period');
-            $startDate = $request->input('start_date');
-            $endDate = $request->input('end_date');
-
-            if (!$startDate || !$endDate) {
-                if ($period) {
-                    switch ($period) {
-                        case 'weekly':
-                            $startDate = now()->startOfWeek();
-                            $endDate = now()->endOfWeek();
-                            break;
-                        case 'monthly':
-                            $startDate = now()->startOfMonth();
-                            $endDate = now()->endOfMonth();
-                            break;
-                        case 'yearly':
-                            $startDate = now()->startOfYear();
-                            $endDate = now()->endOfYear();
-                            break;
-                    }
-                } else {
-                    $startDate = now()->startOfMonth();
-                    $endDate = now()->endOfMonth();
-                }
-            }
-
-            $startDate = Carbon::parse($startDate);
-            $endDate = Carbon::parse($endDate);
+            list($startDate, $endDate) = $this->getPeriodDates($request);
+            $period = $request->input('period', 'custom');
 
             // Get revenue from confirmed leads (dynamic - actual Payment data)
-            $revenue = Payment::whereHas('lead', function($query) use ($employeeId, $startDate, $endDate) {
+            $revenue = Payment::whereHas('lead', function ($query) use ($employeeId, $startDate, $endDate) {
                 $query->where('assigned_to', $employeeId)
                     ->where('status', 'confirmed')
                     ->whereBetween('created_at', [$startDate, $endDate]);
@@ -390,14 +343,14 @@ class EmployeeController extends Controller
                 ->where('status', 'cancelled')
                 ->whereBetween('created_at', [$startDate, $endDate])
                 ->get();
-            $lostRevenue = $cancelledLeads->sum(fn ($lead) => $lead->getEstimatedValue());
+            $lostRevenue = $cancelledLeads->sum(fn($lead) => $lead->getEstimatedValue());
 
             // Dynamic pending revenue - actual value from quotation/invoice/budget per pending lead
             $pendingLeadsList = Lead::where('assigned_to', $employeeId)
                 ->whereIn('status', ['new', 'proposal', 'followup'])
                 ->whereBetween('created_at', [$startDate, $endDate])
                 ->get();
-            $pendingRevenue = $pendingLeadsList->sum(fn ($lead) => $lead->getEstimatedValue());
+            $pendingRevenue = $pendingLeadsList->sum(fn($lead) => $lead->getEstimatedValue());
 
             // Calculate conversion rates
             $totalLeads = Lead::where('assigned_to', $employeeId)
@@ -419,12 +372,12 @@ class EmployeeController extends Controller
                 ->where('type', EmployeeFinancialTransaction::TYPE_PAYABLE)
                 ->whereIn('status', [EmployeeFinancialTransaction::STATUS_PENDING, EmployeeFinancialTransaction::STATUS_PARTIAL])
                 ->get()
-                ->sum(fn ($t) => $t->amount - $t->paid_amount), 2);
+                ->sum(fn($t) => $t->amount - $t->paid_amount), 2);
             $lena = round((float) EmployeeFinancialTransaction::where('user_id', $employeeId)
                 ->where('type', EmployeeFinancialTransaction::TYPE_RECEIVABLE)
                 ->whereIn('status', [EmployeeFinancialTransaction::STATUS_PENDING, EmployeeFinancialTransaction::STATUS_PARTIAL])
                 ->get()
-                ->sum(fn ($t) => $t->amount - $t->paid_amount), 2);
+                ->sum(fn($t) => $t->amount - $t->paid_amount), 2);
 
             return response()->json([
                 'success' => true,
@@ -517,7 +470,7 @@ class EmployeeController extends Controller
                 $logs = $logsQuery->get();
                 foreach ($logs as $log) {
                     $performanceData[] = [
-                        'date' => $log->date->format('Y-m-d'),
+                        'date' => Carbon::parse($log->date)->format('Y-m-d'),
                         'leads_assigned' => $log->leads_assigned,
                         'leads_confirmed' => $log->leads_confirmed,
                         'leads_cancelled' => $log->leads_cancelled,
@@ -531,13 +484,14 @@ class EmployeeController extends Controller
             } elseif ($period === 'weekly') {
                 $logs = $logsQuery->get();
                 $weeklyData = [];
-                
+
                 foreach ($logs as $log) {
-                    $weekKey = $log->date->format('Y-W');
+                    $logDate = Carbon::parse($log->date);
+                    $weekKey = $logDate->format('Y-W');
                     if (!isset($weeklyData[$weekKey])) {
                         $weeklyData[$weekKey] = [
-                            'week_start' => $log->date->startOfWeek()->format('Y-m-d'),
-                            'week_end' => $log->date->endOfWeek()->format('Y-m-d'),
+                            'week_start' => $logDate->startOfWeek()->format('Y-m-d'),
+                            'week_end' => $logDate->endOfWeek()->format('Y-m-d'),
                             'leads_assigned' => 0,
                             'leads_confirmed' => 0,
                             'leads_cancelled' => 0,
@@ -546,7 +500,7 @@ class EmployeeController extends Controller
                             'achievement_amount' => 0,
                         ];
                     }
-                    
+
                     $weeklyData[$weekKey]['leads_assigned'] += $log->leads_assigned;
                     $weeklyData[$weekKey]['leads_confirmed'] += $log->leads_confirmed;
                     $weeklyData[$weekKey]['leads_cancelled'] += $log->leads_cancelled;
@@ -554,7 +508,7 @@ class EmployeeController extends Controller
                     $weeklyData[$weekKey]['target_amount'] += $log->target_amount;
                     $weeklyData[$weekKey]['achievement_amount'] += $log->achievement_amount;
                 }
-                
+
                 foreach ($weeklyData as $week) {
                     $totalLeads = $week['leads_assigned'];
                     $performanceData[] = [
@@ -572,12 +526,13 @@ class EmployeeController extends Controller
             } elseif ($period === 'monthly') {
                 $logs = $logsQuery->get();
                 $monthlyData = [];
-                
+
                 foreach ($logs as $log) {
-                    $monthKey = $log->date->format('Y-m');
+                    $logDate = Carbon::parse($log->date);
+                    $monthKey = $logDate->format('Y-m');
                     if (!isset($monthlyData[$monthKey])) {
                         $monthlyData[$monthKey] = [
-                            'month' => $log->date->format('Y-m'),
+                            'month' => $logDate->format('Y-m'),
                             'leads_assigned' => 0,
                             'leads_confirmed' => 0,
                             'leads_cancelled' => 0,
@@ -586,7 +541,7 @@ class EmployeeController extends Controller
                             'achievement_amount' => 0,
                         ];
                     }
-                    
+
                     $monthlyData[$monthKey]['leads_assigned'] += $log->leads_assigned;
                     $monthlyData[$monthKey]['leads_confirmed'] += $log->leads_confirmed;
                     $monthlyData[$monthKey]['leads_cancelled'] += $log->leads_cancelled;
@@ -594,7 +549,7 @@ class EmployeeController extends Controller
                     $monthlyData[$monthKey]['target_amount'] += $log->target_amount;
                     $monthlyData[$monthKey]['achievement_amount'] += $log->achievement_amount;
                 }
-                
+
                 foreach ($monthlyData as $month) {
                     $totalLeads = $month['leads_assigned'];
                     $performanceData[] = [
@@ -668,31 +623,9 @@ class EmployeeController extends Controller
                 ], 422);
             }
 
-            $period = $request->input('period');
+            list($startDate, $endDate) = $this->getPeriodDates($request);
+            $period = $request->input('period', 'monthly');
             $employee = User::findOrFail($employeeId);
-
-            $startDate = $request->input('start_date');
-            $endDate = $request->input('end_date');
-
-            if (!$startDate || !$endDate) {
-                switch ($period) {
-                    case 'weekly':
-                        $startDate = now()->startOfWeek();
-                        $endDate = now()->endOfWeek();
-                        break;
-                    case 'monthly':
-                        $startDate = now()->startOfMonth();
-                        $endDate = now()->endOfMonth();
-                        break;
-                    case 'yearly':
-                        $startDate = now()->startOfYear();
-                        $endDate = now()->endOfYear();
-                        break;
-                }
-            }
-
-            $startDate = Carbon::parse($startDate);
-            $endDate = Carbon::parse($endDate);
 
             // 1. PROFIT - Dynamic: Revenue from confirmed leads (actual Payment data)
             $revenue = Payment::whereHas('lead', function ($query) use ($employeeId, $startDate, $endDate) {
@@ -707,21 +640,21 @@ class EmployeeController extends Controller
                 ->where('status', 'cancelled')
                 ->whereBetween('created_at', [$startDate, $endDate])
                 ->get();
-            $loss = round($cancelledLeads->sum(fn ($lead) => $lead->getEstimatedValue()), 2);
+            $loss = round($cancelledLeads->sum(fn($lead) => $lead->getEstimatedValue()), 2);
 
             // 3. DENA (Payables) - Company owes to employee - Kitna dena (total outstanding)
             $dena = round((float) EmployeeFinancialTransaction::where('user_id', $employeeId)
                 ->where('type', EmployeeFinancialTransaction::TYPE_PAYABLE)
                 ->whereIn('status', [EmployeeFinancialTransaction::STATUS_PENDING, EmployeeFinancialTransaction::STATUS_PARTIAL])
                 ->get()
-                ->sum(fn ($t) => $t->amount - $t->paid_amount), 2);
+                ->sum(fn($t) => $t->amount - $t->paid_amount), 2);
 
             // 4. LENA (Receivables) - Employee owes to company - Kitna lena (total outstanding)
             $lena = round((float) EmployeeFinancialTransaction::where('user_id', $employeeId)
                 ->where('type', EmployeeFinancialTransaction::TYPE_RECEIVABLE)
                 ->whereIn('status', [EmployeeFinancialTransaction::STATUS_PENDING, EmployeeFinancialTransaction::STATUS_PARTIAL])
                 ->get()
-                ->sum(fn ($t) => $t->amount - $t->paid_amount), 2);
+                ->sum(fn($t) => $t->amount - $t->paid_amount), 2);
 
             return response()->json([
                 'success' => true,
@@ -895,7 +828,7 @@ class EmployeeController extends Controller
                 $query->whereBetween('transaction_date', [$startDate, $endDate]);
             }
 
-            $transactions = $query->get()->map(fn ($t) => [
+            $transactions = $query->get()->map(fn($t) => [
                 'id' => $t->id,
                 'type' => $t->type,
                 'category' => $t->category,

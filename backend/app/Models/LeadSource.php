@@ -30,6 +30,11 @@ class LeadSource extends Model
     ];
 
     /**
+     * Eager load creator by default to prevent N+1 queries.
+     */
+    protected $with = ['creator'];
+
+    /**
      * The attributes that should be cast.
      *
      * @var array<string, string>

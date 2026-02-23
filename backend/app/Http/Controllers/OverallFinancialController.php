@@ -12,6 +12,8 @@ use Carbon\Carbon;
 
 class OverallFinancialController extends Controller
 {
+    use \App\Traits\FinancialPeriodTrait;
+
     /**
      * Part 5 - Overall financial summary.
      * Kitna dena hai, kitna lena hai - Weekly/Monthly/Yearly.
@@ -20,7 +22,7 @@ class OverallFinancialController extends Controller
     {
         try {
             $validator = Validator::make($request->all(), [
-                'period' => 'required|in:weekly,monthly,yearly',
+                'period' => 'nullable|in:weekly,monthly,yearly',
                 'start_date' => 'nullable|date',
                 'end_date' => 'nullable|date|after_or_equal:start_date',
             ]);
@@ -33,40 +35,19 @@ class OverallFinancialController extends Controller
                 ], 422);
             }
 
-            $period = $request->input('period');
-            $startDate = $request->input('start_date');
-            $endDate = $request->input('end_date');
-
-            if (!$startDate || !$endDate) {
-                switch ($period) {
-                    case 'weekly':
-                        $startDate = now()->startOfWeek();
-                        $endDate = now()->endOfWeek();
-                        break;
-                    case 'monthly':
-                        $startDate = now()->startOfMonth();
-                        $endDate = now()->endOfMonth();
-                        break;
-                    case 'yearly':
-                        $startDate = now()->startOfYear();
-                        $endDate = now()->endOfYear();
-                        break;
-                }
-            }
-
-            $startDate = Carbon::parse($startDate);
-            $endDate = Carbon::parse($endDate);
+            list($startDate, $endDate) = $this->getPeriodDates($request);
+            $period = $request->input('period', 'monthly');
 
             // Total DENA - Company owes (payables)
             $employeePayables = (float) EmployeeFinancialTransaction::where('type', EmployeeFinancialTransaction::TYPE_PAYABLE)
                 ->whereIn('status', [EmployeeFinancialTransaction::STATUS_PENDING, EmployeeFinancialTransaction::STATUS_PARTIAL])
                 ->get()
-                ->sum(fn ($t) => $t->amount - $t->paid_amount);
+                ->sum(fn($t) => $t->amount - $t->paid_amount);
 
             $supplierPayables = (float) SupplierFinancialTransaction::where('type', SupplierFinancialTransaction::TYPE_PAYABLE)
                 ->whereIn('status', [SupplierFinancialTransaction::STATUS_PENDING, SupplierFinancialTransaction::STATUS_PARTIAL])
                 ->get()
-                ->sum(fn ($t) => $t->amount - $t->paid_amount);
+                ->sum(fn($t) => $t->amount - $t->paid_amount);
 
             $totalDena = round($employeePayables + $supplierPayables, 2);
 
@@ -74,17 +55,17 @@ class OverallFinancialController extends Controller
             $employeeReceivables = (float) EmployeeFinancialTransaction::where('type', EmployeeFinancialTransaction::TYPE_RECEIVABLE)
                 ->whereIn('status', [EmployeeFinancialTransaction::STATUS_PENDING, EmployeeFinancialTransaction::STATUS_PARTIAL])
                 ->get()
-                ->sum(fn ($t) => $t->amount - $t->paid_amount);
+                ->sum(fn($t) => $t->amount - $t->paid_amount);
 
             $supplierReceivables = (float) SupplierFinancialTransaction::where('type', SupplierFinancialTransaction::TYPE_RECEIVABLE)
                 ->whereIn('status', [SupplierFinancialTransaction::STATUS_PENDING, SupplierFinancialTransaction::STATUS_PARTIAL])
                 ->get()
-                ->sum(fn ($t) => $t->amount - $t->paid_amount);
+                ->sum(fn($t) => $t->amount - $t->paid_amount);
 
             // Client pending payments (kitna clients se lena hai)
             $clientPending = (float) Payment::whereIn('status', ['pending', 'partial'])
                 ->get()
-                ->sum(fn ($p) => $p->amount - $p->paid_amount);
+                ->sum(fn($p) => $p->amount - $p->paid_amount);
 
             $totalLena = round($employeeReceivables + $supplierReceivables + $clientPending, 2);
 

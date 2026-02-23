@@ -87,6 +87,19 @@ api.interceptors.response.use(
   }
 );
 
+/**
+ * Helper: POST/PUT with automatic multipart/form-data detection.
+ * If `data` is a FormData instance, sets the correct content-type.
+ * Optionally appends `_method` override (e.g. 'PUT') for FormData updates.
+ */
+const postWithFile = (url, data, method = 'POST') => {
+  if (data instanceof FormData) {
+    if (method !== 'POST') data.append('_method', method);
+    return api.post(url, data, { headers: { 'Content-Type': 'multipart/form-data' } });
+  }
+  return method === 'PUT' ? api.put(url, data) : api.post(url, data);
+};
+
 // Auth APIs
 export const authAPI = {
   login: (email, password) => api.post('/auth/login', { email, password }),
@@ -429,28 +442,8 @@ export const hotelsAPI = {
   getRooms: (hotelId, params = {}) => api.get(`/hotels/${hotelId}/rooms`, {
     params: params
   }),
-  create: (data) => {
-    // Check if data is FormData
-    if (data instanceof FormData) {
-      return api.post('/hotels', data, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
-    }
-    return api.post('/hotels', data);
-  },
-  update: (id, data) => {
-    // Check if data is FormData
-    if (data instanceof FormData) {
-      return api.post(`/hotels/${id}`, data, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
-    }
-    return api.put(`/hotels/${id}`, data);
-  },
+  create: (data) => postWithFile('/hotels', data),
+  update: (id, data) => postWithFile(`/hotels/${id}`, data, 'PUT'),
   delete: (id) => api.delete(`/hotels/${id}`),
   // Hotel rates APIs
   getRates: (hotelId) => api.get(`/hotels/${hotelId}/rates`),
@@ -481,26 +474,8 @@ export const hotelsAPI = {
 export const activitiesAPI = {
   list: () => api.get('/activities'),
   get: (id) => api.get(`/activities/${id}`),
-  create: (data) => {
-    if (data instanceof FormData) {
-      return api.post('/activities', data, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
-    }
-    return api.post('/activities', data);
-  },
-  update: (id, data) => {
-    if (data instanceof FormData) {
-      return api.post(`/activities/${id}`, data, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
-    }
-    return api.put(`/activities/${id}`, data);
-  },
+  create: (data) => postWithFile('/activities', data),
+  update: (id, data) => postWithFile(`/activities/${id}`, data, 'PUT'),
   delete: (id) => api.delete(`/activities/${id}`),
   // Activity prices APIs
   getPrices: (activityId) => api.get(`/activities/${activityId}/prices`),
@@ -531,26 +506,8 @@ export const activitiesAPI = {
 export const transfersAPI = {
   list: () => api.get('/transfers'),
   get: (id) => api.get(`/transfers/${id}`),
-  create: (data) => {
-    if (data instanceof FormData) {
-      return api.post('/transfers', data, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
-    }
-    return api.post('/transfers', data);
-  },
-  update: (id, data) => {
-    if (data instanceof FormData) {
-      return api.post(`/transfers/${id}`, data, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
-    }
-    return api.put(`/transfers/${id}`, data);
-  },
+  create: (data) => postWithFile('/transfers', data),
+  update: (id, data) => postWithFile(`/transfers/${id}`, data, 'PUT'),
   delete: (id) => api.delete(`/transfers/${id}`),
   // Transfer prices APIs
   getPrices: (transferId) => api.get(`/transfers/${transferId}/prices`),
@@ -581,29 +538,8 @@ export const transfersAPI = {
 export const dayItinerariesAPI = {
   list: () => api.get('/day-itineraries'),
   get: (id) => api.get(`/day-itineraries/${id}`),
-  create: (data) => {
-    // Check if data is FormData
-    if (data instanceof FormData) {
-      return api.post('/day-itineraries', data, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
-    }
-    return api.post('/day-itineraries', data);
-  },
-  update: (id, data) => {
-    // Check if data is FormData
-    if (data instanceof FormData) {
-      data.append('_method', 'PUT');
-      return api.post(`/day-itineraries/${id}`, data, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
-    }
-    return api.put(`/day-itineraries/${id}`, data);
-  },
+  create: (data) => postWithFile('/day-itineraries', data),
+  update: (id, data) => postWithFile(`/day-itineraries/${id}`, data, 'PUT'),
   delete: (id) => api.delete(`/day-itineraries/${id}`),
 };
 
@@ -611,29 +547,8 @@ export const dayItinerariesAPI = {
 export const packagesAPI = {
   list: () => api.get('/packages'),
   get: (id) => api.get(`/packages/${id}`),
-  create: (data) => {
-    // Check if data is FormData
-    if (data instanceof FormData) {
-      return api.post('/packages', data, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
-    }
-    return api.post('/packages', data);
-  },
-  update: (id, data) => {
-    // Check if data is FormData
-    if (data instanceof FormData) {
-      data.append('_method', 'PUT');
-      return api.post(`/packages/${id}`, data, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
-    }
-    return api.put(`/packages/${id}`, data);
-  },
+  create: (data) => postWithFile('/packages', data),
+  update: (id, data) => postWithFile(`/packages/${id}`, data, 'PUT'),
   delete: (id) => api.delete(`/packages/${id}`),
 };
 
@@ -692,29 +607,8 @@ export const expenseTypesAPI = {
 export const packageThemesAPI = {
   list: () => api.get('/package-themes'),
   get: (id) => api.get(`/package-themes/${id}`),
-  create: (data) => {
-    // Check if data is FormData
-    if (data instanceof FormData) {
-      return api.post('/package-themes', data, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
-    }
-    return api.post('/package-themes', data);
-  },
-  update: (id, data) => {
-    // Check if data is FormData
-    if (data instanceof FormData) {
-      data.append('_method', 'PUT');
-      return api.post(`/package-themes/${id}`, data, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
-    }
-    return api.put(`/package-themes/${id}`, data);
-  },
+  create: (data) => postWithFile('/package-themes', data),
+  update: (id, data) => postWithFile(`/package-themes/${id}`, data, 'PUT'),
   delete: (id) => api.delete(`/package-themes/${id}`),
 };
 

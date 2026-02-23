@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { accountsAPI } from '../services/api';
 import { toast } from 'react-toastify';
@@ -21,7 +21,7 @@ const Clients = () => {
     fetchClients();
   }, []);
 
-  const fetchClients = async () => {
+  const fetchClients = useCallback(async () => {
     try {
       const response = await accountsAPI.getClients();
       if (response.data.success) {
@@ -66,15 +66,17 @@ const Clients = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const filteredClients = (clients || []).filter(client =>
-    client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    client.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    client.mobile.includes(searchTerm)
-  );
+  const filteredClients = useMemo(() =>
+    (clients || []).filter(client =>
+      client.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      client.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      client.mobile?.includes(searchTerm)
+    ),
+    [clients, searchTerm]);
 
-  const handleAddClient = async (clientData) => {
+  const handleAddClient = useCallback(async (clientData) => {
     try {
       const response = await accountsAPI.createClient(clientData);
       if (response.data.success) {
@@ -88,14 +90,14 @@ const Clients = () => {
       console.error('Error creating client:', error);
       throw error;
     }
-  };
+  }, [fetchClients]);
 
-  const handleEditClient = (client) => {
+  const handleEditClient = useCallback((client) => {
     setSelectedClient(client);
     setShowEditModal(true);
-  };
+  }, []);
 
-  const handleUpdateClient = async (clientData) => {
+  const handleUpdateClient = useCallback(async (clientData) => {
     try {
       const response = await accountsAPI.updateClient(selectedClient.id, clientData);
       if (response.data.success) {
@@ -111,9 +113,9 @@ const Clients = () => {
       console.error('Error updating client:', error);
       throw error;
     }
-  };
+  }, [fetchClients, selectedClient]);
 
-  const handleDeleteClient = async (clientId) => {
+  const handleDeleteClient = useCallback(async (clientId) => {
     if (window.confirm('Are you sure you want to delete this client?')) {
       try {
         const response = await accountsAPI.deleteClient(clientId);
@@ -129,27 +131,17 @@ const Clients = () => {
         toast.error('Failed to delete client. Please try again.');
       }
     }
-  };
+  }, [fetchClients]);
 
-  const handleViewClient = (client) => {
-    // Navigate to client details page
+  const handleViewClient = useCallback((client) => {
     navigate(`/accounts/clients/${client.id}`);
-  };
+  }, [navigate]);
 
-  const handleViewReports = (client) => {
-    // Navigate to client reports page
+  const handleViewReports = useCallback((client) => {
     navigate(`/accounts/clients/${client.id}/reports`);
-  };
+  }, [navigate]);
 
-  const handleQuickReport = (client) => {
-    // Generate quick report (simplified version)
-    const reportData = {
-      client: client,
-      generatedOn: new Date().toLocaleDateString(),
-      totalQueries: client.queries || 0,
-      lastQuery: client.lastQuery || 'N/A'
-    };
-
+  const handleQuickReport = useCallback((client) => {
     const reportContent = `
 QUICK CLIENT REPORT
 ====================
@@ -167,7 +159,6 @@ Summary:
 
 This is a quick report. For detailed reports, please use the Reports option.
     `;
-
     const blob = new Blob([reportContent], { type: 'text/plain' });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -177,50 +168,37 @@ This is a quick report. For detailed reports, please use the Reports option.
     a.click();
     document.body.removeChild(a);
     window.URL.revokeObjectURL(url);
-  };
+  }, []);
 
-  const toggleDropdown = (clientId) => {
-    setActiveDropdown(activeDropdown === clientId ? null : clientId);
-  };
+  const toggleDropdown = useCallback((clientId) => {
+    setActiveDropdown(prev => prev === clientId ? null : clientId);
+  }, []);
 
-  const handleDropdownAction = (action, client) => {
+  const handleDropdownAction = useCallback((action, client) => {
     setActiveDropdown(null);
     switch (action) {
-      case 'view':
-        handleViewClient(client);
-        break;
-      case 'edit':
-        handleEditClient(client);
-        break;
-      case 'delete':
-        handleDeleteClient(client.id);
-        break;
-      case 'reports':
-        handleViewReports(client);
-        break;
-      case 'quickReport':
-        handleQuickReport(client);
-        break;
-      default:
-        break;
+      case 'view': handleViewClient(client); break;
+      case 'edit': handleEditClient(client); break;
+      case 'delete': handleDeleteClient(client.id); break;
+      case 'reports': handleViewReports(client); break;
+      case 'quickReport': handleQuickReport(client); break;
+      default: break;
     }
-  };
+  }, [handleViewClient, handleEditClient, handleDeleteClient, handleViewReports, handleQuickReport]);
 
-  const handleSelectClient = (clientId) => {
+  const handleSelectClient = useCallback((clientId) => {
     setSelectedClients(prev =>
-      prev.includes(clientId)
-        ? prev.filter(id => id !== clientId)
-        : [...prev, clientId]
+      prev.includes(clientId) ? prev.filter(id => id !== clientId) : [...prev, clientId]
     );
-  };
+  }, []);
 
-  const handleSelectAll = () => {
+  const handleSelectAll = useCallback(() => {
     if (selectedClients.length === filteredClients.length) {
       setSelectedClients([]);
     } else {
       setSelectedClients(filteredClients.map(client => client.id));
     }
-  };
+  }, [selectedClients, filteredClients]);
 
   const handleBulkAction = (action) => {
     if (selectedClients.length === 0) {

@@ -99,6 +99,11 @@ class Lead extends Model
     ];
 
     /**
+     * Eager-load assignedUser and creator on every query to prevent N+1 issues.
+     */
+    protected $with = ['assignedUser', 'creator'];
+
+    /**
      * The "booted" method of the model.
      */
     protected static function booted(): void

@@ -86,7 +86,8 @@ const ItineraryDetail = () => {
     // Transportation specific
     transferType: 'Private',
     // Meal specific
-    mealType: 'Breakfast'
+    mealType: 'Breakfast',
+    master_id: null // Track if selected from Masters
   });
   const [eventImagePreview, setEventImagePreview] = useState(null);
   const [hotelPhotoPreview, setHotelPhotoPreview] = useState(null);
@@ -2822,6 +2823,42 @@ const ItineraryDetail = () => {
                 <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
                   {dayDetailsForm.eventType === 'day-itinerary' ? (
                     <>
+                      {/* Search and Select from Masters */}
+                      <div className="mb-4 bg-blue-50 p-4 rounded-lg border border-blue-100">
+                        <label className="block text-sm font-semibold text-blue-800 mb-2 font-noto">
+                          Quick Select from Masters
+                        </label>
+                        <div className="relative">
+                          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                          <select
+                            onChange={(e) => {
+                              const selected = dayItineraries.find(di => di.id === parseInt(e.target.value));
+                              if (selected) {
+                                setDayDetailsForm({
+                                  ...dayDetailsForm,
+                                  destination: selected.destination || '',
+                                  subject: selected.title || '',
+                                  name: selected.title || '',
+                                  details: selected.details || '',
+                                  master_id: selected.id
+                                });
+                                // Handle image from Masters
+                                if (selected.image) {
+                                  setEventImagePreview(selected.image);
+                                  setDayItineraryImageSource('library');
+                                }
+                              }
+                            }}
+                            className="w-full pl-10 pr-4 py-2 border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                          >
+                            <option value="">Search & Select an Itinerary...</option>
+                            {dayItineraries.map(di => (
+                              <option key={di.id} value={di.id}>{di.title} ({di.destination})</option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+
                       {/* Day Itinerary form - same fields as Masters → Day Itinerary */}
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Destination</label>
@@ -3128,6 +3165,42 @@ const ItineraryDetail = () => {
                     </>
                   ) : dayDetailsForm.eventType === 'activity' ? (
                     <>
+                      {/* Search and Select from Masters - Activity */}
+                      <div className="mb-4 bg-green-50 p-4 rounded-lg border border-green-100">
+                        <label className="block text-sm font-semibold text-green-800 mb-2">
+                          Quick Select from Activity Masters
+                        </label>
+                        <div className="relative">
+                          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                          <select
+                            onChange={(e) => {
+                              const selected = activities.find(a => a.id === parseInt(e.target.value));
+                              if (selected) {
+                                setDayDetailsForm({
+                                  ...dayDetailsForm,
+                                  name: selected.name || '',
+                                  subject: selected.name || '',
+                                  destination: selected.destination || '',
+                                  activity_details: selected.activity_details || '',
+                                  activity_photo: selected.activity_photo || null,
+                                  status: selected.status || 'active',
+                                  master_id: selected.id
+                                });
+                                if (selected.activity_photo) {
+                                  setEventImagePreview(selected.activity_photo);
+                                }
+                              }
+                            }}
+                            className="w-full pl-10 pr-4 py-2 border border-green-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 bg-white"
+                          >
+                            <option value="">Search & Select an Activity...</option>
+                            {activities.map(a => (
+                              <option key={a.id} value={a.id}>{a.name} ({a.destination})</option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+
                       {/* Activity form - same as Masters */}
                       <div className="border-t border-gray-200 pt-4 space-y-4">
                         <h3 className="text-lg font-semibold text-gray-800 mb-4">Add Activity (same as Masters)</h3>
@@ -3234,6 +3307,42 @@ const ItineraryDetail = () => {
                     </>
                   ) : dayDetailsForm.eventType === 'transportation' ? (
                     <>
+                      {/* Search and Select from Masters - Transportation */}
+                      <div className="mb-4 bg-purple-50 p-4 rounded-lg border border-purple-100">
+                        <label className="block text-sm font-semibold text-purple-800 mb-2">
+                          Quick Select from Transportation Masters
+                        </label>
+                        <div className="relative">
+                          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                          <select
+                            onChange={(e) => {
+                              const selected = storedTransfers.find(t => t.id === parseInt(e.target.value));
+                              if (selected) {
+                                setDayDetailsForm({
+                                  ...dayDetailsForm,
+                                  name: selected.name || '',
+                                  subject: selected.name || '',
+                                  destination: selected.destination || '',
+                                  transfer_details: selected.transfer_details || '',
+                                  transfer_photo: selected.transfer_photo || null,
+                                  status: selected.status || 'active',
+                                  master_id: selected.id
+                                });
+                                if (selected.transfer_photo) {
+                                  setEventImagePreview(selected.transfer_photo);
+                                }
+                              }
+                            }}
+                            className="w-full pl-10 pr-4 py-2 border border-purple-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white"
+                          >
+                            <option value="">Search & Select Transportation...</option>
+                            {storedTransfers.map(t => (
+                              <option key={t.id} value={t.id}>{t.name} ({t.destination})</option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+
                       {/* Transportation form - same as Masters */}
                       <div className="border-t border-gray-200 pt-4 space-y-4">
                         <h3 className="text-lg font-semibold text-gray-800 mb-4">Add Transportation (same as Masters)</h3>
@@ -3443,6 +3552,37 @@ const ItineraryDetail = () => {
                     </>
                   ) : dayDetailsForm.eventType === 'meal' ? (
                     <>
+                      {/* Search and Select from Masters - Meal */}
+                      <div className="mb-4 bg-orange-50 p-4 rounded-lg border border-orange-100">
+                        <label className="block text-sm font-semibold text-orange-800 mb-2">
+                          Quick Select from Meal Plans
+                        </label>
+                        <div className="relative">
+                          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                          <select
+                            onChange={(e) => {
+                              const selected = mealPlans.find(m => m.id === parseInt(e.target.value));
+                              if (selected) {
+                                setDayDetailsForm({
+                                  ...dayDetailsForm,
+                                  name: selected.name || '',
+                                  subject: selected.name || '',
+                                  mealType: selected.name || '',
+                                  status: selected.status || 'active',
+                                  master_id: selected.id
+                                });
+                              }
+                            }}
+                            className="w-full pl-10 pr-4 py-2 border border-orange-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 bg-white"
+                          >
+                            <option value="">Search & Select a Meal Plan...</option>
+                            {mealPlans.map(m => (
+                              <option key={m.id} value={m.id}>{m.name}</option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+
                       {/* Meal form - same as Masters */}
                       <div className="border-t border-gray-200 pt-4 space-y-4">
                         <h3 className="text-lg font-semibold text-gray-800 mb-4">Add Meal Plan (same as Masters)</h3>
@@ -3868,6 +4008,21 @@ const ItineraryDetail = () => {
 
                       // For day-itinerary: save to Masters first so it shows in search/dropdown
                       if (dayDetailsForm.eventType === 'day-itinerary') {
+                        // Skip if already a Masters item and not edited (or just skip for now to avoid duplicates)
+                        if (dayDetailsForm.master_id) {
+                          saveEvent({
+                            id: dayDetailsForm.master_id,
+                            subject: subject,
+                            details: dayDetailsForm.details,
+                            destination: dayDetailsForm.destination,
+                            eventType: 'day-itinerary',
+                            image: imageData,
+                            type: 'Manual',
+                            name: subject
+                          });
+                          return;
+                        }
+
                         try {
                           const submitData = new FormData();
                           submitData.append('destination', dayDetailsForm.destination || '');
@@ -3922,6 +4077,19 @@ const ItineraryDetail = () => {
 
                       // For activity: save to Masters first so it shows in search/dropdown
                       if (dayDetailsForm.eventType === 'activity') {
+                        if (dayDetailsForm.master_id) {
+                          saveEvent({
+                            id: Date.now(),
+                            subject: subject,
+                            details: dayDetailsForm.activity_details,
+                            destination: dayDetailsForm.destination,
+                            eventType: 'activity',
+                            image: eventImagePreview || dayDetailsForm.activity_photo,
+                            type: 'Manual',
+                            name: dayDetailsForm.name
+                          });
+                          return;
+                        }
                         try {
                           const activityData = new FormData();
                           activityData.append('name', dayDetailsForm.name || '');
@@ -3972,6 +4140,19 @@ const ItineraryDetail = () => {
 
                       // For transportation: save to Masters first so it shows in search/dropdown
                       if (dayDetailsForm.eventType === 'transportation') {
+                        if (dayDetailsForm.master_id) {
+                          saveEvent({
+                            id: Date.now(),
+                            subject: subject,
+                            details: dayDetailsForm.transfer_details,
+                            destination: dayDetailsForm.destination,
+                            eventType: 'transportation',
+                            image: eventImagePreview || dayDetailsForm.transfer_photo,
+                            type: 'Manual',
+                            name: dayDetailsForm.name
+                          });
+                          return;
+                        }
                         try {
                           const transferData = new FormData();
                           transferData.append('name', dayDetailsForm.name || '');
@@ -4022,6 +4203,19 @@ const ItineraryDetail = () => {
 
                       // For meal: save to Masters first so it shows in search/dropdown
                       if (dayDetailsForm.eventType === 'meal') {
+                        if (dayDetailsForm.master_id) {
+                          saveEvent({
+                            id: Date.now(),
+                            subject: subject,
+                            details: '',
+                            destination: dayDetailsForm.destination || '',
+                            eventType: 'meal',
+                            image: null,
+                            type: 'Manual',
+                            name: dayDetailsForm.name
+                          });
+                          return;
+                        }
                         try {
                           const mealData = { name: dayDetailsForm.name || '', status: dayDetailsForm.status || 'active' };
                           const createRes = await mealPlansAPI.create(mealData);

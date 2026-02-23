@@ -3,189 +3,98 @@
 namespace App\Http\Controllers;
 
 use App\Models\Transfer;
+use App\Services\FileUploadService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
-use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class TransferController extends Controller
 {
+    protected FileUploadService $fileUploadService;
+
+    public function __construct(FileUploadService $fileUploadService)
+    {
+        $this->fileUploadService = $fileUploadService;
+    }
+
+    // ─── CRUD ────────────────────────────────────────────────────────────────────
+
     /**
-     * Get all transfers.
-     *
-     * @param Request $request
-     * @return JsonResponse
+     * List all transfers.
      */
     public function index(Request $request): JsonResponse
     {
         try {
-            $transfers = Transfer::with('creator')
-                ->orderBy('updated_at', 'desc')
+            $transfers = Transfer::orderBy('updated_at', 'desc')
                 ->orderBy('created_at', 'desc')
                 ->get()
-                ->map(function ($transfer) {
-                    return [
-                        'id' => $transfer->id,
-                        'name' => $transfer->name,
-                        'destination' => $transfer->destination,
-                        'transfer_details' => $transfer->transfer_details,
-                        'transfer_photo' => $transfer->transfer_photo ? asset('storage/' . $transfer->transfer_photo) : null,
-                        'status' => $transfer->status,
-                        'price_updates_count' => $transfer->price_updates_count,
-                        'created_by' => $transfer->created_by,
-                        'created_by_name' => $transfer->creator ? $transfer->creator->name : 'Travbizz Travel IT Solutions',
-                        'last_update' => $transfer->updated_at ? $transfer->updated_at->format('d-m-Y') : null,
-                        'updated_at' => $transfer->updated_at,
-                        'created_at' => $transfer->created_at,
-                    ];
-                });
+                ->map(fn($t) => $this->formatTransfer($t));
 
-            return response()->json([
-                'success' => true,
-                'message' => 'Transfers retrieved successfully',
-                'data' => $transfers,
-            ], 200);
-
+            return $this->successResponse($transfers, 'Transfers retrieved successfully');
         } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'An error occurred while retrieving transfers',
-                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
-            ], 500);
+            return $this->serverErrorResponse('Failed to retrieve transfers', $e);
         }
     }
 
     /**
      * Create a new transfer.
-     *
-     * @param Request $request
-     * @return JsonResponse
      */
     public function store(Request $request): JsonResponse
     {
         try {
-            // Handle file upload
-            $transferPhotoPath = null;
-            if ($request->hasFile('transfer_photo')) {
-                $file = $request->file('transfer_photo');
-                $transferPhotoPath = $file->store('transfers', 'public');
-            }
-
-            // Validate the request
             $validator = Validator::make($request->all(), [
                 'name' => 'required|string|max:255',
                 'destination' => 'required|string|max:255',
                 'transfer_details' => 'nullable|string',
                 'transfer_photo' => 'nullable|image|max:2048',
                 'status' => 'nullable|in:active,inactive',
-            ], [
-                'name.required' => 'The transfer name field is required.',
-                'destination.required' => 'The destination field is required.',
-                'transfer_photo.image' => 'The transfer photo must be an image.',
-                'transfer_photo.max' => 'The transfer photo must not be greater than 2MB.',
             ]);
 
             if ($validator->fails()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Validation failed',
-                    'errors' => $validator->errors(),
-                ], 422);
+                return $this->validationErrorResponse($validator);
             }
+
+            $photoPath = $request->hasFile('transfer_photo')
+                ? $this->fileUploadService->upload($request->file('transfer_photo'), 'transfers')
+                : null;
 
             $transfer = Transfer::create([
                 'name' => $request->name,
                 'destination' => $request->destination,
                 'transfer_details' => $request->transfer_details,
-                'transfer_photo' => $transferPhotoPath,
+                'transfer_photo' => $photoPath,
                 'status' => $request->status ?? 'active',
                 'price_updates_count' => 0,
-                'created_by' => $request->user()->id,
+                'created_by' => auth()->id(),
             ]);
 
-            $transfer->load('creator');
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Transfer created successfully',
-                'data' => [
-                    'id' => $transfer->id,
-                    'name' => $transfer->name,
-                    'destination' => $transfer->destination,
-                    'transfer_details' => $transfer->transfer_details,
-                    'transfer_photo' => $transfer->transfer_photo ? asset('storage/' . $transfer->transfer_photo) : null,
-                    'status' => $transfer->status,
-                    'price_updates_count' => $transfer->price_updates_count,
-                    'created_by' => $transfer->created_by,
-                    'created_by_name' => $transfer->creator ? $transfer->creator->name : 'Travbizz Travel IT Solutions',
-                    'last_update' => $transfer->updated_at ? $transfer->updated_at->format('d-m-Y') : null,
-                    'updated_at' => $transfer->updated_at,
-                    'created_at' => $transfer->created_at,
-                ],
-            ], 201);
-
+            return $this->createdResponse($this->formatTransfer($transfer->refresh()), 'Transfer created successfully');
         } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'An error occurred while creating transfer',
-                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
-            ], 500);
+            return $this->serverErrorResponse('Failed to create transfer', $e);
         }
     }
 
     /**
-     * Get a specific transfer.
-     *
-     * @param int $id
-     * @return JsonResponse
+     * Get a single transfer.
      */
     public function show(int $id): JsonResponse
     {
         try {
-            $transfer = Transfer::with('creator')->find($id);
+            $transfer = Transfer::find($id);
 
             if (!$transfer) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Transfer not found',
-                ], 404);
+                return $this->notFoundResponse('Transfer not found');
             }
 
-            return response()->json([
-                'success' => true,
-                'message' => 'Transfer retrieved successfully',
-                'data' => [
-                    'id' => $transfer->id,
-                    'name' => $transfer->name,
-                    'destination' => $transfer->destination,
-                    'transfer_details' => $transfer->transfer_details,
-                    'transfer_photo' => $transfer->transfer_photo ? asset('storage/' . $transfer->transfer_photo) : null,
-                    'status' => $transfer->status,
-                    'price_updates_count' => $transfer->price_updates_count,
-                    'created_by' => $transfer->created_by,
-                    'created_by_name' => $transfer->creator ? $transfer->creator->name : 'Travbizz Travel IT Solutions',
-                    'last_update' => $transfer->updated_at ? $transfer->updated_at->format('d-m-Y') : null,
-                    'updated_at' => $transfer->updated_at,
-                    'created_at' => $transfer->created_at,
-                ],
-            ], 200);
-
+            return $this->successResponse($this->formatTransfer($transfer), 'Transfer retrieved successfully');
         } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'An error occurred while retrieving transfer',
-                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
-            ], 500);
+            return $this->serverErrorResponse('Failed to retrieve transfer', $e);
         }
     }
 
     /**
      * Update a transfer.
-     *
-     * @param Request $request
-     * @param int $id
-     * @return JsonResponse
      */
     public function update(Request $request, int $id): JsonResponse
     {
@@ -193,24 +102,9 @@ class TransferController extends Controller
             $transfer = Transfer::find($id);
 
             if (!$transfer) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Transfer not found',
-                ], 404);
+                return $this->notFoundResponse('Transfer not found');
             }
 
-            // Handle file upload
-            $transferPhotoPath = $transfer->transfer_photo;
-            if ($request->hasFile('transfer_photo')) {
-                // Delete old photo if exists
-                if ($transfer->transfer_photo && Storage::disk('public')->exists($transfer->transfer_photo)) {
-                    Storage::disk('public')->delete($transfer->transfer_photo);
-                }
-                $file = $request->file('transfer_photo');
-                $transferPhotoPath = $file->store('transfers', 'public');
-            }
-
-            // Validate the request
             $validator = Validator::make($request->all(), [
                 'name' => 'sometimes|required|string|max:255',
                 'destination' => 'sometimes|required|string|max:255',
@@ -220,57 +114,29 @@ class TransferController extends Controller
             ]);
 
             if ($validator->fails()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Validation failed',
-                    'errors' => $validator->errors(),
-                ], 422);
+                return $this->validationErrorResponse($validator);
             }
 
-            $updateData = [
-                'name' => $request->has('name') ? $request->name : $transfer->name,
-                'destination' => $request->has('destination') ? $request->destination : $transfer->destination,
-                'transfer_details' => $request->has('transfer_details') ? $request->transfer_details : $transfer->transfer_details,
-                'transfer_photo' => $transferPhotoPath,
-                'status' => $request->has('status') ? $request->status : $transfer->status,
-            ];
+            $data = $request->only(['name', 'destination', 'transfer_details', 'status']);
 
-            $transfer->update($updateData);
-            $transfer->load('creator');
+            if ($request->hasFile('transfer_photo')) {
+                $data['transfer_photo'] = $this->fileUploadService->update(
+                    $request->file('transfer_photo'),
+                    $transfer->transfer_photo,
+                    'transfers'
+                );
+            }
 
-            return response()->json([
-                'success' => true,
-                'message' => 'Transfer updated successfully',
-                'data' => [
-                    'id' => $transfer->id,
-                    'name' => $transfer->name,
-                    'destination' => $transfer->destination,
-                    'transfer_details' => $transfer->transfer_details,
-                    'transfer_photo' => $transfer->transfer_photo ? asset('storage/' . $transfer->transfer_photo) : null,
-                    'status' => $transfer->status,
-                    'price_updates_count' => $transfer->price_updates_count,
-                    'created_by' => $transfer->created_by,
-                    'created_by_name' => $transfer->creator ? $transfer->creator->name : 'Travbizz Travel IT Solutions',
-                    'last_update' => $transfer->updated_at ? $transfer->updated_at->format('d-m-Y') : null,
-                    'updated_at' => $transfer->updated_at,
-                    'created_at' => $transfer->created_at,
-                ],
-            ], 200);
+            $transfer->update($data);
 
+            return $this->updatedResponse($this->formatTransfer($transfer->refresh()), 'Transfer updated successfully');
         } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'An error occurred while updating transfer',
-                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
-            ], 500);
+            return $this->serverErrorResponse('Failed to update transfer', $e);
         }
     }
 
     /**
      * Delete a transfer.
-     *
-     * @param int $id
-     * @return JsonResponse
      */
     public function destroy(int $id): JsonResponse
     {
@@ -278,415 +144,204 @@ class TransferController extends Controller
             $transfer = Transfer::find($id);
 
             if (!$transfer) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Transfer not found',
-                ], 404);
+                return $this->notFoundResponse('Transfer not found');
             }
 
-            // Delete photo if exists
-            if ($transfer->transfer_photo && Storage::disk('public')->exists($transfer->transfer_photo)) {
-                Storage::disk('public')->delete($transfer->transfer_photo);
-            }
-
+            $this->fileUploadService->delete($transfer->transfer_photo);
             $transfer->delete();
 
-            return response()->json([
-                'success' => true,
-                'message' => 'Transfer deleted successfully',
-            ], 200);
-
+            return $this->deletedResponse('Transfer deleted successfully');
         } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'An error occurred while deleting transfer',
-                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
-            ], 500);
+            return $this->serverErrorResponse('Failed to delete transfer', $e);
         }
     }
 
+    // ─── Import / Export ─────────────────────────────────────────────────────────
+
     /**
-     * Import transfers from Excel file.
-     *
-     * @param Request $request
-     * @return JsonResponse
+     * Import transfers from a CSV/Excel file.
      */
     public function import(Request $request): JsonResponse
     {
         try {
-            // Enhanced validation
             $validator = Validator::make($request->all(), [
-                'file' => 'required|mimes:xlsx,xls,csv|max:10240', // 10MB max
-            ], [
-                'file.required' => 'Please select a file to import.',
-                'file.mimes' => 'The file must be a valid Excel file (xlsx, xls, csv).',
-                'file.max' => 'The file size must not exceed 10MB.',
+                'file' => 'required|mimes:xlsx,xls,csv|max:10240',
             ]);
 
             if ($validator->fails()) {
-                \Log::warning('Transfer import validation failed', [
-                    'errors' => $validator->errors()->toArray(),
-                    'user_id' => auth()->id()
-                ]);
-                
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Validation failed',
-                    'errors' => $validator->errors()
-                ], 422);
+                return $this->validationErrorResponse($validator);
             }
 
-            // Handle file import with comprehensive error handling
-            $importedCount = 0;
-            $errors = [];
-            
-            if ($request->hasFile('file')) {
-                try {
-                    $file = $request->file('file');
-                    
-                    // Validate file integrity
-                    if (!$file->isValid()) {
-                        return response()->json([
-                            'success' => false,
-                            'message' => 'Invalid file upload',
-                            'error' => $file->getErrorMessage()
-                        ], 422);
-                    }
-                    
-                    // Check file size
-                    if ($file->getSize() > 10240 * 1024) { // 10MB
-                        return response()->json([
-                            'success' => false,
-                            'message' => 'File size exceeds 10MB limit',
-                            'error' => 'File too large'
-                        ], 422);
-                    }
-                    
-                    $filePath = $file->getPathname();
-                    $originalName = $file->getClientOriginalName();
-                    
-                    \Log::info('Starting transfer import', [
-                        'file_name' => $originalName,
-                        'file_size' => $file->getSize(),
-                        'file_type' => $file->getClientOriginalExtension(),
-                        'user_id' => auth()->id()
-                    ]);
-                    
-                    // Handle CSV file
-                    if ($file->getClientOriginalExtension() === 'csv') {
-                        $handle = fopen($filePath, 'r');
-                        if (!$handle) {
-                            throw new \Exception('Failed to open CSV file');
-                        }
-                        
-                        $header = fgetcsv($handle); // Skip header row
-                        $rowNumber = 1; // Start from row 2 (after header)
-                        
-                        while (($row = fgetcsv($handle)) !== false) {
-                            $rowNumber++;
-                            
-                            try {
-                                // Validate required fields
-                                if (empty($row[0])) { // name is required
-                                    $errors[] = "Row {$rowNumber}: Transfer name is required";
-                                    continue;
-                                }
-                                
-                                // Create transfer with database error handling
-                                $transfer = Transfer::create([
-                                    'name' => $row[0] ?? '',
-                                    'destination' => $row[1] ?? '',
-                                    'from_date' => $row[2] ?? null,
-                                    'to_date' => $row[3] ?? null,
-                                    'transfer_details' => $row[4] ?? '',
-                                    'transfer_image' => $row[5] ?? '',
-                                    'status' => $row[6] ?? 'active',
-                                    'created_by' => auth()->id(),
-                                    'company_id' => tenant('id'),
-                                ]);
-                                
-                                // Add price if provided
-                                if (!empty($row[7]) && is_numeric($row[7])) {
-                                    try {
-                                        $transfer->prices()->create([
-                                            'vehicle_type' => $row[8] ?? 'Standard',
-                                            'price' => $row[7],
-                                            'capacity' => $row[9] ?? 4,
-                                            'company_id' => tenant('id'),
-                                        ]);
-                                    } catch (\Exception $priceError) {
-                                        $errors[] = "Row {$rowNumber}: Failed to create price - " . $priceError->getMessage();
-                                    }
-                                }
-                                
-                                $importedCount++;
-                                \Log::info('Transfer imported successfully', [
-                                    'transfer_id' => $transfer->id,
-                                    'transfer_name' => $transfer->name,
-                                    'row_number' => $rowNumber,
-                                    'user_id' => auth()->id()
-                                ]);
-                                
-                            } catch (\Exception $rowError) {
-                                $errors[] = "Row {$rowNumber}: " . $rowError->getMessage();
-                                \Log::error('Failed to import transfer row', [
-                                    'error' => $rowError->getMessage(),
-                                    'row_number' => $rowNumber,
-                                    'row_data' => $row,
-                                    'user_id' => auth()->id()
-                                ]);
-                            }
-                        }
-                        
-                        fclose($handle);
-                        
-                    } else {
-                        // For Excel files - check if PhpSpreadsheet is available
-                        if (!class_exists('PhpOffice\\PhpSpreadsheet\\IOFactory')) {
-                            return response()->json([
-                                'success' => false,
-                                'message' => 'Excel files require PhpSpreadsheet library. Please install: composer require phpoffice/phpspreadsheet',
-                                'error' => 'Missing library'
-                            ], 422);
-                        }
-                        
-                        try {
-                            $spreadsheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($filePath);
-                            $worksheet = $spreadsheet->getActiveSheet();
-                            $rows = $worksheet->toArray();
-                            
-                            // Skip header row if present
-                            $startRow = 1;
-                            if (count($rows) > 0 && !empty($rows[0][0])) {
-                                $startRow = 1; // Assume first row is header
-                            }
-                            
-                            foreach (array_slice($rows, $startRow) as $index => $row) {
-                                $rowNumber = $startRow + $index + 1;
-                                
-                                try {
-                                    // Validate required fields
-                                    if (empty($row[0])) {
-                                        $errors[] = "Row {$rowNumber}: Transfer name is required";
-                                        continue;
-                                    }
-                                    
-                                    // Create transfer with database error handling
-                                    $transfer = Transfer::create([
-                                        'name' => $row[0] ?? '',
-                                        'destination' => $row[1] ?? '',
-                                        'from_date' => $row[2] ?? null,
-                                        'to_date' => $row[3] ?? null,
-                                        'transfer_details' => $row[4] ?? '',
-                                        'transfer_image' => $row[5] ?? '',
-                                        'status' => $row[6] ?? 'active',
-                                        'created_by' => auth()->id(),
-                                        'company_id' => tenant('id'),
-                                    ]);
-                                    
-                                    // Add price if provided
-                                    if (!empty($row[7]) && is_numeric($row[7])) {
-                                        try {
-                                            $transfer->prices()->create([
-                                                'vehicle_type' => $row[8] ?? 'Standard',
-                                                'price' => $row[7],
-                                                'capacity' => $row[9] ?? 4,
-                                                'company_id' => tenant('id'),
-                                            ]);
-                                        } catch (\Exception $priceError) {
-                                            $errors[] = "Row {$rowNumber}: Failed to create price - " . $priceError->getMessage();
-                                        }
-                                    }
-                                    
-                                    $importedCount++;
-                                    \Log::info('Transfer imported successfully from Excel', [
-                                        'transfer_id' => $transfer->id,
-                                        'transfer_name' => $transfer->name,
-                                        'row_number' => $rowNumber,
-                                        'user_id' => auth()->id()
-                                    ]);
-                                    
-                                } catch (\Exception $rowError) {
-                                    $errors[] = "Row {$rowNumber}: " . $rowError->getMessage();
-                                    \Log::error('Failed to import transfer row from Excel', [
-                                        'error' => $rowError->getMessage(),
-                                        'row_number' => $rowNumber,
-                                        'row_data' => $row,
-                                        'user_id' => auth()->id()
-                                    ]);
-                                }
-                            }
-                            
-                        } catch (\Exception $excelError) {
-                            \Log::error('Excel processing error', [
-                                'error' => $excelError->getMessage(),
-                                'file_name' => $originalName,
-                                'user_id' => auth()->id()
-                            ]);
-                            
-                            return response()->json([
-                                'success' => false,
-                                'message' => 'Error processing Excel file: ' . $excelError->getMessage(),
-                                'error' => config('app.debug') ? $excelError->getMessage() : 'Excel processing error'
-                            ], 500);
-                        }
-                    }
-                    
-                } catch (\Exception $fileError) {
-                    \Log::error('Transfer import file processing error', [
-                        'error' => $fileError->getMessage(),
-                        'file_name' => $originalName ?? 'unknown',
-                        'user_id' => auth()->id()
-                    ]);
-                    
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'Error processing file: ' . $fileError->getMessage(),
-                        'error' => config('app.debug') ? $fileError->getMessage() : 'File processing error'
-                    ], 500);
-                }
-            }
-            
-            \Log::info('Transfer import completed', [
-                'imported_count' => $importedCount,
-                'error_count' => count($errors),
-                'user_id' => auth()->id()
-            ]);
-            
-            return response()->json([
-                'success' => true,
-                'message' => 'Transfers imported successfully',
-                'data' => [
-                    'imported_count' => $importedCount,
-                    'errors' => $errors,
-                ],
-            ], 200);
+            $file = $request->file('file');
 
+            if (!$file->isValid()) {
+                return $this->validationErrorResponse(null, 'Invalid file upload: ' . $file->getErrorMessage());
+            }
+
+            [$importedCount, $errors] = $this->processImportFile($file);
+
+            return $this->successResponse(
+                ['imported_count' => $importedCount, 'errors' => $errors],
+                'Transfers imported successfully'
+            );
         } catch (\Exception $e) {
-            \Log::error('Critical error in transfer import', [
-                'error' => $e->getMessage(),
-                'trace' => config('app.debug') ? $e->getTraceAsString() : null,
-                'user_id' => auth()->id()
-            ]);
-            
-            return response()->json([
-                'success' => false,
-                'message' => 'An error occurred while importing transfers',
-                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error'
-            ], 500);
+            return $this->serverErrorResponse('Failed to import transfers', $e);
         }
     }
 
     /**
-     * Export transfers to Excel.
-     *
-     * @return StreamedResponse
+     * Export transfers as a CSV file.
      */
     public function export(): StreamedResponse
     {
-        $headers = [
-            'Content-Type' => 'text/csv',
-            'Content-Disposition' => 'attachment; filename="transfers_export_' . date('Y-m-d') . '.csv"',
-        ];
-
-        $callback = function () {
+        return response()->stream(function () {
             $file = fopen('php://output', 'w');
-            
-            // Add BOM for UTF-8 to ensure Excel opens it correctly
-            fprintf($file, chr(0xEF).chr(0xBB).chr(0xBF));
-            
-            // Add header row
-            fputcsv($file, [
-                'Transfer Name',
-                'Destination',
-                'From Date',
-                'To Date',
-                'Price',
-                'Transfer Details',
-                'Image Link'
-            ]);
-            
-            // Get all transfers with their prices
-            $transfers = Transfer::with('prices')->get();
-            
-            foreach ($transfers as $transfer) {
-                if ($transfer->prices->count() > 0) {
-                    // If transfer has prices, create a row for each price
-                    foreach ($transfer->prices as $price) {
+            fprintf($file, chr(0xEF) . chr(0xBB) . chr(0xBF));
+            fputcsv($file, ['Transfer Name', 'Destination', 'From Date', 'To Date', 'Price', 'Transfer Details', 'Image Link']);
+
+            Transfer::with('prices')->chunk(100, function ($transfers) use ($file) {
+                foreach ($transfers as $transfer) {
+                    if ($transfer->prices->count() > 0) {
+                        foreach ($transfer->prices as $price) {
+                            fputcsv($file, [
+                                $transfer->name,
+                                $transfer->destination,
+                                optional($price->from_date)->format('d-m-Y') ?? '01-01-1970',
+                                optional($price->to_date)->format('d-m-Y') ?? '01-01-1970',
+                                $price->price ?? 0,
+                                $transfer->transfer_details ?? '',
+                                $transfer->transfer_photo ? asset('storage/' . $transfer->transfer_photo) : '',
+                            ]);
+                        }
+                    } else {
                         fputcsv($file, [
                             $transfer->name,
                             $transfer->destination,
-                            $price->from_date->format('d-m-Y'),
-                            $price->to_date->format('d-m-Y'),
-                            $price->price ?? 0,
+                            '01-01-1970',
+                            '01-01-1970',
+                            0,
                             $transfer->transfer_details ?? '',
-                            $transfer->transfer_photo ? asset('storage/' . $transfer->transfer_photo) : ''
+                            $transfer->transfer_photo ? asset('storage/' . $transfer->transfer_photo) : '',
                         ]);
                     }
-                } else {
-                    // If transfer has no prices, create a single row with empty price fields
-                    fputcsv($file, [
-                        $transfer->name,
-                        $transfer->destination,
-                        '01-01-1970',
-                        '01-01-1970',
-                        0,
-                        $transfer->transfer_details ?? '',
-                        $transfer->transfer_photo ? asset('storage/' . $transfer->transfer_photo) : ''
-                    ]);
                 }
-            }
-            
-            fclose($file);
-        };
+            });
 
-        return response()->stream($callback, 200, $headers);
+            fclose($file);
+        }, 200, [
+            'Content-Type' => 'text/csv',
+            'Content-Disposition' => 'attachment; filename="transfers_export_' . date('Y-m-d') . '.csv"',
+        ]);
     }
 
     /**
-     * Download import template Excel file.
-     *
-     * @return StreamedResponse
+     * Download the CSV import template.
      */
     public function downloadTemplate(): StreamedResponse
     {
-        $headers = [
+        return response()->stream(function () {
+            $file = fopen('php://output', 'w');
+            fprintf($file, chr(0xEF) . chr(0xBB) . chr(0xBF));
+            fputcsv($file, ['Transfer Name', 'Destination', 'From Date', 'To Date', 'Price', 'Transfer Details', 'Image Link']);
+            fputcsv($file, ['Airport Transfer', 'Delhi', '01-01-2025', '31-12-2025', 1500, 'AC sedan transfer', '']);
+            fclose($file);
+        }, 200, [
             'Content-Type' => 'text/csv',
             'Content-Disposition' => 'attachment; filename="transfer_import_template.csv"',
+        ]);
+    }
+
+    // ─── Private Helpers ──────────────────────────────────────────────────────────
+
+    /**
+     * Format a Transfer model for API response.
+     */
+    private function formatTransfer(Transfer $transfer): array
+    {
+        return [
+            'id' => $transfer->id,
+            'name' => $transfer->name,
+            'destination' => $transfer->destination,
+            'transfer_details' => $transfer->transfer_details,
+            'transfer_photo' => $transfer->transfer_photo ? asset('storage/' . $transfer->transfer_photo) : null,
+            'status' => $transfer->status,
+            'price_updates_count' => $transfer->price_updates_count,
+            'created_by' => $transfer->created_by,
+            'created_by_name' => $transfer->creator?->name ?? 'Travbizz Travel IT Solutions',
+            'last_update' => $transfer->updated_at?->format('d-m-Y'),
+            'updated_at' => $transfer->updated_at,
+            'created_at' => $transfer->created_at,
         ];
+    }
 
-        $callback = function () {
-            $file = fopen('php://output', 'w');
-            
-            // Add BOM for UTF-8 to ensure Excel opens it correctly
-            fprintf($file, chr(0xEF).chr(0xBB).chr(0xBF));
-            
-            // Add header row
-            fputcsv($file, [
-                'Transfer Name',
-                'Destination',
-                'From Date',
-                'To Date',
-                'Price',
-                'Transfer Details',
-                'Image Link'
-            ]);
-            
-            // Add example row
-            fputcsv($file, [
-                'Transfer name',
-                'Destination',
-                '01-01-1970',
-                '01-01-1970',
-                0,
-                'Transfer Details',
-                'Image Link'
-            ]);
-            
-            fclose($file);
-        };
+    /**
+     * Process the uploaded import file (CSV or Excel).
+     * Returns [$importedCount, $errors[]]
+     */
+    private function processImportFile($file): array
+    {
+        $importedCount = 0;
+        $errors = [];
+        $ext = strtolower($file->getClientOriginalExtension());
 
-        return response()->stream($callback, 200, $headers);
+        if ($ext === 'csv') {
+            $handle = fopen($file->getPathname(), 'r');
+            if (!$handle)
+                throw new \Exception('Failed to open CSV file');
+            fgetcsv($handle); // skip header
+            $row = 1;
+            while (($data = fgetcsv($handle)) !== false) {
+                $row++;
+                [$importedCount, $errors] = $this->importRow($data, $row, $importedCount, $errors);
+            }
+            fclose($handle);
+        } else {
+            if (!class_exists(\PhpOffice\PhpSpreadsheet\IOFactory::class)) {
+                throw new \Exception('Excel import requires phpoffice/phpspreadsheet. Run: composer require phpoffice/phpspreadsheet');
+            }
+            $spreadsheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($file->getPathname());
+            $rows = $spreadsheet->getActiveSheet()->toArray();
+            foreach (array_slice($rows, 1) as $index => $data) {
+                $row = $index + 2;
+                [$importedCount, $errors] = $this->importRow($data, $row, $importedCount, $errors);
+            }
+        }
+
+        return [$importedCount, $errors];
+    }
+
+    /**
+     * Import a single row into the Transfer model.
+     */
+    private function importRow(array $row, int $rowNumber, int $count, array $errors): array
+    {
+        try {
+            if (empty($row[0])) {
+                $errors[] = "Row {$rowNumber}: Transfer name is required";
+                return [$count, $errors];
+            }
+
+            $transfer = Transfer::create([
+                'name' => $row[0],
+                'destination' => $row[1] ?? '',
+                'transfer_details' => $row[4] ?? '',
+                'status' => $row[6] ?? 'active',
+                'created_by' => auth()->id(),
+            ]);
+
+            if (!empty($row[7]) && is_numeric($row[7])) {
+                $transfer->prices()->create([
+                    'vehicle_type' => $row[8] ?? 'Standard',
+                    'price' => $row[7],
+                    'capacity' => $row[9] ?? 4,
+                ]);
+            }
+
+            $count++;
+        } catch (\Exception $e) {
+            $errors[] = "Row {$rowNumber}: " . $e->getMessage();
+        }
+
+        return [$count, $errors];
     }
 }
-

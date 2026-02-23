@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { dashboardAPI, followupsAPI, leadsAPI } from '../services/api';
 import Layout from '../components/Layout';
 import PaymentCollectionTable from '../components/PaymentCollectionTable';
@@ -61,7 +61,7 @@ const Dashboard = () => {
     fetchAllData();
   }, [user?.id]);
 
-  const fetchAllData = async () => {
+  const fetchAllData = useCallback(async () => {
     try {
       setLoadingTodayQueries(true);
 
@@ -188,7 +188,36 @@ const Dashboard = () => {
       setLoading(false);
       setLoadingTodayQueries(false);
     }
-  };
+  }, [user?.id]);
+
+  const hasAnalytics = user?.plan_features?.analytics?.enabled;
+
+  // Revenue Growth percentages (dynamic from stats)
+  const totalQueries = stats?.total_queries || 0;
+  const revenueGrowthPercentages = useMemo(() => {
+    const toPercent = (count) => {
+      if (!totalQueries || !count) return '0%';
+      return `${((count / totalQueries) * 100).toFixed(1)}%`;
+    };
+    return [
+      { label: 'Proposal Sent', value: toPercent(stats?.proposal_sent || 0) },
+      { label: 'Hot Lead', value: toPercent(stats?.hot_leads || 0) },
+      { label: 'Cancel', value: toPercent(stats?.cancelled || 0) },
+      { label: 'Proposal Conv.', value: toPercent(stats?.proposal_confirmed || 0) },
+    ];
+  }, [stats, totalQueries]);
+
+  const featureFlags = useMemo(() => ({
+    hasQueries: true,
+    hasFollowups: true,
+    hasItineraries: isVisible('Itineraries') || isManager || user?.roles?.some(r => (typeof r === 'string' ? ['Employee', 'Sales Rep'].includes(r) : ['Employee', 'Sales Rep'].includes(r.name))),
+    hasPayments: isVisible('Payments') || isManager || user?.roles?.some(r => (typeof r === 'string' ? ['Employee', 'Sales Rep'].includes(r) : ['Employee', 'Sales Rep'].includes(r.name))),
+    hasReports: (isVisible('Reports') || isManager) && hasAnalytics,
+    hasSales: (isVisible('Sales Reps') || isManager) && hasAnalytics,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }), [isManager, hasAnalytics, menuItems, user?.roles]);
+
+  const { hasQueries, hasFollowups, hasItineraries, hasPayments, hasReports, hasSales } = featureFlags;
 
   if (loading) {
     return (
@@ -209,32 +238,6 @@ const Dashboard = () => {
       </Layout>
     );
   }
-
-  // Revenue Growth percentages (dynamic from stats)
-  const totalQueries = stats?.total_queries || 0;
-  const toPercent = (count) => {
-    if (!totalQueries || !count) return '0%';
-    const value = (count / totalQueries) * 100;
-    return `${value.toFixed(1)}%`;
-  };
-
-  const revenueGrowthPercentages = [
-    { label: 'Proposal Sent', value: toPercent(stats?.proposal_sent || 0) },
-    { label: 'Hot Lead', value: toPercent(stats?.hot_leads || 0) },
-    { label: 'Cancel', value: toPercent(stats?.cancelled || 0) },
-    { label: 'Proposal Conv.', value: toPercent(stats?.proposal_confirmed || 0) }
-  ];
-
-  const hasAnalytics = user?.plan_features?.analytics?.enabled;
-
-  // Let core features be always visible on dashboard if authenticated,
-  // or use isVisible for strict feature-level toggling
-  const hasQueries = true; // Dashboard core
-  const hasFollowups = true; // Dashboard core
-  const hasItineraries = isVisible('Itineraries') || isManager || user?.roles?.some(r => (typeof r === 'string' ? ['Employee', 'Sales Rep'].includes(r) : ['Employee', 'Sales Rep'].includes(r.name)));
-  const hasPayments = isVisible('Payments') || isManager || user?.roles?.some(r => (typeof r === 'string' ? ['Employee', 'Sales Rep'].includes(r) : ['Employee', 'Sales Rep'].includes(r.name)));
-  const hasReports = (isVisible('Reports') || isManager) && hasAnalytics;
-  const hasSales = (isVisible('Sales Reps') || isManager) && hasAnalytics;
 
   return (
     <Layout>

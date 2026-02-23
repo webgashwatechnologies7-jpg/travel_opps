@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { toast } from 'react-toastify';
 import Layout from '../components/Layout';
@@ -48,7 +48,7 @@ const Suppliers = () => {
     fetchSuppliers();
   }, []);
 
-  const fetchSuppliers = async () => {
+  const fetchSuppliers = useCallback(async () => {
     try {
       setLoading(true);
       const response = await suppliersAPI.list();
@@ -66,7 +66,7 @@ const Suppliers = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   const handleAddNew = () => {
     setEditingSupplierId(null);
@@ -111,7 +111,7 @@ const Suppliers = () => {
     }));
   };
 
-  const handleSave = async (e) => {
+  const handleSave = useCallback(async (e) => {
     e.preventDefault();
     setSaving(true);
 
@@ -146,7 +146,7 @@ const Suppliers = () => {
     } finally {
       setSaving(false);
     }
-  };
+  }, [editingSupplierId, formData, fetchSuppliers]);
 
   const handleEdit = (supplier) => {
     setEditingSupplierId(supplier.id);
@@ -186,7 +186,7 @@ const Suppliers = () => {
     });
   };
 
-  const handleDelete = async (supplierId) => {
+  const handleDelete = useCallback(async (supplierId) => {
     if (!window.confirm('Are you sure you want to delete this supplier?')) {
       return;
     }
@@ -199,14 +199,16 @@ const Suppliers = () => {
       setError(err.response?.data?.message || 'Failed to delete supplier');
       console.error(err);
     }
-  };
+  }, [fetchSuppliers]);
 
-  const filteredSuppliers = suppliers.filter(supplier => {
-    const company = supplier.company || supplier.company_name || '';
-    const name = supplier.name || `${supplier.first_name || ''} ${supplier.last_name || ''}`.trim();
-    const searchLower = searchTerm.toLowerCase();
-    return company.toLowerCase().includes(searchLower) || name.toLowerCase().includes(searchLower);
-  });
+  const filteredSuppliers = useMemo(() =>
+    suppliers.filter(supplier => {
+      const company = supplier.company || supplier.company_name || '';
+      const name = supplier.name || `${supplier.first_name || ''} ${supplier.last_name || ''}`.trim();
+      const searchLower = searchTerm.toLowerCase();
+      return company.toLowerCase().includes(searchLower) || name.toLowerCase().includes(searchLower);
+    }),
+    [suppliers, searchTerm]);
 
   // Format supplier name for display
   const formatSupplierName = (supplier) => {
@@ -224,7 +226,7 @@ const Suppliers = () => {
     await loadFinancialSummary(supplier.id, period);
   };
 
-  const loadFinancialSummary = async (supplierId, period = detailsPeriod) => {
+  const loadFinancialSummary = useCallback(async (supplierId, period = detailsPeriod) => {
     try {
       setDetailsLoading(true);
       setDetailsError('');
@@ -241,7 +243,7 @@ const Suppliers = () => {
     } finally {
       setDetailsLoading(false);
     }
-  };
+  }, [detailsPeriod]);
 
   // Format mobile for display
   const formatMobile = (supplier) => {

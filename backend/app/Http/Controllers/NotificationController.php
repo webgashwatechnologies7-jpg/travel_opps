@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\PushToken;
 use App\Models\Setting;
+use App\Models\User;
+use App\Services\CompanyMailSettingsService;
 use App\Services\PushNotificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -11,8 +13,6 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Validator;
-use App\Services\CompanyMailSettingsService;
-use App\Models\User;
 
 class NotificationController extends Controller
 {
@@ -23,107 +23,35 @@ class NotificationController extends Controller
     {
         try {
             $validator = Validator::make($request->all(), [
-                'token' => 'required|string',
+                'token' => 'required|string|min:10',
                 'platform' => 'nullable|string|max:50',
                 'device_name' => 'nullable|string|max:100',
             ]);
 
             if ($validator->fails()) {
-                \Log::warning('Push token validation failed', [
-                    'errors' => $validator->errors()->toArray(),
-                    'user_id' => auth()->id()
-                ]);
-
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Validation failed',
-                    'errors' => $validator->errors()
-                ], 422);
+                return $this->validationErrorResponse($validator);
             }
 
-            // Get authenticated user with error handling
-            try {
-                $user = $request->user();
-                if (!$user) {
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'User not authenticated',
-                    ], 401);
-                }
-            } catch (\Exception $authError) {
-                \Log::error('Authentication error in push token store', [
-                    'error' => $authError->getMessage()
-                ]);
-
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Authentication error'
-                ], 401);
+            $user = $request->user();
+            if (!$user) {
+                return $this->errorResponse('User not authenticated', 401);
             }
 
-            $tokenValue = $request->input('token');
+            $pushToken = PushToken::updateOrCreate(
+                ['token' => $request->token],
+                [
+                    'user_id' => $user->id,
+                    'platform' => $request->input('platform', 'web'),
+                    'device_name' => $request->input('device_name'),
+                    'last_used_at' => now(),
+                ]
+            );
 
-            // Validate token format
-            if (empty($tokenValue) || strlen($tokenValue) < 10) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Invalid push token format',
-                ], 422);
-            }
+            Log::info('Push token saved', ['user_id' => $user->id, 'platform' => $pushToken->platform]);
 
-            // Store push token with database error handling
-            try {
-                $pushToken = PushToken::updateOrCreate(
-                    ['token' => $tokenValue],
-                    [
-                        'user_id' => $user->id,
-                        'platform' => $request->input('platform', 'web'),
-                        'device_name' => $request->input('device_name'),
-                        'last_used_at' => now(),
-                    ]
-                );
-
-                \Log::info('Push token saved successfully', [
-                    'token_id' => $pushToken->id,
-                    'platform' => $pushToken->platform,
-                    'device_name' => $pushToken->device_name,
-                    'user_id' => $user->id
-                ]);
-
-                return response()->json([
-                    'success' => true,
-                    'message' => 'Push token saved',
-                    'data' => [
-                        'push_token' => $pushToken,
-                    ],
-                ], 201);
-
-            } catch (\Exception $dbError) {
-                \Log::error('Database error saving push token', [
-                    'error' => $dbError->getMessage(),
-                    'token' => substr($tokenValue, 0, 10) . '...', // Log only first 10 chars for security
-                    'user_id' => auth()->id()
-                ]);
-
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Failed to save push token',
-                    'error' => config('app.debug') ? $dbError->getMessage() : 'Database error'
-                ], 500);
-            }
-
+            return $this->createdResponse(['push_token' => $pushToken], 'Push token saved');
         } catch (\Exception $e) {
-            \Log::error('Critical error in push token store', [
-                'error' => $e->getMessage(),
-                'trace' => config('app.debug') ? $e->getTraceAsString() : null,
-                'user_id' => auth()->id()
-            ]);
-
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to save push token',
-                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error'
-            ], 500);
+            return $this->serverErrorResponse('Failed to save push token', $e);
         }
     }
 
@@ -133,99 +61,26 @@ class NotificationController extends Controller
     public function deleteToken(Request $request): JsonResponse
     {
         try {
-            // Get authenticated user with error handling
-            try {
-                $user = $request->user();
-                if (!$user) {
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'User not authenticated',
-                    ], 401);
-                }
-            } catch (\Exception $authError) {
-                \Log::error('Authentication error in push token delete', [
-                    'error' => $authError->getMessage()
-                ]);
-
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Authentication error'
-                ], 401);
+            $user = $request->user();
+            if (!$user) {
+                return $this->errorResponse('User not authenticated', 401);
             }
 
-            // Enhanced validation
             $validator = Validator::make($request->all(), [
                 'token' => 'required|string|max:255'
-            ], [
-                'token.required' => 'Push token is required.',
-                'token.max' => 'Push token must not exceed 255 characters.'
             ]);
 
             if ($validator->fails()) {
-                \Log::warning('Push token deletion validation failed', [
-                    'errors' => $validator->errors()->toArray(),
-                    'user_id' => $user->id
-                ]);
-
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Validation failed',
-                    'errors' => $validator->errors()
-                ], 422);
+                return $this->validationErrorResponse($validator);
             }
 
-            $tokenValue = $request->input('token');
+            $deleted = PushToken::where('user_id', $user->id)
+                ->where('token', $request->token)
+                ->delete();
 
-            // Delete push token with database error handling
-            try {
-                $query = PushToken::where('user_id', $user->id);
-
-                if ($tokenValue) {
-                    $query->where('token', $tokenValue);
-                }
-
-                $deleted = $query->delete();
-
-                \Log::info('Push token deletion completed', [
-                    'deleted_count' => $deleted,
-                    'token_provided' => !empty($tokenValue),
-                    'user_id' => $user->id
-                ]);
-
-                return response()->json([
-                    'success' => true,
-                    'message' => $deleted ? 'Push token deleted' : 'No matching token found',
-                    'data' => [
-                        'deleted' => $deleted,
-                    ],
-                ], 200);
-
-            } catch (\Exception $dbError) {
-                \Log::error('Database error deleting push token', [
-                    'error' => $dbError->getMessage(),
-                    'token' => substr($tokenValue ?? '', 0, 10) . '...', // Log only first 10 chars for security
-                    'user_id' => $user->id
-                ]);
-
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Failed to delete push token',
-                    'error' => config('app.debug') ? $dbError->getMessage() : 'Database error'
-                ], 500);
-            }
-
+            return $this->successResponse(['deleted' => (bool) $deleted], $deleted ? 'Push token deleted' : 'No matching token found');
         } catch (\Exception $e) {
-            \Log::error('Critical error in push token delete', [
-                'error' => $e->getMessage(),
-                'trace' => config('app.debug') ? $e->getTraceAsString() : null,
-                'user_id' => auth()->id()
-            ]);
-
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to delete push token',
-                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error'
-            ], 500);
+            return $this->serverErrorResponse('Failed to delete push token', $e);
         }
     }
 
@@ -235,7 +90,6 @@ class NotificationController extends Controller
     public function sendPush(Request $request): JsonResponse
     {
         try {
-            // Enhanced validation
             $validator = Validator::make($request->all(), [
                 'title' => 'required|string|max:100',
                 'body' => 'required|string|max:255',
@@ -244,178 +98,55 @@ class NotificationController extends Controller
                 'tokens' => 'nullable|array',
                 'tokens.*' => 'string',
                 'data' => 'nullable|array',
-                'data.*' => 'nullable|string|max:1000'
-            ], [
-                'title.required' => 'Notification title is required.',
-                'title.max' => 'Title must not exceed 100 characters.',
-                'body.required' => 'Notification body is required.',
-                'body.max' => 'Body must not exceed 255 characters.',
-                'user_ids.required' => 'At least one user ID or token is required.',
-                'user_ids.array' => 'User IDs must be an array.',
-                'user_ids.*.exists' => 'One or more user IDs are invalid.',
-                'tokens.array' => 'Tokens must be an array.',
-                'data.*.max' => 'Data items must not exceed 1000 characters each.'
             ]);
 
             if ($validator->fails()) {
-                \Log::warning('Push notification validation failed', [
-                    'errors' => $validator->errors()->toArray(),
-                    'user_id' => auth()->id()
-                ]);
-
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Validation failed',
-                    'errors' => $validator->errors()
-                ], 422);
+                return $this->validationErrorResponse($validator);
             }
 
             $tokens = $request->input('tokens', []);
             $userIds = $request->input('user_ids', []);
-            $data = $request->input('data', []);
 
-            // Validate at least one target
             if (empty($tokens) && empty($userIds)) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'At least one user ID or token is required.',
-                ], 422);
+                return $this->errorResponse('At least one user ID or token is required', 422);
             }
 
-            // Get target users with error handling
-            try {
-                if (empty($userIds) && Auth::check()) {
-                    $userIds = [Auth::id()];
-                }
-
-                $targetUsers = User::whereIn('id', $userIds)
-                    ->where('is_active', true)
-                    ->get(['id', 'name', 'email']);
-
-                if ($targetUsers->isEmpty()) {
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'No valid target users found',
-                    ], 404);
-                }
-
-            } catch (\Exception $dbError) {
-                \Log::error('Database error fetching target users', [
-                    'error' => $dbError->getMessage(),
-                    'user_ids' => $userIds,
-                    'user_id' => auth()->id()
-                ]);
-
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Failed to fetch target users',
-                    'error' => config('app.debug') ? $dbError->getMessage() : 'Database error'
-                ], 500);
+            // Fallback to current user if no targets specified (simplified logic)
+            if (empty($userIds) && Auth::check()) {
+                $userIds = [Auth::id()];
             }
 
-            // Get push tokens with error handling
-            try {
-                $targetTokens = empty($tokens) ? [] : PushToken::whereIn('token', $tokens)
-                    ->whereHas('user', function ($query) use ($targetUsers) {
-                        $query->whereIn('user_id', $targetUsers->pluck('id'));
-                    })
-                    ->where('last_used_at', '>', now()->subDays(30)) // Only use tokens used in last 30 days
-                    ->get(['token', 'user_id']);
-
-                \Log::info('Target tokens retrieved', [
-                    'token_count' => $targetTokens->count(),
-                    'user_count' => $targetUsers->count(),
-                    'user_id' => auth()->id()
-                ]);
-            } catch (\Exception $tokenError) {
-                \Log::error('Error fetching push tokens', [
-                    'error' => $tokenError->getMessage(),
-                    'tokens' => $tokens,
-                    'user_id' => auth()->id()
-                ]);
-
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Failed to fetch push tokens',
-                    'error' => config('app.debug') ? $tokenError->getMessage() : 'Service error'
-                ], 500);
+            $targetUsers = User::whereIn('id', $userIds)->where('is_active', true)->get(['id', 'name']);
+            if ($targetUsers->isEmpty() && empty($tokens)) {
+                return $this->errorResponse('No valid target users or tokens found', 404);
             }
 
-            if ($targetTokens->isEmpty()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'No valid push tokens found for target users',
-                ], 404);
+            // Logic to get tokens for users if only user_ids were provided
+            $userTokens = PushToken::whereIn('user_id', $targetUsers->pluck('id'))
+                ->where('last_used_at', '>', now()->subDays(60))
+                ->pluck('token')
+                ->toArray();
+
+            $allTokens = array_unique(array_merge($tokens, $userTokens));
+
+            if (empty($allTokens)) {
+                return $this->errorResponse('No valid push tokens found', 404);
             }
 
-            $sentCount = 0;
-            $failedCount = 0;
-            $errors = [];
-
-            // Send push notifications with error handling
-            foreach ($targetUsers as $user) {
-                try {
-                    // Simulate push notification (replace with actual FCM/APNS service)
-                    $userTokens = $targetTokens->where('user_id', $user->id)->pluck('token');
-
-                    if ($userTokens->isEmpty()) {
-                        $errors[] = "User {$user->name} has no registered push tokens";
-                        continue;
-                    }
-
-                    // Here you would integrate with FCM for Android or APNS for iOS
-                    // For demo purposes, we'll just log the attempt
-                    \Log::info('Push notification sent', [
-                        'user_id' => $user->id,
-                        'user_name' => $user->name,
-                        'title' => $request->title,
-                        'body' => $request->body,
-                        'tokens_used' => $userTokens->count(),
-                        'data' => $data
-                    ]);
-
-                    $sentCount++;
-
-                } catch (\Exception $pushError) {
-                    $failedCount++;
-                    $errors[] = "Failed to send push to {$user->name}: " . $pushError->getMessage();
-                    \Log::error('Push notification send failed', [
-                        'error' => $pushError->getMessage(),
-                        'user_id' => $user->id,
-                        'user_name' => $user->name
-                    ]);
-                }
-            }
-
-            \Log::info('Push notification campaign completed', [
-                'sent_count' => $sentCount,
-                'failed_count' => $failedCount,
-                'error_count' => count($errors),
-                'user_id' => auth()->id()
+            // Call PushNotificationService or simulate
+            // For now, we simulate success as in the original code but with cleaner structure
+            Log::info('Push notification request', [
+                'tokens_count' => count($allTokens),
+                'title' => $request->title
             ]);
 
-            return response()->json([
-                'success' => true,
-                'message' => 'Push notification campaign completed',
-                'data' => [
-                    'sent_count' => $sentCount,
-                    'failed_count' => $failedCount,
-                    'errors' => $errors,
-                ],
-            ], 200);
+            return $this->successResponse([
+                'sent_count' => count($allTokens),
+                'target_users' => $targetUsers->count()
+            ], 'Push notification campaign completed');
 
         } catch (\Exception $e) {
-            \Log::error('Critical error in push notification send', [
-                'error' => $e->getMessage(),
-                'trace' => config('app.debug') ? $e->getTraceAsString() : null,
-                'user_id' => auth()->id()
-            ]);
-
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to send push notification',
-                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error'
-            ], 500);
+            return $this->serverErrorResponse('Failed to send push notification', $e);
         }
     }
 
@@ -424,51 +155,39 @@ class NotificationController extends Controller
      */
     public function sendEmail(Request $request): JsonResponse
     {
-        $validator = Validator::make($request->all(), [
-            'to' => 'required|email',
-            'cc' => 'nullable|email',
-            'bcc' => 'nullable|email',
-            'subject' => 'required|string|max:255',
-            'body' => 'required|string',
-            'attachment' => 'nullable|file|max:10240',
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Validation failed',
-                'errors' => $validator->errors(),
-            ], 422);
-        }
-
-        // Prefer Email Integration From Name/Email when enabled — sender shows company name and company email
-        $mailSettings = \App\Services\CompanyMailSettingsService::getSettings();
-        $useCompanyMail = !empty($mailSettings['enabled']) && (!empty($mailSettings['from_address']) || !empty($mailSettings['from_name']));
-
-        $companyLogo = Setting::getValue('company_logo', '');
-        $companyName = $useCompanyMail && !empty($mailSettings['from_name'])
-            ? $mailSettings['from_name']
-            : Setting::getValue('company_name', config('app.name', 'TravelOps'));
-        $companyEmail = $useCompanyMail && !empty($mailSettings['from_address'])
-            ? $mailSettings['from_address']
-            : Setting::getValue('company_email', config('mail.from.address', ''));
-        $companyPhone = Setting::getValue('company_phone', '');
-        $companyAddress = Setting::getValue('company_address', '');
-
-        $emailBody = $this->buildBrandedEmailHtml(
-            $request->subject,
-            $request->body,
-            $companyLogo,
-            $companyName,
-            $companyEmail,
-            $companyPhone,
-            $companyAddress
-        );
-
-        $fromEmail = $companyEmail ?: config('mail.from.address', 'noreply@travelops.com');
-        $fromName = $companyName ?: config('mail.from.name', 'TravelOps');
-
         try {
+            $validator = Validator::make($request->all(), [
+                'to' => 'required|email',
+                'cc' => 'nullable|email',
+                'bcc' => 'nullable|email',
+                'subject' => 'required|string|max:255',
+                'body' => 'required|string',
+                'attachment' => 'nullable|file|max:10240',
+            ]);
+
+            if ($validator->fails()) {
+                return $this->validationErrorResponse($validator);
+            }
+
+            $mailSettings = CompanyMailSettingsService::getSettings();
+            $useCompanyMail = !empty($mailSettings['enabled']);
+
+            $companyName = Setting::getValue('company_name', config('app.name', 'TravelOps'));
+            $companyEmail = Setting::getValue('company_email', config('mail.from.address', ''));
+
+            $fromEmail = ($useCompanyMail && !empty($mailSettings['from_address'])) ? $mailSettings['from_address'] : $companyEmail;
+            $fromName = ($useCompanyMail && !empty($mailSettings['from_name'])) ? $mailSettings['from_name'] : $companyName;
+
+            $emailBody = $this->buildBrandedEmailHtml(
+                $request->subject,
+                $request->body,
+                Setting::getValue('company_logo', ''),
+                $fromName,
+                $fromEmail,
+                Setting::getValue('company_phone', ''),
+                Setting::getValue('company_address', '')
+            );
+
             CompanyMailSettingsService::applyIfEnabled();
             Mail::send([], [], function ($message) use ($request, $emailBody, $fromEmail, $fromName) {
                 $message->from($fromEmail, $fromName)
@@ -476,13 +195,10 @@ class NotificationController extends Controller
                     ->subject($request->subject)
                     ->html($emailBody);
 
-                if ($request->cc) {
+                if ($request->cc)
                     $message->cc($request->cc);
-                }
-
-                if ($request->bcc) {
+                if ($request->bcc)
                     $message->bcc($request->bcc);
-                }
 
                 if ($request->hasFile('attachment')) {
                     $file = $request->file('attachment');
@@ -493,78 +209,15 @@ class NotificationController extends Controller
                 }
             });
 
-            return response()->json([
-                'success' => true,
-                'message' => 'Email sent successfully',
-            ], 200);
+            return $this->successResponse(null, 'Email sent successfully');
         } catch (\Exception $e) {
-            Log::error('Failed to send email', [
-                'to' => $request->to,
-                'error' => $e->getMessage(),
-            ]);
-
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to send email',
-                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
-            ], 500);
+            return $this->serverErrorResponse('Failed to send email', $e);
         }
     }
 
-    private function buildBrandedEmailHtml(
-        string $subject,
-        string $body,
-        string $companyLogo,
-        string $companyName,
-        string $companyEmail,
-        string $companyPhone,
-        string $companyAddress
-    ): string {
-        return '<!DOCTYPE html>
-        <html>
-        <head>
-            <meta charset="utf-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>' . htmlspecialchars($subject) . '</title>
-        </head>
-        <body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f4f4f4;">
-            <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f4f4f4; padding: 20px 0;">
-                <tr>
-                    <td align="center">
-                        <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-                            <tr>
-                                <td style="background: linear-gradient(135deg, #2563eb, #3b82f6); padding: 30px 40px; text-align: center;">
-                                    ' . ($companyLogo ? '<img src="' . $companyLogo . '" alt="' . htmlspecialchars($companyName) . '" style="max-height: 60px; margin-bottom: 10px;">' : '') . '
-                                    <h1 style="color: #ffffff; margin: 0; font-size: 24px; font-weight: 600;">' . htmlspecialchars($companyName) . '</h1>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td style="padding: 40px;">
-                                    <div style="color: #333333; font-size: 15px; line-height: 1.6;">
-                                        ' . nl2br(htmlspecialchars($body)) . '
-                                    </div>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td style="background-color: #f8fafc; padding: 30px 40px; border-top: 1px solid #e5e7eb;">
-                                    <table width="100%" cellpadding="0" cellspacing="0">
-                                        <tr>
-                                            <td style="color: #6b7280; font-size: 13px;">
-                                                <p style="margin: 0 0 10px 0;"><strong>' . htmlspecialchars($companyName) . '</strong></p>
-                                                ' . ($companyPhone ? '<p style="margin: 0 0 5px 0;">📞 ' . htmlspecialchars($companyPhone) . '</p>' : '') . '
-                                                ' . ($companyEmail ? '<p style="margin: 0 0 5px 0;">✉️ ' . htmlspecialchars($companyEmail) . '</p>' : '') . '
-                                                ' . ($companyAddress ? '<p style="margin: 0;">📍 ' . htmlspecialchars($companyAddress) . '</p>' : '') . '
-                                            </td>
-                                        </tr>
-                                    </table>
-                                </td>
-                            </tr>
-                        </table>
-                    </td>
-                </tr>
-            </table>
-        </body>
-        </html>';
+    private function buildBrandedEmailHtml($subject, $body, $logo, $name, $email, $phone, $address): string
+    {
+        return view('emails.branded', compact('subject', 'body', 'logo', 'name', 'email', 'phone', 'address'))->render();
     }
 
     /**
@@ -572,35 +225,32 @@ class NotificationController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        $user = $request->user();
-        $notifications = $user->notifications()
-            ->orderBy('created_at', 'desc')
-            ->limit(50)
-            ->get()
-            ->map(function ($notification) {
-                $data = $notification->data;
-                if (is_string($data)) {
-                    $data = json_decode($data, true) ?: [];
-                }
+        try {
+            $user = $request->user();
+            $notifications = $user->notifications()
+                ->orderBy('created_at', 'desc')
+                ->limit(50)
+                ->get()
+                ->map(function ($n) {
+                    $data = is_string($n->data) ? json_decode($n->data, true) : $n->data;
+                    return [
+                        'id' => $n->id,
+                        'type' => $data['type'] ?? 'system',
+                        'title' => $data['title'] ?? 'Notification',
+                        'message' => $data['message'] ?? '',
+                        'action_url' => $data['action_url'] ?? null,
+                        'is_read' => !is_null($n->read_at),
+                        'created_at' => $n->created_at->toISOString(),
+                    ];
+                });
 
-                return [
-                    'id' => $notification->id,
-                    'type' => $data['type'] ?? 'system',
-                    'title' => $data['title'] ?? 'Notification',
-                    'message' => $data['message'] ?? '',
-                    'action_url' => $data['action_url'] ?? null,
-                    'is_read' => !is_null($notification->read_at),
-                    'created_at' => $notification->created_at->toISOString(),
-                ];
-            });
-
-        return response()->json([
-            'success' => true,
-            'data' => [
+            return $this->successResponse([
                 'notifications' => $notifications,
                 'unread_count' => $user->unreadNotifications()->count(),
-            ]
-        ]);
+            ], 'Notifications retrieved');
+        } catch (\Exception $e) {
+            return $this->serverErrorResponse('Failed to retrieve notifications', $e);
+        }
     }
 
     /**
@@ -612,11 +262,7 @@ class NotificationController extends Controller
         if ($notification) {
             $notification->markAsRead();
         }
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Notification marked as read'
-        ]);
+        return $this->successResponse(null, 'Notification marked as read');
     }
 
     /**
@@ -625,11 +271,7 @@ class NotificationController extends Controller
     public function markAllAsRead(Request $request): JsonResponse
     {
         $request->user()->unreadNotifications->markAsRead();
-
-        return response()->json([
-            'success' => true,
-            'message' => 'All notifications marked as read'
-        ]);
+        return $this->successResponse(null, 'All notifications marked as read');
     }
 
     /**
@@ -637,36 +279,21 @@ class NotificationController extends Controller
      */
     public function destroy(Request $request, string $id): JsonResponse
     {
-        $user = $request->user();
+        try {
+            $user = $request->user();
+            if (!$user->is_super_admin && !$user->hasAnyRole(['Admin', 'Company Admin', 'Super Admin'])) {
+                return $this->errorResponse('Only admins can delete notifications', 403);
+            }
 
-        // Define admin roles
-        $isAdmin = $user->is_super_admin ?? false;
-        if (!$isAdmin && method_exists($user, 'hasAnyRole')) {
-            $isAdmin = $user->hasAnyRole(['Admin', 'Company Admin', 'Super Admin']);
-        } else if (!$isAdmin && method_exists($user, 'roles')) {
-            // fallback
-            $isAdmin = $user->roles()->whereIn('name', ['Admin', 'Company Admin', 'Super Admin'])->exists();
-        }
+            $notification = $user->notifications()->find($id);
+            if (!$notification) {
+                return $this->notFoundResponse('Notification not found');
+            }
 
-        if (!$isAdmin) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Only admins can delete notifications'
-            ], 403);
-        }
-
-        $notification = $user->notifications()->find($id);
-        if ($notification) {
             $notification->delete();
-            return response()->json([
-                'success' => true,
-                'message' => 'Notification deleted successfully'
-            ]);
+            return $this->deletedResponse('Notification deleted successfully');
+        } catch (\Exception $e) {
+            return $this->serverErrorResponse('Failed to delete notification', $e);
         }
-
-        return response()->json([
-            'success' => false,
-            'message' => 'Notification not found'
-        ], 404);
     }
 }

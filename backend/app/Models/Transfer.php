@@ -29,6 +29,9 @@ class Transfer extends Model
         'created_by',
     ];
 
+    /** Eagerly load creator to prevent N+1 queries. */
+    protected $with = ['creator'];
+
     /**
      * The attributes that should be cast.
      *
