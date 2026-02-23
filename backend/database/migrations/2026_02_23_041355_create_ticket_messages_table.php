@@ -10,14 +10,17 @@ return new class extends Migration {
      */
     public function up(): void
     {
-        Schema::create('ticket_messages', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('ticket_id')->constrained()->onDelete('cascade');
-            $table->foreignId('user_id')->constrained()->onDelete('cascade');
-            $table->text('message');
-            $table->boolean('is_read')->default(false);
-            $table->timestamps();
-        });
+        if (!Schema::hasTable('ticket_messages')) {
+            Schema::create('ticket_messages', function (Blueprint $table) {
+                $table->id();
+                $table->foreignId('ticket_id')->constrained()->onDelete('cascade');
+                $table->foreignId('user_id')->constrained()->onDelete('cascade');
+                $table->text('message');
+                $table->string('attachment')->nullable();
+                $table->boolean('is_read')->default(false);
+                $table->timestamps();
+            });
+        }
     }
 
     /**
