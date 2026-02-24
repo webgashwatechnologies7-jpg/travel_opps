@@ -159,6 +159,8 @@ class AccountsController extends Controller
                 'client_title' => $request->title,
                 'email' => $request->email,
                 'phone' => $request->mobile,
+                'email_secondary' => $request->email2,
+                'phone_secondary' => $request->mobile2,
                 'destination' => $request->city,
                 'address' => $request->address,
                 'date_of_birth' => $request->dateOfBirth,
@@ -182,15 +184,21 @@ class AccountsController extends Controller
             $corp = Lead::find($id);
             if (!$corp || $corp->client_type !== 'corporate')
                 return $this->notFoundResponse('Corporate client not found');
+
             $corp->update([
                 'client_name' => $request->companyName,
+                'client_title' => $request->industry,
                 'contact_person' => $request->contactPerson,
+                'designation' => $request->designation,
                 'phone' => $request->mobile,
                 'email' => $request->email,
+                'destination' => $request->city,
+                'budget' => $request->creditLimit ? (float) $request->creditLimit : null,
             ]);
+
             return $this->updatedResponse($corp, 'Corporate client updated successfully');
         } catch (\Exception $e) {
-            return $this->serverErrorResponse('Failed to update corporate client', $e);
+            return $this->serverErrorResponse('Failed to update corporate client: ' . $e->getMessage(), $e);
         }
     }
 
@@ -250,24 +258,39 @@ class AccountsController extends Controller
     {
         try {
             $validator = Validator::make($request->all(), [
-                'name' => 'required|string|max:255',
+                'name' => 'required_without:companyName|string|max:255',
+                'companyName' => 'required_without:name|string|max:255',
                 'mobile' => 'required|string|max:20',
                 'email' => 'nullable|email|max:255',
             ]);
             if ($validator->fails())
                 return $this->validationErrorResponse($validator);
 
-            $data = $request->all();
-            $data['client_name'] = $request->name ?? $request->companyName;
-            $data['phone'] = $request->mobile;
-            $data['client_type'] = $type;
-            $data['created_by'] = auth()->id();
-            $data['company_id'] = auth()->user()->company_id;
+            $data = [
+                'client_name' => $request->name ?? $request->companyName,
+                'client_title' => $request->title ?? $request->industry,
+                'contact_person' => $request->contactPerson,
+                'phone' => $request->mobile,
+                'email' => $request->email,
+                'phone_secondary' => $request->mobile2,
+                'email_secondary' => $request->email2,
+                'destination' => $request->city,
+                'budget' => $request->creditLimit ? (float) $request->creditLimit : null,
+                'client_type' => $type,
+                'created_by' => auth()->id(),
+                'company_id' => auth()->user()->company_id,
+                'source' => 'Direct',
+                'status' => 'new',
+            ];
+
+            if ($request->has('designation')) {
+                $data['designation'] = $request->designation;
+            }
 
             $account = Lead::create($data);
             return $this->createdResponse($account, 'Account created successfully');
         } catch (\Exception $e) {
-            return $this->serverErrorResponse('Failed to create account', $e);
+            return $this->serverErrorResponse('Failed to create account: ' . $e->getMessage(), $e);
         }
     }
 
