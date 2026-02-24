@@ -36,7 +36,7 @@ class LeadsController extends Controller
     public function index(Request $request): JsonResponse
     {
         try {
-            $filters = $request->only(['status', 'assigned_to', 'created_by', 'source', 'destination', 'priority']);
+            $filters = $request->only(['status', 'assigned_to', 'created_by', 'source', 'destination', 'priority', 'birth_month', 'anniversary_month']);
             $filters['company_id'] = function_exists('tenant') ? tenant('id') : $request->user()?->company_id;
 
             $perPage = $request->get('per_page', 15);
@@ -90,6 +90,10 @@ class LeadsController extends Controller
                 'travel_start_date' => 'nullable|date',
                 'travel_end_date' => 'nullable|date|after_or_equal:travel_start_date',
                 'pax_details' => 'nullable|array',
+                'client_title' => 'nullable|string|max:10',
+                'date_of_birth' => 'nullable|date',
+                'marriage_anniversary' => 'nullable|date',
+                'remark' => 'nullable|string',
             ]);
 
             if ($validator->fails())
@@ -121,6 +125,12 @@ class LeadsController extends Controller
                 'status' => 'nullable|in:new,proposal,followup,confirmed,cancelled',
                 'priority' => 'nullable|in:hot,warm,cold',
                 'assigned_to' => 'nullable|exists:users,id',
+                'email' => 'nullable|email|max:255',
+                'phone' => 'nullable|string|max:20',
+                'client_title' => 'nullable|string|max:10',
+                'date_of_birth' => 'nullable|date',
+                'marriage_anniversary' => 'nullable|date',
+                'remark' => 'nullable|string',
             ]);
 
             if ($validator->fails())
@@ -241,6 +251,9 @@ class LeadsController extends Controller
             'status' => $lead->status,
             'priority' => $lead->priority,
             'assigned_to' => $lead->assigned_to,
+            'client_title' => $lead->client_title,
+            'date_of_birth' => optional($lead->date_of_birth)->format('Y-m-d'),
+            'marriage_anniversary' => optional($lead->marriage_anniversary)->format('Y-m-d'),
             'updated_at' => $lead->updated_at,
         ];
     }
@@ -254,6 +267,7 @@ class LeadsController extends Controller
             'child' => $lead->child ?? 0,
             'infant' => $lead->infant ?? 0,
             'pax_details' => $lead->pax_details,
+            'remark' => $lead->remark,
             'assigned_user' => $lead->assignedUser ? ['id' => $lead->assignedUser->id, 'name' => $lead->assignedUser->name] : null,
             'creator' => $lead->creator ? ['id' => $lead->creator->id, 'name' => $lead->creator->name] : null,
             'followups' => $lead->followups->map(fn($f) => [

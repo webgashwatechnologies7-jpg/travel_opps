@@ -29,6 +29,8 @@ const getDefaultFormData = () => ({
   assigned_to: '',
   service: '',
   remark: '',
+  date_of_birth: '',
+  marriage_anniversary: '',
 });
 
 const Leads = () => {
@@ -149,6 +151,18 @@ const Leads = () => {
       fetchLeads({ priority: 'hot' });
       return;
     }
+    const birthMonth = params.get('birth_month');
+    if (birthMonth) {
+      setActiveFilter('birthdays');
+      fetchLeads({ birth_month: birthMonth });
+      return;
+    }
+    const anniversaryMonth = params.get('anniversary_month');
+    if (anniversaryMonth) {
+      setActiveFilter('anniversaries');
+      fetchLeads({ anniversary_month: anniversaryMonth });
+      return;
+    }
     setDestinationFilter('');
     setAssignedToFilter('');
     setAssignedNameFilter('');
@@ -246,6 +260,8 @@ const Leads = () => {
         child: formData.child ? parseInt(formData.child, 10) : 0,
         infant: formData.infant ? parseInt(formData.infant, 10) : 0,
         remark: formData.remark || null,
+        date_of_birth: formData.date_of_birth || null,
+        marriage_anniversary: formData.marriage_anniversary || null,
       };
 
       await leadsAPI.create(apiData);
@@ -364,6 +380,8 @@ const Leads = () => {
       yearly: leads.filter(l => l.created_at && inRange(l.created_at, startOfYear)).length,
       postponed: 0, // Not in current data model
       invalid: 0, // Not in current data model
+      birthdays: leads.filter(l => l.date_of_birth && new Date(l.date_of_birth).getMonth() === today.getMonth()).length,
+      anniversaries: leads.filter(l => l.marriage_anniversary && new Date(l.marriage_anniversary).getMonth() === today.getMonth()).length,
     };
     return stats;
   }, [leads]);
@@ -449,6 +467,12 @@ const Leads = () => {
       return []; // Not implemented yet
     } else if (activeFilter === 'invalid') {
       return []; // Not implemented yet
+    } else if (activeFilter === 'birthdays') {
+      const today = new Date();
+      return leads.filter(l => l.date_of_birth && new Date(l.date_of_birth).getMonth() === today.getMonth());
+    } else if (activeFilter === 'anniversaries') {
+      const today = new Date();
+      return leads.filter(l => l.marriage_anniversary && new Date(l.marriage_anniversary).getMonth() === today.getMonth());
     }
     return leads;
   }, [leads, activeFilter, assignedNameFilter, assignedToFilter, destinationFilter]);
@@ -609,6 +633,8 @@ const Leads = () => {
               <option value="cancel">Cancel ({stats.cancel})</option>
               <option value="followUp">Follow ups ({stats.followUp})</option>
               <option value="confirmed">Confirmed ({stats.confirmed})</option>
+              <option value="birthdays">Birthdays ({stats.birthdays || 0})</option>
+              <option value="anniversaries">Anniversaries ({stats.anniversaries || 0})</option>
               <option value="postponed">Postponed ({stats.postponed})</option>
               <option value="invalid">Invalid ({stats.invalid})</option>
             </select>
@@ -815,6 +841,32 @@ const Leads = () => {
                         className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />
                     </div>
+                  </div>
+
+                  {/* DOB */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      DATE OF BIRTH
+                    </label>
+                    <input
+                      type="date"
+                      value={formData.date_of_birth}
+                      onChange={(e) => setFormData({ ...formData, date_of_birth: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+
+                  {/* ANNIVERSARY */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      MARRIAGE ANNIVERSARY
+                    </label>
+                    <input
+                      type="date"
+                      value={formData.marriage_anniversary}
+                      onChange={(e) => setFormData({ ...formData, marriage_anniversary: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
                   </div>
 
                   {/* DESTINATION * */}

@@ -15,7 +15,7 @@ class WhatsAppService
     public function __construct()
     {
         $this->apiKey = config('services.whatsapp.api_key');
-        $this->baseUrl = config('services.whatsapp.base_url', 'https://graph.facebook.com/v18.0');
+        $this->baseUrl = config('services.whatsapp.base_url', 'https://graph.facebook.com/v22.0');
         $this->phoneNumberId = config('services.whatsapp.phone_number_id');
     }
 
@@ -38,7 +38,7 @@ class WhatsAppService
     {
         try {
             $payload = $this->buildMessagePayload($to, $message, $templateName, $templateData);
-            
+
             $response = Http::withHeaders([
                 'Authorization' => 'Bearer ' . $this->apiKey,
                 'Content-Type' => 'application/json',
@@ -51,7 +51,7 @@ class WhatsAppService
                     'user_id' => auth()->id(),
                     'company_id' => auth()->user()?->company_id
                 ]);
-                
+
                 return [
                     'success' => true,
                     'message_id' => $response->json('messages.0.id'),
@@ -63,7 +63,7 @@ class WhatsAppService
                     'error' => $response->json(),
                     'status' => $response->status()
                 ]);
-                
+
                 return [
                     'success' => false,
                     'error' => $response->json('error.message', 'Failed to send message'),
@@ -76,7 +76,7 @@ class WhatsAppService
                 'to' => $to,
                 'trace' => $e->getTraceAsString()
             ]);
-            
+
             return [
                 'success' => false,
                 'error' => 'Service temporarily unavailable',
@@ -121,11 +121,11 @@ class WhatsAppService
             $response = Http::withHeaders([
                 'Authorization' => 'Bearer ' . $this->apiKey,
             ])->attach(
-                'file',
-                file_get_contents($filePath),
-                basename($filePath),
-                ['Content-Type' => $this->getMimeType($mediaType)]
-            )->post($this->baseUrl . '/' . $this->phoneNumberId . '/media');
+                    'file',
+                    file_get_contents($filePath),
+                    basename($filePath),
+                    ['Content-Type' => $this->getMimeType($mediaType)]
+                )->post($this->baseUrl . '/' . $this->phoneNumberId . '/media');
 
             if ($response->successful()) {
                 return [
@@ -158,7 +158,7 @@ class WhatsAppService
                 'template' => [
                     'name' => $templateName,
                     'language' => [
-                        'code' => 'en'
+                        'code' => $templateData['language'] ?? 'en'
                     ],
                     'components' => $this->buildTemplateComponents($templateData)
                 ]
@@ -183,7 +183,7 @@ class WhatsAppService
     private function buildTemplateComponents($templateData)
     {
         $components = [];
-        
+
         if (isset($templateData['body'])) {
             $components[] = [
                 'type' => 'body',

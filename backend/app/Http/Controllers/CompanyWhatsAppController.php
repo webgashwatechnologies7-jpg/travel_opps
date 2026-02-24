@@ -24,7 +24,7 @@ class CompanyWhatsAppController extends Controller
     {
         try {
             $company = auth()->user()->company;
-            
+
             if (!$company) {
                 return response()->json([
                     'success' => false,
@@ -83,7 +83,7 @@ class CompanyWhatsAppController extends Controller
     {
         try {
             $company = auth()->user()->company;
-            
+
             if (!$company) {
                 return response()->json([
                     'success' => false,
@@ -154,7 +154,7 @@ class CompanyWhatsAppController extends Controller
             }
 
             $company = auth()->user()->company;
-            
+
             if (!$company) {
                 return response()->json([
                     'success' => false,
@@ -213,7 +213,7 @@ class CompanyWhatsAppController extends Controller
     {
         try {
             $company = auth()->user()->company;
-            
+
             if (!$company) {
                 return response()->json([
                     'success' => false,
@@ -261,7 +261,7 @@ class CompanyWhatsAppController extends Controller
     {
         try {
             $company = auth()->user()->company;
-            
+
             if (!$company || !$company->whatsapp_enabled) {
                 return response()->json([
                     'success' => false,
@@ -276,9 +276,9 @@ class CompanyWhatsAppController extends Controller
             }
             $testResult = $api->sendMessage(
                 $testNumber ?: '0',
-                'Test message from CRM - WhatsApp integration is working!',
-                null,
-                []
+                '',
+                'hello_world',
+                ['language' => 'en_US']
             );
 
             if ($testResult['success']) {
@@ -319,7 +319,7 @@ class CompanyWhatsAppController extends Controller
     {
         try {
             $company = auth()->user()->company;
-            
+
             if (!$company) {
                 return response()->json([
                     'success' => false,
@@ -354,7 +354,7 @@ class CompanyWhatsAppController extends Controller
                         'sent_messages' => $analytics->sum('sent_messages'),
                         'received_messages' => $analytics->sum('received_messages'),
                         'read_messages' => $analytics->sum('read_messages'),
-                        'read_rate' => $analytics->sum('sent_messages') > 0 
+                        'read_rate' => $analytics->sum('sent_messages') > 0
                             ? round(($analytics->sum('read_messages') / $analytics->sum('sent_messages')) * 100, 2)
                             : 0
                     ]

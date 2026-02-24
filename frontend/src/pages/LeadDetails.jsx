@@ -7,7 +7,7 @@ import { searchPexelsPhotos } from '../services/pexels';
 import { getDisplayImageUrl, rewriteHtmlImageUrls, sanitizeEmailHtmlForDisplay } from '../utils/imageUrl';
 import Layout from '../components/Layout';
 import { useSettings } from '../contexts/SettingsContext';
-import { ArrowLeft, Calendar, Mail, Plus, Upload, X, Search, FileText, Printer, Send, MessageCircle, CheckCircle, CheckCircle2, Clock, Briefcase, MapPin, CalendarDays, Users, UserCheck, Leaf, Smartphone, Phone, MoreVertical, Download, Pencil, Trash2, Camera, RefreshCw, Reply, ChevronDown, Paperclip, Eye, Info } from 'lucide-react';
+import { ArrowLeft, Calendar, Mail, Plus, Upload, X, Search, FileText, Printer, Send, MessageCircle, CheckCircle, CheckCircle2, Clock, Briefcase, MapPin, CalendarDays, Users, UserCheck, Leaf, Smartphone, Phone, MoreVertical, Download, Pencil, Trash2, Camera, RefreshCw, Reply, ChevronDown, Paperclip, Eye, Info, Gift, Heart } from 'lucide-react';
 import DetailRow from '../components/Quiries/DetailRow';
 import html2pdf from 'html2pdf.js';
 import { WhatsAppTab, MailsTab, FollowupsTab, BillingTab, HistoryTab, SuppCommTab, PostSalesTab, VoucherTab, DocsTab, InvoiceTab } from '../components/LeadTabs';
@@ -133,6 +133,16 @@ const LeadDetails = () => {
   const [showPaxModal, setShowPaxModal] = useState(false);
   const [paxTempList, setPaxTempList] = useState([]);
   const [savingPax, setSavingPax] = useState(false);
+  const [showEditLeadModal, setShowEditLeadModal] = useState(false);
+  const [editLeadFormData, setEditLeadFormData] = useState({
+    client_name: '',
+    client_title: '',
+    email: '',
+    phone: '',
+    date_of_birth: '',
+    marriage_anniversary: '',
+  });
+  const [savingLead, setSavingLead] = useState(false);
 
   // UI helper: when one option is confirmed, show only that option in Proposals tab
   const visibleProposals = useMemo(() => {
@@ -1529,6 +1539,22 @@ const LeadDetails = () => {
       showToastNotification('error', 'Error', 'Failed to save passenger details');
     } finally {
       setSavingPax(false);
+    }
+  };
+
+  const handleSaveLead = async (e) => {
+    e.preventDefault();
+    setSavingLead(true);
+    try {
+      await leadsAPI.update(id, editLeadFormData);
+      showToastNotification('success', 'Saved', 'Lead details updated successfully');
+      setShowEditLeadModal(false);
+      fetchLeadDetails();
+    } catch (err) {
+      console.error('Failed to save lead details:', err);
+      showToastNotification('error', 'Error', 'Failed to update lead details');
+    } finally {
+      setSavingLead(false);
     }
   };
 
@@ -3973,40 +3999,41 @@ const LeadDetails = () => {
     <Layout Header={() => null} padding={20}>
       <div className="p-4 sm:p-6" style={{ backgroundColor: settings?.dashboard_background_color || '#D8DEF5', minHeight: '100vh' }}>
         {/* Header */}
-        <div className="mb-2 rounded-lg bg-white p-4 sm:p-6">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
-            <div className="flex flex-col items-start gap-2 min-w-0">
-
-              <div className="flex flex-wrap items-center gap-2">
-                <button
-                  onClick={() => navigate('/leads')}
-                  className="text-gray-700 hover:text-gray-900"
-                >
-                  <ArrowLeft className="h-5 w-5" />
-                </button>
-                <h1 className="text-xl font-[700] text-gray-800">Query ID: {formatLeadId(lead.id)}</h1>
-                {lead.priority === 'hot' && (
-                  <span className="px-2 py-0.5 text-xs font-semibold bg-red-500 text-white rounded">HOT</span>
-                )}
-              </div>
-              <div className="text-sm text-gray-600 mb-4">
-                <b>Created</b>: {formatDate(lead.created_at)} | <b>Last Updated</b>: {formatDateTime(lead.updated_at)}
+        <div className="mb-4 rounded-xl bg-white p-4 sm:p-6 shadow-sm border border-gray-100">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <button
+                onClick={() => navigate('/leads')}
+                className="p-2.5 hover:bg-gray-100 rounded-full transition-colors text-gray-600 border border-gray-100"
+                title="Back to Queries"
+              >
+                <ArrowLeft className="h-5 w-5" />
+              </button>
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900 leading-tight">Query: #{formatLeadId(lead.id)}</h1>
+                <div className="text-xs text-gray-500 mt-1 flex items-center gap-2">
+                  <span className="font-medium">Created:</span> {formatDate(lead.created_at)}
+                  <span className="text-gray-300">•</span>
+                  <span className="font-medium">Updated:</span> {formatDateTime(lead.updated_at)}
+                </div>
               </div>
             </div>
+
+            <div className="flex items-center gap-3">
+              {lead.priority === 'hot' && (
+                <span className="px-3 py-1 text-xs font-bold bg-red-100 text-red-600 rounded-full border border-red-200 uppercase tracking-wider">Hot Lead</span>
+              )}
+            </div>
           </div>
-
-
-
-
         </div>
 
         {/* Main Content */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
-          {/* Left Column */}
-          <div className="lg:col-span-1 p-4 sm:p-6 shadow rounded-lg bg-white space-y-6">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          {/* Left Column (Sidebar Info) - 4 cols on laptop, stack on tablet/mobile */}
+          <div className="lg:col-span-4 space-y-6">
             {/* Query Information */}
-            <div className="  ">
-              <h2 className="text-xl font-[700] text-gray-800 mb-4">Query Information</h2>
+            <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
+              <h2 className="text-xl font-bold text-gray-900 mb-5">Query Information</h2>
               <div
                 className="rounded-2xl border border-gray-200 p-4 space-y-4 text-sm"
                 style={{
@@ -4105,16 +4132,17 @@ const LeadDetails = () => {
 
             {/* Related Customer */}
 
-            <div className="bg-white rounded-xl shadow-sm border p-5 mb-6">
-              <div className="flex justify-between items-center mb-3">
-                <h2 className="text-lg font-semibold text-gray-800">
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+              <div className="flex justify-between items-center mb-5">
+                <h2 className="text-lg font-bold text-gray-900">
                   Travellers (Pax)
                 </h2>
                 <button
                   onClick={handlePaxModalOpen}
-                  className="text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center gap-1"
+                  className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                  title="Edit Travellers"
                 >
-                  <Pencil className="w-3 h-3" /> Edit
+                  <Pencil className="w-4 h-4" />
                 </button>
               </div>
 
@@ -4144,59 +4172,96 @@ const LeadDetails = () => {
             </div>
 
             {/* Related Customer */}
-            <div className="bg-white rounded-xl shadow-sm border p-5">
-              <h2 className="text-lg font-semibold text-gray-800 mb-3">
-                Related Customer
-              </h2>
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+              <div className="flex justify-between items-center mb-5">
+                <h2 className="text-lg font-bold text-gray-900">
+                  Related Customer
+                </h2>
+                <button
+                  onClick={() => {
+                    setEditLeadFormData({
+                      client_name: lead.client_name || '',
+                      client_title: lead.client_title || '',
+                      email: lead.email || '',
+                      phone: lead.phone || '',
+                      date_of_birth: lead.date_of_birth ? lead.date_of_birth.split('T')[0] : '',
+                      marriage_anniversary: lead.marriage_anniversary ? lead.marriage_anniversary.split('T')[0] : '',
+                    });
+                    setShowEditLeadModal(true);
+                  }}
+                  className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                  title="Edit Customer"
+                >
+                  <Pencil className="w-4 h-4" />
+                </button>
+              </div>
 
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 sm:gap-6">
-                {/* LEFT INFO */}
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm text-gray-500 mb-1">
+              <div className="grid grid-cols-1 md:grid-cols-1 gap-6">
+                {/* INFO SECTION */}
+                <div className="space-y-3">
+                  <div className="text-lg font-bold text-gray-900">
                     {lead.client_title ? `${lead.client_title} ` : ''}
                     {lead.client_name}
                   </div>
 
-                  <div className="flex items-center gap-2 text-sm text-gray-600 mb-1">
-                    <Smartphone className="w-4 h-4 text-gray-700" />
-                    <span>{lead.phone || 'N/A'}</span>
+                  <div className="flex items-center gap-3 text-sm text-gray-600">
+                    <div className="p-2 bg-blue-50 rounded-full">
+                      <Smartphone className="w-4 h-4 text-blue-600" />
+                    </div>
+                    <span className="font-medium">{lead.phone || 'N/A'}</span>
                   </div>
 
-                  <div className="flex items-center gap-2 text-sm text-gray-600">
-                    <Mail className="w-4 h-4 text-gray-700" />
-                    <span>{lead.email || 'N/A'}</span>
+                  <div className="flex items-center gap-3 text-sm text-gray-600">
+                    <div className="p-2 bg-pink-50 rounded-full">
+                      <Mail className="w-4 h-4 text-[#E78175]" />
+                    </div>
+                    <span className="font-medium truncate">{lead.email || 'N/A'}</span>
                   </div>
+
+                  {(lead.date_of_birth || lead.marriage_anniversary) && (
+                    <div className="mt-4 pt-4 border-t border-gray-100 flex flex-wrap gap-4">
+                      {lead.date_of_birth && (
+                        <div className="flex items-center gap-2 text-xs text-gray-600 bg-yellow-50 px-3 py-1.5 rounded-full border border-yellow-100">
+                          <Gift className="w-3.5 h-3.5 text-yellow-600" />
+                          <span>DOB: <span className="font-semibold">{formatDate(lead.date_of_birth)}</span></span>
+                        </div>
+                      )}
+                      {lead.marriage_anniversary && (
+                        <div className="flex items-center gap-2 text-xs text-gray-600 bg-red-50 px-3 py-1.5 rounded-full border border-red-100">
+                          <Heart className="w-3.5 h-3.5 text-red-600" />
+                          <span>Anniv: <span className="font-semibold">{formatDate(lead.marriage_anniversary)}</span></span>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
 
-                {/* DIVIDER - hidden on mobile */}
-                <div className="hidden sm:block h-16 w-px bg-gray-300 flex-shrink-0"></div>
-
-                {/* RIGHT ACTIONS */}
-                <div className="flex flex-col sm:flex-row lg:flex-col gap-3 min-w-0 sm:min-w-[180px] shrink-0">
+                {/* ACTIONS SECTION */}
+                <div className="flex flex-col sm:flex-row lg:flex-col gap-3 pt-2">
                   <a
                     href={lead.phone ? `tel:${lead.phone}` : '#'}
-                    className="flex items-center justify-center gap-2 bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium py-2 px-4 rounded-full transition"
+                    className="flex-1 flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold py-3 px-4 rounded-xl transition-all shadow-sm"
                   >
-                    <Phone className="w-4 h-4" />
-                    {lead.phone || 'Call'}
+                    <Smartphone className="w-4 h-4" />
+                    Call
                   </a>
 
                   <a
                     href={lead.email ? `mailto:${lead.email}` : '#'}
-                    className="flex items-center justify-center gap-2 bg-[#E78175] hover:bg-[#f79176] text-white text-sm font-medium py-2 px-4 rounded-full transition"
+                    className="flex-1 flex items-center justify-center gap-2 bg-[#E78175] hover:bg-[#d67067] text-white text-sm font-bold py-3 px-4 rounded-xl transition-all shadow-sm"
                   >
                     <Mail className="w-4 h-4" />
-                    {lead.email || 'Email'}
+                    Email
                   </a>
                 </div>
               </div>
             </div>
 
             {/* Notes */}
-            <div className={` rounded-[28px] relative border-2 border-gray-200 p-5 ${showNoteInput ? 'bg-gray-400' : 'bg-white'}`}>
+            <div className={`rounded-xl border shadow-sm p-5 ${showNoteInput ? 'bg-gray-50' : 'bg-white'}`}>
               {/* TITLE */}
-              <h2 className="text-lg font-semibold text-black mb-6">
-                Related Company
+              <h2 className="text-lg font-semibold text-gray-800 mb-4">
+                Notes
               </h2>
 
               <div className="flex justify-between items-start">
@@ -4268,23 +4333,23 @@ const LeadDetails = () => {
 
                   {/* NOTE INPUT */}
                   {showNoteInput && (
-                    <div className="w-full max-w-[420px] bottom-0 z-10 absolute">
+                    <div className="w-full mt-4">
                       <textarea
                         value={noteText}
                         onChange={(e) => setNoteText(e.target.value)}
-                        placeholder="Type Note Here"
+                        placeholder="Type Note Here..."
                         rows={3}
-                        className="w-full border border-gray-300 rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-full border border-gray-300 rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-inner"
                       />
 
-                      <div className="flex justify-end gap-3 mt-3">
+                      <div className="flex justify-end gap-3 mt-2">
                         <button
                           onClick={() => {
                             setShowNoteInput(false);
                             setNoteText('');
                             setEditingNoteId(null);
                           }}
-                          className="text-gray-600 hover:text-gray-800 text-sm"
+                          className="text-gray-500 hover:text-gray-700 text-sm font-medium"
                         >
                           Cancel
                         </button>
@@ -4292,7 +4357,7 @@ const LeadDetails = () => {
                         <button
                           onClick={handleAddNote}
                           disabled={addingNote}
-                          className="bg-blue-500 hover:bg-blue-600 text-white px-5 py-1.5 rounded-full text-sm font-medium disabled:opacity-50"
+                          className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-1.5 rounded-full text-sm font-medium disabled:opacity-50 shadow-sm transition-all"
                         >
                           {addingNote ? 'Saving...' : (editingNoteId ? 'Update Note' : 'Add Note')}
                         </button>
@@ -4302,23 +4367,22 @@ const LeadDetails = () => {
                 </div>
 
                 {/* RIGHT SIDE */}
-                <div className="text-right space-y-8">
+                <div className="hidden sm:block text-right shrink-0">
                   {/* NOTES STATUS */}
-                  <div className="text-sm text-gray-400 font-light">
-                    {notes.length === 0 ? 'No Notes Yet..' : `${notes.length} Notes`}
+                  <div className="text-sm text-gray-500 font-medium bg-gray-100 px-3 py-1 rounded-full">
+                    {notes.length === 0 ? '0 Notes' : `${notes.length} Notes`}
                   </div>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Right Column */}
-          <div className="lg:col-span-2 p-4 sm:p-6 bg-white rounded-lg min-w-0">
-            {/* Tabs */}
-            <div className="bg-white  rounded-lg ">
+          {/* Right Column (Tabs Content) - 8 cols on laptop, stack on tablet/mobile */}
+          <div className="lg:col-span-8 space-y-6">
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 min-w-0">
 
-              <div className=" p-4 flex justify-center border-gray-200">
-                <div className="flex rounded-full w-fit custom-scroll overflow-x-auto">
+              <div className="flex justify-start border-b border-gray-100 sticky top-0 bg-white z-10 px-2 overflow-x-auto no-scrollbar">
+                <div className="flex space-x-1 p-1">
                   {[
                     { key: 'proposals', label: 'Proposals' },
                     { key: 'mails', label: 'Mails' },
@@ -4335,9 +4399,9 @@ const LeadDetails = () => {
                     <button
                       key={key}
                       onClick={() => setActiveTab(key)}
-                      className={`px-4  py-3 ${index == 0 ? "border-l rounded-l-full " : index == 10 ? " border-r rounded-r-full" : null}  border-l-0 border   text-sm font-medium whitespace-nowrap ${activeTab === key
-                        ? 'bg-[#333] text-white'
-                        : 'text-gray-600 bg-white hover:text-gray-900'
+                      className={`px-4 py-2.5 rounded-lg text-sm font-semibold whitespace-nowrap transition-all ${activeTab === key
+                        ? 'bg-blue-600 text-white shadow-sm'
+                        : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50'
                         }`}
                     >
                       {label}
@@ -4398,7 +4462,7 @@ const LeadDetails = () => {
                           <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow">
                             {/* Card header – one image/title block (click to edit itinerary) */}
                             <div
-                              className="relative h-60 w-full overflow-hidden rounded-t-xl cursor-pointer"
+                              className="relative h-48 sm:h-60 w-full overflow-hidden rounded-t-xl cursor-pointer"
                               onClick={() => {
                                 if (first?.itinerary_id) {
                                   navigate(`/itineraries/${first.itinerary_id}?fromLead=${id}`, { state: { fromLeadId: id } });
@@ -4488,7 +4552,7 @@ const LeadDetails = () => {
                               <hr className="my-4" />
 
                               {/* Package options – professional card layout */}
-                              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
+                              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 mb-4">
                                 {visibleProposals.map((opt) => {
                                   const displayPrice = opt.price ?? opt.pricing?.finalClientPrice ?? 0;
                                   return (
@@ -6042,7 +6106,111 @@ const LeadDetails = () => {
           </div>
         )
       }
-    </Layout >
+
+      {/* Edit Lead Modal */}
+      {showEditLeadModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100] p-4 animate-fadeIn">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden animate-slideUp">
+            <div className="p-6 border-b flex justify-between items-center bg-gray-50">
+              <h3 className="text-xl font-bold text-gray-800">Edit Customer Information</h3>
+              <button onClick={() => setShowEditLeadModal(false)} className="text-gray-400 hover:text-gray-600 transition-colors">
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            <div className="p-6">
+              <form onSubmit={handleSaveLead} className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="col-span-1 md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Title & Full Name</label>
+                    <div className="flex gap-2">
+                      <select
+                        value={editLeadFormData.client_title}
+                        onChange={(e) => setEditLeadFormData({ ...editLeadFormData, client_title: e.target.value })}
+                        className="w-24 border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                      >
+                        <option value="">Title</option>
+                        <option value="Mr.">Mr.</option>
+                        <option value="Mrs.">Mrs.</option>
+                        <option value="Ms.">Ms.</option>
+                        <option value="Dr.">Dr.</option>
+                      </select>
+                      <input
+                        type="text"
+                        value={editLeadFormData.client_name}
+                        onChange={(e) => setEditLeadFormData({ ...editLeadFormData, client_name: e.target.value })}
+                        className="flex-1 border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                        placeholder="Customer Name"
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                    <input
+                      type="email"
+                      value={editLeadFormData.email}
+                      onChange={(e) => setEditLeadFormData({ ...editLeadFormData, email: e.target.value })}
+                      className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                      placeholder="Email Address"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
+                    <input
+                      type="text"
+                      value={editLeadFormData.phone}
+                      onChange={(e) => setEditLeadFormData({ ...editLeadFormData, phone: e.target.value })}
+                      className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                      placeholder="Phone Number"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Date of Birth</label>
+                    <input
+                      type="date"
+                      value={editLeadFormData.date_of_birth}
+                      onChange={(e) => setEditLeadFormData({ ...editLeadFormData, date_of_birth: e.target.value })}
+                      className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Marriage Anniversary</label>
+                    <input
+                      type="date"
+                      value={editLeadFormData.marriage_anniversary}
+                      onChange={(e) => setEditLeadFormData({ ...editLeadFormData, marriage_anniversary: e.target.value })}
+                      className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div className="pt-4 flex justify-end gap-3 border-t">
+                  <button
+                    type="button"
+                    onClick={() => setShowEditLeadModal(false)}
+                    className="px-6 py-2 text-gray-600 hover:text-gray-800 font-medium transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={savingLead}
+                    className="px-8 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold shadow-lg shadow-blue-200 disabled:opacity-50 transition-all active:scale-95"
+                  >
+                    {savingLead ? 'Saving...' : 'Update Information'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+    </Layout>
   );
 };
 

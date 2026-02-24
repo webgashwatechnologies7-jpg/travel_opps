@@ -235,5 +235,38 @@ class TargetController extends Controller
             ], 500);
         }
     }
+    /**
+     * Delete a target.
+     *
+     * @param int $id
+     * @return JsonResponse
+     */
+    public function destroy(int $id): JsonResponse
+    {
+        try {
+            $target = EmployeeTarget::find($id);
+
+            if (!$target) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Target not found',
+                ], 404);
+            }
+
+            $target->delete();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Target deleted successfully',
+            ], 200);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'An error occurred while deleting target',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
+            ], 500);
+        }
+    }
 }
 

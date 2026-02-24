@@ -327,6 +327,7 @@ export const targetsAPI = {
   get: (userId, month) => api.get(`/targets/${userId}/${month}`),
   create: (data) => api.post('/targets', data),
   updateAchieved: (id, achievedAmount) => api.put(`/targets/${id}/update-achieved`, { achieved_amount: achievedAmount }),
+  delete: (id) => api.delete(`/targets/${id}`),
 };
 
 // Google Sheets APIs
@@ -632,6 +633,7 @@ export const queryDetailAPI = {
 export const accountsAPI = {
   // Get all account types
   getClients: () => api.get('/accounts/clients'),
+  getAllContacts: () => api.get('/accounts/all-contacts'),
   getAgents: () => api.get('/accounts/agents'),
   getCorporate: () => api.get('/accounts/corporate'),
 

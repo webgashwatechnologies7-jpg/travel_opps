@@ -52,7 +52,7 @@ return [
 
     'whatsapp' => [
         'api_key' => env('WHATSAPP_API_KEY'),
-        'base_url' => env('WHATSAPP_BASE_URL', 'https://graph.facebook.com/v18.0'),
+        'base_url' => env('WHATSAPP_BASE_URL', 'https://graph.facebook.com/v22.0'),
         'phone_number_id' => env('WHATSAPP_PHONE_NUMBER_ID'),
         'webhook_secret' => env('WHATSAPP_WEBHOOK_SECRET'),
         'verify_token' => env('WHATSAPP_VERIFY_TOKEN'),

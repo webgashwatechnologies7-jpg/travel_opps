@@ -30,6 +30,22 @@ class AccountsController extends Controller
     }
 
     /**
+     * Get all contacts (Individual + Corporate) for marketing
+     */
+    public function allContacts(): JsonResponse
+    {
+        try {
+            $contacts = Lead::orderBy('created_at', 'desc')
+                ->get()
+                ->map(fn($c) => $this->formatBasicAccount($c));
+
+            return $this->successResponse($contacts, 'All contacts retrieved successfully');
+        } catch (\Exception $e) {
+            return $this->serverErrorResponse('Failed to retrieve contacts', $e);
+        }
+    }
+
+    /**
      * Get all agents
      */
     public function agents(): JsonResponse
@@ -317,6 +333,8 @@ class AccountsController extends Controller
             'queries' => 0,
             'lastQuery' => optional($c->updated_at)->format('Y-m-d') ?: 'N/A',
             'city' => $c->destination ?: 'N/A',
+            'date_of_birth' => optional($c->date_of_birth)->format('Y-m-d'),
+            'marriage_anniversary' => optional($c->marriage_anniversary)->format('Y-m-d'),
             'createdBy' => 'Admin'
         ];
     }

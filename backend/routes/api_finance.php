@@ -38,4 +38,5 @@ Route::middleware(['auth:sanctum', 'role:Admin|Company Admin'])->prefix('targets
     Route::get('/{user_id}/{month}', [TargetController::class, 'show']);
     Route::post('/', [TargetController::class, 'store']);
     Route::put('/{id}/update-achieved', [TargetController::class, 'updateAchieved']);
+    Route::delete('/{id}', [TargetController::class, 'destroy']);
 });

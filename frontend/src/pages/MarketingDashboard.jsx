@@ -38,11 +38,12 @@ const MarketingDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [selectedPeriod, setSelectedPeriod] = useState('month');
+  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
   const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
     fetchMarketingStats();
-  }, [selectedPeriod]);
+  }, [selectedPeriod, selectedMonth]);
 
   const fetchMarketingStats = async () => {
     setLoading(true);
@@ -51,6 +52,7 @@ const MarketingDashboard = () => {
     try {
       const response = await marketingAPI.dashboard({
         period: selectedPeriod,
+        month: selectedMonth,
       });
 
       const apiData = response?.data?.data || {};
@@ -107,6 +109,21 @@ const MarketingDashboard = () => {
     );
   }
 
+  const months = [
+    { value: '1', label: 'January' },
+    { value: '2', label: 'February' },
+    { value: '3', label: 'March' },
+    { value: '4', label: 'April' },
+    { value: '5', label: 'May' },
+    { value: '6', label: 'June' },
+    { value: '7', label: 'July' },
+    { value: '8', label: 'August' },
+    { value: '9', label: 'September' },
+    { value: '10', label: 'October' },
+    { value: '11', label: 'November' },
+    { value: '12', label: 'December' },
+  ];
+
   return (
     <Layout>
       <div className="min-h-screen">
@@ -118,7 +135,35 @@ const MarketingDashboard = () => {
                 <h1 className="text-3xl font-bold text-gray-900">{t('marketing.dashboard.title')}</h1>
                 <p className="text-gray-600 mt-1">{t('marketing.dashboard.subtitle')}</p>
               </div>
-              <div></div>
+              <div className="flex items-center space-x-3">
+                <select
+                  value={selectedMonth}
+                  onChange={(e) => setSelectedMonth(e.target.value)}
+                  className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm text-sm font-medium"
+                >
+                  <option value="1">January</option>
+                  <option value="2">February</option>
+                  <option value="3">March</option>
+                  <option value="4">April</option>
+                  <option value="5">May</option>
+                  <option value="6">June</option>
+                  <option value="7">July</option>
+                  <option value="8">August</option>
+                  <option value="9">September</option>
+                  <option value="10">October</option>
+                  <option value="11">November</option>
+                  <option value="12">December</option>
+                </select>
+                <select
+                  value={selectedPeriod}
+                  onChange={(e) => setSelectedPeriod(e.target.value)}
+                  className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm text-sm font-medium"
+                >
+                  <option value="week">This Week</option>
+                  <option value="month">This Month</option>
+                  <option value="year">This Year</option>
+                </select>
+              </div>
             </div>
           </div>
         </div>
@@ -226,7 +271,9 @@ const MarketingDashboard = () => {
                   </div>
                   <div>
                     <h3 className="font-semibold text-gray-900">{t('marketing.dashboard.birthdays')}</h3>
-                    <p className="text-sm text-gray-600">{stats?.customer_stats?.birthdays_this_month || 0} This Month</p>
+                    <p className="text-sm text-gray-600">
+                      {stats?.customer_stats?.birthdays_count || 0} in {months.find(m => m.value === selectedMonth.toString())?.label}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -238,7 +285,9 @@ const MarketingDashboard = () => {
                   </div>
                   <div>
                     <h3 className="font-semibold text-gray-900">{t('marketing.dashboard.anniversaries')}</h3>
-                    <p className="text-sm text-gray-600">{stats?.customer_stats?.anniversaries_this_month || 0} This Month</p>
+                    <p className="text-sm text-gray-600">
+                      {stats?.customer_stats?.anniversaries_count || 0} in {months.find(m => m.value === selectedMonth.toString())?.label}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -330,8 +379,8 @@ const MarketingDashboard = () => {
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center">
                             <div className={`p-2 rounded-lg mr-3 ${campaign.type === 'email' ? 'bg-blue-100' :
-                                campaign.type === 'sms' ? 'bg-green-100' :
-                                  'bg-purple-100'
+                              campaign.type === 'sms' ? 'bg-green-100' :
+                                'bg-purple-100'
                               }`}>
                               {campaign.type === 'email' ?
                                 <Mail className="w-4 h-4 text-blue-600" /> :
@@ -360,8 +409,8 @@ const MarketingDashboard = () => {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${campaign.status === 'active' ? 'bg-green-100 text-green-800' :
-                              campaign.status === 'completed' ? 'bg-blue-100 text-blue-800' :
-                                'bg-yellow-100 text-yellow-800'
+                            campaign.status === 'completed' ? 'bg-blue-100 text-blue-800' :
+                              'bg-yellow-100 text-yellow-800'
                             }`}>
                             {campaign.status}
                           </span>

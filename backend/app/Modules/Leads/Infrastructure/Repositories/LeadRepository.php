@@ -50,6 +50,14 @@ class LeadRepository implements LeadRepositoryInterface
             $query->where('created_by', $filters['created_by']);
         }
 
+        if (isset($filters['birth_month']) && $filters['birth_month']) {
+            $query->whereMonth('date_of_birth', $filters['birth_month']);
+        }
+
+        if (isset($filters['anniversary_month']) && $filters['anniversary_month']) {
+            $query->whereMonth('marriage_anniversary', $filters['anniversary_month']);
+        }
+
         // Add search functionality with indexed columns
         if (isset($filters['search']) && $filters['search']) {
             $search = $filters['search'];

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Layout from '../components/Layout';
 import { toast } from 'react-toastify';
 import { clientGroupsAPI, accountsAPI } from '../services/api';
@@ -57,6 +57,9 @@ const ClientGroups = () => {
   const [allClients, setAllClients] = useState([]);
   const [selectedClientIds, setSelectedClientIds] = useState([]);
   const [searchingClients, setSearchingClients] = useState(false);
+  const [birthdayMonthFilter, setBirthdayMonthFilter] = useState('');
+  const [anniversaryMonthFilter, setAnniversaryMonthFilter] = useState('');
+  const [modalSearchTerm, setModalSearchTerm] = useState('');
 
   useEffect(() => {
     fetchGroups();
@@ -164,7 +167,7 @@ const ClientGroups = () => {
   const fetchAllClients = async () => {
     setSearchingClients(true);
     try {
-      const res = await accountsAPI.getClients();
+      const res = await accountsAPI.getAllContacts();
       if (res.data?.success) {
         setAllClients(res.data.data);
       }
@@ -195,6 +198,54 @@ const ClientGroups = () => {
       setSaving(false);
     }
   };
+
+  const filteredClientsInModal = useMemo(() => {
+    return allClients.filter(client => {
+      // Name/Email search
+      const matchesSearch =
+        (client.name || '').toLowerCase().includes(modalSearchTerm.toLowerCase()) ||
+        (client.email || '').toLowerCase().includes(modalSearchTerm.toLowerCase()) ||
+        (client.mobile || '').toLowerCase().includes(modalSearchTerm.toLowerCase());
+
+      if (!matchesSearch) return false;
+
+      // Birthday Month filter
+      if (birthdayMonthFilter) {
+        if (!client.date_of_birth) return false;
+        // Robust month parsing from YYYY-MM-DD
+        const parts = client.date_of_birth.split('-');
+        if (parts.length < 2) return false;
+        const month = parseInt(parts[1], 10);
+        if (month !== parseInt(birthdayMonthFilter, 10)) return false;
+      }
+
+      // Anniversary Month filter
+      if (anniversaryMonthFilter) {
+        if (!client.marriage_anniversary) return false;
+        const parts = client.marriage_anniversary.split('-');
+        if (parts.length < 2) return false;
+        const month = parseInt(parts[1], 10);
+        if (month !== parseInt(anniversaryMonthFilter, 10)) return false;
+      }
+
+      return true;
+    });
+  }, [allClients, modalSearchTerm, birthdayMonthFilter, anniversaryMonthFilter]);
+
+  const months = [
+    { value: '1', label: 'January' },
+    { value: '2', label: 'February' },
+    { value: '3', label: 'March' },
+    { value: '4', label: 'April' },
+    { value: '5', label: 'May' },
+    { value: '6', label: 'June' },
+    { value: '7', label: 'July' },
+    { value: '8', label: 'August' },
+    { value: '9', label: 'September' },
+    { value: '10', label: 'October' },
+    { value: '11', label: 'November' },
+    { value: '12', label: 'December' },
+  ];
 
   const filteredGroups = groups.filter(group =>
     (group.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -746,20 +797,74 @@ const ClientGroups = () => {
               <button onClick={() => setShowAddMembersModal(false)} className="text-gray-400 hover:text-gray-600">×</button>
             </div>
 
-            <div className="mb-4 overflow-hidden flex flex-col">
-              <p className="text-sm text-gray-600 mb-2">Select clients to add to this group:</p>
-              <div className="border border-gray-200 rounded-lg overflow-y-auto max-h-[50vh]">
+            <div className="mb-4 space-y-3">
+              <div className="flex flex-wrap gap-2">
+                <div className="flex-1 min-w-[200px] relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                  <input
+                    type="text"
+                    placeholder="Search by name, email..."
+                    value={modalSearchTerm}
+                    onChange={(e) => setModalSearchTerm(e.target.value)}
+                    className="w-full pl-9 pr-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div className="w-36">
+                  <select
+                    value={birthdayMonthFilter}
+                    onChange={(e) => setBirthdayMonthFilter(e.target.value)}
+                    className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 bg-white"
+                  >
+                    <option value="">Birthday Month</option>
+                    {months.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
+                  </select>
+                </div>
+                <div className="w-36">
+                  <select
+                    value={anniversaryMonthFilter}
+                    onChange={(e) => setAnniversaryMonthFilter(e.target.value)}
+                    className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 bg-white"
+                  >
+                    <option value="">Anniv. Month</option>
+                    {months.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex justify-between items-center bg-blue-50 p-2 rounded-lg text-xs">
+                <span className="text-blue-800 font-medium">Showing {filteredClientsInModal.length} filtered clients</span>
+                <button
+                  onClick={() => {
+                    const filteredIds = filteredClientsInModal.map(c => c.id);
+                    const allSelected = filteredIds.every(id => selectedClientIds.includes(id));
+                    if (allSelected) {
+                      setSelectedClientIds(selectedClientIds.filter(id => !filteredIds.includes(id)));
+                    } else {
+                      setSelectedClientIds([...new Set([...selectedClientIds, ...filteredIds])]);
+                    }
+                  }}
+                  className="text-blue-600 hover:text-blue-800 font-bold underline"
+                >
+                  {filteredClientsInModal.every(id => selectedClientIds.includes(id.id)) && filteredClientsInModal.length > 0 ? 'Deselect Filtered' : 'Select All Filtered'}
+                </button>
+              </div>
+            </div>
+
+            <div className="mb-4 overflow-hidden flex flex-col flex-1">
+              <div className="border border-gray-200 rounded-lg overflow-y-auto min-h-[300px] flex-1">
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50 sticky top-0">
                     <tr>
                       <th className="px-4 py-2 text-left w-10">
                         <input
                           type="checkbox"
+                          checked={filteredClientsInModal.length > 0 && filteredClientsInModal.every(c => selectedClientIds.includes(c.id))}
                           onChange={(e) => {
+                            const filteredIds = filteredClientsInModal.map(c => c.id);
                             if (e.target.checked) {
-                              setSelectedClientIds(allClients.map(c => c.id));
+                              setSelectedClientIds([...new Set([...selectedClientIds, ...filteredIds])]);
                             } else {
-                              setSelectedClientIds([]);
+                              setSelectedClientIds(selectedClientIds.filter(id => !filteredIds.includes(id)));
                             }
                           }}
                         />
@@ -771,8 +876,8 @@ const ClientGroups = () => {
                   <tbody className="bg-white divide-y divide-gray-200">
                     {searchingClients ? (
                       <tr><td colSpan="3" className="p-4 text-center">Loading clients...</td></tr>
-                    ) : allClients.length > 0 ? (
-                      allClients.map(client => (
+                    ) : filteredClientsInModal.length > 0 ? (
+                      filteredClientsInModal.map(client => (
                         <tr key={client.id} className="hover:bg-gray-50">
                           <td className="px-4 py-2">
                             <input
@@ -787,14 +892,30 @@ const ClientGroups = () => {
                               }}
                             />
                           </td>
-                          <td className="px-4 py-2 text-sm">{client.name}</td>
+                          <td className="px-4 py-2 text-sm">
+                            <div className="font-medium">{client.name}</div>
+                            {(client.date_of_birth || client.marriage_anniversary) && (
+                              <div className="flex gap-2 mt-0.5">
+                                {client.date_of_birth && (
+                                  <span className="text-[10px] bg-yellow-100 text-yellow-700 px-1 rounded flex items-center gap-0.5">
+                                    <Calendar className="w-2.5 h-2.5" /> DOB: {client.date_of_birth}
+                                  </span>
+                                )}
+                                {client.marriage_anniversary && (
+                                  <span className="text-[10px] bg-red-100 text-red-700 px-1 rounded flex items-center gap-0.5">
+                                    <Calendar className="w-2.5 h-2.5" /> Anniv: {client.marriage_anniversary}
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                          </td>
                           <td className="px-4 py-2 text-xs text-gray-500">
                             {client.email} <br /> {client.mobile}
                           </td>
                         </tr>
                       ))
                     ) : (
-                      <tr><td colSpan="3" className="p-4 text-center">No clients found</td></tr>
+                      <tr><td colSpan="3" className="p-4 text-center">No clients found matching the filters</td></tr>
                     )}
                   </tbody>
                 </table>

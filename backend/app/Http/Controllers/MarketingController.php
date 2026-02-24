@@ -25,21 +25,36 @@ class MarketingController extends Controller
     /**
      * Get marketing dashboard stats
      */
-    public function dashboard(): JsonResponse
+    public function dashboard(Request $request): JsonResponse
     {
         try {
+            $companyId = auth()->user()->company_id;
+            $companyUserIds = User::where('company_id', $companyId)->pluck('id');
+
+            $targetMonth = $request->get('month', now()->month);
+            $targetYear = $request->get('year', now()->year);
+
             $stats = [
-                'total_campaigns' => EmailCampaign::count() + SmsCampaign::count() + \App\Models\WhatsAppCampaign::count(),
-                'active_campaigns' => EmailCampaign::active()->count() +
-                    SmsCampaign::active()->count() +
-                    \App\Models\WhatsAppCampaign::active()->count(),
-                'total_sent' => EmailCampaign::sum('sent_count') +
-                    SmsCampaign::sum('sent_count') +
-                    \App\Models\WhatsAppCampaign::sum('sent_count'),
-                'total_opens' => EmailCampaign::sum('open_count'),
-                'total_clicks' => EmailCampaign::sum('click_count'),
+                'total_campaigns' => EmailCampaign::whereIn('created_by', $companyUserIds)->count() +
+                    SmsCampaign::whereIn('created_by', $companyUserIds)->count() +
+                    \App\Models\WhatsAppCampaign::where('company_id', $companyId)->count(),
+                'active_campaigns' => EmailCampaign::whereIn('created_by', $companyUserIds)->active()->count() +
+                    SmsCampaign::whereIn('created_by', $companyUserIds)->active()->count() +
+                    \App\Models\WhatsAppCampaign::where('company_id', $companyId)->active()->count(),
+                'total_sent' => EmailCampaign::whereIn('created_by', $companyUserIds)->sum('sent_count') +
+                    SmsCampaign::whereIn('created_by', $companyUserIds)->sum('sent_count') +
+                    \App\Models\WhatsAppCampaign::where('company_id', $companyId)->sum('sent_count'),
+                'total_opens' => EmailCampaign::whereIn('created_by', $companyUserIds)->sum('open_count'),
+                'total_clicks' => EmailCampaign::whereIn('created_by', $companyUserIds)->sum('click_count'),
                 'conversion_rate' => $this->calculateConversionRate(),
                 'recent_campaigns' => $this->getRecentCampaigns(),
+                'customer_stats' => [
+                    'total_customers' => Lead::count(),
+                    'new_this_month' => Lead::whereMonth('created_at', now()->month)->whereYear('created_at', now()->year)->count(),
+                    'birthdays_count' => Lead::whereMonth('date_of_birth', $targetMonth)->count(),
+                    'anniversaries_count' => Lead::whereMonth('marriage_anniversary', $targetMonth)->count(),
+                    'target_month' => (int) $targetMonth
+                ],
             ];
 
             return response()->json([
@@ -948,7 +963,13 @@ class MarketingController extends Controller
     // Private helper methods
     private function calculateConversionRate(): float
     {
-        $totalSent = EmailCampaign::sum('sent_count') + SmsCampaign::sum('sent_count') + \App\Models\WhatsAppCampaign::sum('sent_count');
+        $companyId = auth()->user()->company_id;
+        $companyUserIds = User::where('company_id', $companyId)->pluck('id');
+
+        $totalSent = EmailCampaign::whereIn('created_by', $companyUserIds)->sum('sent_count') +
+            SmsCampaign::whereIn('created_by', $companyUserIds)->sum('sent_count') +
+            \App\Models\WhatsAppCampaign::where('company_id', $companyId)->sum('sent_count');
+
         // Simple approximation: count recently created leads as "conversions"
         $totalConversions = Lead::where('created_at', '>=', now()->subDays(30))->count();
 
@@ -957,7 +978,11 @@ class MarketingController extends Controller
 
     private function getRecentCampaigns(): array
     {
+        $companyId = auth()->user()->company_id;
+        $companyUserIds = User::where('company_id', $companyId)->pluck('id');
+
         $emails = EmailCampaign::with(['template'])
+            ->whereIn('created_by', $companyUserIds)
             ->orderBy('created_at', 'desc')
             ->limit(5)
             ->get()
@@ -972,6 +997,7 @@ class MarketingController extends Controller
             ]);
 
         $sms = SmsCampaign::with(['template'])
+            ->whereIn('created_by', $companyUserIds)
             ->orderBy('created_at', 'desc')
             ->limit(5)
             ->get()
@@ -986,6 +1012,7 @@ class MarketingController extends Controller
             ]);
 
         $whatsapp = \App\Models\WhatsAppCampaign::with(['template'])
+            ->where('company_id', $companyId)
             ->orderBy('created_at', 'desc')
             ->limit(5)
             ->get()
@@ -2334,7 +2361,7 @@ class MarketingController extends Controller
     {
         try {
             $original = MarketingTemplate::findOrFail($id);
-            
+
             $new = $original->replicate();
             $new->name = $original->name . ' (Copy)';
             $new->created_by = auth()->id();

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { usersAPI, targetsAPI } from '../services/api';
 import Layout from '../components/Layout';
+import { Pencil, Trash2 } from 'lucide-react';
 
 const Targets = () => {
   const [users, setUsers] = useState([]);
@@ -14,6 +15,7 @@ const Targets = () => {
     month: '',
     target_amount: '',
   });
+  const [editingTarget, setEditingTarget] = useState(null);
 
   useEffect(() => {
     fetchUsers();
@@ -35,7 +37,7 @@ const Targets = () => {
       // Fetch targets by getting user details which includes targets
       const response = await usersAPI.list();
       const allUsers = response.data.data.users || [];
-      
+
       // Fetch user details (which includes targets) for each user
       const targetsPromises = allUsers.map(async (user) => {
         try {
@@ -55,7 +57,7 @@ const Targets = () => {
           return [];
         }
       });
-      
+
       const allTargets = (await Promise.all(targetsPromises)).flat();
       setTargets(allTargets);
     } catch (err) {
@@ -86,16 +88,17 @@ const Targets = () => {
         target_amount: parseFloat(formData.target_amount),
       });
 
-      setSuccess('Target created successfully!');
+      setSuccess(editingTarget ? 'Target updated successfully!' : 'Target created successfully!');
       setFormData({
         user_id: '',
         month: '',
         target_amount: '',
       });
-      
+      setEditingTarget(null);
+
       // Refresh targets
       fetchTargets();
-      
+
       // Clear success message after 3 seconds
       setTimeout(() => setSuccess(''), 3000);
     } catch (err) {
@@ -111,6 +114,39 @@ const Targets = () => {
     setFormData({
       ...formData,
       [name]: value,
+    });
+  };
+
+  const handleEdit = (target) => {
+    setEditingTarget(target);
+    setFormData({
+      user_id: target.user_id.toString(),
+      month: target.month,
+      target_amount: target.target_amount.toString(),
+    });
+    // Scroll to form
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleDelete = async (id) => {
+    if (!window.confirm('Are you sure you want to delete this target?')) return;
+
+    try {
+      await targetsAPI.delete(id);
+      setSuccess('Target deleted successfully!');
+      fetchTargets();
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to delete target');
+    }
+  };
+
+  const cancelEdit = () => {
+    setEditingTarget(null);
+    setFormData({
+      user_id: '',
+      month: '',
+      target_amount: '',
     });
   };
 
@@ -134,10 +170,22 @@ const Targets = () => {
       <div>
         <h1 className="text-3xl font-bold text-gray-800 mb-8">Employee Targets</h1>
 
-        {/* Create Target Form */}
+        {/* Create/Edit Target Form */}
         <div className="bg-white rounded-lg shadow-md p-6 mb-8">
-          <h2 className="text-xl font-semibold text-gray-800 mb-4">Set Target</h2>
-          
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl font-semibold text-gray-800">
+              {editingTarget ? 'Edit Target' : 'Set Target'}
+            </h2>
+            {editingTarget && (
+              <button
+                onClick={cancelEdit}
+                className="text-sm text-gray-500 hover:text-gray-700 underline"
+              >
+                Cancel Edit
+              </button>
+            )}
+          </div>
+
           {error && (
             <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
               {error}
@@ -207,9 +255,14 @@ const Targets = () => {
               <button
                 type="submit"
                 disabled={submitting}
-                className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed"
+                className={`w-full py-2 px-4 rounded-lg text-white disabled:cursor-not-allowed ${editingTarget
+                    ? 'bg-yellow-600 hover:bg-yellow-700 disabled:bg-yellow-400'
+                    : 'bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400'
+                  }`}
               >
-                {submitting ? 'Creating...' : 'Create Target'}
+                {submitting
+                  ? (editingTarget ? 'Updating...' : 'Creating...')
+                  : (editingTarget ? 'Update Target' : 'Create Target')}
               </button>
             </div>
           </form>
@@ -239,6 +292,9 @@ const Targets = () => {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Completion %
                   </th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Actions
+                  </th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
@@ -263,7 +319,7 @@ const Targets = () => {
                         target.achieved_amount
                       );
                       const completionPercent = parseFloat(completion);
-                      
+
                       return (
                         <tr key={`${target.user_id}-${target.month}`} className="hover:bg-gray-50">
                           <td className="px-6 py-4 whitespace-nowrap">
@@ -294,32 +350,46 @@ const Targets = () => {
                             <div className="flex items-center">
                               <div className="w-16 bg-gray-200 rounded-full h-2 mr-2">
                                 <div
-                                  className={`h-2 rounded-full ${
-                                    completionPercent >= 100
+                                  className={`h-2 rounded-full ${completionPercent >= 100
                                       ? 'bg-green-500'
                                       : completionPercent >= 75
-                                      ? 'bg-blue-500'
-                                      : completionPercent >= 50
-                                      ? 'bg-yellow-500'
-                                      : 'bg-red-500'
-                                  }`}
+                                        ? 'bg-blue-500'
+                                        : completionPercent >= 50
+                                          ? 'bg-yellow-500'
+                                          : 'bg-red-500'
+                                    }`}
                                   style={{ width: `${Math.min(completionPercent, 100)}%` }}
                                 ></div>
                               </div>
                               <span
-                                className={`text-sm font-semibold ${
-                                  completionPercent >= 100
+                                className={`text-sm font-semibold ${completionPercent >= 100
                                     ? 'text-green-600'
                                     : completionPercent >= 75
-                                    ? 'text-blue-600'
-                                    : completionPercent >= 50
-                                    ? 'text-yellow-600'
-                                    : 'text-red-600'
-                                }`}
+                                      ? 'text-blue-600'
+                                      : completionPercent >= 50
+                                        ? 'text-yellow-600'
+                                        : 'text-red-600'
+                                  }`}
                               >
                                 {completion}%
                               </span>
                             </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            <button
+                              onClick={() => handleEdit(target)}
+                              className="text-blue-600 hover:text-blue-900 mr-4"
+                              title="Edit"
+                            >
+                              <Pencil size={18} />
+                            </button>
+                            <button
+                              onClick={() => handleDelete(target.id)}
+                              className="text-red-600 hover:text-red-900"
+                              title="Delete"
+                            >
+                              <Trash2 size={18} />
+                            </button>
                           </td>
                         </tr>
                       );
