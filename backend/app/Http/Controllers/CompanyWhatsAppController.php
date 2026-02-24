@@ -276,9 +276,9 @@ class CompanyWhatsAppController extends Controller
             }
             $testResult = $api->sendMessage(
                 $testNumber ?: '0',
-                '',
-                'hello_world',
-                ['language' => 'en_US']
+                'Test message from CRM - WhatsApp integration is working!',
+                null,
+                []
             );
 
             if ($testResult['success']) {
