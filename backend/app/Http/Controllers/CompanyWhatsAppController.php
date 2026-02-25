@@ -269,7 +269,8 @@ class CompanyWhatsAppController extends Controller
                 ], 400);
             }
 
-            $api = app(\App\Services\WhatsAppService::class)->setCompanyConfig($company);
+            // Swap to UltramsgService
+            $api = app(\App\Services\UltramsgService::class)->setCompanyConfig($company);
             $testNumber = preg_replace('/\D/', '', $company->whatsapp_phone_number ?? '');
             if (strlen($testNumber) === 10 && preg_match('/^[6-9]/', $testNumber)) {
                 $testNumber = '91' . $testNumber;
@@ -277,7 +278,7 @@ class CompanyWhatsAppController extends Controller
 
             $testResult = $api->sendMessage(
                 $testNumber ?: '0',
-                'Your WhatsApp Business Integration has been successfully connected!',
+                'Ultramsg CRM Integration Test: Your WhatsApp connection is completely successful!',
                 null,
                 []
             );
