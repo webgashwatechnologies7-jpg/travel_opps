@@ -241,8 +241,8 @@ const CompanyWhatsAppSetup = () => {
                 Connect Your WhatsApp Business Number
               </h3>
               <p className="text-gray-600 text-sm mb-4">
-                Enter your WhatsApp Business API credentials from Meta Developer Console.
-                You can connect any number that is registered with WhatsApp Business API.
+                Enter your WhatsApp credentials from Ultramsg.
+                You can connect any active WhatsApp number by scanning the QR code in your Ultramsg Dashboard.
               </p>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -267,22 +267,22 @@ const CompanyWhatsAppSetup = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number ID *</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Ultramsg Instance ID *</label>
                   <input
                     type="text"
                     value={manualForm.whatsapp_phone_number_id}
                     onChange={(e) => setManualForm({ ...manualForm, whatsapp_phone_number_id: e.target.value })}
-                    placeholder="From Meta: WhatsApp → API Setup"
+                    placeholder="e.g. instance123456"
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">API Key / Access Token *</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Ultramsg Token *</label>
                   <input
                     type="password"
                     value={manualForm.whatsapp_api_key}
                     onChange={(e) => setManualForm({ ...manualForm, whatsapp_api_key: e.target.value })}
-                    placeholder="Permanent access token from Meta"
+                    placeholder="Token from Ultramsg Dashboard"
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
                   />
                 </div>
