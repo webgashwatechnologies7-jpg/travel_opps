@@ -275,12 +275,11 @@ class CompanyWhatsAppController extends Controller
                 $testNumber = '91' . $testNumber;
             }
 
-            // Standard 'hello_world' template is pre-approved by Meta for all WABAs and can be sent anytime
             $testResult = $api->sendMessage(
                 $testNumber ?: '0',
-                '',
-                'hello_world', // Use default template instead of free-text message which gets blocked
-                ['language' => 'en_US']
+                'Your WhatsApp Business Integration has been successfully connected!',
+                null,
+                []
             );
 
             if ($testResult['success']) {

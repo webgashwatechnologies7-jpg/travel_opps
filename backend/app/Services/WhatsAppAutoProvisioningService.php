@@ -310,15 +310,21 @@ class WhatsAppAutoProvisioningService
             if ($response->successful()) {
                 $data = $response->json();
 
+                // Truncate UNKNOWN string or handle specific enum types
+                $status = $data['status'] ?? ($data['quality_rating'] ?? 'active');
+                if ($status === 'UNKNOWN') {
+                    $status = 'inactive';
+                }
+
                 $company->update([
-                    'whatsapp_status' => $data['status'] ?? ($data['quality_rating'] ?? 'active'),
+                    'whatsapp_status' => $status,
                     'whatsapp_last_sync' => now()
                 ]);
 
                 return [
                     'success' => true,
                     'message' => 'Settings synced successfully',
-                    'status' => $data['status'] ?? ($data['quality_rating'] ?? 'active')
+                    'status' => $status
                 ];
             }
 
