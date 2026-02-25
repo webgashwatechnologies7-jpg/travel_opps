@@ -31,21 +31,21 @@ class WhatsAppAutoProvisioningService
 
             // Step 1: Create WhatsApp Business Account for company
             $wabaResult = $this->createBusinessAccount($company);
-            
+
             if (!$wabaResult['success']) {
                 return $this->updateCompanyStatus($company, 'error', $wabaResult['error']);
             }
 
             // Step 2: Register phone number for company
             $phoneResult = $this->registerPhoneNumber($company, $wabaResult['waba_id']);
-            
+
             if (!$phoneResult['success']) {
                 return $this->updateCompanyStatus($company, 'error', $phoneResult['error']);
             }
 
             // Step 3: Generate webhook endpoints
             $webhookResult = $this->setupWebhooks($company);
-            
+
             if (!$webhookResult['success']) {
                 return $this->updateCompanyStatus($company, 'error', $webhookResult['error']);
             }
@@ -98,11 +98,11 @@ class WhatsAppAutoProvisioningService
                 'Authorization' => 'Bearer ' . $this->masterApiKey,
                 'Content-Type' => 'application/json',
             ])->post($this->baseUrl . '/whatsapp_business_accounts', [
-                'name' => $company->name . ' WhatsApp',
-                'timezone' => 'Asia/Kolkata',
-                'currency' => 'INR',
-                'message_template_namespace' => 'whatsapp:' . Str::slug($company->name) . '_templates'
-            ]);
+                        'name' => $company->name . ' WhatsApp',
+                        'timezone' => 'Asia/Kolkata',
+                        'currency' => 'INR',
+                        'message_template_namespace' => 'whatsapp:' . Str::slug($company->name) . '_templates'
+                    ]);
 
             if ($response->successful()) {
                 $data = $response->json();
@@ -135,20 +135,20 @@ class WhatsAppAutoProvisioningService
         try {
             // Generate a virtual phone number for the company
             $phoneNumber = $this->generateVirtualPhoneNumber($company);
-            
+
             $response = Http::withHeaders([
                 'Authorization' => 'Bearer ' . $this->masterApiKey,
                 'Content-Type' => 'application/json',
             ])->post($this->baseUrl . '/' . $wabaId . '/phone_numbers', [
-                'display_phone_number' => $phoneNumber,
-                'verified_name' => $company->name,
-                'code_verification_method' => 'SMS',
-                'callback_url' => route('whatsapp.verification.callback', ['company' => $company->id])
-            ]);
+                        'display_phone_number' => $phoneNumber,
+                        'verified_name' => $company->name,
+                        'code_verification_method' => 'SMS',
+                        'callback_url' => route('whatsapp.verification.callback', ['company' => $company->id])
+                    ]);
 
             if ($response->successful()) {
                 $data = $response->json();
-                
+
                 return [
                     'success' => true,
                     'phone_number' => $data['display_phone_number'],
@@ -179,19 +179,19 @@ class WhatsAppAutoProvisioningService
         try {
             $webhookSecret = Str::random(32);
             $verifyToken = Str::random(16);
-            
+
             $webhookUrl = route('webhook.company.whatsapp', ['company' => $company->id]);
-            
+
             $response = Http::withHeaders([
                 'Authorization' => 'Bearer ' . $this->masterApiKey,
                 'Content-Type' => 'application/json',
             ])->post($this->baseUrl . '/webhooks', [
-                'url' => $webhookUrl,
-                'verify_token' => $verifyToken,
-                'secret' => $webhookSecret,
-                'fields' => ['messages', 'message_status'],
-                'enabled' => true
-            ]);
+                        'url' => $webhookUrl,
+                        'verify_token' => $verifyToken,
+                        'secret' => $webhookSecret,
+                        'fields' => ['messages', 'message_status'],
+                        'enabled' => true
+                    ]);
 
             if ($response->successful()) {
                 return [
@@ -223,7 +223,7 @@ class WhatsAppAutoProvisioningService
         // Generate a virtual number based on company subdomain
         $subdomain = Str::slug($company->name);
         $randomDigits = rand(1000, 9999);
-        
+
         // For demo purposes, return a formatted number
         // In production, this would integrate with a phone number provider
         return '+91' . $randomDigits; // Indian number format
@@ -241,7 +241,7 @@ class WhatsAppAutoProvisioningService
     /**
      * Update company WhatsApp status
      */
-    private function updateCompanyStatus(Company $company, string $status, string $error = null): array
+    private function updateCompanyStatus(Company $company, string $status, ?string $error = null): array
     {
         $company->update([
             'whatsapp_status' => $status,
@@ -268,7 +268,7 @@ class WhatsAppAutoProvisioningService
     private function updateCompanyWhatsAppSettings(Company $company, array $settings): void
     {
         $company->update($settings);
-        
+
         Log::info('Company WhatsApp settings updated', [
             'company_id' => $company->id,
             'settings' => array_keys($settings)
@@ -309,16 +309,16 @@ class WhatsAppAutoProvisioningService
 
             if ($response->successful()) {
                 $data = $response->json();
-                
+
                 $company->update([
-                    'whatsapp_status' => $data['display_phone_number_status'] ?? 'active',
+                    'whatsapp_status' => $data['status'] ?? ($data['quality_rating'] ?? 'active'),
                     'whatsapp_last_sync' => now()
                 ]);
 
                 return [
                     'success' => true,
                     'message' => 'Settings synced successfully',
-                    'status' => $data['display_phone_number_status']
+                    'status' => $data['status'] ?? ($data['quality_rating'] ?? 'active')
                 ];
             }
 

@@ -274,11 +274,13 @@ class CompanyWhatsAppController extends Controller
             if (strlen($testNumber) === 10 && preg_match('/^[6-9]/', $testNumber)) {
                 $testNumber = '91' . $testNumber;
             }
+
+            // Standard 'hello_world' template is pre-approved by Meta for all WABAs and can be sent anytime
             $testResult = $api->sendMessage(
                 $testNumber ?: '0',
-                'Test message from CRM - WhatsApp integration is working!',
-                null,
-                []
+                '',
+                'hello_world', // Use default template instead of free-text message which gets blocked
+                ['language' => 'en_US']
             );
 
             if ($testResult['success']) {
