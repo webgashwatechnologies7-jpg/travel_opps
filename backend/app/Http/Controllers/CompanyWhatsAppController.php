@@ -282,7 +282,7 @@ class CompanyWhatsAppController extends Controller
                 null,
                 []
             );
-
+            //testing
             if ($testResult['success']) {
                 return response()->json([
                     'success' => true,
