@@ -27,26 +27,26 @@ class InboxController extends Controller
                 DB::raw('MAX(whatsapp_logs.sent_at) as last_sent_at'),
                 DB::raw('COUNT(whatsapp_logs.id) as total_messages'),
             ])
-            ->leftJoin('leads', 'whatsapp_logs.lead_id', '=', 'leads.id')
-            ->whereNotNull('whatsapp_logs.lead_id')
-            ->groupBy('whatsapp_logs.lead_id', 'leads.client_name', 'leads.phone')
-            ->orderBy('last_sent_at', 'DESC')
-            ->get()
-            ->map(function ($item) {
-                // Get the actual last message for this lead
-                $lastMessage = WhatsappLog::where('lead_id', $item->lead_id)
-                    ->orderBy('sent_at', 'DESC')
-                    ->first();
+                ->leftJoin('leads', 'whatsapp_logs.lead_id', '=', 'leads.id')
+                ->whereNotNull('whatsapp_logs.lead_id')
+                ->groupBy('whatsapp_logs.lead_id', 'leads.client_name', 'leads.phone')
+                ->orderBy('last_sent_at', 'DESC')
+                ->get()
+                ->map(function ($item) {
+                    // Get the actual last message for this lead
+                    $lastMessage = WhatsappLog::where('lead_id', $item->lead_id)
+                        ->orderBy('sent_at', 'DESC')
+                        ->first();
 
-                return [
-                    'lead_id' => $item->lead_id,
-                    'client_name' => $item->client_name,
-                    'phone' => $item->phone,
-                    'last_message' => $lastMessage ? $lastMessage->message : null,
-                    'last_sent_at' => $item->last_sent_at ? $item->last_sent_at->toIso8601String() : null,
-                    'total_messages' => (int) $item->total_messages,
-                ];
-            });
+                    return [
+                        'lead_id' => $item->lead_id,
+                        'client_name' => $item->client_name,
+                        'phone' => $item->phone,
+                        'last_message' => $lastMessage ? $lastMessage->message : null,
+                        'last_sent_at' => $item->last_sent_at ? \Carbon\Carbon::parse($item->last_sent_at)->toIso8601String() : null,
+                        'total_messages' => (int) $item->total_messages,
+                    ];
+                });
 
             return response()->json([
                 'success' => true,
@@ -145,7 +145,7 @@ class InboxController extends Controller
                         'client_name' => $item->client_name,
                         'phone' => $item->phone,
                         'last_message' => $lastMessage ? $lastMessage->message : null,
-                        'last_sent_at' => $item->last_sent_at ? $item->last_sent_at->toIso8601String() : null,
+                        'last_sent_at' => $item->last_sent_at ? \Carbon\Carbon::parse($item->last_sent_at)->toIso8601String() : null,
                         'total_messages' => (int) $item->total_messages,
                     ];
                 });
