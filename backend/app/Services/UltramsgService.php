@@ -22,10 +22,11 @@ class UltramsgService
     public function setCompanyConfig($company): self
     {
         if ($company) {
-            // Hum company settings mein whatsapp_app_secret ko ultramsg token maan lenge 
-            // aur whatsapp_business_account_id ko ultramsg instance ID. Ye testing k lie easiest rehta h.
-            $this->instanceId = $company->whatsapp_business_account_id ?? null;
-            $this->token = $company->whatsapp_app_secret ?? null;
+            // Hum frontend se aane wale available fields ko use karenge
+            // Phone Number ID box me: Instance ID dalni h
+            // API Key box me: Ultramsg Token dalna h
+            $this->instanceId = $company->whatsapp_phone_number_id ?? null;
+            $this->token = $company->whatsapp_api_key ?? null;
         }
         return $this;
     }
