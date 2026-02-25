@@ -48,6 +48,7 @@ class InboxController extends Controller
                     ];
                 });
 
+
             return response()->json([
                 'success' => true,
                 'message' => 'WhatsApp inbox retrieved successfully',
