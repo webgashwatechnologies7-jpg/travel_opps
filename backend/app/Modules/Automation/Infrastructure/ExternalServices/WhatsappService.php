@@ -3,7 +3,7 @@
 namespace App\Modules\Automation\Infrastructure\ExternalServices;
 
 use App\Modules\Automation\Domain\Entities\WhatsappLog;
-use App\Services\WhatsAppService as WhatsAppApiService;
+use App\Services\UltramsgService as WhatsAppApiService;
 use Illuminate\Support\Facades\Log;
 
 class WhatsappService
@@ -126,9 +126,12 @@ class WhatsappService
     private function getMediaType($file): string
     {
         $mime = $file->getMimeType();
-        if (str_starts_with($mime ?? '', 'image/')) return 'image';
-        if (str_starts_with($mime ?? '', 'video/')) return 'video';
-        if (str_starts_with($mime ?? '', 'audio/')) return 'audio';
+        if (str_starts_with($mime ?? '', 'image/'))
+            return 'image';
+        if (str_starts_with($mime ?? '', 'video/'))
+            return 'video';
+        if (str_starts_with($mime ?? '', 'audio/'))
+            return 'audio';
         return 'document';
     }
 

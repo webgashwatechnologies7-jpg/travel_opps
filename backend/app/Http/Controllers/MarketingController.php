@@ -2208,7 +2208,7 @@ class MarketingController extends Controller
             $leadIds = (array) $campaign->lead_ids;
             $leads = Lead::whereIn('id', $leadIds)->whereNotNull('phone')->get();
 
-            $whatsappService = app(\App\Services\WhatsAppService::class);
+            $whatsappService = app(\App\Services\UltramsgService::class);
             $whatsappService->setCompanyConfig($campaign->company);
 
             $sentCount = 0;

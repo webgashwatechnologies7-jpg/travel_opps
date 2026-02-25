@@ -116,4 +116,71 @@ class UltramsgService
             return false;
         }
     }
+
+    public function uploadMedia($filePath, $type)
+    {
+        // Ultramsg can directly send via base64, so we just return the local file path as "url" to process it in sendMedia later.
+        if (!file_exists($filePath)) {
+            return ['success' => false, 'error' => 'File not found'];
+        }
+        return ['success' => true, 'url' => $filePath]; // Return raw file path so sendMedia can use base64
+    }
+
+    public function sendMedia($to, $urlOrPath, $type, $caption = '')
+    {
+        try {
+            if (!$this->instanceId || !$this->token) {
+                return ['success' => false, 'error' => 'Ultramsg credentials not configured'];
+            }
+
+            $endpoint = $type == 'image' ? 'image' : 'document';
+            $to = ltrim($to, '+');
+
+            $payload = [
+                'token' => $this->token,
+                'to' => $to,
+            ];
+
+            if ($caption) {
+                $payload['caption'] = $caption;
+            }
+
+            if (file_exists($urlOrPath)) {
+                $fileContent = base64_encode(file_get_contents($urlOrPath));
+                $mime = mime_content_type($urlOrPath);
+                $b64Url = "data:$mime;base64,$fileContent";
+
+                if ($endpoint == 'document') {
+                    $payload['document'] = $b64Url;
+                    $payload['filename'] = basename($urlOrPath);
+                } else {
+                    $payload['image'] = $b64Url;
+                }
+            } else {
+                // If it's an actual URL
+                if ($endpoint == 'document') {
+                    $payload['document'] = $urlOrPath;
+                    $payload['filename'] = basename($urlOrPath) ?: 'document';
+                } else {
+                    $payload['image'] = $urlOrPath;
+                }
+            }
+
+            $response = Http::asForm()->post($this->baseUrl . $this->instanceId . '/messages/' . $endpoint, $payload);
+
+            return [
+                'success' => $response->successful() && isset($response->json()['sent']) && $response->json()['sent'] == 'true',
+                'error' => $response->json('error', '')
+            ];
+        } catch (\Exception $e) {
+            return ['success' => false, 'error' => $e->getMessage()];
+        }
+    }
+
+    public function verifyWebhook($payload, $signature)
+    {
+        // Ultramsg does not use complex payload signatures like Meta. 
+        // We can just return true.
+        return true;
+    }
 }

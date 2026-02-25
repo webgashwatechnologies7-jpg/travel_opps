@@ -4,7 +4,7 @@ namespace App\Console\Commands;
 
 use App\Modules\Payments\Domain\Entities\Payment;
 use App\Modules\Payments\Domain\Entities\PaymentReminderLog;
-use App\Services\WhatsAppService;
+use App\Services\UltramsgService as WhatsAppService;
 use Illuminate\Console\Command;
 
 class SendPaymentReminders extends Command

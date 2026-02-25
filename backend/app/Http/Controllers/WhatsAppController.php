@@ -3,7 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Company;
-use App\Services\WhatsAppService;
+use App\Services\UltramsgService as WhatsAppService;
 use App\Modules\Leads\Domain\Entities\Lead;
 use App\Modules\Automation\Domain\Entities\WhatsappLog;
 use Illuminate\Http\JsonResponse;
@@ -41,7 +41,7 @@ class WhatsAppController extends Controller
                     'errors' => $validator->errors()->toArray(),
                     'user_id' => auth()->id()
                 ]);
-                
+
                 return response()->json([
                     'success' => false,
                     'message' => 'Validation failed',
@@ -63,13 +63,13 @@ class WhatsAppController extends Controller
                 \Log::error('Authentication error in WhatsApp send', [
                     'error' => $authError->getMessage()
                 ]);
-                
+
                 return response()->json([
                     'success' => false,
                     'message' => 'Authentication error'
                 ], 401);
             }
-            
+
             $to = $request->input('to');
             $message = $request->input('message');
             $templateName = $request->input('template_name');
@@ -95,7 +95,7 @@ class WhatsAppController extends Controller
                     'user_id' => auth()->id(),
                     'company_id' => $companyId
                 ]);
-                
+
                 return response()->json([
                     'success' => false,
                     'message' => 'WhatsApp service temporarily unavailable',
@@ -146,14 +146,14 @@ class WhatsAppController extends Controller
                     'to' => $to,
                     'user_id' => auth()->id()
                 ]);
-                
+
                 return response()->json([
                     'success' => false,
                     'message' => $result['error'] ?? 'Failed to send message',
                     'error' => $result['error'] ?? 'Unknown error'
                 ], 500);
             }
-            
+
         } catch (\Exception $e) {
             \Log::error('Critical WhatsApp send error', [
                 'error' => $e->getMessage(),
@@ -161,7 +161,7 @@ class WhatsAppController extends Controller
                 'user_id' => auth()->id(),
                 'company_id' => auth()->user()?->company_id
             ]);
-            
+
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to send message',
@@ -189,7 +189,7 @@ class WhatsAppController extends Controller
                     'errors' => $validator->errors()->toArray(),
                     'user_id' => auth()->id()
                 ]);
-                
+
                 return response()->json([
                     'success' => false,
                     'message' => 'Validation failed',
@@ -211,7 +211,7 @@ class WhatsAppController extends Controller
                 \Log::error('Authentication error in WhatsApp media send', [
                     'error' => $authError->getMessage()
                 ]);
-                
+
                 return response()->json([
                     'success' => false,
                     'message' => 'Authentication error'
@@ -231,7 +231,7 @@ class WhatsAppController extends Controller
                     'size' => $mediaFile->getSize(),
                     'user_id' => auth()->id()
                 ]);
-                
+
                 return response()->json([
                     'success' => false,
                     'message' => 'Invalid media file',
@@ -250,7 +250,7 @@ class WhatsAppController extends Controller
                         'file_size' => $mediaFile->getSize(),
                         'user_id' => auth()->id()
                     ]);
-                    
+
                     return response()->json([
                         'success' => false,
                         'message' => 'Failed to upload media',
@@ -307,14 +307,14 @@ class WhatsAppController extends Controller
                         'media_url' => $uploadResult['url'] ?? 'unknown',
                         'user_id' => auth()->id()
                     ]);
-                    
+
                     return response()->json([
                         'success' => false,
                         'message' => $result['error'] ?? 'Failed to send media',
                         'error' => $result['error'] ?? 'Unknown error'
                     ], 500);
                 }
-                
+
             } catch (\Exception $serviceError) {
                 \Log::error('WhatsApp service error during media send', [
                     'error' => $serviceError->getMessage(),
@@ -323,7 +323,7 @@ class WhatsAppController extends Controller
                     'user_id' => auth()->id(),
                     'company_id' => $companyId
                 ]);
-                
+
                 return response()->json([
                     'success' => false,
                     'message' => 'WhatsApp service temporarily unavailable',
@@ -401,7 +401,7 @@ class WhatsAppController extends Controller
             // Verify webhook signature
             $signature = $request->header('X-Hub-Signature-256');
             $payload = $request->getContent();
-            
+
             if (!$this->whatsappService->verifyWebhook($payload, $signature)) {
                 Log::warning('Invalid webhook signature', [
                     'signature' => $signature,
@@ -487,7 +487,7 @@ class WhatsAppController extends Controller
     {
         if ($change['field'] === 'messages') {
             $messages = $change['value']['messages'] ?? [];
-            
+
             foreach ($messages as $message) {
                 if ($message['type'] === 'text' || isset($message['image']) || isset($message['document'])) {
                     $this->processIncomingMessage($message);
@@ -578,7 +578,7 @@ class WhatsAppController extends Controller
         return \DB::table('whatsapp_messages')
             ->where(function ($query) use ($phone) {
                 $query->where('to', $phone)
-                      ->orWhere('from', $phone);
+                    ->orWhere('from', $phone);
             })
             ->where('company_id', $companyId)
             ->orderBy('created_at', 'desc')
@@ -592,7 +592,7 @@ class WhatsAppController extends Controller
     private function getMediaType($file): string
     {
         $mimeType = $file->getMimeType();
-        
+
         if (str_starts_with($mimeType, 'image/')) {
             return 'image';
         } elseif (str_starts_with($mimeType, 'video/')) {
