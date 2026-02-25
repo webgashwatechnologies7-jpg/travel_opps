@@ -355,9 +355,16 @@ class WhatsAppController extends Controller
             return $this->verifyWebhook($request);
         }
 
-        // POST: find company from payload and process
+        // POST: process webhook payload
         try {
-            $data = $request->json();
+            $data = $request->json()->all();
+
+            // Check if it's an Ultramsg payload
+            if (isset($data['event_type']) && isset($data['instanceId'])) {
+                return $this->processUltramsgWebhook($data);
+            }
+
+            // Fallback: Meta Webhook parsing
             $phoneNumberId = null;
             if (isset($data['entry'][0]['changes'][0]['value']['metadata']['phone_number_id'])) {
                 $phoneNumberId = $data['entry'][0]['changes'][0]['value']['metadata']['phone_number_id'];
@@ -380,6 +387,91 @@ class WhatsAppController extends Controller
             return $this->webhook($request, $company->id);
         } catch (\Exception $e) {
             Log::error('WhatsApp webhookUnified error', ['error' => $e->getMessage()]);
+            return response()->json(['error' => 'Webhook failed'], 500);
+        }
+    }
+
+    /**
+     * Process Ultramsg webhook
+     */
+    private function processUltramsgWebhook($data): JsonResponse
+    {
+        try {
+            $instanceId = $data['instanceId'] ?? null;
+            if (!$instanceId) {
+                return response()->json(['status' => 'ignored'], 200);
+            }
+
+            // Find company by instanceId. Assume whatsapp_phone_number_id holds the Ultramsg instanceId
+            $company = Company::where('whatsapp_phone_number_id', $instanceId)->first();
+
+            if (!$company) {
+                Log::warning('Ultramsg webhook: no company found for instanceId', ['instanceId' => $instanceId]);
+                return response()->json(['status' => 'ignored'], 200);
+            }
+
+            $tenantId = $company->id;
+            app()->instance('tenant.id', $tenantId);
+
+            if ($data['event_type'] === 'message_received') {
+                $msgData = $data['data'] ?? [];
+
+                // Ignore messages sent FROM us (we only want incoming replies)
+                if (!empty($msgData['fromMe'])) {
+                    return response()->json(['status' => 'ignored'], 200);
+                }
+
+                $from = str_replace('@c.us', '', $msgData['from'] ?? '');
+                $messageText = $msgData['body'] ?? '';
+                if (isset($msgData['type']) && ($msgData['type'] === 'image' || $msgData['type'] === 'document' || $msgData['type'] === 'video')) {
+                    $messageText = $msgData['caption'] ?? ('[' . ucfirst($msgData['type']) . ' received]');
+                }
+
+                $messageId = $msgData['id'] ?? null;
+                $timestamp = $msgData['time'] ?? time();
+
+                $normalized = normalize_phone_number($from);
+                if (!$normalized) {
+                    return response()->json(['status' => 'ignored'], 200);
+                }
+
+                $lead = Lead::where('company_id', $company->id)
+                    ->where('phone', 'like', '%' . $normalized)
+                    ->first();
+
+                if ($lead) {
+                    $this->saveMessage([
+                        'company_id' => $company->id,
+                        'lead_id' => $lead->id,
+                        'from' => $from,
+                        'message' => $messageText,
+                        'whatsapp_message_id' => $messageId,
+                        'direction' => 'inbound',
+                        'status' => 'received',
+                        'received_at' => date('Y-m-d H:i:s', $timestamp)
+                    ]);
+
+                    if (\Illuminate\Support\Facades\Schema::hasColumn('whatsapp_logs', 'direction')) {
+                        WhatsappLog::create([
+                            'lead_id' => $lead->id,
+                            'user_id' => null,
+                            'sent_to' => null,
+                            'from_phone' => $from,
+                            'message' => $messageText,
+                            'direction' => 'inbound',
+                            'sent_at' => date('Y-m-d H:i:s', $timestamp),
+                        ]);
+                    }
+
+                    if (class_exists(\App\Events\NewWhatsAppMessage::class)) {
+                        event(new \App\Events\NewWhatsAppMessage($lead, ['text' => ['body' => $messageText]]));
+                    }
+                }
+            }
+
+            return response()->json(['status' => 'received', 'message' => 'Processed properly']);
+        } catch (\Exception $e) {
+            Log::error('Ultramsg webhook process error', ['error' => $e->getMessage()]);
             return response()->json(['error' => 'Webhook failed'], 500);
         }
     }
