@@ -47,8 +47,6 @@ class InboxController extends Controller
                         'total_messages' => (int) $item->total_messages,
                     ];
                 });
-
-
             return response()->json([
                 'success' => true,
                 'message' => 'WhatsApp inbox retrieved successfully',
