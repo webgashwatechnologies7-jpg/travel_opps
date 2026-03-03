@@ -1416,9 +1416,9 @@ const TeamManagement = () => {
                             </div>
                             <div>
                               <label className="block text-sm font-medium text-gray-700 mb-1">
-                                {formData.roles?.includes('Employee') || formData.roles?.includes('Sales Rep')
-                                  ? 'Reports To (Team Leader)'
-                                  : 'Reports To (Supervisor)'}
+                                {formData.roles?.some(r => ['Employee', 'Employe', 'Sales Rep'].includes(r))
+                                  ? 'Reports To (Team Leader/Manager)'
+                                  : 'Reports To (Supervisor/Manager)'}
                               </label>
                               <select
                                 value={formData.reports_to}
@@ -1428,9 +1428,20 @@ const TeamManagement = () => {
                                 <option value="">None (Top Level)</option>
                                 {users.filter(u => {
                                   if (u.id === editingItem?.id) return false;
-                                  const isStaff = formData.roles?.includes('Employee') || formData.roles?.includes('Sales Rep');
-                                  const roleToMatch = isStaff ? 'Team Leader' : 'Manager';
-                                  return u.roles?.some(r => (typeof r === 'string' ? r === roleToMatch : r.name === roleToMatch));
+                                  const roles = formData.roles || [];
+                                  const isStaff = roles.some(r => ['Employee', 'Employe', 'Sales Rep'].includes(r));
+                                  const isTL = roles.includes('Team Leader');
+
+                                  if (isStaff) {
+                                    // Employees report to TLs or Managers
+                                    return u.roles?.some(r => ['Team Leader', 'Manager'].includes(typeof r === 'string' ? r : r.name));
+                                  } else if (isTL) {
+                                    // TLs report to Managers
+                                    return u.roles?.some(r => ['Manager', 'Admin', 'Company Admin'].includes(typeof r === 'string' ? r : r.name));
+                                  } else {
+                                    // Others report to Managers/Admins
+                                    return u.roles?.some(r => ['Manager', 'Admin', 'Company Admin'].includes(typeof r === 'string' ? r : r.name));
+                                  }
                                 }).map(u => (
                                   <option key={u.id} value={u.id}>{u.name} ({u.roles?.map(r => typeof r === 'string' ? r : r.name).join(', ')})</option>
                                 ))}
@@ -1530,9 +1541,9 @@ const TeamManagement = () => {
                           </div>
                           <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">
-                              {formData.roles?.includes('Employee') || formData.roles?.includes('Sales Rep')
-                                ? 'Reports To (Team Leader)'
-                                : 'Reports To (Supervisor)'}
+                              {formData.roles?.some(r => ['Employee', 'Employe', 'Sales Rep'].includes(r))
+                                ? 'Reports To (Team Leader/Manager)'
+                                : 'Reports To (Supervisor/Manager)'}
                             </label>
                             <select
                               value={formData.reports_to}
@@ -1542,9 +1553,20 @@ const TeamManagement = () => {
                               <option value="">None (Top Level)</option>
                               {users.filter(u => {
                                 if (u.id === editingItem?.id) return false;
-                                const isStaff = formData.roles?.includes('Employee') || formData.roles?.includes('Sales Rep');
-                                const roleToMatch = isStaff ? 'Team Leader' : 'Manager';
-                                return u.roles?.some(r => (typeof r === 'string' ? r === roleToMatch : r.name === roleToMatch));
+                                const roles = formData.roles || [];
+                                const isStaff = roles.some(r => ['Employee', 'Employe', 'Sales Rep'].includes(r));
+                                const isTL = roles.includes('Team Leader');
+
+                                if (isStaff) {
+                                  // Employees report to TLs or Managers
+                                  return u.roles?.some(r => ['Team Leader', 'Manager'].includes(typeof r === 'string' ? r : r.name));
+                                } else if (isTL) {
+                                  // TLs report to Managers
+                                  return u.roles?.some(r => ['Manager', 'Admin', 'Company Admin'].includes(typeof r === 'string' ? r : r.name));
+                                } else {
+                                  // Others report to Managers/Admins
+                                  return u.roles?.some(r => ['Manager', 'Admin', 'Company Admin'].includes(typeof r === 'string' ? r : r.name));
+                                }
                               }).map(u => (
                                 <option key={u.id} value={u.id}>{u.name} ({u.roles?.map(r => typeof r === 'string' ? r : r.name).join(', ')})</option>
                               ))}
