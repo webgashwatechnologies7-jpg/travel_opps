@@ -35,14 +35,21 @@ const SuperAdminSettings = () => {
     };
 
     const handleToggle = (key) => {
-        setSettings(prev => prev.map(s => {
-            if (s.key === key) {
-                // Better toggle logic: if it's currently 'true' or '1' or true, make it 'false'
-                const isCurrentlyTrue = s.value === 'true' || s.value === '1' || s.value === true || s.value === 1;
-                return { ...s, value: isCurrentlyTrue ? 'false' : 'true' };
+        setSettings(prev => {
+            const exists = prev.find(s => s.key === key);
+            if (exists) {
+                return prev.map(s => {
+                    if (s.key === key) {
+                        const isCurrentlyTrue = s.value === 'true' || s.value === '1' || s.value === true || s.value === 1;
+                        return { ...s, value: isCurrentlyTrue ? 'false' : 'true' };
+                    }
+                    return s;
+                });
+            } else {
+                // If doesn't exist in state yet, add it as true (since it was hidden/false)
+                return [...prev, { key, value: 'true', type: 'boolean' }];
             }
-            return s;
-        }));
+        });
     };
 
     const handleSave = async () => {
@@ -113,7 +120,10 @@ const SuperAdminSettings = () => {
 
                         <div className="space-y-6">
                             {/* Single Domain Login Toggle */}
-                            <div className="flex items-start justify-between p-4 bg-blue-50/50 rounded-xl border border-blue-100">
+                            <div
+                                onClick={() => handleToggle('allow_single_domain_login')}
+                                className="flex items-start justify-between p-4 bg-blue-50/50 rounded-xl border border-blue-100 cursor-pointer hover:bg-blue-50 transition-colors"
+                            >
                                 <div className="flex-1">
                                     <h3 className="font-medium text-gray-900">Allow Single URL Login (Bypass Subdomains)</h3>
                                     <p className="text-sm text-gray-600 mt-1 mr-4">
@@ -126,8 +136,7 @@ const SuperAdminSettings = () => {
                                     </p>
                                 </div>
                                 <div className="flex items-center">
-                                    <button
-                                        onClick={() => handleToggle('allow_single_domain_login')}
+                                    <div
                                         className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${(singleDomainLogin?.value === 'true' || singleDomainLogin?.value === '1' || singleDomainLogin?.value === true || singleDomainLogin?.value === 1) ? 'bg-blue-600' : 'bg-gray-300'
                                             }`}
                                     >
@@ -135,7 +144,7 @@ const SuperAdminSettings = () => {
                                             className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${(singleDomainLogin?.value === 'true' || singleDomainLogin?.value === '1' || singleDomainLogin?.value === true || singleDomainLogin?.value === 1) ? 'translate-x-6' : 'translate-x-1'
                                                 }`}
                                         />
-                                    </button>
+                                    </div>
                                 </div>
                             </div>
 
