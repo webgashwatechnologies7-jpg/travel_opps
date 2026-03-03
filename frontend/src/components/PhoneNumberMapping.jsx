@@ -29,8 +29,17 @@ const PhoneNumberMapping = () => {
             executeWithErrorHandling(() => companySettingsAPI.getUsers())
         ]);
 
-        if (mappingRes.success) setMappings(mappingRes.data.data || []);
-        if (usersRes.success) setUsers(usersRes.data.data.users || []);
+        if (mappingRes.success) {
+            // Backend returns data: { mappings: [...] }
+            setMappings(mappingRes.data.data.mappings || []);
+        }
+
+        if (usersRes.success) {
+            // CompanySettingsController returns data: [...] directly or data.data
+            // Standardizing to handle Both structures
+            const userData = usersRes.data.data;
+            setUsers(Array.isArray(userData) ? userData : (userData.users || []));
+        }
         setLoading(false);
     };
 
