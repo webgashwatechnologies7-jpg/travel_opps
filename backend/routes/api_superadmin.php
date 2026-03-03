@@ -49,4 +49,11 @@ Route::middleware(['auth:sanctum', 'superadmin'])->prefix('super-admin')->group(
         Route::put('/{id}/status', [\App\Http\Controllers\SuperAdmin\SupportTicketController::class, 'updateStatus']);
         Route::post('/{id}/messages', [\App\Http\Controllers\SuperAdmin\SupportTicketController::class, 'sendMessage']);
     });
+
+    // Global Settings
+    Route::prefix('settings')->group(function () {
+        Route::get('/', [\App\Http\Controllers\SuperAdmin\SettingController::class, 'index']);
+        Route::put('/', [\App\Http\Controllers\SuperAdmin\SettingController::class, 'update']);
+        Route::get('/{key}', [\App\Http\Controllers\SuperAdmin\SettingController::class, 'getByKey']);
+    });
 });

@@ -116,27 +116,35 @@ class AuthController extends Controller
                     ->first();
             }
 
+            // Check if Single Domain/IP Login is allowed by Super Admin
+            $allowSingleDomainLogin = \App\Models\Setting::getValue('allow_single_domain_login', true);
+
             // If host (or forced subdomain) matches a company -> company login (super admin NOT allowed)
             if ($companyForHost) {
                 if ($user->isSuperAdmin()) {
                     return response()->json([
                         'success' => false,
-                        'message' => 'Super admin must login from the main admin panel (e.g. http://127.0.0.1 or your server IP).',
+                        'message' => 'Super admin must login from the main admin panel.',
                     ], 403);
                 }
                 if (!$user->company_id || (int) $user->company_id !== (int) $companyForHost->id) {
                     return response()->json([
                         'success' => false,
-                        'message' => 'You do not have access to this company. Please login from your company\'s domain.',
+                        'message' => 'You do not have access to this company.',
                     ], 403);
                 }
             } else {
-                // Main domain (127.0.0.1, localhost, IP, etc.) -> super admin only
+                // Main domain (127.0.0.1, localhost, IP, etc.)
                 if (!$user->isSuperAdmin()) {
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'Company users must login from their company domain (e.g. crm.yourcompany.com). For testing, you can use ?subdomain=YOUR_SUBDOMAIN',
-                    ], 403);
+                    // IF single domain login is OFF, block users
+                    if (!$allowSingleDomainLogin) {
+                        return response()->json([
+                            'success' => false,
+                            'message' => 'Company users must login from their company domain.',
+                        ], 403);
+                    }
+                    // IF single domain login is ON, allow them to proceed.
+                    // Tenant will be set by user company_id in IdentifyTenant middleware.
                 }
             }
 

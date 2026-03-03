@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Building2, CreditCard, Users, LogOut, Shield, Mail, MessageSquare } from 'lucide-react';
+import { LayoutDashboard, Building2, CreditCard, Users, LogOut, Shield, Mail, MessageSquare, Settings } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
 const SuperAdminSidebar = () => {
@@ -36,6 +36,11 @@ const SuperAdminSidebar = () => {
       name: 'Tickets',
       icon: MessageSquare,
       path: '/super-admin/tickets',
+    },
+    {
+      name: 'System Settings',
+      icon: Settings,
+      path: '/super-admin/settings',
     },
   ];
 

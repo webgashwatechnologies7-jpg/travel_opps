@@ -91,6 +91,7 @@ const CompanyManagement = lazy(() => import('./pages/CompanyManagement'));
 const SubscriptionManagement = lazy(() => import('./pages/SubscriptionManagement'));
 const PermissionsManagement = lazy(() => import('./pages/PermissionsManagement'));
 const SuperAdminMailStatus = lazy(() => import('./pages/SuperAdminMailStatus'));
+const SuperAdminSettings = lazy(() => import('./pages/SuperAdminSettings'));
 const SuperAdminTickets = lazy(() => import('./pages/SuperAdminTickets'));
 
 // --- OTHERS ---
@@ -877,6 +878,14 @@ const AppRoutes = () => {
           element={
             <SuperAdminRoute>
               <SuperAdminMailStatus />
+            </SuperAdminRoute>
+          }
+        />
+        <Route
+          path="/super-admin/settings"
+          element={
+            <SuperAdminRoute>
+              <SuperAdminSettings />
             </SuperAdminRoute>
           }
         />

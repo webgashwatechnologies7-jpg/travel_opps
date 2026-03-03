@@ -67,8 +67,9 @@ class IdentifyTenant
         // If no subdomain or subdomain is 'www' or 'admin', skip tenant identification
         if (!$subdomain || in_array($subdomain, ['www', 'admin', 'api'])) {
             // This is the main domain - could be super admin dashboard.
-            // For local/dev usage (no subdomain), try to infer tenant from authenticated user.
-            $user = $request->user();
+            // Try to infer tenant from authenticated user (even if Sanctum hasn't run yet)
+            $user = auth('sanctum')->user();
+
             if ($user && !$user->isSuperAdmin() && $user->company && $user->company->status === 'active') {
                 app()->instance('tenant', $user->company);
                 config(['tenant.id' => $user->company->id]);
