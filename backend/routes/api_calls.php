@@ -31,3 +31,9 @@ Route::middleware('auth:sanctum')->prefix('calls')->group(function () {
     Route::post('/{id}/notes', [CallController::class, 'storeNote']);
     Route::put('/{id}/notes/{noteId}', [CallController::class, 'updateNote']);
 });
+
+// Company Telephony setup routes (Used by Admin settings)
+Route::middleware(['auth:sanctum', 'role:Admin|Company Admin'])->prefix('company/telephony')->group(function () {
+    Route::get('/settings', 'App\Modules\Calls\Presentation\Controllers\CompanyTelephonyController@getSettings');
+    Route::put('/settings', 'App\Modules\Calls\Presentation\Controllers\CompanyTelephonyController@updateSettings');
+});

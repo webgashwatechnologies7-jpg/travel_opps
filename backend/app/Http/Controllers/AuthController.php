@@ -150,7 +150,7 @@ class AuthController extends Controller
                 'id' => $user->id,
                 'name' => $user->name,
                 'email' => $user->email,
-                'is_super_admin' => $user->isSuperAdmin(),
+                'is_super_admin' => (bool) $user->is_super_admin,
                 'roles' => $user->roles->pluck('name'),
             ];
 
@@ -353,6 +353,7 @@ class AuthController extends Controller
                 'id' => $user->id,
                 'name' => $user->name,
                 'email' => $user->email,
+                'is_super_admin' => (bool) $user->is_super_admin,
                 'email_verified_at' => $user->email_verified_at,
                 'is_active' => $user->is_active ?? true,
                 'created_at' => $user->created_at,

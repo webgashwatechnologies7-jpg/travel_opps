@@ -15,6 +15,7 @@ const hasPermission = (user, permission) => {
   if (!user) return false;
   // Super Admin bypass
   if (user.is_super_admin) return true;
+  if (user.roles?.some(r => ['Admin', 'Company Admin', 'Super Admin'].includes(typeof r === 'string' ? r : r.name))) return true;
   // Check granular permission
   if (user.permissions && user.permissions.includes(permission)) return true;
   return false;

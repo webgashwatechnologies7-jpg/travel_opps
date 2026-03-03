@@ -38,16 +38,16 @@ class ScopeByHierarchy implements Scope
         }
 
         // 3. Everyone else sees their own + subordinates' data
-        // This includes Managers, Team Leaders, and Employees.
-        // Employees have no subordinates, so they only see their own.
+        // Managers and TLs should also see UNASSIGNED leads to distribute them
         $subordinateIds = $user->getAllSubordinateIds();
 
-        if (count($subordinateIds) > 1) {
-            // User has a team (Manager/TL) - Show Team's Data
-            $builder->whereIn($this->column, $subordinateIds);
-        } else {
-            // User is alone (Employee/Agent) - Show Only Self Data
-            $builder->where($this->column, $user->id);
-        }
+        $builder->where(function ($q) use ($subordinateIds, $user) {
+            $q->whereIn($this->column, $subordinateIds);
+
+            // If the user is a Manager or has subordinates, they should see "Unassigned" leads to distribute them
+            if ($user->hasRole(['Manager', 'Team Leader']) || count($subordinateIds) > 1) {
+                $q->orWhereNull($this->column);
+            }
+        });
     }
 }

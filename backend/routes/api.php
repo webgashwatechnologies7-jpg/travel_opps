@@ -19,6 +19,8 @@ Route::any('/test-unique', function () {
     return response()->json(['status' => 'ok']);
 });
 
+Route::get('/test-broadcast', [\App\Http\Controllers\TestBroadcastController::class, 'test']);
+
 // Debug route
 require __DIR__ . '/test-debug.php';
 
@@ -43,6 +45,8 @@ require __DIR__ . '/api_notifications.php';
 require __DIR__ . '/api_calls.php';
 require __DIR__ . '/api_quotations.php';
 require __DIR__ . '/api_master_points.php';
+require __DIR__ . '/api_whatsapp.php';
+require __DIR__ . '/api_whatsapp_web.php';
 
 
 // Employee Management routes - require authentication

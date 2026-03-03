@@ -75,16 +75,16 @@ export const SettingsProvider = ({ children }) => {
     { path: '/payments', label: 'Payments', icon: 'CreditCard', feature: 'payments' },
     { path: '/sales-reps', label: 'Sales Reps', icon: 'Users', feature: 'analytics', adminOnly: true },
     { label: 'Accounts', icon: 'CreditCard', feature: 'payments', submenu: [{ path: '/accounts/clients', label: 'Clients' }, { path: '/accounts/agents', label: 'Agents' }, { path: '/accounts/corporate', label: 'Corporate' }] },
-    { path: '/whatsapp', label: 'WhatsApp', icon: 'MessageCircle', feature: 'whatsapp' },
+    { path: '/whatsapp-web', label: 'WhatsApp Web', icon: 'MessageCircle', feature: 'whatsapp' },
     { path: '/mail', label: 'Mail', icon: 'Mail', feature: 'gmail_integration' },
-    { label: 'Integrate', icon: 'Link2', submenu: [{ path: '/settings/mail', label: 'Email Integration', feature: 'gmail_integration' }, { path: '/settings/whatsapp', label: 'WhatsApp Integration', feature: 'whatsapp' }] },
+    { label: 'Integrate', icon: 'Link2', submenu: [{ path: '/settings/mail', label: 'Email Integration', feature: 'gmail_integration' }, { path: '/settings/whatsapp', label: 'WhatsApp Integration', feature: 'whatsapp' }, { path: '/settings/telephony', label: 'Telephony Integration' }] },
     { path: '/call-management', label: 'Call Management System', icon: 'Phone', feature: 'call_management' },
     { path: '/my-team', label: 'My Team Members', icon: 'Users' },
     { path: '/followups', label: 'Followups', icon: 'ClipboardList', feature: 'followups' },
     staffManagementItem,
     { label: 'Reports', icon: 'BarChart3', feature: 'reports', submenu: [{ path: '/dashboard/employee-performance', label: 'Performance', feature: 'reports' }, { path: '/dashboard/source-roi', label: 'Source ROI', feature: 'reports' }, { path: '/dashboard/destination-performance', label: 'Destination', feature: 'reports' }] },
     { label: 'Marketing', icon: 'Megaphone', feature: 'campaigns', submenu: [{ path: '/marketing', label: 'Dashboard', feature: 'campaigns' }, { path: '/client-groups', label: 'Clients Group', feature: 'campaigns' }, { path: '/marketing/templates', label: 'Email Templates', feature: 'email_templates' }, { path: '/marketing/whatsapp-templates', label: 'WhatsApp Templates', feature: 'whatsapp' }, { path: '/marketing/campaigns', label: 'Campaigns', feature: 'campaigns' }, { path: '/marketing/landing-pages', label: 'Landing Pages', feature: 'landing_pages' }] },
-    { label: 'Company Settings', icon: 'Settings', adminOnly: true, submenu: [{ path: '/settings/whatsapp', label: 'WhatsApp Integration', feature: 'whatsapp' }, { path: '/settings/mail', label: 'Email Integration', feature: 'gmail_integration' }, { path: '/settings/account-details', label: 'Account Details' }] },
+    { label: 'Company Settings', icon: 'Settings', adminOnly: true, submenu: [{ path: '/settings/whatsapp', label: 'WhatsApp Integration' }, { path: '/settings/mail', label: 'Email Integration' }, { path: '/settings/telephony', label: 'Telephony Integration' }, { path: '/settings/account-details', label: 'Account Details' }] },
     { path: '/support', label: 'Support', icon: 'MessageSquare' },
     { label: 'Masters', icon: 'Grid', submenu: [{ path: '/masters/suppliers', label: 'Suppliers', feature: 'suppliers' }, { path: '/masters/hotel', label: 'Hotel', feature: 'hotels' }, { path: '/masters/activity', label: 'Activity', feature: 'activities' }, { path: '/masters/transfer', label: 'Transfer', feature: 'transfers' }, { path: '/masters/day-itinerary', label: 'Day Itinerary', feature: 'day_itineraries' }, { path: '/masters/destinations', label: 'Destinations', feature: 'destinations' }, { path: '/masters/room-type', label: 'Room Type', feature: 'hotels' }, { path: '/masters/meal-plan', label: 'Meal Plan', feature: 'hotels' }, { path: '/masters/lead-source', label: 'Lead Source' }, { path: '/masters/expense-type', label: 'Expense Type', feature: 'expenses' }, { path: '/masters/points', label: 'Inclusions & Exclusions' }, { path: '/targets', label: 'Targets', feature: 'targets', adminOnly: true }] },
   ];
@@ -105,12 +105,16 @@ export const SettingsProvider = ({ children }) => {
         const sub = [...item.submenu];
         const hasWhatsApp = sub.some((s) => s.path === '/settings/whatsapp');
         const hasEmail = sub.some((s) => s.path === '/settings/mail');
+        const hasTelephony = sub.some((s) => s.path === '/settings/telephony');
         let insertAt = 1;
         if (!hasWhatsApp) {
           sub.splice(insertAt++, 0, { path: '/settings/whatsapp', label: 'WhatsApp Integration' });
         }
         if (!hasEmail) {
           sub.splice(insertAt++, 0, { path: '/settings/mail', label: 'Email Integration' });
+        }
+        if (!hasTelephony) {
+          sub.splice(insertAt++, 0, { path: '/settings/telephony', label: 'Telephony Integration' });
         }
 
         // Remove 'Terms & Conditions' and 'Policies' as they are now in Masters

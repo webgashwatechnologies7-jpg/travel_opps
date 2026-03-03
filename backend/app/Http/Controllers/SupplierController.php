@@ -21,14 +21,15 @@ class SupplierController extends Controller
     protected function getValidationRules($id = null)
     {
         return [
-            'name' => 'required|string|max:255',
+            'city' => 'nullable|string|max:255',
+            'company_name' => 'nullable|string|max:255',
+            'title' => 'nullable|string|max:50',
+            'first_name' => 'required|string|max:255',
+            'last_name' => 'nullable|string|max:255',
             'email' => 'nullable|email|max:255',
-            'phone' => 'nullable|string|max:20',
-            'category' => 'nullable|string|max:50',
-            'contact_person' => 'nullable|string|max:255',
+            'phone_code' => 'nullable|string|max:20',
+            'mobile' => 'nullable|string|max:50',
             'address' => 'nullable|string',
-            'bank_details' => 'nullable|string',
-            'status' => 'nullable|in:active,inactive',
         ];
     }
 
@@ -36,14 +37,18 @@ class SupplierController extends Controller
     {
         return [
             'id' => $resource->id,
-            'name' => $resource->name,
+            'name' => trim("{$resource->title} {$resource->first_name} {$resource->last_name}"),
+            'first_name' => $resource->first_name,
+            'last_name' => $resource->last_name,
             'email' => $resource->email,
-            'phone' => $resource->phone,
-            'category' => $resource->category,
-            'contact_person' => $resource->contact_person,
+            'company' => $resource->company_name,
+            'company_name' => $resource->company_name,
+            'city' => $resource->city,
+            'code' => $resource->phone_code,
+            'phone_code' => $resource->phone_code,
+            'mobile' => $resource->mobile,
+            'title' => $resource->title,
             'address' => $resource->address,
-            'bank_details' => $resource->bank_details,
-            'status' => $resource->status,
             'created_at' => $resource->created_at,
             'updated_at' => $resource->updated_at,
         ];

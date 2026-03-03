@@ -99,23 +99,18 @@ class MenuController extends Controller
     public function index(): JsonResponse
     {
         try {
-            $tenantId = null;
-            if (function_exists('tenant')) {
-                try {
-                    $tenantId = tenant('id');
-                } catch (\Throwable $e) {
-                    // tenant() not available or failed
-                }
-            }
+            $tenantId = Auth::user() ? Auth::user()->company_id : null;
             $key = $tenantId ? 'company_' . $tenantId . '_sidebar_menu' : 'sidebar_menu';
-            $setting = Setting::where('key', $key)->first();
-            $menu = $setting && !empty($setting->value)
-                ? json_decode($setting->value, true)
-                : MenuController::getDefaultMenu();
+            $cacheKey = "menu_cache_{$key}";
 
-            if (!is_array($menu)) {
-                $menu = MenuController::getDefaultMenu();
-            }
+            $menu = \Illuminate\Support\Facades\Cache::remember($cacheKey, now()->addHours(24), function () use ($key) {
+                $setting = Setting::where('key', $key)->first();
+                $menuData = $setting && !empty($setting->value)
+                    ? json_decode($setting->value, true)
+                    : MenuController::getDefaultMenu();
+
+                return is_array($menuData) ? $menuData : MenuController::getDefaultMenu();
+            });
 
             return response()->json([
                 'success' => true,
@@ -140,8 +135,11 @@ class MenuController extends Controller
             ]);
 
             $menu = $request->input('menu');
-            $tenantId = function_exists('tenant') ? tenant('id') : null;
+            $tenantId = Auth::user() ? Auth::user()->company_id : null;
             $key = $tenantId ? 'company_' . $tenantId . '_sidebar_menu' : 'sidebar_menu';
+
+            // Clear cache
+            \Illuminate\Support\Facades\Cache::forget("menu_cache_{$key}");
 
             Setting::updateOrCreate(
                 ['key' => $key],

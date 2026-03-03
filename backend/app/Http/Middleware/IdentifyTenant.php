@@ -46,9 +46,13 @@ class IdentifyTenant
         // Resolve tenant by full domain first
         $host = strtolower($request->getHost());
         $domainCandidates = $this->getDomainCandidates($host);
-        $company = Company::whereIn('domain', $domainCandidates)
-            ->where('status', 'active')
-            ->first();
+
+        $cacheKey = 'company_domain_' . md5(implode('|', $domainCandidates));
+        $company = \Illuminate\Support\Facades\Cache::remember($cacheKey, now()->addHours(24), function () use ($domainCandidates) {
+            return Company::whereIn('domain', $domainCandidates)
+                ->where('status', 'active')
+                ->first();
+        });
 
         if ($company) {
             app()->instance('tenant', $company);
@@ -77,9 +81,12 @@ class IdentifyTenant
         }
 
         // Find company by subdomain
-        $company = Company::where('subdomain', $subdomain)
-            ->where('status', 'active')
-            ->first();
+        $cacheKey = 'company_subdomain_' . $subdomain;
+        $company = \Illuminate\Support\Facades\Cache::remember($cacheKey, now()->addHours(24), function () use ($subdomain) {
+            return Company::where('subdomain', $subdomain)
+                ->where('status', 'active')
+                ->first();
+        });
 
         if (!$company) {
             return response()->json([

@@ -1,8 +1,14 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import Layout from '../components/Layout';
+import { useErrorHandler } from '../hooks/useErrorHandler';
 import { toast } from 'react-toastify';
-import { callsAPI, leadsAPI, usersAPI } from '../services/api';
-import { Phone, Play, Pause, Filter, Plus, X } from 'lucide-react';
+import { callsAPI, leadsAPI, companySettingsAPI } from '../services/api';
+import {
+  Phone, Play, Pause, Filter, Plus, X, Search, Calendar,
+  Clock, User, Download, FileText, ChevronRight, Hash,
+  ArrowUpRight, ArrowDownLeft, ShieldCheck, Headphones,
+  Volume2, MoreVertical, Trash2, Edit3
+} from 'lucide-react';
 
 const DEFAULT_FILTERS = {
   employee_id: '',
@@ -18,6 +24,7 @@ const DEFAULT_FILTERS = {
 };
 
 const CallManagement = () => {
+  const { executeWithErrorHandling } = useErrorHandler();
   const [filters, setFilters] = useState(DEFAULT_FILTERS);
   const [calls, setCalls] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -29,593 +36,463 @@ const CallManagement = () => {
   const [noteText, setNoteText] = useState('');
   const [editingNoteId, setEditingNoteId] = useState(null);
   const [savingNote, setSavingNote] = useState(false);
-  const [mappings, setMappings] = useState([]);
-  const [mappingForm, setMappingForm] = useState({
-    user_id: '',
-    phone_number: '',
-    label: '',
-    contact_name: '',
-    is_active: true,
-  });
+  const [showFilters, setShowFilters] = useState(false);
+
+  // Audio Player State
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const audioRef = useRef(null);
 
   useEffect(() => {
-    loadCalls();
-    loadEmployees();
-    loadLeads();
-    loadMappings();
-
+    loadData();
     const interval = setInterval(() => {
       loadCalls(true);
-    }, 5000);
-
+    }, 10000);
     return () => clearInterval(interval);
   }, []);
 
-  const normalizedFilters = useMemo(() => {
-    const params = {};
-    Object.entries(filters).forEach(([key, value]) => {
-      if (value !== '' && value !== null && value !== undefined) {
-        params[key] = value;
-      }
-    });
-    return params;
-  }, [filters]);
+  const loadData = async () => {
+    setLoading(true);
+    await Promise.all([
+      loadCalls(true),
+      loadEmployees(),
+      loadLeads()
+    ]);
+    setLoading(false);
+  };
 
   const loadCalls = async (silent = false) => {
-    try {
-      if (!silent) {
-        setLoading(true);
-      }
-      const response = await callsAPI.list(normalizedFilters);
-      setCalls(response.data.data.calls || []);
-    } catch (err) {
-      console.error('Failed to load calls', err);
-    } finally {
-      if (!silent) {
-        setLoading(false);
-      }
+    const result = await executeWithErrorHandling(() => callsAPI.list(filters));
+    if (result.success) {
+      setCalls(result.data.data.calls || []);
     }
   };
 
   const loadEmployees = async () => {
-    try {
-      const response = await usersAPI.list();
-      setEmployees(response.data.data.users || []);
-    } catch (err) {
-      console.error('Failed to load employees', err);
+    const result = await executeWithErrorHandling(() => companySettingsAPI.getUsers());
+    if (result.success) {
+      setEmployees(result.data.data.users || []);
     }
   };
 
   const loadLeads = async () => {
-    try {
-      const response = await leadsAPI.list({ per_page: 1000 });
-      setLeads(response.data.data.leads || []);
-    } catch (err) {
-      console.error('Failed to load leads', err);
+    const result = await executeWithErrorHandling(() => leadsAPI.list({ per_page: 100 }));
+    if (result.success) {
+      setLeads(result.data.data.leads || []);
     }
-  };
-
-  const loadMappings = async () => {
-    try {
-      const response = await callsAPI.getMappings();
-      setMappings(response.data.data.mappings || []);
-    } catch (err) {
-      console.error('Failed to load mappings', err);
-    }
-  };
-
-  const handleFilterChange = (key, value) => {
-    setFilters(prev => ({ ...prev, [key]: value }));
-  };
-
-  const resetFilters = () => {
-    setFilters(DEFAULT_FILTERS);
-    loadCalls();
-  };
-
-  const formatDuration = (seconds) => {
-    const total = Number(seconds || 0);
-    const mins = Math.floor(total / 60);
-    const secs = total % 60;
-    return `${mins}m ${secs}s`;
-  };
-
-  const formatDateTime = (value) => {
-    if (!value) return 'N/A';
-    const date = new Date(value);
-    return date.toLocaleString('en-IN');
   };
 
   const handleLoadRecording = async (callId) => {
-    try {
-      const response = await callsAPI.getRecording(callId);
-      const blob = new Blob([response.data], { type: response.headers['content-type'] || 'audio/mpeg' });
+    if (recordingUrls[callId]) {
+      setActiveRecordingId(callId);
+      return;
+    }
+
+    const result = await executeWithErrorHandling(() => callsAPI.getRecording(callId));
+    if (result.success) {
+      const blob = new Blob([result.data], { type: 'audio/mpeg' });
       const url = URL.createObjectURL(blob);
       setRecordingUrls(prev => ({ ...prev, [callId]: url }));
       setActiveRecordingId(callId);
-    } catch (err) {
-      toast.error('Failed to load recording');
     }
   };
 
-  const openNotesModal = (call) => {
-    setNoteModalCall(call);
-    setNoteText('');
-    setEditingNoteId(null);
+  const formatDuration = (seconds) => {
+    const s = Number(seconds || 0);
+    const mins = Math.floor(s / 60);
+    const secs = s % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const handleSaveNote = async () => {
-    if (!noteText.trim() || !noteModalCall) {
-      return;
-    }
-    setSavingNote(true);
-    try {
-      if (editingNoteId) {
-        await callsAPI.updateNote(noteModalCall.id, editingNoteId, noteText.trim());
-      } else {
-        await callsAPI.addNote(noteModalCall.id, noteText.trim());
-      }
-      await loadCalls(true);
-      const refreshed = await callsAPI.get(noteModalCall.id);
-      setNoteModalCall(refreshed.data.data.call || null);
-      setNoteText('');
-      setEditingNoteId(null);
-      toast.success(editingNoteId ? 'Note updated successfully' : 'Note added successfully');
-    } catch (err) {
-      toast.error('Failed to save note');
-    } finally {
-      setSavingNote(false);
-    }
-  };
-
-  const handleMappingSubmit = async (e) => {
-    e.preventDefault();
-    try {
-      await callsAPI.createMapping(mappingForm);
-      setMappingForm({
-        user_id: '',
-        phone_number: '',
-        label: '',
-        contact_name: '',
-        is_active: true,
-      });
-      loadMappings();
-      toast.success('Mapping saved successfully');
-    } catch (err) {
-      toast.error('Failed to save mapping');
-    }
-  };
-
-  const handleMappingToggle = async (mapping) => {
-    try {
-      await callsAPI.updateMapping(mapping.id, { is_active: !mapping.is_active });
-      loadMappings();
-      toast.success(`Mapping ${!mapping.is_active ? 'activated' : 'deactivated'} successfully`);
-    } catch (err) {
-      toast.error('Failed to update mapping');
-    }
-  };
-
-  const handleMappingDelete = async (mappingId) => {
-    if (!confirm('Delete this mapping?')) {
-      return;
-    }
-    try {
-      await callsAPI.deleteMapping(mappingId);
-      loadMappings();
-      toast.success('Mapping deleted successfully');
-    } catch (err) {
-      toast.error('Failed to delete mapping');
+  const getStatusStyle = (status) => {
+    switch (status?.toLowerCase()) {
+      case 'completed': return 'bg-green-100 text-green-700 border-green-200';
+      case 'no-answer':
+      case 'busy': return 'bg-orange-100 text-orange-700 border-orange-200';
+      case 'failed': return 'bg-red-100 text-red-700 border-red-200';
+      default: return 'bg-blue-100 text-blue-700 border-blue-200';
     }
   };
 
   return (
     <Layout>
-      <div className="p-6" style={{ backgroundColor: '#D8DEF5', minHeight: '100vh' }}>
-        <div className="flex items-center justify-between mb-6">
-          <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-            <Phone className="h-6 w-6 text-blue-600" />
-            Call Management System
-          </h1>
+      <div className="space-y-6 max-w-[1600px] mx-auto p-4 md:p-6 lg:p-8">
+        {/* Header Section */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-blue-600 rounded-xl shadow-lg shadow-blue-200">
+              <Headphones className="w-8 h-8 text-white" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-black text-gray-900 tracking-tight">Recording Hub</h1>
+              <p className="text-sm text-gray-500 font-medium">Monitor team calls and analyze recordings in real-time.</p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setShowFilters(!showFilters)}
+              className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold transition-all border ${showFilters ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-700 border-gray-200 hover:border-gray-900'}`}
+            >
+              <Filter className="w-5 h-5" />
+              {showFilters ? 'Hide Filters' : 'Filter Calls'}
+            </button>
+          </div>
         </div>
 
-        <div className="bg-white rounded-lg shadow p-5 mb-6">
-          <div className="flex items-center gap-2 mb-4">
-            <Filter className="h-4 w-4 text-gray-500" />
-            <h2 className="text-sm font-semibold text-gray-700">Filters</h2>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <label className="text-xs text-gray-500">Employee</label>
-              <select
-                value={filters.employee_id}
-                onChange={(e) => handleFilterChange('employee_id', e.target.value)}
-                className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
-              >
-                <option value="">All</option>
-                {employees.map(emp => (
-                  <option key={emp.id} value={emp.id}>{emp.name}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="text-xs text-gray-500">Client / Lead</label>
-              <select
-                value={filters.lead_id}
-                onChange={(e) => handleFilterChange('lead_id', e.target.value)}
-                className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
-              >
-                <option value="">All</option>
-                {leads.map(lead => (
-                  <option key={lead.id} value={lead.id}>{lead.client_name}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="text-xs text-gray-500">Phone Number</label>
-              <input
-                type="text"
-                value={filters.phone_number}
-                onChange={(e) => handleFilterChange('phone_number', e.target.value)}
-                className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
-                placeholder="Search by number"
-              />
-            </div>
-            <div>
-              <label className="text-xs text-gray-500">Date From</label>
-              <input
-                type="date"
-                value={filters.date_from}
-                onChange={(e) => handleFilterChange('date_from', e.target.value)}
-                className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
-              />
-            </div>
-            <div>
-              <label className="text-xs text-gray-500">Date To</label>
-              <input
-                type="date"
-                value={filters.date_to}
-                onChange={(e) => handleFilterChange('date_to', e.target.value)}
-                className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
-              />
-            </div>
-            <div>
-              <label className="text-xs text-gray-500">Duration Range (sec)</label>
-              <div className="flex gap-2">
+        {/* Filters Panel */}
+        {showFilters && (
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 animate-in slide-in-from-top-4 duration-300">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <div className="space-y-2">
+                <label className="text-xs font-black text-gray-400 uppercase tracking-widest">Employee</label>
+                <select
+                  className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all outline-none font-medium"
+                  value={filters.employee_id}
+                  onChange={(e) => setFilters({ ...filters, employee_id: e.target.value })}
+                >
+                  <option value="">All Employees</option>
+                  {employees.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
+                </select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-black text-gray-400 uppercase tracking-widest">Client Name</label>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="Search lead..."
+                    className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all outline-none font-medium text-sm"
+                    value={filters.phone_number}
+                    onChange={(e) => setFilters({ ...filters, phone_number: e.target.value })}
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-black text-gray-400 uppercase tracking-widest">From Date</label>
                 <input
-                  type="number"
-                  min="0"
-                  value={filters.duration_min}
-                  onChange={(e) => handleFilterChange('duration_min', e.target.value)}
-                  className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
-                  placeholder="Min"
+                  type="date"
+                  className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all outline-none font-medium"
+                  value={filters.date_from}
+                  onChange={(e) => setFilters({ ...filters, date_from: e.target.value })}
                 />
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-black text-gray-400 uppercase tracking-widest">To Date</label>
                 <input
-                  type="number"
-                  min="0"
-                  value={filters.duration_max}
-                  onChange={(e) => handleFilterChange('duration_max', e.target.value)}
-                  className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
-                  placeholder="Max"
+                  type="date"
+                  className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all outline-none font-medium"
+                  value={filters.date_to}
+                  onChange={(e) => setFilters({ ...filters, date_to: e.target.value })}
                 />
               </div>
             </div>
-            <div>
-              <label className="text-xs text-gray-500">Status</label>
-              <select
-                value={filters.status}
-                onChange={(e) => handleFilterChange('status', e.target.value)}
-                className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
+            <div className="flex justify-end gap-3 mt-6 pt-6 border-t border-gray-50">
+              <button
+                onClick={() => setFilters(DEFAULT_FILTERS)}
+                className="px-6 py-2.5 text-gray-500 font-bold hover:text-gray-900 transition-colors"
               >
-                <option value="">All</option>
-                <option value="completed">Completed</option>
-                <option value="no-answer">No Answer</option>
-                <option value="busy">Busy</option>
-                <option value="failed">Failed</option>
-                <option value="in-progress">In Progress</option>
-                <option value="queued">Queued</option>
-                <option value="initiated">Initiated</option>
-              </select>
-            </div>
-            <div>
-              <label className="text-xs text-gray-500">Mapping Status</label>
-              <select
-                value={filters.mapping_status}
-                onChange={(e) => handleFilterChange('mapping_status', e.target.value)}
-                className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
+                Reset All
+              </button>
+              <button
+                onClick={() => loadCalls()}
+                className="px-8 py-2.5 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 shadow-lg shadow-blue-200 transition-all"
               >
-                <option value="">All</option>
-                <option value="mapped">Mapped</option>
-                <option value="unmapped">Unmapped</option>
-              </select>
-            </div>
-            <div>
-              <label className="text-xs text-gray-500">Source</label>
-              <select
-                value={filters.source}
-                onChange={(e) => handleFilterChange('source', e.target.value)}
-                className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
-              >
-                <option value="">All</option>
-                <option value="mobile">Employee Mobile</option>
-                <option value="crm">CRM Click-to-Call</option>
-              </select>
+                Apply Filters
+              </button>
             </div>
           </div>
-          <div className="flex gap-3 mt-4">
-            <button
-              onClick={() => loadCalls()}
-              className="bg-blue-600 text-white px-4 py-2 rounded text-sm hover:bg-blue-700"
-            >
-              Apply Filters
-            </button>
-            <button
-              onClick={resetFilters}
-              className="bg-gray-100 text-gray-700 px-4 py-2 rounded text-sm hover:bg-gray-200"
-            >
-              Reset
-            </button>
-          </div>
-        </div>
+        )}
 
-        <div className="bg-white rounded-lg shadow overflow-hidden">
-          {loading ? (
-            <div className="p-10 text-center text-gray-500">Loading calls...</div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Employee</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Client</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Number</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Duration</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Recording</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Notes</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {calls.length === 0 ? (
-                    <tr>
-                      <td colSpan="8" className="px-4 py-6 text-center text-sm text-gray-500">
-                        No calls found
-                      </td>
+        {/* Main Content Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+          {/* Active Player Card */}
+          <div className="lg:col-span-1 space-y-6">
+            <div className="bg-gradient-to-br from-gray-900 to-indigo-950 p-6 rounded-[2rem] shadow-xl text-white sticky top-24">
+              <div className="flex items-center justify-between mb-8">
+                <div className="p-2 bg-white/10 rounded-lg">
+                  <Volume2 className="w-5 h-5 text-blue-400" />
+                </div>
+                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-400/80">LIVE PLAYER</span>
+              </div>
+
+              {activeRecordingId ? (
+                <div className="space-y-6">
+                  <div className="text-center space-y-2">
+                    <h3 className="text-xl font-bold truncate">
+                      {calls.find(c => c.id === activeRecordingId)?.lead?.client_name || 'Anonymous Call'}
+                    </h3>
+                    <p className="text-blue-200/60 text-sm font-medium">
+                      {calls.find(c => c.id === activeRecordingId)?.employee?.name || 'Unknown Staff'}
+                    </p>
+                  </div>
+
+                  {/* Waveform Placeholder - Visual only */}
+                  <div className="flex items-end justify-center gap-1 h-12 py-2">
+                    {[...Array(12)].map((_, i) => (
+                      <div
+                        key={i}
+                        className={`w-1 bg-blue-500/40 rounded-full transition-all duration-300 ${isPlaying ? 'animate-pulse' : ''}`}
+                        style={{ height: `${Math.random() * 100}%` }}
+                      />
+                    ))}
+                  </div>
+
+                  <div className="space-y-4">
+                    <audio
+                      ref={audioRef}
+                      src={recordingUrls[activeRecordingId]}
+                      onPlay={() => setIsPlaying(true)}
+                      onPause={() => setIsPlaying(false)}
+                      onTimeUpdate={(e) => setProgress((e.target.currentTime / e.target.duration) * 100)}
+                      className="hidden"
+                    />
+
+                    <div className="relative h-1 bg-white/10 rounded-full overflow-hidden">
+                      <div
+                        className="absolute inset-y-0 left-0 bg-blue-500 transition-all duration-200"
+                        style={{ width: `${progress || 0}%` }}
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-center gap-6">
+                      <button className="text-white/40 hover:text-white transition-colors">
+                        <ArrowDownLeft className="w-5 h-5 rotate-45" />
+                      </button>
+                      <button
+                        onClick={() => isPlaying ? audioRef.current.pause() : audioRef.current.play()}
+                        className="w-16 h-16 bg-blue-600 rounded-full flex items-center justify-center hover:scale-110 active:scale-95 transition-all shadow-xl shadow-blue-500/20"
+                      >
+                        {isPlaying ? <Pause className="w-8 h-8 fill-white" /> : <Play className="w-8 h-8 fill-white ml-1" />}
+                      </button>
+                      <button className="text-white/40 hover:text-white transition-colors">
+                        <ArrowUpRight className="w-5 h-5 rotate-45" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="py-20 text-center space-y-4 opacity-40">
+                  <Play className="w-12 h-12 mx-auto" />
+                  <p className="text-sm font-bold uppercase tracking-widest">Select a call<br />to play recording</p>
+                </div>
+              )}
+            </div>
+
+            {/* Stats mini-widgets */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="bg-white p-5 rounded-3xl border border-gray-100 shadow-sm">
+                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Total Logs</p>
+                <p className="text-2xl font-black text-gray-900">{calls.length}</p>
+              </div>
+              <div className="bg-white p-5 rounded-3xl border border-gray-100 shadow-sm">
+                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Missed</p>
+                <p className="text-2xl font-black text-gray-900">{calls.filter(c => c.status !== 'completed').length}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Call Logs Table */}
+          <div className="lg:col-span-3">
+            <div className="bg-white rounded-[2rem] shadow-sm border border-gray-100 overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="border-b border-gray-100">
+                      <th className="px-6 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Call Details</th>
+                      <th className="px-6 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Employee</th>
+                      <th className="px-6 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Duration</th>
+                      <th className="px-6 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Status</th>
+                      <th className="px-6 py-5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Action</th>
                     </tr>
-                  ) : (
-                    calls.map(call => (
-                      <tr key={call.id} className="hover:bg-gray-50">
-                        <td className="px-4 py-3 text-sm text-gray-700">
-                          {call.employee?.name || 'Unassigned'}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-gray-700">
-                          {call.lead?.client_name || call.contact_name || 'N/A'}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-gray-700">
-                          {call.from_number || 'N/A'} → {call.to_number || 'N/A'}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-gray-700">
-                          {formatDuration(call.duration_seconds)}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-gray-700 capitalize">
-                          <div className="flex items-center gap-2">
-                            <span>{call.status || 'unknown'}</span>
-                            {call.mapping_status === 'unmapped' && (
-                              <span
-                                className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full"
-                                title="Number not mapped to any employee"
-                              >
-                                UNMAPPED
-                              </span>
-                            )}
-                          </div>
-                        </td>
-                        <td className="px-4 py-3 text-sm text-gray-700">
-                          {formatDateTime(call.call_started_at || call.created_at)}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-gray-700">
-                          {call.recording_available ? (
-                            recordingUrls[call.id] ? (
-                              <button
-                                onClick={() => setActiveRecordingId(activeRecordingId === call.id ? null : call.id)}
-                                className="flex items-center gap-2 text-blue-600 text-sm"
-                              >
-                                {activeRecordingId === call.id ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-                                {activeRecordingId === call.id ? 'Hide' : 'Play'}
-                              </button>
-                            ) : (
-                              <button
-                                onClick={() => handleLoadRecording(call.id)}
-                                className="text-blue-600 text-sm"
-                              >
-                                Load
-                              </button>
-                            )
-                          ) : (
-                            <span className="text-gray-400 text-sm">N/A</span>
-                          )}
-                          {recordingUrls[call.id] && activeRecordingId === call.id && (
-                            <audio className="mt-2 w-48" controls src={recordingUrls[call.id]} />
-                          )}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-gray-700">
-                          <button
-                            onClick={() => openNotesModal(call)}
-                            className="text-blue-600 text-sm"
-                          >
-                            {call.notes?.length ? `View (${call.notes.length})` : 'Add'}
-                          </button>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50">
+                    {loading ? (
+                      <tr>
+                        <td colSpan="5" className="px-6 py-20 text-center text-gray-400 font-bold uppercase tracking-widest">
+                          Fetching records...
                         </td>
                       </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
+                    ) : calls.length === 0 ? (
+                      <tr>
+                        <td colSpan="5" className="px-6 py-20 text-center text-gray-400 font-bold uppercase tracking-widest">
+                          No call records found
+                        </td>
+                      </tr>
+                    ) : (
+                      calls.map((call) => (
+                        <tr key={call.id} className={`group hover:bg-blue-50/30 transition-all ${activeRecordingId === call.id ? 'bg-blue-50/50' : ''}`}>
+                          <td className="px-6 py-5">
+                            <div className="flex items-center gap-4">
+                              <div className={`p-2 rounded-xl border ${call.direction === 'inbound' ? 'bg-indigo-50 border-indigo-100 text-indigo-600' : 'bg-blue-50 border-blue-100 text-blue-600'}`}>
+                                {call.direction === 'inbound' ? <ArrowDownLeft className="w-5 h-5" /> : <ArrowUpRight className="w-5 h-5" />}
+                              </div>
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <p className="font-bold text-gray-900">{call.lead?.client_name || 'Unknown Contact'}</p>
+                                  {call.mapping_status === 'unmapped' && (
+                                    <span className="px-1.5 py-0.5 rounded text-[8px] font-black bg-red-100 text-red-600 uppercase tracking-tighter">Unmapped</span>
+                                  )}
+                                </div>
+                                <p className="text-xs text-gray-500 font-medium flex items-center gap-1.5 mt-0.5">
+                                  <Hash className="w-3 h-3" /> {call.contact_phone || call.to_number}
+                                </p>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-6 py-5">
+                            <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-xs font-bold text-gray-600 border border-gray-200 uppercase">
+                                {call.employee?.name?.charAt(0) || '?'}
+                              </div>
+                              <div>
+                                <p className="text-sm font-bold text-gray-800">{call.employee?.name || 'External SIM'}</p>
+                                <p className="text-[10px] text-gray-400 font-black uppercase tracking-widest">Staff Member</p>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-6 py-5">
+                            <div className="flex items-center gap-2 text-gray-700 font-bold">
+                              <Clock className="w-4 h-4 text-gray-400" />
+                              {formatDuration(call.duration_seconds)}
+                            </div>
+                          </td>
+                          <td className="px-6 py-5">
+                            <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border ${getStatusStyle(call.status)}`}>
+                              {call.status || 'unknown'}
+                            </span>
+                            <p className="text-[10px] text-gray-400 font-medium mt-1 uppercase tracking-tighter">
+                              {new Date(call.call_started_at || call.created_at).toLocaleDateString()} · {new Date(call.call_started_at || call.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </p>
+                          </td>
+                          <td className="px-6 py-5">
+                            <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                              {call.recording_available ? (
+                                <button
+                                  onClick={() => handleLoadRecording(call.id)}
+                                  className={`p-2.5 rounded-xl transition-all ${activeRecordingId === call.id ? 'bg-blue-600 text-white shadow-lg shadow-blue-200' : 'bg-gray-100 text-gray-600 hover:bg-blue-600 hover:text-white hover:shadow-lg hover:shadow-blue-200'}`}
+                                >
+                                  <Play className={`w-5 h-5 ${activeRecordingId === call.id ? 'fill-current' : ''}`} />
+                                </button>
+                              ) : (
+                                <div className="p-2.5 rounded-xl bg-gray-50 text-gray-300 cursor-not-allowed">
+                                  <Play className="w-5 h-5" />
+                                </div>
+                              )}
+                              <button
+                                onClick={() => setNoteModalCall(call)}
+                                className="p-2.5 bg-gray-100 text-gray-600 rounded-xl hover:bg-gray-900 hover:text-white transition-all"
+                              >
+                                <FileText className="w-5 h-5" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
-          )}
-        </div>
-
-        <div className="bg-white rounded-lg shadow p-5 mt-6">
-          <div className="flex items-center gap-2 mb-4">
-            <Phone className="h-4 w-4 text-gray-500" />
-            <h2 className="text-sm font-semibold text-gray-700">Phone Number Mapping</h2>
-          </div>
-          <form onSubmit={handleMappingSubmit} className="grid grid-cols-1 md:grid-cols-5 gap-3 mb-4">
-            <select
-              value={mappingForm.user_id}
-              onChange={(e) => setMappingForm(prev => ({ ...prev, user_id: e.target.value }))}
-              className="border border-gray-300 rounded px-3 py-2 text-sm"
-              required
-            >
-              <option value="">Select Employee</option>
-              {employees.map(emp => (
-                <option key={emp.id} value={emp.id}>{emp.name}</option>
-              ))}
-            </select>
-            <input
-              type="text"
-              value={mappingForm.phone_number}
-              onChange={(e) => setMappingForm(prev => ({ ...prev, phone_number: e.target.value }))}
-              placeholder="Phone number"
-              className="border border-gray-300 rounded px-3 py-2 text-sm"
-              required
-            />
-            <input
-              type="text"
-              value={mappingForm.label}
-              onChange={(e) => setMappingForm(prev => ({ ...prev, label: e.target.value }))}
-              placeholder="Label (owner/vendor)"
-              className="border border-gray-300 rounded px-3 py-2 text-sm"
-            />
-            <input
-              type="text"
-              value={mappingForm.contact_name}
-              onChange={(e) => setMappingForm(prev => ({ ...prev, contact_name: e.target.value }))}
-              placeholder="Contact name"
-              className="border border-gray-300 rounded px-3 py-2 text-sm"
-            />
-            <button
-              type="submit"
-              className="bg-blue-600 text-white px-4 py-2 rounded text-sm hover:bg-blue-700 flex items-center justify-center gap-2"
-            >
-              <Plus className="h-4 w-4" />
-              Add
-            </button>
-          </form>
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Employee</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Number</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Label</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Contact</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Action</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200">
-                {mappings.length === 0 ? (
-                  <tr>
-                    <td colSpan="6" className="px-4 py-4 text-center text-sm text-gray-500">
-                      No mappings created
-                    </td>
-                  </tr>
-                ) : (
-                  mappings.map(mapping => (
-                    <tr key={mapping.id}>
-                      <td className="px-4 py-2 text-sm text-gray-700">{mapping.user?.name || 'N/A'}</td>
-                      <td className="px-4 py-2 text-sm text-gray-700">{mapping.phone_number}</td>
-                      <td className="px-4 py-2 text-sm text-gray-700">{mapping.label || 'N/A'}</td>
-                      <td className="px-4 py-2 text-sm text-gray-700">{mapping.contact_name || 'N/A'}</td>
-                      <td className="px-4 py-2 text-sm">
-                        <button
-                          onClick={() => handleMappingToggle(mapping)}
-                          className={`px-2 py-1 rounded text-xs ${mapping.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}
-                        >
-                          {mapping.is_active ? 'Active' : 'Inactive'}
-                        </button>
-                      </td>
-                      <td className="px-4 py-2 text-sm">
-                        <button
-                          onClick={() => handleMappingDelete(mapping.id)}
-                          className="text-red-600 text-xs"
-                        >
-                          Delete
-                        </button>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
           </div>
         </div>
       </div>
 
+      {/* Robust Notes Modal */}
       {noteModalCall && (
-        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg w-full max-w-lg p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-800">Call Notes</h3>
-              <button onClick={() => setNoteModalCall(null)}>
-                <X className="h-4 w-4 text-gray-500" />
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="bg-gray-900 p-6 text-white flex items-center justify-between">
+              <div>
+                <h3 className="text-xl font-bold">Call Insights</h3>
+                <p className="text-xs text-gray-400 font-medium uppercase tracking-widest mt-1">
+                  Log ID: #{noteModalCall.id}
+                </p>
+              </div>
+              <button onClick={() => setNoteModalCall(null)} className="p-2 hover:bg-white/10 rounded-xl transition-all">
+                <X className="w-5 h-5" />
               </button>
             </div>
-            <div className="space-y-3 max-h-64 overflow-y-auto">
-              {(noteModalCall.notes || []).length === 0 ? (
-                <p className="text-sm text-gray-500">No notes yet</p>
-              ) : (
-                noteModalCall.notes.map(note => (
-                  <div key={note.id} className="border border-gray-200 rounded p-3">
-                    <p className="text-sm text-gray-800">{note.note}</p>
-                    <p className="text-xs text-gray-500 mt-1">
-                      {note.user?.name || 'System'} · {formatDateTime(note.created_at)}
-                    </p>
-                    <button
-                      onClick={() => {
-                        setEditingNoteId(note.id);
-                        setNoteText(note.note);
-                      }}
-                      className="text-xs text-blue-600 mt-2"
-                    >
-                      Edit
-                    </button>
+
+            <div className="p-6 space-y-6">
+              <div className="space-y-4 max-h-[30vh] overflow-y-auto pr-2 custom-scroll">
+                {noteModalCall.notes?.length === 0 ? (
+                  <div className="text-center py-10 bg-gray-50 rounded-2xl border border-dashed border-gray-200">
+                    <Edit3 className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+                    <p className="text-sm font-bold text-gray-400 uppercase tracking-widest">No notes yet</p>
                   </div>
-                ))
-              )}
-            </div>
-            <div className="mt-4">
-              <textarea
-                rows="3"
-                value={noteText}
-                onChange={(e) => setNoteText(e.target.value)}
-                className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
-                placeholder="Add note..."
-              />
-              <div className="flex justify-end gap-2 mt-3">
-                <button
-                  onClick={() => {
-                    setEditingNoteId(null);
-                    setNoteText('');
-                  }}
-                  className="px-3 py-2 text-sm text-gray-600 hover:text-gray-800"
-                >
-                  Clear
-                </button>
-                <button
-                  onClick={handleSaveNote}
-                  disabled={savingNote || !noteText.trim()}
-                  className="bg-blue-600 text-white px-4 py-2 rounded text-sm hover:bg-blue-700 disabled:opacity-50"
-                >
-                  {savingNote ? 'Saving...' : (editingNoteId ? 'Update Note' : 'Add Note')}
-                </button>
+                ) : (
+                  noteModalCall.notes.map(note => (
+                    <div key={note.id} className="p-4 bg-gray-50 rounded-2xl border border-gray-100 relative group">
+                      <p className="text-sm text-gray-800 font-medium leading-relaxed">{note.note}</p>
+                      <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-200/50">
+                        <p className="text-[10px] font-black text-gray-400 tracking-widest uppercase">
+                          {note.user?.name} · {new Date(note.created_at).toLocaleDateString()}
+                        </p>
+                        <button
+                          onClick={() => { setEditingNoteId(note.id); setNoteText(note.note); }}
+                          className="text-blue-600 hover:text-blue-800 transition-colors"
+                        >
+                          <ArrowUpRight className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              <div className="space-y-3">
+                <label className="text-xs font-black text-gray-400 uppercase tracking-widest">Add Internal Note</label>
+                <textarea
+                  className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-600 transition-all outline-none min-h-[120px] font-medium text-sm"
+                  placeholder="Summarize the conversation or add follow-up instructions..."
+                  value={noteText}
+                  onChange={(e) => setNoteText(e.target.value)}
+                />
+                <div className="flex gap-3 pt-2">
+                  <button
+                    onClick={() => { setNoteText(''); setEditingNoteId(null); }}
+                    className="flex-1 px-6 py-3 bg-gray-100 text-gray-700 font-bold rounded-xl hover:bg-gray-200 transition-all"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={async () => {
+                      if (!noteText.trim()) return;
+                      setSavingNote(true);
+                      const res = editingNoteId
+                        ? await executeWithErrorHandling(() => callsAPI.updateNote(noteModalCall.id, editingNoteId, noteText))
+                        : await executeWithErrorHandling(() => callsAPI.addNote(noteModalCall.id, noteText));
+
+                      if (res.success) {
+                        setNoteText('');
+                        setEditingNoteId(null);
+                        loadCalls(true);
+                        // Refresh modal data
+                        const refreshed = await callsAPI.get(noteModalCall.id);
+                        if (refreshed.success) setNoteModalCall(refreshed.data.data.call);
+                      }
+                      setSavingNote(false);
+                    }}
+                    disabled={savingNote || !noteText.trim()}
+                    className="flex-[2] bg-blue-600 text-white font-bold py-3 rounded-xl hover:bg-blue-700 shadow-lg shadow-blue-200 disabled:opacity-50 transition-all"
+                  >
+                    {savingNote ? 'Processing...' : (editingNoteId ? 'Update Insight' : 'Save Insight')}
+                  </button>
+                </div>
               </div>
             </div>
           </div>
         </div>
       )}
+
+      <style dangerouslySetInnerHTML={{
+        __html: `
+                .custom-scroll::-webkit-scrollbar { width: 4px; }
+                .custom-scroll::-webkit-scrollbar-track { background: transparent; }
+                .custom-scroll::-webkit-scrollbar-thumb { background: #E5E7EB; border-radius: 20px; }
+                .custom-scroll::-webkit-scrollbar-thumb:hover { background: #D1D5DB; }
+            `}} />
     </Layout>
   );
 };

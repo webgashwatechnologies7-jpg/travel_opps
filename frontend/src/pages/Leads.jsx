@@ -145,6 +145,11 @@ const Leads = () => {
       fetchLeads({ status: 'cancelled' });
       return;
     }
+    if (status === 'unassigned') {
+      setActiveFilter('unassigned');
+      fetchLeads();
+      return;
+    }
     const priority = params.get('priority');
     if (priority === 'hot') {
       setActiveFilter('hot');
@@ -380,8 +385,12 @@ const Leads = () => {
       yearly: leads.filter(l => l.created_at && inRange(l.created_at, startOfYear)).length,
       postponed: 0, // Not in current data model
       invalid: 0, // Not in current data model
-      birthdays: leads.filter(l => l.date_of_birth && new Date(l.date_of_birth).getMonth() === today.getMonth()).length,
       anniversaries: leads.filter(l => l.marriage_anniversary && new Date(l.marriage_anniversary).getMonth() === today.getMonth()).length,
+      unassigned: leads.filter(l => !l.assigned_to && !l.assigned_to_id).length,
+      assignedToMe: leads.filter(l => {
+        const id = l.assigned_to?.id ?? l.assigned_to_id ?? l.assigned_to;
+        return Number(id) === currentUser?.id;
+      }).length,
     };
     return stats;
   }, [leads]);
@@ -473,6 +482,13 @@ const Leads = () => {
     } else if (activeFilter === 'anniversaries') {
       const today = new Date();
       return leads.filter(l => l.marriage_anniversary && new Date(l.marriage_anniversary).getMonth() === today.getMonth());
+    } else if (activeFilter === 'unassigned') {
+      return leads.filter(l => !l.assigned_to && !l.assigned_to_id);
+    } else if (activeFilter === 'assignedToMe') {
+      return leads.filter(l => {
+        const id = l.assigned_to?.id ?? l.assigned_to_id ?? l.assigned_to;
+        return Number(id) === currentUser?.id;
+      });
     }
     return leads;
   }, [leads, activeFilter, assignedNameFilter, assignedToFilter, destinationFilter]);
@@ -624,7 +640,9 @@ const Leads = () => {
               className="w-full sm:w-48 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="total">All Queries ({stats.total})</option>
+              {stats.assignedToMe > 0 && <option value="assignedToMe">Assigned to Me ({stats.assignedToMe})</option>}
               <option value="today">Today ({stats.today})</option>
+              {canAssign && <option value="unassigned" className="font-semibold text-orange-600">Unassigned ({stats.unassigned})</option>}
               <option value="new">New ({stats.new})</option>
               <option value="proposalSent">Proposal Sent ({stats.proposalSent})</option>
               <option value="noConnect">No Connect ({stats.noConnect})</option>

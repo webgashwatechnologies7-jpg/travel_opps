@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useCallback, memo } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { useAuth } from '../contexts/AuthContext';
-import { leadsAPI, usersAPI, followupsAPI, dayItinerariesAPI, packagesAPI, settingsAPI, suppliersAPI, hotelsAPI, paymentsAPI, googleMailAPI, whatsappAPI, queryDetailAPI, vouchersAPI, itineraryPricingAPI, leadInvoicesAPI, quotationsAPI } from '../services/api';
+import { leadsAPI, usersAPI, followupsAPI, dayItinerariesAPI, packagesAPI, settingsAPI, suppliersAPI, hotelsAPI, paymentsAPI, googleMailAPI, whatsappAPI, whatsappWebAPI, queryDetailAPI, vouchersAPI, itineraryPricingAPI, leadInvoicesAPI, quotationsAPI } from '../services/api';
 import { searchPexelsPhotos } from '../services/pexels';
 import { getDisplayImageUrl, rewriteHtmlImageUrls, sanitizeEmailHtmlForDisplay } from '../utils/imageUrl';
 import Layout from '../components/Layout';
@@ -10,7 +10,9 @@ import { useSettings } from '../contexts/SettingsContext';
 import { ArrowLeft, Calendar, Mail, Plus, Upload, X, Search, FileText, Printer, Send, MessageCircle, CheckCircle, CheckCircle2, Clock, Briefcase, MapPin, CalendarDays, Users, UserCheck, Leaf, Smartphone, Phone, MoreVertical, Download, Pencil, Trash2, Camera, RefreshCw, Reply, ChevronDown, Paperclip, Eye, Info, Gift, Heart } from 'lucide-react';
 import DetailRow from '../components/Quiries/DetailRow';
 import html2pdf from 'html2pdf.js';
-import { WhatsAppTab, MailsTab, FollowupsTab, BillingTab, HistoryTab, SuppCommTab, PostSalesTab, VoucherTab, DocsTab, InvoiceTab } from '../components/LeadTabs';
+import { WhatsAppTab, MailsTab, FollowupsTab, BillingTab, HistoryTab, SuppCommTab, PostSalesTab, VoucherTab, DocsTab, InvoiceTab, CallsTab } from '../components/LeadTabs';
+import { callsAPI } from '../services/api';
+
 const LeadDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -46,6 +48,11 @@ const LeadDetails = () => {
   const [quotationData, setQuotationData] = useState(null);
   const [loadingQuotation, setLoadingQuotation] = useState(false);
   const [refreshingProposalPrices, setRefreshingProposalPrices] = useState(false);
+  const [leadCalls, setLeadCalls] = useState([]);
+  const [loadingCalls, setLoadingCalls] = useState(false);
+  const [recordingUrls, setRecordingUrls] = useState({});
+  const [activeRecordingId, setActiveRecordingId] = useState(null);
+
   const [itineraryFormData, setItineraryFormData] = useState({
     itinerary_name: '',
     duration: '1',
@@ -130,6 +137,7 @@ const LeadDetails = () => {
   const [whatsappInput, setWhatsappInput] = useState('');
   const [whatsappAttachment, setWhatsappAttachment] = useState(null);
   const [sendingWhatsapp, setSendingWhatsapp] = useState(false);
+  const [loadingWhatsappMessages, setLoadingWhatsappMessages] = useState(false);
   const [showPaxModal, setShowPaxModal] = useState(false);
   const [paxTempList, setPaxTempList] = useState([]);
   const [savingPax, setSavingPax] = useState(false);
@@ -1174,50 +1182,113 @@ const LeadDetails = () => {
     }
   }, [activeTab, id]);
 
-  // Fetch WhatsApp messages when WhatsApp tab is active
-  useEffect(() => {
-    if (activeTab === 'whatsapp' && id) {
-      fetchWhatsAppMessages();
+  const fetchLeadCalls = useCallback(async () => {
+    if (!id) return;
+    setLoadingCalls(true);
+    try {
+      const response = await callsAPI.list({ lead_id: id });
+      if (response.data.success) {
+        setLeadCalls(response.data.data.calls || []);
+      }
+    } catch (err) {
+      console.error('Failed to fetch lead calls:', err);
+    } finally {
+      setLoadingCalls(false);
     }
-  }, [activeTab, id]);
+  }, [id]);
+
+  useEffect(() => {
+    if (activeTab === 'calls' && id) {
+      fetchLeadCalls();
+    }
+  }, [activeTab, id, fetchLeadCalls]);
+
+  const handlePlayRecording = async (callId) => {
+    if (recordingUrls[callId]) {
+      setActiveRecordingId(callId);
+      return;
+    }
+
+    try {
+      const response = await callsAPI.getRecording(callId);
+      const blob = new Blob([response.data], { type: 'audio/mpeg' });
+      const url = URL.createObjectURL(blob);
+      setRecordingUrls(prev => ({ ...prev, [callId]: url }));
+      setActiveRecordingId(callId);
+    } catch (err) {
+      toast.error('Failed to load recording');
+    }
+  };
 
   // Fetch WhatsApp messages for this lead
-  const fetchWhatsAppMessages = async () => {
-    if (!id) return;
+  const fetchWhatsAppMessages = useCallback(async () => {
+    if (!id || !lead?.phone) return;
+    setLoadingWhatsappMessages(true);
     try {
-      const response = await whatsappAPI.messages(id);
-      if (response?.data?.success && response?.data?.data?.messages) {
-        setWhatsappMessages(response.data.data.messages);
-      } else if (response?.data?.success && Array.isArray(response.data.data)) {
+      const phoneStr = lead.phone.replace(/\D/g, '');
+      const chatId = phoneStr.length <= 10 ? `91${phoneStr}@s.whatsapp.net` : `${phoneStr}@s.whatsapp.net`;
+
+      const response = await whatsappWebAPI.getMessages(chatId);
+      if (response?.data?.success && response?.data?.data) {
         setWhatsappMessages(response.data.data);
       }
     } catch (err) {
       console.error('Failed to fetch WhatsApp messages:', err);
+    } finally {
+      setLoadingWhatsappMessages(false);
     }
-  };
+  }, [id, lead?.phone]);
+
+  // Fetch WhatsApp messages when WhatsApp tab is active
+  useEffect(() => {
+    if (activeTab !== 'whatsapp' || !id) return;
+    fetchWhatsAppMessages();
+    const interval = setInterval(fetchWhatsAppMessages, 15000);
+    return () => clearInterval(interval);
+  }, [activeTab, id, fetchWhatsAppMessages]);
 
   // Send WhatsApp message from tab
-  const handleSendWhatsAppFromTab = async () => {
-    if (!id || (!whatsappInput.trim() && !whatsappAttachment)) return;
+  const handleSendWhatsAppFromTab = async (text = '', file = null) => {
+    const inputMsg = text || whatsappInput.trim();
+    const inputAttachment = file || whatsappAttachment;
+
+    if (!id || (!inputMsg && !inputAttachment)) return;
     if (!lead?.phone) {
       showToastNotification('warning', 'Missing Phone', 'Lead has no phone number. Please add phone to send WhatsApp.');
       return;
     }
     setSendingWhatsapp(true);
     try {
-      if (whatsappAttachment) {
-        const res = await whatsappAPI.sendMedia(id, whatsappAttachment, whatsappInput.trim() || undefined);
+      const phoneStr = lead.phone.replace(/\D/g, '');
+      const chatId = phoneStr.length <= 10 ? `91${phoneStr}@s.whatsapp.net` : `${phoneStr}@s.whatsapp.net`;
+
+      if (inputAttachment) {
+        const mime = inputAttachment.type || '';
+        let detectedType = 'document';
+        if (mime.startsWith('image/') && !mime.includes('gif')) detectedType = 'image';
+        else if (mime.startsWith('video/')) detectedType = 'video';
+        else if (mime.startsWith('audio/')) detectedType = 'audio';
+
+        const res = await whatsappWebAPI.sendMedia({
+          chat_id: chatId,
+          file: inputAttachment,
+          caption: inputMsg || undefined,
+          type: detectedType
+        });
         if (res?.data?.success) {
-          setWhatsappInput('');
-          setWhatsappAttachment(null);
+          if (!text) setWhatsappInput('');
+          if (!file) setWhatsappAttachment(null);
           await fetchWhatsAppMessages();
         } else {
           showToastNotification('error', 'Send Failed', res?.data?.message || 'Failed to send');
         }
       } else {
-        const res = await whatsappAPI.send(id, whatsappInput.trim());
+        const res = await whatsappWebAPI.sendMessage({
+          chat_id: chatId,
+          message: inputMsg
+        });
         if (res?.data?.success) {
-          setWhatsappInput('');
+          if (!text) setWhatsappInput('');
           await fetchWhatsAppMessages();
         } else {
           showToastNotification('error', 'Send Failed', res?.data?.message || 'Failed to send');
@@ -4394,6 +4465,7 @@ const LeadDetails = () => {
                     { key: 'docs', label: 'Docs.' },
                     { key: 'invoice', label: 'Invoice' },
                     { key: 'billing', label: 'Billing' },
+                    { key: 'calls', label: 'Calls' },
                     { key: 'history', label: 'History' }
                   ].map(({ key, label }, index) => (
                     <button
@@ -4700,6 +4772,7 @@ const LeadDetails = () => {
                         whatsappAttachment={whatsappAttachment}
                         setWhatsappAttachment={setWhatsappAttachment}
                         sendingWhatsapp={sendingWhatsapp}
+                        loadingMessages={loadingWhatsappMessages}
                         fetchWhatsAppMessages={fetchWhatsAppMessages}
                         handleSendWhatsAppFromTab={handleSendWhatsAppFromTab}
                       />
@@ -4782,6 +4855,14 @@ const LeadDetails = () => {
                                       setPaymentFormData={setPaymentFormData}
                                       setShowPaymentModal={setShowPaymentModal}
                                       formatDateForDisplay={formatDateForDisplay}
+                                    />
+                                  ) : activeTab === 'calls' ? (
+                                    <CallsTab
+                                      calls={leadCalls}
+                                      loading={loadingCalls}
+                                      onPlayRecording={handlePlayRecording}
+                                      recordingUrls={recordingUrls}
+                                      activeRecordingId={activeRecordingId}
                                     />
                                   )
                                     :

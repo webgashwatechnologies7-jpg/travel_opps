@@ -8,3 +8,5 @@ export { default as PostSalesTab } from './PostSalesTab';
 export { default as VoucherTab } from './VoucherTab';
 export { default as DocsTab } from './DocsTab';
 export { default as InvoiceTab } from './InvoiceTab';
+export { default as CallsTab } from './CallsTab';
+

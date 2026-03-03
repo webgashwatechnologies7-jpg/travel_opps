@@ -51,6 +51,7 @@ const MasterPage = ({
     const hasPermission = (permission) => {
         if (!user) return false;
         if (user.is_super_admin) return true;
+        if (user.roles?.some(r => ['Admin', 'Company Admin', 'Super Admin'].includes(typeof r === 'string' ? r : r.name))) return true;
         if (!permissionPrefix) return true;
         return user.permissions?.includes(`${permissionPrefix}.${permission}`);
     };

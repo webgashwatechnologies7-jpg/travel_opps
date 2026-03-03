@@ -8,54 +8,62 @@ use Illuminate\Support\Str;
 
 class TelephonyService
 {
-    public function isConfigured(): bool
+    public function isConfigured($company = null): bool
     {
-        $provider = config('services.telephony.provider');
+        $company = $company ?? (app()->bound('tenant') ? app('tenant') : null);
+
+        $provider = $company ? $company->telephony_provider : config('services.telephony.provider');
         if (!$provider) {
             return false;
         }
 
         if ($provider === 'twilio') {
-            return (bool) config('services.telephony.twilio.account_sid')
-                && (bool) config('services.telephony.twilio.auth_token')
-                && (bool) config('services.telephony.twilio.from_number');
+            $sid = $company ? $company->twilio_account_sid : config('services.telephony.twilio.account_sid');
+            $token = $company ? $company->twilio_auth_token : config('services.telephony.twilio.auth_token');
+            $from = $company ? $company->twilio_from_number : config('services.telephony.twilio.from_number');
+            return (bool) $sid && (bool) $token && (bool) $from;
         }
 
         if ($provider === 'exotel') {
-            return (bool) config('services.telephony.exotel.account_sid')
-                && (bool) config('services.telephony.exotel.token')
-                && (bool) config('services.telephony.exotel.from_number')
-                && (bool) config('services.telephony.exotel.subdomain');
+            $sid = $company ? $company->exotel_account_sid : config('services.telephony.exotel.account_sid');
+            $token = $company ? $company->exotel_api_token : config('services.telephony.exotel.token');
+            $from = $company ? $company->exotel_from_number : config('services.telephony.exotel.from_number');
+            $subdomain = $company ? $company->exotel_subdomain : config('services.telephony.exotel.subdomain');
+            return (bool) $sid && (bool) $token && (bool) $from && (bool) $subdomain;
         }
 
         return false;
     }
 
-    public function getProvider(): ?string
+    public function getProvider($company = null): ?string
     {
-        return config('services.telephony.provider');
+        $company = $company ?? (app()->bound('tenant') ? app('tenant') : null);
+        return $company ? $company->telephony_provider : config('services.telephony.provider');
     }
 
-    public function getDefaultFromNumber(): ?string
+    public function getDefaultFromNumber($company = null): ?string
     {
-        $provider = $this->getProvider();
+        $company = $company ?? (app()->bound('tenant') ? app('tenant') : null);
+        $provider = $this->getProvider($company);
         if ($provider === 'twilio') {
-            return config('services.telephony.twilio.from_number');
+            return $company ? $company->twilio_from_number : config('services.telephony.twilio.from_number');
         }
         if ($provider === 'exotel') {
-            return config('services.telephony.exotel.from_number');
+            return $company ? $company->exotel_from_number : config('services.telephony.exotel.from_number');
         }
         return null;
     }
 
-    public function initiateCall(string $from, string $to, ?string $callbackUrl = null): array
+    public function initiateCall(string $from, string $to, ?string $callbackUrl = null, $company = null): array
     {
-        $provider = $this->getProvider();
+        $company = $company ?? (app()->bound('tenant') ? app('tenant') : null);
+        $provider = $this->getProvider($company);
+
         if ($provider === 'twilio') {
-            return $this->initiateTwilioCall($from, $to, $callbackUrl);
+            return $this->initiateTwilioCall($from, $to, $callbackUrl, $company);
         }
         if ($provider === 'exotel') {
-            return $this->initiateExotelCall($from, $to, $callbackUrl);
+            return $this->initiateExotelCall($from, $to, $callbackUrl, $company);
         }
 
         return [
@@ -64,18 +72,19 @@ class TelephonyService
         ];
     }
 
-    public function fetchRecording(string $recordingUrl, ?string $provider = null): array
+    public function fetchRecording(string $recordingUrl, ?string $provider = null, $company = null): array
     {
-        $provider = $provider ?? $this->getProvider();
+        $company = $company ?? (app()->bound('tenant') ? app('tenant') : null);
+        $provider = $provider ?? $this->getProvider($company);
 
         try {
             if ($provider === 'twilio') {
-                $sid = config('services.telephony.twilio.account_sid');
-                $token = config('services.telephony.twilio.auth_token');
+                $sid = $company ? $company->twilio_account_sid : config('services.telephony.twilio.account_sid');
+                $token = $company ? $company->twilio_auth_token : config('services.telephony.twilio.auth_token');
                 $response = Http::withBasicAuth($sid, $token)->get($recordingUrl);
             } elseif ($provider === 'exotel') {
-                $sid = config('services.telephony.exotel.account_sid');
-                $token = config('services.telephony.exotel.token');
+                $sid = $company ? $company->exotel_account_sid : config('services.telephony.exotel.account_sid');
+                $token = $company ? $company->exotel_api_token : config('services.telephony.exotel.token');
                 $response = Http::withBasicAuth($sid, $token)->get($recordingUrl);
             } else {
                 $response = Http::get($recordingUrl);
@@ -101,10 +110,11 @@ class TelephonyService
         }
     }
 
-    private function initiateTwilioCall(string $from, string $to, ?string $callbackUrl = null): array
+    private function initiateTwilioCall(string $from, string $to, ?string $callbackUrl = null, $company = null): array
     {
-        $sid = config('services.telephony.twilio.account_sid');
-        $token = config('services.telephony.twilio.auth_token');
+        $sid = $company ? $company->twilio_account_sid : config('services.telephony.twilio.account_sid');
+        $token = $company ? $company->twilio_auth_token : config('services.telephony.twilio.auth_token');
+
         $url = 'https://api.twilio.com/2010-04-01/Accounts/' . $sid . '/Calls.json';
 
         $payload = [
@@ -137,11 +147,11 @@ class TelephonyService
         ];
     }
 
-    private function initiateExotelCall(string $from, string $to, ?string $callbackUrl = null): array
+    private function initiateExotelCall(string $from, string $to, ?string $callbackUrl = null, $company = null): array
     {
-        $sid = config('services.telephony.exotel.account_sid');
-        $token = config('services.telephony.exotel.token');
-        $subdomain = config('services.telephony.exotel.subdomain');
+        $sid = $company ? $company->exotel_account_sid : config('services.telephony.exotel.account_sid');
+        $token = $company ? $company->exotel_api_token : config('services.telephony.exotel.token');
+        $subdomain = $company ? $company->exotel_subdomain : config('services.telephony.exotel.subdomain');
 
         $url = 'https://' . $sid . ':' . $token . '@' . $subdomain . '/v1/Accounts/' . $sid . '/Calls/connect.json';
 

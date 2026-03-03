@@ -1,0 +1,134 @@
+[
+    {
+        "name": "Leads Management",
+        "key": "leads_management"
+    },
+    {
+        "name": "Leads Import\/Export",
+        "key": "leads_import_export"
+    },
+    {
+        "name": "Followups",
+        "key": "followups"
+    },
+    {
+        "name": "Payments",
+        "key": "payments"
+    },
+    {
+        "name": "Itineraries\/Packages",
+        "key": "itineraries"
+    },
+    {
+        "name": "Day Itineraries",
+        "key": "day_itineraries"
+    },
+    {
+        "name": "Hotels Management",
+        "key": "hotels"
+    },
+    {
+        "name": "Activities",
+        "key": "activities"
+    },
+    {
+        "name": "Transfers",
+        "key": "transfers"
+    },
+    {
+        "name": "Suppliers",
+        "key": "suppliers"
+    },
+    {
+        "name": "Destinations",
+        "key": "destinations"
+    },
+    {
+        "name": "Email Templates",
+        "key": "email_templates"
+    },
+    {
+        "name": "Gmail Integration",
+        "key": "gmail_integration"
+    },
+    {
+        "name": "WhatsApp Integration",
+        "key": "whatsapp"
+    },
+    {
+        "name": "Email Campaigns",
+        "key": "campaigns"
+    },
+    {
+        "name": "Google Sheets Sync",
+        "key": "google_sheets_sync"
+    },
+    {
+        "name": "SMS Campaigns",
+        "key": "sms_campaigns"
+    },
+    {
+        "name": "Landing Pages",
+        "key": "landing_pages"
+    },
+    {
+        "name": "Social Media Integration",
+        "key": "social_media"
+    },
+    {
+        "name": "Marketing Automation",
+        "key": "marketing_automation"
+    },
+    {
+        "name": "A\/B Testing",
+        "key": "ab_testing"
+    },
+    {
+        "name": "Reports",
+        "key": "reports"
+    },
+    {
+        "name": "Analytics Dashboard",
+        "key": "analytics"
+    },
+    {
+        "name": "Performance Tracking",
+        "key": "performance_tracking"
+    },
+    {
+        "name": "Targets Management",
+        "key": "targets"
+    },
+    {
+        "name": "Expense Management",
+        "key": "expenses"
+    },
+    {
+        "name": "User Management",
+        "key": "user_management"
+    },
+    {
+        "name": "Role & Permissions",
+        "key": "permissions"
+    },
+    {
+        "name": "Company Settings",
+        "key": "company_settings"
+    },
+    {
+        "name": "API Access",
+        "key": "api_access"
+    },
+    {
+        "name": "Custom Domain",
+        "key": "custom_domain"
+    },
+    {
+        "name": "White Label",
+        "key": "white_label"
+    },
+    {
+        "name": "Priority Support",
+        "key": "priority_support"
+    }
+]

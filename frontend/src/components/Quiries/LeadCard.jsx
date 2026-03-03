@@ -176,12 +176,15 @@ function LeadCard({
         {onAssign ? (
           <button
             onClick={(e) => { e.stopPropagation(); onAssign?.(id); }}
-            className="border rounded-lg px-4 py-2 text-sm text-gray-600 flex items-center gap-2 hover:bg-gray-50 transition-colors"
+            className={`border rounded-lg px-4 py-2 text-sm flex items-center gap-2 transition-all duration-300 ${assignedUserName || assignedTo?.name
+              ? 'text-gray-600 border-gray-200 hover:bg-gray-50'
+              : 'text-orange-600 border-orange-300 bg-orange-50 font-bold animate-pulse shadow-sm ring-1 ring-orange-200'
+              }`}
           >
             {assignedUserName || assignedTo?.name ? (
               <><span className="text-blue-600 font-medium">{assignedUserName || assignedTo?.name}</span><span className="text-blue-500">▼</span></>
             ) : (
-              <>Assign Now <span className="text-blue-500">▼</span></>
+              <>Assign Now <span className="text-orange-500">▼</span></>
             )}
           </button>
         ) : (

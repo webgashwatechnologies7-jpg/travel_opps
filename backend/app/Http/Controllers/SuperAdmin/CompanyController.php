@@ -14,6 +14,8 @@ use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use App\Mail\SendUserCredentials;
 
+use Illuminate\Support\Facades\Cache;
+
 class CompanyController extends Controller
 {
     /**
@@ -143,6 +145,9 @@ class CompanyController extends Controller
         $companyData = $company->load(['users', 'subscriptionPlan'])->toArray();
         $companyData['crm_url'] = $company->crm_url;
 
+        // Clear dashboard stats cache
+        Cache::forget('super_admin_stats');
+
         return response()->json([
             'success' => true,
             'message' => 'Company created successfully. Admin credentials sent via email.',
@@ -215,6 +220,9 @@ class CompanyController extends Controller
 
         $company->update($updateData);
 
+        // Clear dashboard stats cache
+        Cache::forget('super_admin_stats');
+
         return response()->json([
             'success' => true,
             'message' => 'Company updated successfully',
@@ -223,50 +231,140 @@ class CompanyController extends Controller
     }
 
     /**
-     * Remove the specified company.
+     * Remove the specified company and ALL its data permanently.
      */
     public function destroy($id)
     {
-        $company = Company::findOrFail($id);
+        $company = Company::withTrashed()->findOrFail($id);
 
-        // Soft delete the company
-        $company->delete();
+        try {
+            \DB::transaction(function () use ($company, $id) {
+                \DB::statement('SET FOREIGN_KEY_CHECKS=0;');
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Company deleted successfully'
-        ]);
+                // 1. Related IDs
+                $uIds = \DB::table('users')->where('company_id', $id)->pluck('id')->toArray();
+                $lIds = \DB::table('leads')->where('company_id', $id)->pluck('id')->toArray();
+
+                // 2. Clear user relations
+                if (!empty($uIds)) {
+                    if (\Schema::hasTable('lead_followups')) {
+                        \DB::table('lead_followups')->whereIn('user_id', $uIds)->delete();
+                    }
+                    \DB::table('model_has_roles')->where('model_type', 'App\Models\User')->whereIn('model_id', $uIds)->delete();
+                    \DB::table('personal_access_tokens')->where('tokenable_type', 'App\Models\User')->whereIn('tokenable_id', $uIds)->delete();
+                }
+
+                // 3. Clear lead relations
+                if (!empty($lIds)) {
+                    if (\Schema::hasTable('lead_followups')) {
+                        \DB::table('lead_followups')->whereIn('lead_id', $lIds)->delete();
+                    }
+                    if (\Schema::hasTable('lead_supplier_costs')) {
+                        \DB::table('lead_supplier_costs')->whereIn('lead_id', $lIds)->delete();
+                    }
+                    if (\Schema::hasTable('lead_hotel_costs')) {
+                        \DB::table('lead_hotel_costs')->whereIn('lead_id', $lIds)->delete();
+                    }
+                    if (\Schema::hasTable('lead_transfer_costs')) {
+                        \DB::table('lead_transfer_costs')->whereIn('lead_id', $lIds)->delete();
+                    }
+                }
+
+                // 4. Delete Itineraries & Day Itineraries
+                \DB::table('day_itineraries')->whereIn('itinerary_id', function ($q) use ($id) {
+                    $q->select('id')->from('itineraries')->where('company_id', $id);
+                })->delete();
+                \DB::table('itineraries')->where('company_id', $id)->delete();
+
+                // 5. Delete from all tables containing company_id
+                $tables = [
+                    'leads',
+                    'whatsapp_messages',
+                    'whatsapp_chats',
+                    'whatsapp_campaigns',
+                    'tickets',
+                    'branches',
+                    'services',
+                    'call_logs',
+                    'call_notes',
+                    'client_groups',
+                    'employee_financial_transactions',
+                    'supplier_financial_transactions',
+                    'landing_pages',
+                    'phone_number_mappings',
+                    'company_settings',
+                    'users'
+                ];
+
+                foreach ($tables as $table) {
+                    if (\Schema::hasTable($table) && \Schema::hasColumn($table, 'company_id')) {
+                        \DB::table($table)->where('company_id', $id)->delete();
+                    }
+                }
+
+                // 6. Delete Settings & Company
+                \DB::table('settings')->where('key', 'like', "company_{$id}_%")->delete();
+                $company->forceDelete();
+
+                // Clear Statistics Cache
+                Cache::forget('super_admin_stats');
+
+                \DB::statement('SET FOREIGN_KEY_CHECKS=1;');
+            });
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Company and all its data permanently deleted successfully'
+            ]);
+
+        } catch (\Exception $e) {
+            \Log::error('Company delete failed: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to delete company: ' . $e->getMessage()
+            ], 500);
+        }
     }
 
     /**
-     * Get company statistics.
+     * Get company statistics with Redis caching.
      */
     public function stats()
     {
-        $stats = [
-            'total_companies' => Company::count(),
-            'active_companies' => Company::where('status', 'active')->count(),
-            'inactive_companies' => Company::where('status', 'inactive')->count(),
-            'suspended_companies' => Company::where('status', 'suspended')->count(),
-            'total_users' => User::whereNotNull('company_id')->count(),
-            'expiring_soon' => Company::where('subscription_end_date', '<=', now()->addDays(7))
-                ->where('subscription_end_date', '>=', now())
-                ->where('status', 'active')
-                ->count(),
-            'expired_subscriptions' => Company::where('subscription_end_date', '<', now())
-                ->where('status', 'active')
-                ->count(),
-            'recent_companies' => Company::with('subscriptionPlan')
-                ->orderBy('created_at', 'desc')
-                ->limit(5)
-                ->get(),
-        ];
+        try {
+            $stats = Cache::remember('super_admin_stats', 3600, function () {
+                return [
+                    'total_companies' => Company::count(),
+                    'active_companies' => Company::where('status', 'active')->count(),
+                    'inactive_companies' => Company::where('status', 'inactive')->count(),
+                    'suspended_companies' => Company::where('status', 'suspended')->count(),
+                    'total_users' => User::whereNotNull('company_id')->count(),
+                    'expiring_soon' => Company::where('subscription_end_date', '<=', now()->addDays(7))
+                        ->where('subscription_end_date', '>=', now())
+                        ->where('status', 'active')
+                        ->count(),
+                    'expired_subscriptions' => Company::where('subscription_end_date', '<', now())
+                        ->where('status', 'active')
+                        ->count(),
+                    'recent_companies' => Company::with('subscriptionPlan')
+                        ->orderBy('created_at', 'desc')
+                        ->limit(5)
+                        ->get(),
+                ];
+            });
 
-        return response()->json([
-            'success' => true,
-            'data' => $stats
-        ]);
+            return response()->json([
+                'success' => true,
+                'data' => $stats
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage()
+            ], 500);
+        }
     }
+
     /**
      * Verify company DNS and activate account.
      */
@@ -288,11 +386,14 @@ class CompanyController extends Controller
             'dns_verification_token' => null, // Clear token
         ]);
 
+        // Clear dashboard stats cache
+        Cache::forget('super_admin_stats');
+
         // Trigger Go Live Email
         try {
-            Mail::to($company->email)->send(new \App\Mail\GoLiveEmail($company));
+            \Mail::to($company->email)->send(new \App\Mail\GoLiveEmail($company));
         } catch (\Exception $e) {
-            \Illuminate\Support\Facades\Log::error('Failed to send Go Live email: ' . $e->getMessage());
+            \Log::error('Failed to send Go Live email: ' . $e->getMessage());
         }
 
         return response()->json([

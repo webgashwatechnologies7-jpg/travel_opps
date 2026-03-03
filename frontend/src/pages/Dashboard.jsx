@@ -15,6 +15,7 @@ import LatestQuery from '../components/dashboard/LatestQuery';
 import TopLeadSource from '../components/dashboard/TopLeadSource';
 import TaskFollowups from '../components/dashboard/TaskFollowups';
 import TopDestinationAndPerformance from '../components/dashboard/TopDestinationAndPerformance';
+import PendingDistributionCard from '../components/dashboard/PendingDistributionCard';
 import { useNavigate } from "react-router";
 import { useAuth } from '../contexts/AuthContext';
 import { useSettings } from '../contexts/SettingsContext';
@@ -36,6 +37,7 @@ const Dashboard = () => {
     monthly: 0,
     yearly: 0,
     hot: 0,
+    unassigned: 0,
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -157,6 +159,7 @@ const Dashboard = () => {
           monthly: leads.filter(lead => inRange(lead.created_at, startOfMonth)).length,
           yearly: leads.filter(lead => inRange(lead.created_at, startOfYear)).length,
           hot: leads.filter(lead => lead.priority === 'hot').length,
+          unassigned: leads.filter(lead => !lead.assigned_to && !lead.assigned_to_id).length,
         });
       } else {
         setTodayQueries([]);
@@ -169,6 +172,7 @@ const Dashboard = () => {
           monthly: 0,
           yearly: 0,
           hot: 0,
+          unassigned: 0,
         });
       }
     } catch (err) {
@@ -242,6 +246,14 @@ const Dashboard = () => {
   return (
     <Layout>
       <div className="p-0">
+        {/* Unassigned Leads Alert for Managers/Admins */}
+        {(user?.roles?.some(r => ['Admin', 'Company Admin', 'Manager'].includes(typeof r === 'string' ? r : r.name))) && (
+          <PendingDistributionCard
+            count={leadStats.unassigned}
+            loading={loading}
+            onViewUnassigned={() => navigate("/leads?status=unassigned")}
+          />
+        )}
         <div className="grid grid-cols-1 md:grid-cols-12 gap-4 lg:gap-6 items-stretch">
           {/* Row 1: 3-6-3 Summary */}
           {hasQueries && (

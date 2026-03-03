@@ -11,6 +11,9 @@ const CompanyManagement = () => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
   const [selectedCompany, setSelectedCompany] = useState(null);
   const [subscriptionPlans, setSubscriptionPlans] = useState([]);
   const [formData, setFormData] = useState({
@@ -21,7 +24,7 @@ const CompanyManagement = () => {
     phone: '',
     address: '',
     subscription_plan_id: '',
-    subscription_start_date: '',
+    subscription_start_date: new Date().toISOString().split('T')[0],
     subscription_end_date: '',
     notes: '',
     admin_name: '',
@@ -71,6 +74,30 @@ const CompanyManagement = () => {
     return () => clearTimeout(debounceTimer);
   }, [searchTerm]);
 
+  const handlePlanChange = (planId) => {
+    const selectedPlan = subscriptionPlans.find(p => p.id === parseInt(planId));
+    let endDate = '';
+
+    if (selectedPlan) {
+      const start = new Date(formData.subscription_start_date || new Date());
+      const planName = selectedPlan.name.toLowerCase();
+
+      if (planName.includes('month')) {
+        start.setMonth(start.getMonth() + 1);
+        endDate = start.toISOString().split('T')[0];
+      } else if (planName.includes('year')) {
+        start.setFullYear(start.getFullYear() + 1);
+        endDate = start.toISOString().split('T')[0];
+      }
+    }
+
+    setFormData({
+      ...formData,
+      subscription_plan_id: planId,
+      subscription_end_date: endDate
+    });
+  };
+
   const handleAdd = () => {
     setFormData({
       name: '',
@@ -80,7 +107,7 @@ const CompanyManagement = () => {
       phone: '',
       address: '',
       subscription_plan_id: '',
-      subscription_start_date: '',
+      subscription_start_date: new Date().toISOString().split('T')[0],
       subscription_end_date: '',
       notes: '',
       admin_name: '',
@@ -124,16 +151,24 @@ const CompanyManagement = () => {
     }
   };
 
-  const handleDelete = async (id) => {
-    if (!window.confirm('Are you sure you want to delete this company?')) {
-      return;
-    }
+  const handleDeleteClick = (company) => {
+    setDeleteTarget(company);
+    setShowDeleteModal(true);
+  };
 
+  const handleDeleteConfirm = async () => {
+    if (!deleteTarget) return;
+    setDeleteLoading(true);
     try {
-      await superAdminAPI.deleteCompany(id);
+      await superAdminAPI.deleteCompany(deleteTarget.id);
+      setShowDeleteModal(false);
+      setDeleteTarget(null);
       fetchCompanies();
     } catch (err) {
-      setError('Failed to delete company');
+      setError(err.response?.data?.message || 'Failed to delete company');
+      setShowDeleteModal(false);
+    } finally {
+      setDeleteLoading(false);
     }
   };
 
@@ -342,10 +377,10 @@ const CompanyManagement = () => {
                         <div className="flex items-center gap-2">
                           <span
                             className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${company.dns_status === 'active'
-                                ? 'bg-green-100 text-green-800'
-                                : company.dns_status === 'pending'
-                                  ? 'bg-yellow-100 text-yellow-800'
-                                  : 'bg-blue-100 text-blue-800'
+                              ? 'bg-green-100 text-green-800'
+                              : company.dns_status === 'pending'
+                                ? 'bg-yellow-100 text-yellow-800'
+                                : 'bg-blue-100 text-blue-800'
                               }`}
                           >
                             {company.dns_status || 'pending'}
@@ -418,7 +453,7 @@ const CompanyManagement = () => {
                             <Edit className="w-4 h-4" />
                           </button>
                           <button
-                            onClick={() => handleDelete(company.id)}
+                            onClick={() => handleDeleteClick(company)}
                             className="text-red-600 hover:text-red-900"
                             title="Delete"
                           >
@@ -740,6 +775,71 @@ const CompanyManagement = () => {
                     className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
                   >
                     Close
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Delete Confirmation Modal */}
+        {showDeleteModal && deleteTarget && (
+          <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50">
+            <div className="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4 overflow-hidden">
+              {/* Red Header */}
+              <div className="bg-red-600 px-6 py-4 flex items-center gap-3">
+                <div className="bg-white bg-opacity-20 rounded-full p-2">
+                  <Trash2 className="w-5 h-5 text-white" />
+                </div>
+                <h2 className="text-xl font-bold text-white">Company Delete Karo</h2>
+              </div>
+
+              {/* Body */}
+              <div className="px-6 py-5">
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+                  <p className="text-red-800 font-semibold text-sm mb-1">⚠️ Yeh action permanent hai aur undo nahi hogi!</p>
+                  <p className="text-red-700 text-sm">Neeche diye sare data permanently delete ho jayenge:</p>
+                  <ul className="text-red-700 text-sm mt-2 space-y-1 list-disc list-inside">
+                    <li>Sare Users &amp; Permissions</li>
+                    <li>Sare Leads &amp; Itineraries</li>
+                    <li>WhatsApp Chats &amp; Messages</li>
+                    <li>Tickets, Branches, Services</li>
+                    <li>Company Settings &amp; Data</li>
+                  </ul>
+                </div>
+
+                <div className="mb-4">
+                  <p className="text-gray-700 text-sm mb-1">Aap yeh company delete karne wale hain:</p>
+                  <div className="bg-gray-100 rounded-lg px-4 py-3">
+                    <p className="font-bold text-gray-900 text-lg">{deleteTarget.name}</p>
+                    <p className="text-gray-500 text-sm">{deleteTarget.email || deleteTarget.domain}</p>
+                  </div>
+                </div>
+
+                <div className="flex gap-3 justify-end">
+                  <button
+                    onClick={() => { setShowDeleteModal(false); setDeleteTarget(null); }}
+                    disabled={deleteLoading}
+                    className="px-5 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 font-medium disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleDeleteConfirm}
+                    disabled={deleteLoading}
+                    className="px-5 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium flex items-center gap-2 disabled:opacity-60"
+                  >
+                    {deleteLoading ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                        Deleting...
+                      </>
+                    ) : (
+                      <>
+                        <Trash2 className="w-4 h-4" />
+                        Haan, Delete Karo
+                      </>
+                    )}
                   </button>
                 </div>
               </div>

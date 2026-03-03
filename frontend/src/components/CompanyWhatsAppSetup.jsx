@@ -309,7 +309,8 @@ const CompanyWhatsAppSetup = () => {
                 </button>
                 {settings.enabled && (
                   <button
-                    onClick={() => setShowManualForm(false)}
+                    onClick={() =>
+                      (false)}
                     className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
                   >
                     Cancel
@@ -325,7 +326,7 @@ const CompanyWhatsAppSetup = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-lg font-semibold text-blue-900 mb-2">
-                    🚀 Auto-Provision WhatsApp
+                    Auto-Provision WhatsApp
                   </h3>
                   <p className="text-blue-800">
                     Automatically set up WhatsApp Business API for your company.

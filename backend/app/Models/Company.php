@@ -19,6 +19,22 @@ class Company extends Model
                 $company->api_key = 'sk_test_' . \Illuminate\Support\Str::random(32);
             }
         });
+
+        static::saved(function ($company) {
+            // Clear tenant identification cache
+            \Illuminate\Support\Facades\Cache::forget('company_subdomain_' . $company->subdomain);
+            \Illuminate\Support\Facades\Cache::forget('company_details_' . $company->id);
+            if ($company->domain) {
+                // Since domain identification uses md5 of candidates, we might need a more general purge 
+                // but for now, we clear common keys if they change
+                \Illuminate\Support\Facades\Cache::flush(); // Safe way for companies
+            }
+        });
+
+        static::deleted(function ($company) {
+            \Illuminate\Support\Facades\Cache::forget('company_subdomain_' . $company->subdomain);
+            \Illuminate\Support\Facades\Cache::flush();
+        });
     }
 
     /**
@@ -120,7 +136,8 @@ class Company extends Model
         if (!$this->subscription_end_date) {
             return false;
         }
-        return $this->subscription_end_date->isPast();
+        $endDate = \Illuminate\Support\Carbon::parse($this->subscription_end_date);
+        return $endDate->isPast();
     }
 
     /**
@@ -133,8 +150,9 @@ class Company extends Model
         if (!$this->subscription_end_date) {
             return false;
         }
-        return $this->subscription_end_date->isFuture() &&
-            $this->subscription_end_date->diffInDays(now()) <= 7;
+        $endDate = \Illuminate\Support\Carbon::parse($this->subscription_end_date);
+        return $endDate->isFuture() &&
+            $endDate->diffInDays(now()) <= 7;
     }
 
     /**

@@ -172,6 +172,9 @@ export const callsAPI = {
   getLeadHistory: (leadId) => api.get(`/leads/${leadId}/calls`),
   addNote: (callId, note) => api.post(`/calls/${callId}/notes`, { note }),
   updateNote: (callId, noteId, note) => api.put(`/calls/${callId}/notes/${noteId}`, { note }),
+  markAsSpam: (id, reason) => api.post(`/calls/${id}/spam`, { reason }),
+  getSpamList: () => api.get('/calls/spam-list'),
+  removeSpam: (phone) => api.delete(`/calls/spam-list/${phone}`),
   clickToCall: (data) => api.post('/calls/click-to-call', data),
   getRecording: (callId) => api.get(`/calls/${callId}/recording`, { responseType: 'blob' }),
   getMappings: () => api.get('/calls/mappings'),
@@ -250,7 +253,31 @@ export const whatsappAPI = {
     if (caption) form.append('caption', caption);
     return api.post('/whatsapp/send-media', form, { headers: { 'Content-Type': 'multipart/form-data' } });
   },
-  messages: (leadId, params = {}) => api.get(`/whatsapp/messages/${leadId}`, { params }),
+  messages: (lead_id, params = {}) => api.get(`/whatsapp/messages/${lead_id}`, { params }),
+};
+
+// WhatsApp Web Clone APIs
+export const whatsappWebAPI = {
+  getStatus: () => api.get('/whatsapp-web/status'),
+  getQrCode: () => api.get('/whatsapp-web/qr'),
+  logout: () => api.post('/whatsapp-web/logout'),
+  getChats: () => api.get('/whatsapp-web/chats'),
+  getMessages: (chatId) => api.get(`/whatsapp-web/messages`, { params: { chat_id: chatId } }),
+  getChatMessages: (chatId) => api.get(`/whatsapp-web/messages`, { params: { chat_id: chatId } }),
+  sendMessage: (data) => api.post('/whatsapp-web/messages/send', data),
+  sendMedia: (data) => {
+    const formData = new FormData();
+    formData.append('chat_id', data.chat_id);
+    formData.append('file', data.file);
+    if (data.caption) formData.append('caption', data.caption);
+    if (data.type) formData.append('type', data.type);
+    return api.post('/whatsapp-web/messages/send-media', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+  },
+  markAsRead: (chatId) => api.post(`/whatsapp-web/chats/${chatId}/read`),
+  sendReaction: (data) => api.post('/whatsapp-web/messages/react', data),
+  createGroup: (data) => api.post('/whatsapp-web/groups/create', data),
 };
 
 // Marketing Templates
@@ -795,6 +822,12 @@ export const companyWhatsappAPI = {
 export const companyGoogleAPI = {
   getSettings: () => api.get('/company/google/settings'),
   updateSettings: (data) => api.put('/company/google/settings', data),
+};
+
+// Company Telephony settings APIs
+export const companyTelephonyAPI = {
+  getSettings: () => api.get('/company/telephony/settings'),
+  updateSettings: (data) => api.put('/company/telephony/settings', data),
 };
 
 // Notifications APIs

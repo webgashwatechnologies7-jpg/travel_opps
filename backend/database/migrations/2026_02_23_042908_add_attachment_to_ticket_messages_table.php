@@ -10,9 +10,11 @@ return new class extends Migration {
      */
     public function up(): void
     {
-        Schema::table('ticket_messages', function (Blueprint $table) {
-            $table->string('attachment')->nullable()->after('message');
-        });
+        if (!Schema::hasColumn('ticket_messages', 'attachment')) {
+            Schema::table('ticket_messages', function (Blueprint $table) {
+                $table->string('attachment')->nullable()->after('message');
+            });
+        }
     }
 
     /**
