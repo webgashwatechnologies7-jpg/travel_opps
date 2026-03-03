@@ -332,14 +332,16 @@ class CompanySettingsController extends Controller
         }
 
         // Manager Restriction: Only see subordinates
-        if (Auth::user()->hasRole('Manager')) {
+        if (Auth::user()->hasRole('Manager') && !Auth::user()->hasAnyRole(['Admin', 'Company Admin', 'Super Admin'])) {
             $query->whereDoesntHave('roles', function ($q) {
                 $q->whereIn('name', ['Super Admin', 'Admin', 'Company Admin', 'Manager']);
             });
         }
 
-        // Current user should not see themselves in the team list (they are the manager/owner)
-        $query->where('id', '!=', Auth::id());
+        // Current user should not see themselves in the team list (unless they are Admin/Company Admin looking for mapping)
+        if (!Auth::user()->hasAnyRole(['Admin', 'Company Admin', 'Super Admin'])) {
+            $query->where('id', '!=', Auth::id());
+        }
 
         $users = $query->orderBy('name')->get();
 
