@@ -66,8 +66,16 @@ class IdentifyTenant
 
         // If no subdomain or subdomain is 'www' or 'admin', skip tenant identification
         if (!$subdomain || in_array($subdomain, ['www', 'admin', 'api'])) {
-            // This is the main domain - could be super admin dashboard.
-            // Try to infer tenant from authenticated user (even if Sanctum hasn't run yet)
+            // CHECK: Is Single Domain/IP Login allowed? (Super Admin Toggle)
+            $allowSingleDomainLogin = \App\Models\Setting::getValue('allow_single_domain_login', true);
+
+            // If NOT allowed, and we are on IP/Main Domain, do NOT resolve tenant from user
+            if (!$allowSingleDomainLogin) {
+                app()->instance('tenant', null);
+                return $next($request);
+            }
+
+            // If ALLOWED, infer tenant from authenticated user
             $user = auth('sanctum')->user();
 
             if ($user && !$user->isSuperAdmin() && $user->company && $user->company->status === 'active') {
