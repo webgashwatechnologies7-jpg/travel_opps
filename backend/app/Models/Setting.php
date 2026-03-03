@@ -26,13 +26,20 @@ class Setting extends Model
             return $default;
         }
 
+        $value = $setting->value;
+
+        // Dynamic URL resolution for logo & favicon
+        if (in_array($key, ['company_logo', 'company_favicon']) && $value && !filter_var($value, FILTER_VALIDATE_URL)) {
+            $value = asset('storage/' . $value);
+        }
+
         switch ($setting->type) {
             case 'integer':
-                return (int) $setting->value;
+                return (int) $value;
             case 'boolean':
-                return filter_var($setting->value, FILTER_VALIDATE_BOOLEAN);
+                return filter_var($value, FILTER_VALIDATE_BOOLEAN);
             default:
-                return $setting->value ?? $default;
+                return $value ?? $default;
         }
     }
 
