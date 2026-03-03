@@ -77,6 +77,15 @@ class Company extends Model
         'google_status',
         'dns_status',
         'dns_verification_token',
+        'telephony_provider',
+        'telephony_enabled',
+        'telephony_status',
+        'exotel_account_sid',
+        'exotel_api_key',
+        'exotel_api_token',
+        'exotel_subdomain',
+        'exotel_from_number',
+        'exotel_webhook_secret',
     ];
 
     /**
