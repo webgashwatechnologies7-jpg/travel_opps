@@ -35,10 +35,16 @@ const PhoneNumberMapping = () => {
         }
 
         if (usersRes.success) {
-            // CompanySettingsController returns data: [...] directly or data.data
-            // Standardizing to handle Both structures
-            const userData = usersRes.data.data;
-            setUsers(Array.isArray(userData) ? userData : (userData.users || []));
+            // executeWithErrorHandling returns { success: true, data: axiosResponse }
+            // axiosResponse.data is { success: true, data: [users...] }
+            const responseData = usersRes.data.data;
+            if (responseData.success && Array.isArray(responseData.data)) {
+                setUsers(responseData.data);
+            } else if (Array.isArray(responseData)) {
+                setUsers(responseData);
+            } else {
+                setUsers(responseData.users || []);
+            }
         }
         setLoading(false);
     };
