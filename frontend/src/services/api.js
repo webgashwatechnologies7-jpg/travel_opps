@@ -21,9 +21,15 @@ api.interceptors.request.use(
     // Send frontend host for domain-based auth (main vs company domain)
     if (typeof window !== 'undefined') {
       const hostname = window.location.hostname;
+      const searchParams = new URLSearchParams(window.location.search);
+      const urlSubdomain = searchParams.get('subdomain');
+
       config.headers['X-Request-Host'] = hostname || '';
-      // Send subdomain for local multi-tenant requests
-      if (hostname && hostname.endsWith('.localhost')) {
+
+      // Send subdomain for local multi-tenant requests OR if provided in URL (Testing Mode)
+      if (urlSubdomain) {
+        config.headers['X-Subdomain'] = urlSubdomain;
+      } else if (hostname && hostname.endsWith('.localhost')) {
         const subdomain = hostname.split('.')[0];
         if (subdomain && subdomain !== 'localhost') {
           config.headers['X-Subdomain'] = subdomain;

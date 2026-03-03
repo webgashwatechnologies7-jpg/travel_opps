@@ -99,12 +99,24 @@ class AuthController extends Controller
                 $requestHost = strtolower($request->getHost());
             }
 
-            $domainCandidates = $this->getDomainCandidates($requestHost);
-            $companyForHost = Company::whereIn('domain', $domainCandidates)
-                ->where('status', 'active')
-                ->first();
+            // CHECK FOR FORCED SUBDOMAIN (Testing Mode)
+            $forcedSubdomain = $request->header('X-Subdomain') ?? $request->query('subdomain');
+            $companyForHost = null;
 
-            // If host matches a company domain -> company login (super admin NOT allowed)
+            if ($forcedSubdomain) {
+                $companyForHost = Company::where('subdomain', $forcedSubdomain)
+                    ->where('status', 'active')
+                    ->first();
+            }
+
+            if (!$companyForHost) {
+                $domainCandidates = $this->getDomainCandidates($requestHost);
+                $companyForHost = Company::whereIn('domain', $domainCandidates)
+                    ->where('status', 'active')
+                    ->first();
+            }
+
+            // If host (or forced subdomain) matches a company -> company login (super admin NOT allowed)
             if ($companyForHost) {
                 if ($user->isSuperAdmin()) {
                     return response()->json([
@@ -123,7 +135,7 @@ class AuthController extends Controller
                 if (!$user->isSuperAdmin()) {
                     return response()->json([
                         'success' => false,
-                        'message' => 'Company users must login from their company domain (e.g. crm.yourcompany.com). Please use your company\'s URL.',
+                        'message' => 'Company users must login from their company domain (e.g. crm.yourcompany.com). For testing, you can use ?subdomain=YOUR_SUBDOMAIN',
                     ], 403);
                 }
             }
