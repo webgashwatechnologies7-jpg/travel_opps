@@ -69,15 +69,23 @@ class IdentifyTenant
             // CHECK: Is Single Domain/IP Login allowed? (Super Admin Toggle)
             $allowSingleDomainLogin = \App\Models\Setting::getValue('allow_single_domain_login', true);
 
-            // If NOT allowed, and we are on IP/Main Domain, do NOT resolve tenant from user
+            // Infer tenant from authenticated user
+            $user = auth('sanctum')->user();
+
+            // If NOT allowed, and NOT a Super Admin, block access on main domain
             if (!$allowSingleDomainLogin) {
+                if ($user && !$user->isSuperAdmin()) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Direct login via IP/main domain is disabled. Please use your company subdomain.',
+                        'code' => 'SINGLE_DOMAIN_DISABLED'
+                    ], 403);
+                }
                 app()->instance('tenant', null);
                 return $next($request);
             }
 
-            // If ALLOWED, infer tenant from authenticated user
-            $user = auth('sanctum')->user();
-
+            // If ALLOWED, resolve company for non-super admins
             if ($user && !$user->isSuperAdmin() && $user->company && $user->company->status === 'active') {
                 app()->instance('tenant', $user->company);
                 config(['tenant.id' => $user->company->id]);

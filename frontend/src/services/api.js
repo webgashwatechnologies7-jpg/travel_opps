@@ -62,6 +62,13 @@ api.interceptors.response.use(
       window.location.replace('/login');
     }
 
+    // Handle single domain bypass being turned OFF by Super Admin
+    if (error.response?.data?.code === 'SINGLE_DOMAIN_DISABLED') {
+      sessionStorage.removeItem('auth_token');
+      sessionStorage.removeItem('user');
+      window.location.replace('/login?error=access_denied');
+    }
+
     // Handle blob error responses - if error response is a blob but should be JSON
     if (error.config?.responseType === 'blob' && error.response?.data instanceof Blob) {
       try {
