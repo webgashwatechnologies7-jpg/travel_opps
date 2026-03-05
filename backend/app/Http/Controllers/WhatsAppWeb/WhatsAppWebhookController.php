@@ -114,6 +114,29 @@ class WhatsAppWebhookController extends Controller
                     }
                 }
             }
+
+            // Name Matching Fix for @lid (If not linked yet)
+            if (!$lead && !empty($data['chat_name'])) {
+                // Try matching Lead Name exactly
+                $lead = DB::table('leads')
+                    ->where('company_id', $session->company_id)
+                    ->whereNull('deleted_at')
+                    ->where('client_name', trim($data['chat_name']))
+                    ->orderBy('created_at', 'desc')
+                    ->first();
+
+                // If lead still null, try finding another chat that has the same chat_name and is linked to a lead
+                if (!$lead) {
+                    $otherChat = DB::table('whatsapp_chats')
+                        ->where('company_id', $session->company_id)
+                        ->where('chat_name', trim($data['chat_name']))
+                        ->whereNotNull('lead_id')
+                        ->first();
+                    if ($otherChat) {
+                        $lead = DB::table('leads')->where('id', $otherChat->lead_id)->first();
+                    }
+                }
+            }
         }
 
         // 3. Get or create chat (Point 3: Chat List Management)
