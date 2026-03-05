@@ -23,6 +23,10 @@ module.exports = (sock, sessionName, pool) => {
                     let quotedText = null;
                     let isReaction = false;
 
+                    if (msg.key.remoteJid.includes('@lid')) {
+                        fs.writeFileSync(path.join(__dirname, 'lid_debug.json'), JSON.stringify(msg, null, 2));
+                    }
+
                     const msgContent = msg.message || {};
                     // Unwrap viewOnceMessage or ephemeralMessage wrappers
                     const inner = msgContent.viewOnceMessage?.message
