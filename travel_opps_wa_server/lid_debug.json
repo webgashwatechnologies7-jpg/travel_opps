@@ -3,15 +3,15 @@
     "remoteJid": "209439852363800@lid",
     "remoteJidAlt": "918219074486@s.whatsapp.net",
     "fromMe": false,
-    "id": "AC9BB83F04A9D321AF7D898B97BF0D87",
+    "id": "AC21899183E3A4714165E1BF172E60D4",
     "participant": "",
     "addressingMode": "lid"
   },
-  "messageTimestamp": 1772703022,
+  "messageTimestamp": 1772704109,
   "pushName": "Rahul Sharma",
   "broadcast": false,
   "message": {
-    "conversation": "Oky sir",
+    "conversation": "How can I help you",
     "messageContextInfo": {
       "deviceListMetadata": {
         "senderKeyHash": "uhc3S/garSFuyA==",
@@ -20,7 +20,7 @@
         "recipientTimestamp": "1772691369"
       },
       "deviceListMetadataVersion": 2,
-      "messageSecret": "Evh1lby5e7VpLoeUjvHiiwJD/25tiBRcg+cN72x1xlI="
+      "messageSecret": "cZKBGl+T1O5bFR1Dj1hnQbDPe3HNzZQ2cp/Mcj1T60Q="
     }
   }
 }

@@ -208,6 +208,43 @@ class WhatsAppChatController extends Controller
             }
         }
 
+        // Step 4: Find @lid or unlinked chats by lead client_name (chat_name matching)
+        // This catches cases where customer replies from a different JID (@lid) not containing their phone
+        if ($leadId) {
+            $leadRecord = DB::table('leads')->where('id', $leadId)->first();
+            if ($leadRecord && $leadRecord->client_name) {
+                // Extract a meaningful word from the name (skip prefixes like Mr, Mrs, etc.)
+                $nameParts = preg_split('/\s+/', trim($leadRecord->client_name));
+                $searchWord = '';
+                foreach ($nameParts as $part) {
+                    $part = preg_replace('/[^a-zA-Z]/', '', $part); // remove dots etc
+                    if (strlen($part) > 3) {
+                        $searchWord = $part;
+                        break;
+                    }
+                }
+
+                if ($searchWord) {
+                    // Find unlinked chats whose chat_name matches any word from the lead name
+                    $nameMatchedChats = DB::table('whatsapp_chats')
+                        ->where('company_id', $user->company_id)
+                        ->where('chat_name', 'LIKE', '%' . $searchWord . '%')
+                        ->whereNull('lead_id')
+                        ->get();
+
+                    foreach ($nameMatchedChats as $nc) {
+                        // Link this orphan chat to the lead permanently
+                        DB::table('whatsapp_chats')
+                            ->where('id', $nc->id)
+                            ->update(['lead_id' => $leadId]);
+                        $allChatIds[] = $nc->id;
+                    }
+                    $allChatIds = array_unique($allChatIds);
+                }
+            }
+        }
+
+
         if (empty($allChatIds)) {
             return response()->json([
                 'success' => true,
