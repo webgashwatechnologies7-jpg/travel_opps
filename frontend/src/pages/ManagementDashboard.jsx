@@ -248,7 +248,7 @@ const ManagementDashboard = () => {
             <div className="flex justify-center py-16">
               <div className="text-center">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-3" />
-                <p className="text-gray-600 text-sm">Staff dashboard load ho raha hai...</p>
+                <p className="text-gray-600 text-sm">Staff dashboard is loading...</p>
               </div>
             </div>
           ) : (

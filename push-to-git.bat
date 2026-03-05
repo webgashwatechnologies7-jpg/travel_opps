@@ -1,5 +1,5 @@
 @echo off
-REM Local se Git pe push - isko double-click ya cmd se chalao
+REM Push from local to Git - run by double-clicking or from cmd
 cd /d "%~dp0"
 
 echo.
@@ -8,7 +8,7 @@ echo.
 
 git status
 if errorlevel 1 (
-    echo Git not found ya folder git repo nahi hai.
+    echo Git not found or folder is not a git repo.
     pause
     exit /b 1
 )
@@ -19,10 +19,10 @@ if "%MSG%"=="" set MSG=Latest code for live
 git add .
 git commit -m "%MSG%"
 if errorlevel 1 (
-    echo No changes to commit ya commit fail.
+    echo No changes to commit or commit failed.
     goto push
 )
-echo Commit done.
+echo Commit successful.
 
 :push
 set /p BRANCH="Branch name (Enter = main): " || set BRANCH=main
@@ -30,11 +30,11 @@ if "%BRANCH%"=="" set BRANCH=main
 
 git push origin %BRANCH%
 if errorlevel 1 (
-    echo Push fail - check remote aur branch. Agar branch master hai to dubara chala ke 'master' likho.
+    echo Push failed - check remote and branch. If the branch is master, run again and type 'master'.
     pause
     exit /b 1
 )
 
 echo.
-echo Done. Ab server pe SSH karke deploy-live-pull.sh chalao.
+echo Done. Now SSH into the server and run deploy-live-pull.sh.
 pause

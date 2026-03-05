@@ -1,33 +1,33 @@
 # AK TRAVEL CRM – Multi-tenant isolation (company_id)
 
-Har company sirf apna data dekhe, koi company dusri company ka data na dekhe. Sab kuch **company_id** ke base pe isolate hai aur **fast** rehna chahiye.
+Each company should only see its own data; no company should see another company's data. Everything is isolated based on **company_id** and must remain **fast**.
 
 ---
 
 ## Rules
 
-1. **Har company ka data alag**  
-   Leads, packages, hotels, activities, transfers, destinations, day itineraries, suppliers, etc. sab **company_id** se filter hona chahiye.
+1. **Separation of data per company**  
+   Leads, packages, hotels, activities, transfers, destinations, day itineraries, suppliers, etc., all must be filtered by **company_id**.
 
 2. **IdentifyTenant**  
-   API requests pe `IdentifyTenant` middleware chalता hai. Isse `tenant` (current company) set hota hai – domain/subdomain ya logged-in user se.
+   The `IdentifyTenant` middleware runs on API requests. It sets the `tenant` (current company) based on the domain/subdomain or the logged-in user.
 
 3. **HasCompany trait**  
-   Jo models company-scoped hain, unpe **HasCompany** trait use karo. Isse:
-   - **Create:** naya record create karte waqt `company_id` auto set ho (tenant se).
-   - **Read/Query:** non–super-admin user ke liye `Model::query()` automatically `where('company_id', tenant_id)` lagata hai.
+   Use the **HasCompany** trait on models that are company-scoped. This ensures:
+   - **Create:** The `company_id` is automatically set (from the tenant) when a new record is created.
+   - **Read/Query:** For non-super-admin users, `Model::query()` automatically applies `where('company_id', tenant_id)`.
 
 4. **Super Admin**  
-   `is_super_admin = true` wale user pe company scope **nahi** lagta – unhe sab companies dikhti hain (e.g. main admin panel).
+   The company scope is **not** applied to users with `is_super_admin = true` – they can see all companies (e.g., in the main admin panel).
 
 5. **Performance**  
-   `company_id` pe **index** hona chahiye taaki queries fast rahein. Jo migrations main tables pe `company_id` add karti hain, wahan index bhi add kiya gaya hai.
+   There must be an **index** on `company_id` to keep queries fast. Indexes have been added to migrations that add `company_id` to main tables.
 
 ---
 
 ## Models with HasCompany (company-scoped)
 
-In sab models pe **HasCompany** aur **company_id** in fillable use ho chuka hai:
+The **HasCompany** trait and `company_id` in fillable are already being used on these models:
 
 - **Lead** (Modules/Leads)
 - **Package**
@@ -38,49 +38,49 @@ In sab models pe **HasCompany** aur **company_id** in fillable use ho chuka hai:
 - **Supplier**
 - **DayItinerary**
 
-In models pe `Model::query()`, `Model::find()`, `Model::all()` etc. automatically current tenant (company) ke hisaab se filter ho jate hain (super admin ko chhod ke).
+On these models, `Model::query()`, `Model::find()`, `Model::all()`, etc., are automatically filtered based on the current tenant (company), except for super admins.
 
 ---
 
-## Naya company-scoped feature add karte waqt
+## Adding a New Company-Scoped Feature
 
 1. **Table:**  
-   Table mein `company_id` column add karo (foreign key to `companies`, index bhi).
+   Add a `company_id` column to the table (foreign key to `companies`, with an index).
 
 2. **Model:**  
    - `use App\Traits\HasCompany;`  
-   - `use HasCompany;` in class  
-   - `company_id` ko `$fillable` mein add karo.
+   - `use HasCompany;` inside the class  
+   - Add `company_id` to the `$fillable` array.
 
 3. **Controller / Repository:**  
-   Agar kabhi direct query likho to bhi tenant use karo, e.g.  
+   If you ever write a direct query, use the tenant, e.g.:  
    `Model::where('company_id', tenant('id'))->...`  
-   ya  
+   or  
    `Model::where('company_id', $request->user()->company_id)->...`  
-   Lekin **HasCompany** wale models pe normally extra filter ki zaroorat nahi, scope khud lag jata hai.
+   However, for models using **HasCompany**, an extra filter is normally not needed as the scope is applied automatically.
 
 4. **Create:**  
-   Create karte waqt `company_id` pass karna optional hai – HasCompany trait tenant se auto set kar deta hai.
+   Passing `company_id` during creation is optional – the HasCompany trait sets it automatically from the tenant.
 
 ---
 
-## Login / domain
+## Login / Domain
 
-- **Company users**  
-  Sirf apne company ke domain se login ho sakte hain (e.g. `crm.company.com` ya `company.localhost`).  
-  Unhe sirf apne `company_id` ka data dikhega.
+- **Company Users**  
+  Can only log in from their company's domain (e.g., `crm.company.com` or `company.localhost`).  
+  They will only see data for their `company_id`.
 
-- **Super admin**  
-  Main domain (e.g. `127.0.0.1`, server IP) se login.  
-  Unpe company scope nahi lagta.
+- **Super Admin**  
+  Log in from the main domain (e.g., `127.0.0.1`, server IP).  
+  Company scope does not apply to them.
 
 ---
 
-## Checklist (existing / new APIs)
+## Checklist (Existing / New APIs)
 
-- [ ] Har list/detail API company-scoped data hi return kare (HasCompany ya explicit `company_id` filter).
-- [ ] Create/update pe `company_id` wrong set na ho (HasCompany use karo ya tenant se set karo).
-- [ ] Jo tables company-scoped hain, unpe `company_id` + index hai.
-- [ ] Naye company-scoped tables ke models pe HasCompany + `company_id` in fillable.
+- [ ] Every list/detail API returns only company-scoped data (via HasCompany or explicit `company_id` filter).
+- [ ] `company_id` is not set incorrectly on create/update (use HasCompany or set from tenant).
+- [ ] Tables that are company-scoped have `company_id` + index.
+- [ ] Models for new company-scoped tables have HasCompany + `company_id` in fillable.
 
-Is se **AK TRAVEL CRM** me ek company kabhi dusri company ka data nahi dekh payegi, aur **company_id** ke index ki wajah se queries fast rahengi.
+This ensures that in **AK TRAVEL CRM**, one company can never see another company's data, and queries remain fast due to the `company_id` index.

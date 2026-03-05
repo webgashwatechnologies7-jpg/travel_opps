@@ -1,7 +1,7 @@
 # 🏢 Company Admin System - Complete Guide
 
 ## 🎯 Overview
-Aap company admin create kar sakte hain jo subscription plan ke basis par limited access hoga. Super admin ko full CRM access rahega.
+You can create company admins who will have limited access based on their subscription plan. Super admins retain full CRM access.
 
 ## ✅ System Status: FULLY WORKING
 

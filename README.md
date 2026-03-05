@@ -1,6 +1,6 @@
 # TravelOps - Travel Management System
 
-TravelOps ek comprehensive travel management system hai jo Laravel (Backend) aur React (Frontend) par built hai.
+TravelOps is a comprehensive travel management system built with Laravel (Backend) and React (Frontend).
 
 ## 📁 Project Structure
 
@@ -18,8 +18,6 @@ travelops/
 │   ├── src/
 │   ├── public/
 │   └── ...
-<｜tool▁call▁end｜><｜tool▁call▁begin｜>
-run_terminal_cmd
 ```
 
 ## 🚀 Getting Started
@@ -29,27 +27,27 @@ run_terminal_cmd
 - Composer
 - Node.js >= 16
 - MySQL Database
-- WAMP/XAMPP (Windows) ya Apache server
+- WAMP/XAMPP (Windows) or Apache server
 
 ### Backend Setup (Laravel)
 
-1. **Backend folder mein jao:**
+1. **Go to the backend folder:**
    ```bash
    cd backend
    ```
 
-2. **Dependencies install karo:**
+2. **Install dependencies:**
    ```bash
    composer install
    ```
 
-3. **Environment file setup karo:**
+3. **Setup environment file:**
    ```bash
    copy .env.example .env
    php artisan key:generate
    ```
 
-4. **Database configure karo `.env` file mein:**
+4. **Configure database in `.env` file:**
    ```env
    DB_CONNECTION=mysql
    DB_HOST=127.0.0.1
@@ -59,34 +57,34 @@ run_terminal_cmd
    DB_PASSWORD=your_password
    ```
 
-5. **Database migrations run karo:**
+5. **Run database migrations:**
    ```bash
    php artisan migrate
    ```
 
-6. **Laravel server start karo:**
+6. **Start Laravel server:**
    ```bash
    php artisan serve
    ```
-   Server `http://localhost:8000` par chalega.
+   The server will run at `http://localhost:8000`.
 
 ### Frontend Setup (React)
 
-1. **Frontend folder mein jao:**
+1. **Go to the frontend folder:**
    ```bash
    cd frontend
    ```
 
-2. **Dependencies install karo:**
+2. **Install dependencies:**
    ```bash
    npm install
    ```
 
-3. **Development server start karo:**
+3. **Start development server:**
    ```bash
    npm run dev
    ```
-   Server `http://localhost:5173` par chalega.
+   The server will run at `http://localhost:5173`.
 
 ## 📝 Server Start Commands
 
@@ -110,15 +108,15 @@ npm run dev
 ## 🚀 Production Deployment
 
 1. **Backend:**
-   - Files upload karein server pe
-   - `.env` file configure karein
-   - Database setup karein
-   - `php artisan migrate` run karein
+   - Upload files to the server
+   - Configure `.env` file
+   - Setup database
+   - Run `php artisan migrate`
 
 2. **Frontend:**
-   - `npm run build` se production build banayein
-   - Build files upload karein
-   - API URL configure karein
+   - Create production build with `npm run build`
+   - Upload build files
+   - Configure API URL
 
 ## 🛠️ Tech Stack
 

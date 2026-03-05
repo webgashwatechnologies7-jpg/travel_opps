@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Modules\Leads\Domain\Entities\Lead;
 use App\Models\Setting;
+use App\Models\Quotation;
+use App\Models\LeadInvoice;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Mail;
@@ -15,16 +17,15 @@ class VoucherController extends Controller
     public function preview(Request $request, int $leadId)
     {
         try {
-            $lead = $this->findLeadForUser($request, $leadId);
-            if (!$lead) {
+            $data = $this->prepareVoucherData($request, $leadId);
+            if (!$data) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Lead not found',
+                    'message' => 'Lead not found or unauthorized',
                 ], 404);
             }
 
-            $lead->load('company');
-            $html = $this->buildVoucherHtml($lead);
+            $html = view('pdf.voucher', $data)->render();
 
             return response($html, 200, [
                 'Content-Type' => 'text/html; charset=UTF-8',
@@ -48,18 +49,16 @@ class VoucherController extends Controller
     public function download(Request $request, int $leadId)
     {
         try {
-            $lead = $this->findLeadForUser($request, $leadId);
-            if (!$lead) {
+            $data = $this->prepareVoucherData($request, $leadId);
+            if (!$data) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Lead not found',
+                    'message' => 'Lead not found or unauthorized',
                 ], 404);
             }
 
-            $lead->load(['company', 'creator']);
-
             // Use DomPDF to generate PDF
-            $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('pdf.voucher', compact('lead'));
+            $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('pdf.voucher', $data);
 
             // Enable options
             $pdf->setOption([
@@ -70,7 +69,7 @@ class VoucherController extends Controller
 
             $pdf->setPaper('a4', 'portrait');
 
-            $fileName = 'Voucher-Lead-' . $lead->id . '-' . now()->format('Ymd') . '.pdf';
+            $fileName = 'Confirmation-Voucher-' . ($data['lead']->query_id ?? $data['lead']->id) . '.pdf';
 
             return $pdf->download($fileName);
 
@@ -106,14 +105,15 @@ class VoucherController extends Controller
                 ], 422);
             }
 
-            $lead = $this->findLeadForUser($request, $leadId);
-            if (!$lead) {
+            $data = $this->prepareVoucherData($request, $leadId);
+            if (!$data) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Lead not found',
+                    'message' => 'Lead not found or unauthorized',
                 ], 404);
             }
 
+            $lead = $data['lead'];
             $toEmail = $request->input('to_email') ?: $lead->email;
             if (!$toEmail) {
                 return response()->json([
@@ -122,8 +122,8 @@ class VoucherController extends Controller
                 ], 422);
             }
 
-            $subject = $request->input('subject') ?: 'Travel Voucher';
-            $html = $this->buildVoucherHtml($lead);
+            $subject = $request->input('subject') ?: 'Confirmation Voucher - ' . ($lead->query_id ?? $lead->id);
+            $html = view('pdf.voucher', $data)->render();
 
             CompanyMailSettingsService::applyIfEnabled();
 
@@ -133,20 +133,9 @@ class VoucherController extends Controller
                     ->html($html);
             });
 
-
-            \Log::info('Voucher sent successfully', [
-                'lead_id' => $leadId,
-                'to_email' => $toEmail,
-                'user_id' => auth()->id()
-            ]);
-
             return response()->json([
                 'success' => true,
                 'message' => 'Voucher sent successfully',
-                'data' => [
-                    'to_email' => $toEmail,
-                    'subject' => $subject,
-                ]
             ]);
 
         } catch (\Exception $e) {
@@ -165,57 +154,42 @@ class VoucherController extends Controller
     }
 
     /**
-     * Find lead by ID for authenticated user (bypass global scope, match company_id).
+     * Prepare all data needed for voucher view
      */
-    private function findLeadForUser(Request $request, int $leadId): ?Lead
+    private function prepareVoucherData(Request $request, int $leadId): ?array
     {
-        try {
-            $user = $request->user();
-            if (!$user) {
-                \Log::warning('No authenticated user found in voucher request', [
-                    'lead_id' => $leadId
-                ]);
-                return null;
-            }
+        $user = $request->user();
+        if (!$user)
+            return null;
 
-            // Bypass HasCompany scope so we find lead even when tenant is not set
-            $lead = Lead::withoutGlobalScopes()->find($leadId);
-            if (!$lead) {
-                \Log::warning('Lead not found in voucher request', [
-                    'lead_id' => $leadId,
-                    'user_id' => $user->id
-                ]);
-                return null;
-            }
+        $lead = Lead::withoutGlobalScopes()->find($leadId);
+        if (!$lead)
+            return null;
 
-            $companyId = $user->company_id ?? null;
-            $leadCompanyId = $lead->company_id ?? null;
-
-            // Allow: same company, or lead has no company (null)
-            if ($leadCompanyId !== null && $companyId !== null && $leadCompanyId !== $companyId) {
-                \Log::warning('Access denied - company mismatch in voucher request', [
-                    'lead_id' => $leadId,
-                    'user_id' => $user->id,
-                    'user_company_id' => $companyId,
-                    'lead_company_id' => $leadCompanyId
-                ]);
-                return null;
-            }
-
-            return $lead;
-
-        } catch (\Exception $e) {
-            \Log::error('Error finding lead for voucher', [
-                'error' => $e->getMessage(),
-                'lead_id' => $leadId,
-                'user_id' => auth()->id()
-            ]);
+        if ($lead->company_id !== null && $user->company_id !== null && $lead->company_id !== $user->company_id) {
             return null;
         }
-    }
 
-    private function buildVoucherHtml(Lead $lead): string
-    {
-        return view('pdf.voucher', compact('lead'))->render();
+        $lead->load(['company', 'creator']);
+
+        // Find confirmed quotation
+        $quotation = Quotation::where('lead_id', $leadId)
+            ->orderBy('created_at', 'desc')
+            ->first();
+
+        // Find confirmed invoice to get the option number
+        $invoice = LeadInvoice::where('lead_id', $leadId)
+            ->where('status', 'sent')
+            ->orderBy('id', 'desc')
+            ->first();
+
+        $confirmedOption = $invoice ? (int) $invoice->option_number : 1;
+
+        return [
+            'lead' => $lead,
+            'quotation' => $quotation,
+            'invoice' => $invoice,
+            'confirmedOption' => $confirmedOption
+        ];
     }
 }

@@ -16,7 +16,7 @@ class SupplierFinancialController extends Controller
 {
     /**
      * Get supplier financial summary (Part 2).
-     * Profit, Loss, Dena (payables), Lena (receivables) - Weekly/Monthly/Yearly.
+     * Profit, Loss, Payables, Receivables - Weekly/Monthly/Yearly.
      */
     public function getSupplierFinancialSummary(Request $request, $supplierId): JsonResponse
     {
@@ -75,7 +75,7 @@ class SupplierFinancialController extends Controller
 
             // 2. REVENUE - Dynamic: Payments from leads that used this supplier
             $revenue = (float) Payment::whereIn('lead_id', $leadIds)
-                ->whereHas('lead', fn ($q) => $q->where('status', 'confirmed'))
+                ->whereHas('lead', fn($q) => $q->where('status', 'confirmed'))
                 ->sum('amount');
 
             // 3. PROFIT - Revenue - Cost
@@ -85,21 +85,21 @@ class SupplierFinancialController extends Controller
             $cancelledLeads = Lead::whereIn('id', $leadIds)
                 ->where('status', 'cancelled')
                 ->get();
-            $loss = round($cancelledLeads->sum(fn ($lead) => $lead->getEstimatedValue()), 2);
+            $loss = round($cancelledLeads->sum(fn($lead) => $lead->getEstimatedValue()), 2);
 
-            // 5. DENA - Total outstanding payables (kitna dena)
-            $dena = round((float) SupplierFinancialTransaction::where('supplier_id', $supplierId)
+            // 5. PAYABLES - Total outstanding payables
+            $payables = round((float) SupplierFinancialTransaction::where('supplier_id', $supplierId)
                 ->where('type', SupplierFinancialTransaction::TYPE_PAYABLE)
                 ->whereIn('status', [SupplierFinancialTransaction::STATUS_PENDING, SupplierFinancialTransaction::STATUS_PARTIAL])
                 ->get()
-                ->sum(fn ($t) => $t->amount - $t->paid_amount), 2);
+                ->sum(fn($t) => $t->amount - $t->paid_amount), 2);
 
-            // 6. LENA - Total outstanding receivables (kitna lena)
-            $lena = round((float) SupplierFinancialTransaction::where('supplier_id', $supplierId)
+            // 6. RECEIVABLES - Total outstanding receivables
+            $receivables = round((float) SupplierFinancialTransaction::where('supplier_id', $supplierId)
                 ->where('type', SupplierFinancialTransaction::TYPE_RECEIVABLE)
                 ->whereIn('status', [SupplierFinancialTransaction::STATUS_PENDING, SupplierFinancialTransaction::STATUS_PARTIAL])
                 ->get()
-                ->sum(fn ($t) => $t->amount - $t->paid_amount), 2);
+                ->sum(fn($t) => $t->amount - $t->paid_amount), 2);
 
             // 7. COUNTS - How many times we worked with this supplier
             $totalLeads = Lead::whereIn('id', $leadIds)->count();
@@ -135,12 +135,12 @@ class SupplierFinancialController extends Controller
                         'profit' => $profit,
                         'loss' => $loss,
                         'net_profit' => round($profit - $loss, 2),
-                        'dena' => $dena,
-                        'lena' => $lena,
+                        'payables' => $payables,
+                        'receivables' => $receivables,
                         'summary' => [
-                            'kitna_dena' => $dena,
-                            'kitna_lena' => $lena,
-                            'balance' => round($lena - $dena, 2),
+                            'payables' => $payables,
+                            'receivables' => $receivables,
+                            'balance' => round($receivables - $payables, 2),
                         ],
                         'counts' => [
                             'leads_total' => $totalLeads,
@@ -223,7 +223,7 @@ class SupplierFinancialController extends Controller
     }
 
     /**
-     * Add supplier payable (dena) or receivable (lena).
+     * Add supplier payable or receivable.
      */
     public function storeSupplierFinancialTransaction(Request $request, $supplierId): JsonResponse
     {
@@ -339,7 +339,7 @@ class SupplierFinancialController extends Controller
                 $query->whereBetween('transaction_date', [$startDate, $endDate]);
             }
 
-            $costs = $query->get()->map(fn ($c) => [
+            $costs = $query->get()->map(fn($c) => [
                 'id' => $c->id,
                 'lead_id' => $c->lead_id,
                 'lead' => $c->lead ? ['id' => $c->lead->id, 'client_name' => $c->lead->client_name, 'status' => $c->lead->status] : null,
@@ -356,7 +356,7 @@ class SupplierFinancialController extends Controller
                 'data' => [
                     'supplier' => $supplier ? ['id' => $supplier->id, 'name' => $supplier->name] : null,
                     'costs' => $costs,
-                    'total_cost' => round($costs->sum(fn ($c) => $c['cost_amount']), 2),
+                    'total_cost' => round($costs->sum(fn($c) => $c['cost_amount']), 2),
                 ]
             ]);
         } catch (\Exception $e) {
@@ -424,7 +424,7 @@ class SupplierFinancialController extends Controller
                 $query->whereBetween('transaction_date', [$startDate, $endDate]);
             }
 
-            $transactions = $query->get()->map(fn ($t) => [
+            $transactions = $query->get()->map(fn($t) => [
                 'id' => $t->id,
                 'type' => $t->type,
                 'category' => $t->category,

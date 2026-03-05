@@ -16,20 +16,20 @@ class InputSanitizationMiddleware
     {
         // Sanitize input data
         $sanitized = $this->sanitizeInput($request->all());
-        
+
         // Replace request input with sanitized data
         $request->merge($sanitized);
-        
+
         return $next($request);
     }
-    
+
     /**
      * Sanitize input data recursively
      */
     private function sanitizeInput(array $input): array
     {
         $sanitized = [];
-        
+
         foreach ($input as $key => $value) {
             if (is_array($value)) {
                 $sanitized[$key] = $this->sanitizeInput($value);
@@ -40,10 +40,10 @@ class InputSanitizationMiddleware
                 $sanitized[$key] = $value;
             }
         }
-        
+
         return $sanitized;
     }
-    
+
     /**
      * Clean string from potential attacks
      */
@@ -51,10 +51,12 @@ class InputSanitizationMiddleware
     {
         // Remove HTML tags
         $string = strip_tags($string);
-        
-        // Remove special characters that could be used in attacks
-        $string = htmlspecialchars($string, ENT_QUOTES, 'UTF-8');
-        
+
+        // We remove htmlspecialchars here because we want to store raw text (like apostrophes) 
+        // in the database. React automatically escapes data on output to prevent XSS.
+        // Storing HTML entities in the database makes searching and reports difficult.
+        // $string = htmlspecialchars($string, ENT_QUOTES, 'UTF-8');
+
         // Remove SQL injection patterns
         $patterns = [
             '/(\s|^)(SELECT|INSERT|UPDATE|DELETE|DROP|CREATE|ALTER|EXEC|UNION|SCRIPT)/i',
@@ -64,11 +66,11 @@ class InputSanitizationMiddleware
             '/\/\*.*?\*\//',
             '/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/mi'
         ];
-        
+
         foreach ($patterns as $pattern) {
             $string = preg_replace($pattern, '', $string);
         }
-        
+
         return trim($string);
     }
 }

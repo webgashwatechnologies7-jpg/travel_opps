@@ -1,7 +1,7 @@
 # 📢 Marketing Module - Complete Guide
 
 ## 🎯 Overview
-Aapke CRM mein complete marketing module add kar diya gaya hai jo saare marketing features provide karta hai.
+A complete marketing module has been added to your CRM, providing a full suite of marketing features.
 
 ## ✅ Module Status: FULLY FUNCTIONAL
 

@@ -16,7 +16,7 @@ class OverallFinancialController extends Controller
 
     /**
      * Part 5 - Overall financial summary.
-     * Kitna dena hai, kitna lena hai - Weekly/Monthly/Yearly.
+     * Payables, Receivables - Weekly/Monthly/Yearly.
      */
     public function getOverallSummary(Request $request): JsonResponse
     {
@@ -38,7 +38,7 @@ class OverallFinancialController extends Controller
             list($startDate, $endDate) = $this->getPeriodDates($request);
             $period = $request->input('period', 'monthly');
 
-            // Total DENA - Company owes (payables)
+            // Total PAYABLES - Company owes
             $employeePayables = (float) EmployeeFinancialTransaction::where('type', EmployeeFinancialTransaction::TYPE_PAYABLE)
                 ->whereIn('status', [EmployeeFinancialTransaction::STATUS_PENDING, EmployeeFinancialTransaction::STATUS_PARTIAL])
                 ->get()
@@ -49,9 +49,9 @@ class OverallFinancialController extends Controller
                 ->get()
                 ->sum(fn($t) => $t->amount - $t->paid_amount);
 
-            $totalDena = round($employeePayables + $supplierPayables, 2);
+            $totalPayables = round($employeePayables + $supplierPayables, 2);
 
-            // Total LENA - Company to receive (receivables)
+            // Total RECEIVABLES - Company to receive
             $employeeReceivables = (float) EmployeeFinancialTransaction::where('type', EmployeeFinancialTransaction::TYPE_RECEIVABLE)
                 ->whereIn('status', [EmployeeFinancialTransaction::STATUS_PENDING, EmployeeFinancialTransaction::STATUS_PARTIAL])
                 ->get()
@@ -62,12 +62,12 @@ class OverallFinancialController extends Controller
                 ->get()
                 ->sum(fn($t) => $t->amount - $t->paid_amount);
 
-            // Client pending payments (kitna clients se lena hai)
+            // Client pending payments
             $clientPending = (float) Payment::whereIn('status', ['pending', 'partial'])
                 ->get()
                 ->sum(fn($p) => $p->amount - $p->paid_amount);
 
-            $totalLena = round($employeeReceivables + $supplierReceivables + $clientPending, 2);
+            $totalReceivables = round($employeeReceivables + $supplierReceivables + $clientPending, 2);
 
             return response()->json([
                 'success' => true,
@@ -78,21 +78,21 @@ class OverallFinancialController extends Controller
                         'end_date' => $endDate->format('Y-m-d'),
                     ],
                     'summary' => [
-                        'kitna_dena' => $totalDena,
-                        'kitna_lena' => $totalLena,
-                        'balance' => round($totalLena - $totalDena, 2),
+                        'payables' => $totalPayables,
+                        'receivables' => $totalReceivables,
+                        'balance' => round($totalReceivables - $totalPayables, 2),
                     ],
                     'breakdown' => [
-                        'dena' => [
+                        'payables' => [
                             'employees' => round($employeePayables, 2),
                             'suppliers' => round($supplierPayables, 2),
-                            'total' => $totalDena,
+                            'total' => $totalPayables,
                         ],
-                        'lena' => [
+                        'receivables' => [
                             'employees' => round($employeeReceivables, 2),
                             'suppliers' => round($supplierReceivables, 2),
                             'clients_pending' => round($clientPending, 2),
-                            'total' => $totalLena,
+                            'total' => $totalReceivables,
                         ],
                     ],
                 ]

@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Invoice - {{ $invoice->invoice_number }}</title>
+    <title>Proforma Invoice - {{ $invoice->invoice_number }}</title>
     <style>
         @page {
             margin: 0px;
@@ -14,187 +14,226 @@
         body {
             font-family: 'DejaVu Sans', sans-serif;
             background-color: #fff;
-            color: #334155;
+            color: #000;
             margin: 0;
-            padding: 30px;
-            line-height: 1.5;
+            padding: 0;
+            line-height: 1.4;
             font-size: 11px;
+            position: relative;
+            min-height: 100vh;
+        }
+
+        /* CORNER ACCENTS */
+        .corner-accent {
+            position: absolute;
+            width: 0;
+            height: 0;
+            border-style: solid;
+            z-index: -1;
+        }
+
+        .top-left {
+            top: 0;
+            left: 0;
+            border-width: 80px 80px 0 0;
+            border-color: #a11d1d transparent transparent transparent;
+        }
+
+        .bottom-right {
+            bottom: 0;
+            right: 0;
+            border-width: 0 0 80px 80px;
+            border-color: transparent transparent #a11d1d transparent;
+        }
+
+        .container {
+            padding: 40px 50px;
         }
 
         /* HEADER */
-        .header-table {
+        .header {
             width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 30px;
-            border-bottom: 2px solid #1e40af;
-            padding-bottom: 15px;
+            margin-bottom: 20px;
         }
 
-        .header-logo-cell {
-            vertical-align: middle;
-            width: 50%;
-        }
-
-        .header-info-cell {
-            vertical-align: middle;
-            width: 50%;
-            text-align: right;
-        }
-
-        .company-name {
-            font-size: 20px;
+        .invoice-title {
+            font-size: 24px;
             font-weight: bold;
-            color: #1e40af;
-            text-transform: uppercase;
+            color: #1a1a1a;
             margin: 0;
+            margin-top: 10px;
         }
 
-        .company-details {
-            font-size: 10px;
-            color: #64748b;
-            margin-top: 4px;
+        .company-subtitle {
+            font-size: 14px;
+            color: #333;
+            margin-bottom: 20px;
         }
 
-        /* INVOICE TITLE */
-        .invoice-main-title {
-            font-size: 28px;
-            font-weight: bold;
-            color: #1e40af;
-            margin-bottom: 5px;
-            text-transform: uppercase;
+        .logo-container {
+            text-align: right;
+            vertical-align: top;
         }
 
-        .invoice-meta {
-            color: #64748b;
+        .logo-img {
+            max-height: 80px;
+            max-width: 150px;
+        }
+
+        .invoice-info {
+            text-align: right;
+            margin-top: 5px;
+        }
+
+        .info-row {
+            margin-bottom: 2px;
             font-size: 12px;
+        }
+
+        /* BILL TO */
+        .bill-to-section {
+            width: 100%;
             margin-bottom: 30px;
         }
 
-        /* LAYOUT */
-        .content-table {
+        .bill-to-title {
+            font-weight: bold;
+            font-size: 13px;
+            margin-bottom: 5px;
+        }
+
+        .bill-to-row {
+            margin-bottom: 3px;
+            font-size: 11px;
+        }
+
+        .bill-to-label {
+            display: inline-block;
+            width: 90px;
+        }
+
+        /* TABLE */
+        .main-table {
             width: 100%;
             border-collapse: collapse;
-            margin-bottom: 30px;
+            margin-bottom: 20px;
         }
 
-        .content-table td {
-            vertical-align: top;
-            width: 50%;
-        }
-
-        .section-title {
-            font-size: 10px;
-            text-transform: uppercase;
-            color: #94a3b8;
-            letter-spacing: 1px;
+        .main-table th {
+            background-color: #000;
+            color: #fff;
+            text-align: left;
+            padding: 8px 12px;
+            font-size: 11px;
             font-weight: bold;
+        }
+
+        .main-table td {
+            padding: 10px 12px;
+            border-bottom: 1px solid #eee;
+            vertical-align: top;
+            font-size: 11px;
+        }
+
+        /* SUMMARY */
+        .summary-container {
+            width: 100%;
+            margin-top: 10px;
+        }
+
+        .summary-table {
+            width: 300px;
+            margin-left: auto;
+            border-collapse: collapse;
+        }
+
+        .summary-table td {
+            padding: 4px 0;
+            font-size: 10px;
+        }
+
+        .summary-label {
+            text-align: right;
+            padding-right: 20px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        .summary-value {
+            text-align: right;
+            width: 100px;
+            font-weight: bold;
+        }
+
+        .total-row td {
+            border-top: 1px solid #000;
+            padding-top: 8px;
+            font-size: 12px;
+        }
+
+        /* IN WORDS */
+        .words-section {
+            margin-top: 25px;
+            font-size: 11px;
+        }
+
+        .words-row {
+            margin-bottom: 5px;
+        }
+
+        /* TERMS */
+        .terms-section {
+            margin-top: 30px;
+        }
+
+        .terms-title {
+            font-weight: bold;
+            font-size: 12px;
             margin-bottom: 8px;
         }
 
-        .bill-to-name {
-            font-size: 16px;
-            font-weight: bold;
-            color: #0f172a;
-            margin-bottom: 5px;
+        .terms-list {
+            padding-left: 15px;
+            margin: 0;
         }
 
-        .bill-to-details {
-            font-size: 11px;
-            color: #475569;
-            line-height: 1.6;
-        }
-
-        /* ITEMS TABLE */
-        .items-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 30px;
-        }
-
-        .items-table th {
-            background-color: #f8fafc;
-            border-bottom: 1px solid #e2e8f0;
-            padding: 12px;
-            text-align: left;
+        .terms-list li {
+            margin-bottom: 3px;
             font-size: 10px;
-            text-transform: uppercase;
-            color: #64748b;
-            font-weight: bold;
-        }
-
-        .items-table td {
-            padding: 15px 12px;
-            border-bottom: 1px solid #f1f5f9;
-            vertical-align: middle;
-        }
-
-        .item-description {
-            font-weight: bold;
-            color: #0f172a;
-            font-size: 13px;
-        }
-
-        /* AMOUNT BOX */
-        .amount-container {
-            text-align: right;
-            margin-top: 20px;
-        }
-
-        .amount-box {
-            display: inline-block;
-            background: #f0fdf4;
-            border: 1px solid #bbf7d0;
-            padding: 20px 30px;
-            border-radius: 8px;
-            text-align: right;
-        }
-
-        .amount-label {
-            font-size: 12px;
-            color: #166534;
-            margin-bottom: 5px;
-            font-weight: 600;
-        }
-
-        .total-price {
-            font-size: 24px;
-            font-weight: 900;
-            color: #16a34a;
-        }
-
-        /* STATUS BADGE */
-        .status-badge {
-            display: inline-block;
-            padding: 4px 12px;
-            border-radius: 20px;
-            font-size: 10px;
-            font-weight: bold;
-            text-transform: uppercase;
-        }
-
-        .status-paid {
-            background-color: #dcfce7;
-            color: #15803d;
-        }
-
-        .status-pending {
-            background-color: #fef9c3;
-            color: #854d0e;
         }
 
         /* FOOTER */
         .footer {
-            margin-top: 50px;
-            border-top: 1px solid #e2e8f0;
-            padding-top: 20px;
-            text-align: center;
-            color: #94a3b8;
-            font-size: 10px;
+            position: absolute;
+            bottom: 40px;
+            left: 50px;
+            right: 50px;
+            border-top: 1px solid #ccc;
+            padding-top: 15px;
         }
 
-        .logo-img {
-            max-height: 60px;
-            max-width: 200px;
+        .footer-table {
+            width: 100%;
+        }
+
+        .footer-cell {
+            width: 50%;
+            vertical-align: top;
+            font-size: 10px;
+            color: #333;
+        }
+
+        .footer-icon {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            background-color: #a11d1d;
+            color: #fff;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 16px;
+            margin-right: 8px;
+            font-size: 10px;
         }
     </style>
 </head>
@@ -235,102 +274,233 @@
         }
     }
 
+    function numberToWords($number)
+    {
+        $hyphen = '-';
+        $conjunction = ' and ';
+        $separator = ', ';
+        $negative = 'negative ';
+        $decimal = ' point ';
+        $dictionary = array(
+            0 => 'Zero',
+            1 => 'One',
+            2 => 'Two',
+            3 => 'Three',
+            4 => 'Four',
+            5 => 'Five',
+            6 => 'Six',
+            7 => 'Seven',
+            8 => 'Eight',
+            9 => 'Nine',
+            10 => 'Ten',
+            11 => 'Eleven',
+            12 => 'Twelve',
+            13 => 'Thirteen',
+            14 => 'Fourteen',
+            15 => 'Fifteen',
+            16 => 'Sixteen',
+            17 => 'Seventeen',
+            18 => 'Eighteen',
+            19 => 'Nineteen',
+            20 => 'Twenty',
+            30 => 'Thirty',
+            40 => 'Forty',
+            50 => 'Fifty',
+            60 => 'Sixty',
+            70 => 'Seventy',
+            80 => 'Eighty',
+            90 => 'Ninety',
+            100 => 'Hundred',
+            1000 => 'Thousand',
+            1000000 => 'Million',
+            1000000000 => 'Billion',
+            1000000000000 => 'Trillion',
+            1000000000000000 => 'Quadrillion',
+            1000000000000000000 => 'Quintillion'
+        );
+
+        if (!is_numeric($number))
+            return false;
+        if (($number >= 0 && (int) $number < 0) || (int) $number < 0 - PHP_INT_MAX)
+            return false;
+
+        if ($number < 0)
+            return $negative . numberToWords(abs($number));
+
+        $string = $fraction = null;
+        if (strpos($number, '.') !== false) {
+            list($number, $fraction) = explode('.', $number);
+        }
+
+        switch (true) {
+            case $number < 21:
+                $string = $dictionary[$number];
+                break;
+            case $number < 100:
+                $tens = ((int) ($number / 10)) * 10;
+                $units = $number % 10;
+                $string = $dictionary[$tens];
+                if ($units)
+                    $string .= $hyphen . $dictionary[$units];
+                break;
+            case $number < 1000:
+                $hundreds = $number / 100;
+                $remainder = $number % 100;
+                $string = $dictionary[(int) $hundreds] . ' ' . $dictionary[100];
+                if ($remainder)
+                    $string .= $conjunction . numberToWords($remainder);
+                break;
+            default:
+                $baseUnit = pow(1000, floor(log($number, 1000)));
+                $numBaseUnits = (int) ($number / $baseUnit);
+                $remainder = $number % $baseUnit;
+                $string = numberToWords($numBaseUnits) . ' ' . $dictionary[$baseUnit];
+                if ($remainder) {
+                    $string .= $remainder < 100 ? $conjunction : $separator;
+                    $string .= numberToWords($remainder);
+                }
+                break;
+        }
+
+        return $string;
+    }
+
     $company = $invoice->lead->company;
     $companyLogo = $company ? $company->logo : \App\Models\Setting::getValue('company_logo');
     $companyName = $company ? $company->name : \App\Models\Setting::getValue('company_name', 'TravelOps');
     $companyAddress = $company ? $company->address : \App\Models\Setting::getValue('company_address');
     $companyPhone = $company ? $company->phone : \App\Models\Setting::getValue('company_phone');
     $companyEmail = $company ? $company->email : \App\Models\Setting::getValue('company_email');
+    $companyDomain = $company ? $company->getFullUrlAttribute() : config('app.url');
     $base64Logo = imageToBase64($companyLogo);
+
+    // Tax calculation (Mocking 5% total as in common travel invoices)
+    $totalAmount = (float) $invoice->total_amount;
+    $baseAmount = $totalAmount / 1.05;
+    $totalTax = $totalAmount - $baseAmount;
+    $sgst = $totalTax / 2;
+    $cgst = $totalTax / 2;
+
+    $paxString = ($invoice->lead->adult ?? 0) . ' Adults';
+    if ($invoice->lead->child ?? 0)
+        $paxString .= ', ' . $invoice->lead->child . ' Child';
 @endphp
 
 <body>
-    <!-- Header Table -->
-    <table class="header-table">
-        <tr>
-            <td class="header-logo-cell">
-                @if($base64Logo)
-                    <img src="{{ $base64Logo }}" class="logo-img" alt="Logo">
-                @endif
-            </td>
-            <td class="header-info-cell">
-                <div class="company-name" style="font-size:14px;">{{ $companyName }}</div>
-                <div class="company-details">
-                    @if($companyAddress)
-                    <div>{{ $companyAddress }}</div> @endif
-                    @if($companyPhone || $companyEmail)
-                        <div>
-                            @if($companyPhone) {{ $companyPhone }} @endif
-                            @if($companyPhone && $companyEmail) | @endif
-                            @if($companyEmail) {{ $companyEmail }} @endif
-                        </div>
-                    @endif
-                </div>
-            </td>
-        </tr>
-    </table>
+    <div class="corner-accent top-left"></div>
+    <div class="corner-accent bottom-right"></div>
 
-    <div class="invoice-main-title">Invoice</div>
-    <div class="invoice-meta">
-        No: <strong>{{ $invoice->invoice_number }}</strong> |
-        Date: <strong>{{ $invoice->created_at->format('d M, Y') }}</strong>
-    </div>
-
-    <table class="content-table">
-        <tr>
-            <td>
-                <div class="section-title">Bill To</div>
-                <div class="bill-to-name">{{ $invoice->lead->client_name }}</div>
-                <div class="bill-to-details">
-                    @if($invoice->lead->email)
-                    <div>Email: {{ $invoice->lead->email }}</div> @endif
-                    @if($invoice->lead->phone)
-                    <div>Phone: {{ $invoice->lead->phone }}</div> @endif
-                    @if($invoice->lead->destination)
-                    <div>Destination: {{ $invoice->lead->destination }}</div> @endif
-                </div>
-            </td>
-            <td style="text-align: right;">
-                <div class="section-title">Status</div>
-                <div class="status-badge {{ $invoice->status === 'paid' ? 'status-paid' : 'status-pending' }}">
-                    {{ ucfirst($invoice->status ?? 'pending') }}
-                </div>
-            </td>
-        </tr>
-    </table>
-
-    <table class="items-table">
-        <thead>
-            <tr>
-                <th>Description</th>
-                <th style="text-align: right;">Amount</th>
-            </tr>
-        </thead>
-        <tbody>
+    <div class="container">
+        <table class="header">
             <tr>
                 <td>
-                    <div class="item-description">{{ $invoice->itinerary_name }}</div>
-                    <div style="font-size: 10px; color: #64748b; margin-top: 4px;">Professional travel services and
-                        itinerary management.</div>
+                    <h1 class="invoice-title">PROFORMA INVOICE</h1>
+                    <div class="company-subtitle">{{ $companyName }}</div>
                 </td>
-                <td style="text-align: right; font-size: 14px; font-weight: bold; color: #0f172a;">
-                    {{ number_format($invoice->total_amount, 2) }} {{ $invoice->currency ?? 'INR' }}
+                <td class="logo-container">
+                    @if($base64Logo)
+                        <img src="{{ $base64Logo }}" class="logo-img" alt="Logo">
+                    @endif
+                    <div class="invoice-info">
+                        <div class="info-row">Invoice Number: <strong>{{ $invoice->invoice_number }}</strong></div>
+                        <div class="info-row">Due Date:
+                            <strong>{{ $invoice->created_at->addDays(7)->format('d-m-Y') }}</strong></div>
+                    </div>
                 </td>
             </tr>
-        </tbody>
-    </table>
+        </table>
 
-    <div class="amount-container">
-        <div class="amount-box">
-            <div class="amount-label">Total Payable</div>
-            <div class="total-price">{{ $invoice->currency ?? 'INR' }} {{ number_format($invoice->total_amount, 2) }}
+        <div class="bill-to-section">
+            <div class="bill-to-title">Bill To: {{ $invoice->lead->company_name ?? $companyName }}</div>
+            <div class="bill-to-row"><span class="bill-to-label">Guest Name:</span> {{ $invoice->lead->client_name }}
             </div>
+            <div class="bill-to-row"><span class="bill-to-label">Guest Contact:</span> {{ $invoice->lead->phone }}</div>
+            <div class="bill-to-row"><span class="bill-to-label">Guest Email:</span> {{ $invoice->lead->email }}</div>
+            @if($invoice->lead->gst_number)
+                <div class="bill-to-row"><span class="bill-to-label">GSTN:</span> {{ $invoice->lead->gst_number }}</div>
+            @endif
         </div>
-    </div>
 
-    <div class="footer">
-        Thank you for choosing {{ $companyName }}.<br>
-        This is a computer-generated invoice and does not require a signature.
+        <table class="main-table">
+            <thead>
+                <tr>
+                    <th width="40%">Package Name</th>
+                    <th width="25%">Travel Dates</th>
+                    <th width="15%">Total Pax</th>
+                    <th width="20%" style="text-align: right;">Amount</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>{{ $invoice->itinerary_name }}</td>
+                    <td>
+                        @if($invoice->lead->travel_start_date)
+                            {{ $invoice->lead->travel_start_date->format('d-m-Y') }}
+                        @else
+                            TBA
+                        @endif
+                    </td>
+                    <td>{{ $paxString }}</td>
+                    <td style="text-align: right;">{{ number_format($baseAmount, 2) }}</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <div class="summary-container">
+            <table class="summary-table">
+                <tr>
+                    <td class="summary-label">TOTAL AMOUNT BEFORE TAX ({{ $invoice->currency ?? 'INR' }}) :</td>
+                    <td class="summary-value">{{ number_format($baseAmount, 2) }}</td>
+                </tr>
+                <tr>
+                    <td class="summary-label">SGST 2.5% :</td>
+                    <td class="summary-value">{{ number_format($sgst, 2) }}</td>
+                </tr>
+                <tr>
+                    <td class="summary-label">CGST 2.5% :</td>
+                    <td class="summary-value">{{ number_format($cgst, 2) }}</td>
+                </tr>
+                <tr class="total-row">
+                    <td class="summary-label">Total :</td>
+                    <td class="summary-value">{{ $invoice->currency ?? 'INR' }} {{ number_format($totalAmount, 2) }}
+                    </td>
+                </tr>
+            </table>
+        </div>
+
+        <div class="words-section">
+            <div class="words-row"><strong>Total GST value in words:</strong> {{ numberToWords(round($totalTax)) }}
+                Only.</div>
+            <div class="words-row"><strong>Total Invoice in words:</strong> {{ numberToWords(round($totalAmount)) }}
+                Only.</div>
+        </div>
+
+        <div class="terms-section">
+            <div class="terms-title">Terms & Conditions</div>
+            <ul class="terms-list">
+                <li>No Cash Payments Accepted above INR 50,000.</li>
+                <li>Guest PAN Card & Company GST Number must require to raise invoice.</li>
+                <li>Cheque to the favor of {{ $companyName }}.</li>
+                <li>Ensure to signed TCS Declaration form.</li>
+                <li>Exchange rate applicable subject to date of invoice.</li>
+                <li>Any dispute Subject to the Jurisdiction of local Courts only.</li>
+            </ul>
+        </div>
+
+        <div class="footer">
+            <table class="footer-table">
+                <tr>
+                    <td class="footer-cell">
+                        <div><span class="footer-icon">P</span> {{ $companyPhone }}</div>
+                        <div style="margin-top: 5px;"><span class="footer-icon">E</span> {{ $companyEmail }}</div>
+                    </td>
+                    <td class="footer-cell" style="text-align: right;">
+                        <div><span class="footer-icon">A</span> {{ $companyAddress }}</div>
+                        <div style="margin-top: 5px;"><span class="footer-icon">W</span> {{ $companyDomain }}</div>
+                    </td>
+                </tr>
+            </table>
+        </div>
     </div>
 </body>
 

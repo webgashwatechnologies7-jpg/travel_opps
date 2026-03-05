@@ -3689,9 +3689,8 @@ const LeadDetails = () => {
 
   // Download PDF with both options – single button above cards (black box area)
   const handleDownloadAllOptionsPdf = async () => {
-    const first = visibleProposals[0];
     if (!first) {
-      showToastNotification('warning', 'No Proposal', 'Koi proposal nahi hai. Pehle itinerary add karein.');
+      showToastNotification('warning', 'No Proposal', 'No proposal found. Please add an itinerary first.');
       return;
     }
     try {
@@ -3714,7 +3713,7 @@ const LeadDetails = () => {
       await handleDownloadSingleOptionPdf(optionToDownload, qData, first.itinerary_id || null);
     } catch (err) {
       console.error('Download PDF failed:', err);
-      showToastNotification('error', 'Download Failed', 'PDF download nahi ho paya. ' + (err?.message || ''));
+      showToastNotification('error', 'Download Failed', 'Failed to download PDF. ' + (err?.message || ''));
     }
   };
 
@@ -3723,15 +3722,15 @@ const LeadDetails = () => {
     setSendAllDropdownOpen(false);
     const first = visibleProposals[0];
     if (!first) {
-      showToastNotification('warning', 'No Proposal', 'Koi proposal nahi hai. Pehle itinerary add karein.');
+      showToastNotification('warning', 'No Proposal', 'No proposal found. Please add an itinerary first.');
       return;
     }
     if ((channel === 'email' || channel === 'both') && !lead?.email) {
-      showToastNotification('warning', 'Email Required', 'Customer email required. Lead mein email add karein.');
+      showToastNotification('warning', 'Email Required', 'Customer email required. Please add an email to the lead.');
       return;
     }
     if ((channel === 'whatsapp' || channel === 'both') && !lead?.phone) {
-      showToastNotification('warning', 'Phone Required', 'Customer phone required for WhatsApp. Lead mein phone add karein.');
+      showToastNotification('warning', 'Phone Required', 'Customer phone required for WhatsApp. Please add a phone number to the lead.');
       return;
     }
     setSendingOptionChannel(channel);
@@ -3754,7 +3753,7 @@ const LeadDetails = () => {
       if (channel === 'whatsapp' || channel === 'both') await handleSendWhatsApp(optionToSend, qData);
     } catch (err) {
       console.error('Send failed:', err);
-      showToastNotification('error', 'Send Failed', 'Send nahi ho paya. ' + (err?.message || ''));
+      showToastNotification('error', 'Send Failed', 'Failed to send. ' + (err?.message || ''));
     } finally {
       setSendingOptionChannel(null);
     }
@@ -4614,7 +4613,7 @@ const LeadDetails = () => {
                                     onClick={handleDownloadAllOptionsPdf}
                                     disabled={!visibleProposals.length}
                                     className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-semibold text-white bg-purple-600 hover:bg-purple-700 rounded-lg border border-purple-700 transition-colors disabled:opacity-50"
-                                    title="Dono options ka ek PDF download karein"
+                                    title="Download a single PDF for both options"
                                   >
                                     <Download className="h-4 w-4" />
                                     Download PDF

@@ -791,25 +791,25 @@ const CompanyManagement = () => {
                 <div className="bg-white bg-opacity-20 rounded-full p-2">
                   <Trash2 className="w-5 h-5 text-white" />
                 </div>
-                <h2 className="text-xl font-bold text-white">Company Delete Karo</h2>
+                <h2 className="text-xl font-bold text-white">Delete Company</h2>
               </div>
 
               {/* Body */}
               <div className="px-6 py-5">
                 <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
-                  <p className="text-red-800 font-semibold text-sm mb-1">⚠️ Yeh action permanent hai aur undo nahi hogi!</p>
-                  <p className="text-red-700 text-sm">Neeche diye sare data permanently delete ho jayenge:</p>
+                  <p className="text-red-800 font-semibold text-sm mb-1">⚠️ This action is permanent and cannot be undone!</p>
+                  <p className="text-red-700 text-sm">The following data will be permanently deleted:</p>
                   <ul className="text-red-700 text-sm mt-2 space-y-1 list-disc list-inside">
-                    <li>Sare Users &amp; Permissions</li>
-                    <li>Sare Leads &amp; Itineraries</li>
-                    <li>WhatsApp Chats &amp; Messages</li>
+                    <li>All Users & Permissions</li>
+                    <li>All Leads & Itineraries</li>
+                    <li>WhatsApp Chats & Messages</li>
                     <li>Tickets, Branches, Services</li>
-                    <li>Company Settings &amp; Data</li>
+                    <li>Company Settings & Data</li>
                   </ul>
                 </div>
 
                 <div className="mb-4">
-                  <p className="text-gray-700 text-sm mb-1">Aap yeh company delete karne wale hain:</p>
+                  <p className="text-gray-700 text-sm mb-1">You are about to delete this company:</p>
                   <div className="bg-gray-100 rounded-lg px-4 py-3">
                     <p className="font-bold text-gray-900 text-lg">{deleteTarget.name}</p>
                     <p className="text-gray-500 text-sm">{deleteTarget.email || deleteTarget.domain}</p>
@@ -837,7 +837,7 @@ const CompanyManagement = () => {
                     ) : (
                       <>
                         <Trash2 className="w-4 h-4" />
-                        Haan, Delete Karo
+                        Yes, Delete It
                       </>
                     )}
                   </button>

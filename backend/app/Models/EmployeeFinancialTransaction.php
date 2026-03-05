@@ -34,8 +34,8 @@ class EmployeeFinancialTransaction extends Model
         'updated_at' => 'datetime',
     ];
 
-    public const TYPE_PAYABLE = 'payable';   // Company owes employee (kitna dena)
-    public const TYPE_RECEIVABLE = 'receivable'; // Employee owes company (kitna lena)
+    public const TYPE_PAYABLE = 'payable';   // Company owes employee (total payables)
+    public const TYPE_RECEIVABLE = 'receivable'; // Employee owes company (total receivables)
 
     public const STATUS_PENDING = 'pending';
     public const STATUS_PARTIAL = 'partial';

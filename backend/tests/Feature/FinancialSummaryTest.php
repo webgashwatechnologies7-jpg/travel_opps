@@ -13,6 +13,7 @@ use Tests\TestCase;
 class FinancialSummaryTest extends TestCase
 {
     use RefreshDatabase;
+    protected $user;
 
     protected function setUp(): void
     {
@@ -30,10 +31,10 @@ class FinancialSummaryTest extends TestCase
                 'data' => [
                     'period',
                     'date_range' => ['start_date', 'end_date'],
-                    'summary' => ['kitna_dena', 'kitna_lena', 'balance'],
+                    'summary' => ['payables', 'receivables', 'balance'],
                     'breakdown' => [
-                        'dena' => ['employees', 'suppliers', 'total'],
-                        'lena' => ['employees', 'suppliers', 'clients_pending', 'total'],
+                        'payables' => ['employees', 'suppliers', 'total'],
+                        'receivables' => ['employees', 'suppliers', 'clients_pending', 'total'],
                     ],
                 ],
             ])
@@ -49,7 +50,7 @@ class FinancialSummaryTest extends TestCase
                 'data' => [
                     'employee' => ['id', 'name', 'email'],
                     'period',
-                    'financial_summary' => ['profit', 'loss', 'dena', 'lena', 'summary'],
+                    'financial_summary' => ['profit', 'loss', 'payables', 'receivables', 'summary'],
                 ],
             ])
             ->assertJson(['success' => true]);

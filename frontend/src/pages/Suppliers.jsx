@@ -690,7 +690,7 @@ const Suppliers = () => {
                         Financial Summary
                       </h3>
                       <p className="text-xs text-gray-500">
-                        Kitna business hua, kitna dena / lena hai
+                        Business overview, payables and receivables
                       </p>
                     </div>
                     <div className="flex items-center gap-2">
@@ -804,26 +804,26 @@ const Suppliers = () => {
                           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                             <div>
                               <p className="text-xs font-semibold text-orange-700 uppercase tracking-wide">
-                                Kitna Dena (Payables)
+                                Total Payables
                               </p>
                               <p className="mt-1 text-lg font-bold text-orange-900">
-                                ₹ {financialSummary.dena.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                ₹ {(financialSummary?.payables || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                               </p>
                             </div>
                             <div>
                               <p className="text-xs font-semibold text-emerald-700 uppercase tracking-wide">
-                                Kitna Lena (Receivables)
+                                Total Receivables
                               </p>
                               <p className="mt-1 text-lg font-bold text-emerald-900">
-                                ₹ {financialSummary.lena.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                ₹ {(financialSummary?.receivables || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                               </p>
                             </div>
                             <div>
                               <p className="text-xs font-semibold text-indigo-700 uppercase tracking-wide">
-                                Balance (Lena - Dena)
+                                Net Balance (Receivables - Payables)
                               </p>
                               <p className="mt-1 text-lg font-bold text-indigo-900">
-                                ₹ {financialSummary.summary.balance.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                ₹ {(financialSummary?.summary?.balance || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                               </p>
                             </div>
                           </div>
