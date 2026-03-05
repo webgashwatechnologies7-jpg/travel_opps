@@ -110,7 +110,9 @@ module.exports = (sock, sessionName, pool) => {
                             try {
                                 const buffer = await downloadMediaMessage({ message: inner, key: msg.key }, 'buffer', {}, { logger: console, reuploadRequest: sock.updateMediaMessage });
                                 const fileName = `${msg.key.id}${ext}`;
-                                const filePath = path.join(__dirname, 'media', fileName);
+                                const mediaDir = path.join(__dirname, 'media');
+                                if (!fs.existsSync(mediaDir)) fs.mkdirSync(mediaDir, { recursive: true });
+                                const filePath = path.join(mediaDir, fileName);
                                 await writeFile(filePath, buffer);
                                 mediaUrl = `${process.env.NODE_SERVER_URL || 'http://localhost:3001'}/media/${fileName}`;
                                 mediaType = messageType.replace('Message', '');
