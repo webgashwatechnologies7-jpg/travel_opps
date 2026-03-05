@@ -125,20 +125,68 @@ class WhatsAppChatController extends Controller
     {
         $user = auth()->user();
         $chatId = $request->query('chat_id');
-        $limit = $request->query('limit', 50);
+        $limit = $request->query('limit', 100);
         $offset = $request->query('offset', 0);
 
         if (!$chatId) {
             return response()->json(['success' => false, 'message' => 'chat_id is required'], 400);
         }
 
-        // Find the primary chat
-        $chat = DB::table('whatsapp_chats')
+        // Extract last 10 digits of phone for fuzzy matching
+        $phoneRaw = explode('@', $chatId)[0];
+        $last10 = strlen($phoneRaw) >= 10 ? substr($phoneRaw, -10) : $phoneRaw;
+
+        $allChatIds = [];
+        $leadId = null;
+
+        // Step 1: Exact chat_id match
+        $primaryChat = DB::table('whatsapp_chats')
             ->where('chat_id', $chatId)
             ->where('company_id', $user->company_id)
             ->first();
 
-        if (!$chat) {
+        if ($primaryChat) {
+            $allChatIds[] = $primaryChat->id;
+            $leadId = $primaryChat->lead_id;
+        }
+
+        // Step 2: All chats linked to same lead
+        if ($leadId) {
+            $relatedByLead = DB::table('whatsapp_chats')
+                ->where('lead_id', $leadId)
+                ->where('company_id', $user->company_id)
+                ->pluck('id')->toArray();
+            $allChatIds = array_unique(array_merge($allChatIds, $relatedByLead));
+        }
+
+        // Step 3: Match by phone number (last 10 digits) in chat_id column
+        // This catches replies from @lid or alternate JIDs of same person
+        if (strlen($last10) >= 10) {
+            $phoneMatched = DB::table('whatsapp_chats')
+                ->where('company_id', $user->company_id)
+                ->where('chat_id', 'LIKE', '%' . $last10 . '%')
+                ->pluck('id')->toArray();
+            $allChatIds = array_unique(array_merge($allChatIds, $phoneMatched));
+
+            // Also pull lead_id from phone-matched chats if not found yet
+            if (!$leadId) {
+                $chatWithLead = DB::table('whatsapp_chats')
+                    ->where('company_id', $user->company_id)
+                    ->where('chat_id', 'LIKE', '%' . $last10 . '%')
+                    ->whereNotNull('lead_id')
+                    ->first();
+                if ($chatWithLead) {
+                    $leadId = $chatWithLead->lead_id;
+                    $moreChatIds = DB::table('whatsapp_chats')
+                        ->where('lead_id', $leadId)
+                        ->where('company_id', $user->company_id)
+                        ->pluck('id')->toArray();
+                    $allChatIds = array_unique(array_merge($allChatIds, $moreChatIds));
+                }
+            }
+        }
+
+        if (empty($allChatIds)) {
             return response()->json([
                 'success' => true,
                 'data' => [],
@@ -146,38 +194,23 @@ class WhatsAppChatController extends Controller
             ]);
         }
 
-        // Collect all chat IDs to fetch messages from
-        $chatIds = [$chat->id];
-
-        if ($chat->lead_id) {
-            $relatedChats = DB::table('whatsapp_chats')
-                ->where('lead_id', $chat->lead_id)
-                ->where('company_id', $user->company_id)
-                ->where('id', '!=', $chat->id)
-                ->pluck('id');
-
-            foreach ($relatedChats as $relChatId) {
-                $chatIds[] = $relChatId;
-            }
-        }
-
-        // Fetch messages with pagination
+        // Fetch all messages from every matched chat, sorted oldest first
         $messages = DB::table('whatsapp_messages')
-            ->whereIn('whatsapp_chat_id', $chatIds)
-            ->orderBy('created_at', 'desc')
-            ->orderBy('id', 'desc') // Added stable ordering
+            ->whereIn('whatsapp_chat_id', $allChatIds)
+            ->orderBy('created_at', 'asc')
+            ->orderBy('id', 'asc')
             ->limit($limit)
             ->offset($offset)
             ->get();
 
-        // Unique by whatsapp_message_id and re-sort ASC
-        $uniqueMessages = $messages->unique('whatsapp_message_id')->reverse()->values();
+        // Deduplicate
+        $uniqueMessages = $messages->unique('whatsapp_message_id')->values();
 
         return response()->json([
             'success' => true,
             'data' => $uniqueMessages,
             'chat_exists' => true,
-            'lead_id' => $chat->lead_id
+            'lead_id' => $leadId
         ]);
     }
 
@@ -347,12 +380,12 @@ class WhatsAppChatController extends Controller
                     file_get_contents($request->file('file')),
                     $request->file('file')->getClientOriginalName()
                 )->post("{$this->nodeServerUrl}/api/message/send-media", [
-                            'userId' => $user->id,
-                            'companyId' => $user->company_id,
-                            'to' => $chatId,
-                            'caption' => $caption,
-                            'type' => $type
-                        ]);
+                        'userId' => $user->id,
+                        'companyId' => $user->company_id,
+                        'to' => $chatId,
+                        'caption' => $caption,
+                        'type' => $type
+                    ]);
 
             if ($response->successful()) {
                 $nodeData = $response->json();
