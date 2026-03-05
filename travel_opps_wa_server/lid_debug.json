@@ -1,0 +1,26 @@
+{
+  "key": {
+    "remoteJid": "209439852363800@lid",
+    "remoteJidAlt": "918219074486@s.whatsapp.net",
+    "fromMe": false,
+    "id": "ACD66983DACF84552B77BFCE14729EFF",
+    "participant": "",
+    "addressingMode": "lid"
+  },
+  "messageTimestamp": 1772701763,
+  "pushName": "Rahul Sharma",
+  "broadcast": false,
+  "message": {
+    "conversation": "Hyy",
+    "messageContextInfo": {
+      "deviceListMetadata": {
+        "senderKeyHash": "uhc3S/garSFuyA==",
+        "senderTimestamp": "1771928567",
+        "recipientKeyHash": "3WV/ExT8/wveFg==",
+        "recipientTimestamp": "1772691369"
+      },
+      "deviceListMetadataVersion": 2,
+      "messageSecret": "iJp/xL5/OVmC6+ZQx3aKFsR3Q9ri3tpOWxYEdus/Gds="
+    }
+  }
+}

@@ -1301,12 +1301,7 @@ const LeadDetails = () => {
     }
   };
 
-  // Auto-refresh WhatsApp when tab active
-  useEffect(() => {
-    if (activeTab !== 'whatsapp' || !id) return;
-    const iv = setInterval(fetchWhatsAppMessages, 60000);
-    return () => clearInterval(iv);
-  }, [activeTab, id]);
+  // Duplicate interval removed - 15s interval above handles auto-refresh
 
   // Generate email body with enquiry details
   const generateEmailBody = () => {

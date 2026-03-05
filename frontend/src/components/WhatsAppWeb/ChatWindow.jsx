@@ -39,11 +39,11 @@ const ChatWindow = ({ chat, messages, onSendMessage, onSendMedia, isTyping, isSe
 
     // Intelligent Scroll State
     const scrollContainerRef = useRef(null);
-    const [isAutoScrollEnabled, setIsAutoScrollEnabled] = useState(true);
-    const lastScrollTop = useRef(0);
+    const [isUserScrolledUp, setIsUserScrolledUp] = useState(false);
+    const lastMessageCountRef = useRef(0);
 
     const scrollToBottom = (force = false) => {
-        if ((isAutoScrollEnabled || force) && messagesEndRef.current) {
+        if ((!isUserScrolledUp || force) && messagesEndRef.current) {
             messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
         }
     };
@@ -51,24 +51,24 @@ const ChatWindow = ({ chat, messages, onSendMessage, onSendMedia, isTyping, isSe
     // Detect user scroll action
     const handleScroll = (e) => {
         const { scrollTop, scrollHeight, clientHeight } = e.target;
-        // Check if user is near bottom (within 50px - much tighter)
-        const isAtBottom = scrollHeight - scrollTop - clientHeight < 50;
-
-        if (isAtBottom && !isAutoScrollEnabled) {
-            setIsAutoScrollEnabled(true);
-        } else if (!isAtBottom && isAutoScrollEnabled) {
-            setIsAutoScrollEnabled(false);
-        }
-
-        lastScrollTop.current = scrollTop;
+        const isAtBottom = scrollHeight - scrollTop - clientHeight < 80;
+        setIsUserScrolledUp(!isAtBottom);
     };
 
     useEffect(() => {
-        // Only auto-scroll to bottom if enabled and NOT currently highlighting a message
-        if (messages.length > 0 && isAutoScrollEnabled) {
-            scrollToBottom();
+        const currentCount = messages.length;
+        const prevCount = lastMessageCountRef.current;
+
+        // Only scroll if this is a new message arriving (count increased)
+        // NOT on interval refresh which keeps same count
+        if (currentCount > prevCount) {
+            if (!isUserScrolledUp || prevCount === 0) {
+                // Auto scroll only if user is at bottom OR it's first load
+                scrollToBottom();
+            }
         }
-    }, [messages]); // Remove isAutoScrollEnabled from dependencies to avoid loop
+        lastMessageCountRef.current = currentCount;
+    }, [messages.length]); // Only trigger on count change, NOT full array reference
 
     // Close menus on outside click
     useEffect(() => {
@@ -137,9 +137,42 @@ const ChatWindow = ({ chat, messages, onSendMessage, onSendMedia, isTyping, isSe
 
     const formatTime = (dateStr) => {
         try {
-            return new Date(dateStr).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            if (!dateStr) return '';
+            // Server stores UTC time - parse correctly
+            // If no 'Z' or offset, treat as UTC (add Z)
+            const normalized = dateStr.includes('T')
+                ? (dateStr.endsWith('Z') || dateStr.includes('+') ? dateStr : dateStr + 'Z')
+                : dateStr.replace(' ', 'T') + 'Z';
+            return new Date(normalized).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
         } catch {
             return '';
+        }
+    };
+
+    const formatDateLabel = (dateStr) => {
+        try {
+            if (!dateStr) return '';
+            const normalized = dateStr.includes('T')
+                ? (dateStr.endsWith('Z') || dateStr.includes('+') ? dateStr : dateStr + 'Z')
+                : dateStr.replace(' ', 'T') + 'Z';
+            const d = new Date(normalized);
+            const today = new Date();
+            const yesterday = new Date(today);
+            yesterday.setDate(today.getDate() - 1);
+            if (d.toDateString() === today.toDateString()) return 'Today';
+            if (d.toDateString() === yesterday.toDateString()) return 'Yesterday';
+            return d.toLocaleDateString();
+        } catch {
+            return '';
+        }
+    };
+
+    const isSameDay = (dateStr1, dateStr2) => {
+        try {
+            const norm = (s) => s.includes('T') ? (s.endsWith('Z') || s.includes('+') ? s : s + 'Z') : s.replace(' ', 'T') + 'Z';
+            return new Date(norm(dateStr1)).toDateString() === new Date(norm(dateStr2)).toDateString();
+        } catch {
+            return false;
         }
     };
 
@@ -292,7 +325,7 @@ const ChatWindow = ({ chat, messages, onSendMessage, onSendMedia, isTyping, isSe
 
         // Separators
         const showDateSeparator = index === 0 ||
-            new Date(messagesList[index - 1].created_at).toDateString() !== new Date(msg.created_at).toDateString();
+            !isSameDay(messagesList[index - 1].created_at, msg.created_at);
 
         const showUnreadDivider = msg.direction === 'inbound' && msg.status !== 'read' &&
             (index === 0 || messagesList[index - 1].status === 'read' || messagesList[index - 1].direction === 'outbound');
@@ -354,9 +387,7 @@ const ChatWindow = ({ chat, messages, onSendMessage, onSendMedia, isTyping, isSe
                     {showDateSeparator && (
                         <div className="flex justify-center my-4">
                             <span className="px-3 py-1 bg-[#202c33] text-[#8696a0] text-[11px] rounded-lg shadow font-medium uppercase tracking-wider">
-                                {new Date(msg.created_at).toDateString() === new Date().toDateString() ? 'Today' :
-                                    new Date(msg.created_at).toDateString() === new Date(Date.now() - 86400000).toDateString() ? 'Yesterday' :
-                                        new Date(msg.created_at).toLocaleDateString()}
+                                {formatDateLabel(msg.created_at)}
                             </span>
                         </div>
                     )}
@@ -377,9 +408,7 @@ const ChatWindow = ({ chat, messages, onSendMessage, onSendMedia, isTyping, isSe
                 {showDateSeparator && (
                     <div className="flex justify-center my-4 sticky top-0 z-20">
                         <span className="px-3 py-1.5 bg-[#182229] text-[#8696a0] text-[12px] rounded-[8px] shadow-sm font-medium uppercase tracking-tight border border-white/5">
-                            {new Date(msg.created_at).toDateString() === new Date().toDateString() ? 'Today' :
-                                new Date(msg.created_at).toDateString() === new Date(Date.now() - 86400000).toDateString() ? 'Yesterday' :
-                                    new Date(msg.created_at).toLocaleDateString()}
+                            {formatDateLabel(msg.created_at)}
                         </span>
                     </div>
                 )}
