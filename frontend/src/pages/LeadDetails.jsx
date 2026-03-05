@@ -1228,7 +1228,7 @@ const LeadDetails = () => {
       const phoneStr = lead.phone.replace(/\D/g, '');
       const chatId = phoneStr.length <= 10 ? `91${phoneStr}@s.whatsapp.net` : `${phoneStr}@s.whatsapp.net`;
 
-      const response = await whatsappWebAPI.getMessages(chatId);
+      const response = await whatsappWebAPI.getMessages(chatId, id); // pass lead id
       if (response?.data?.success && response?.data?.data) {
         setWhatsappMessages(response.data.data);
       }
@@ -1285,7 +1285,8 @@ const LeadDetails = () => {
       } else {
         const res = await whatsappWebAPI.sendMessage({
           chat_id: chatId,
-          message: inputMsg
+          message: inputMsg,
+          lead_id: id
         });
         if (res?.data?.success) {
           if (!text) setWhatsappInput('');

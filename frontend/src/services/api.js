@@ -275,7 +275,7 @@ export const whatsappWebAPI = {
   getQrCode: () => api.get('/whatsapp-web/qr'),
   logout: () => api.post('/whatsapp-web/logout'),
   getChats: () => api.get('/whatsapp-web/chats'),
-  getMessages: (chatId) => api.get(`/whatsapp-web/messages`, { params: { chat_id: chatId } }),
+  getMessages: (chatId, leadId = null) => api.get(`/whatsapp-web/messages`, { params: { chat_id: chatId, ...(leadId ? { lead_id: leadId } : {}) } }),
   getChatMessages: (chatId) => api.get(`/whatsapp-web/messages`, { params: { chat_id: chatId } }),
   sendMessage: (data) => api.post('/whatsapp-web/messages/send', data),
   sendMedia: (data) => {

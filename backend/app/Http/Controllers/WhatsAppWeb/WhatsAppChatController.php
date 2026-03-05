@@ -125,6 +125,7 @@ class WhatsAppChatController extends Controller
     {
         $user = auth()->user();
         $chatId = $request->query('chat_id');
+        $requestLeadId = $request->query('lead_id'); // Frontend can pass lead_id directly
         $limit = $request->query('limit', 100);
         $offset = $request->query('offset', 0);
 
@@ -137,7 +138,25 @@ class WhatsAppChatController extends Controller
         $last10 = strlen($phoneRaw) >= 10 ? substr($phoneRaw, -10) : $phoneRaw;
 
         $allChatIds = [];
-        $leadId = null;
+        $leadId = $requestLeadId ? (int) $requestLeadId : null;
+
+        // Step 0: If lead_id passed from frontend, get ALL chats for that lead immediately
+        if ($leadId) {
+            $byLead = DB::table('whatsapp_chats')
+                ->where('lead_id', $leadId)
+                ->where('company_id', $user->company_id)
+                ->pluck('id')->toArray();
+            $allChatIds = array_unique(array_merge($allChatIds, $byLead));
+
+            // Also update any chats found by phone to link them to this lead
+            if (strlen($last10) >= 10) {
+                DB::table('whatsapp_chats')
+                    ->where('company_id', $user->company_id)
+                    ->where('chat_id', 'LIKE', '%' . $last10 . '%')
+                    ->whereNull('lead_id')
+                    ->update(['lead_id' => $leadId]);
+            }
+        }
 
         // Step 1: Exact chat_id match
         $primaryChat = DB::table('whatsapp_chats')
@@ -147,7 +166,12 @@ class WhatsAppChatController extends Controller
 
         if ($primaryChat) {
             $allChatIds[] = $primaryChat->id;
-            $leadId = $primaryChat->lead_id;
+            if (!$leadId)
+                $leadId = $primaryChat->lead_id;
+            // If chat has no lead_id but we got one from request, update it
+            if ($requestLeadId && !$primaryChat->lead_id) {
+                DB::table('whatsapp_chats')->where('id', $primaryChat->id)->update(['lead_id' => $requestLeadId]);
+            }
         }
 
         // Step 2: All chats linked to same lead
@@ -160,7 +184,6 @@ class WhatsAppChatController extends Controller
         }
 
         // Step 3: Match by phone number (last 10 digits) in chat_id column
-        // This catches replies from @lid or alternate JIDs of same person
         if (strlen($last10) >= 10) {
             $phoneMatched = DB::table('whatsapp_chats')
                 ->where('company_id', $user->company_id)
@@ -168,7 +191,6 @@ class WhatsAppChatController extends Controller
                 ->pluck('id')->toArray();
             $allChatIds = array_unique(array_merge($allChatIds, $phoneMatched));
 
-            // Also pull lead_id from phone-matched chats if not found yet
             if (!$leadId) {
                 $chatWithLead = DB::table('whatsapp_chats')
                     ->where('company_id', $user->company_id)
@@ -223,6 +245,8 @@ class WhatsAppChatController extends Controller
             'message' => 'required|string'
         ]);
 
+        $requestedLeadId = $request->lead_id;
+
         $chatId = $request->chat_id;
         $messageBody = $request->message;
         $quotedMessageId = $request->quoted_message_id;
@@ -235,30 +259,38 @@ class WhatsAppChatController extends Controller
             ->first();
 
         if (!$chat) {
-            // Find lead by phone
-            $phone = explode('@', $chatId)[0];
-            if (strlen($phone) > 10 && str_starts_with($phone, '91')) {
-                $phone = substr($phone, 2);
+            // Find lead: first use lead_id from request, else search by phone
+            $resolvedLeadId = $requestedLeadId;
+            if (!$resolvedLeadId) {
+                $phone = explode('@', $chatId)[0];
+                if (strlen($phone) > 10 && str_starts_with($phone, '91')) {
+                    $phone = substr($phone, 2);
+                }
+                $lead = DB::table('leads')
+                    ->where('company_id', $user->company_id)
+                    ->whereNull('deleted_at')
+                    ->where(function ($q) use ($phone) {
+                        $q->where('phone', 'like', "%{$phone}%")
+                            ->orWhere('phone_secondary', 'like', "%{$phone}%");
+                    })->first();
+                $resolvedLeadId = $lead ? $lead->id : null;
             }
-            $lead = DB::table('leads')
-                ->where('company_id', $user->company_id)
-                ->whereNull('deleted_at')
-                ->where(function ($q) use ($phone) {
-                    $q->where('phone', 'like', "%{$phone}%")
-                        ->orWhere('phone_secondary', 'like', "%{$phone}%");
-                })->first();
 
             $chatId_inserted = DB::table('whatsapp_chats')->insertGetId([
                 'company_id' => $user->company_id,
                 'user_id' => $user->id,
                 'chat_id' => $chatId,
-                'lead_id' => $lead ? $lead->id : null,
+                'lead_id' => $resolvedLeadId,
                 'last_message_at' => now(),
                 'created_at' => now(),
                 'updated_at' => now()
             ]);
             $whatsapp_chat_id = $chatId_inserted;
         } else {
+            // Update lead_id if chat exists but lead_id is null
+            if ($requestedLeadId && !$chat->lead_id) {
+                DB::table('whatsapp_chats')->where('id', $chat->id)->update(['lead_id' => $requestedLeadId]);
+            }
             $whatsapp_chat_id = $chat->id;
         }
 
