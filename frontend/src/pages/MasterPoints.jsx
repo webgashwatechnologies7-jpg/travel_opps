@@ -68,8 +68,8 @@ const MasterPoints = () => {
         try {
             await masterPointsAPI.delete(id);
             fetchPoints();
-        } catch (err) {
-            alert('Failed to delete');
+        } catch (error) {
+            toast.error('Failed to delete');
         }
     };
 

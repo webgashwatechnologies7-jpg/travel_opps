@@ -78,10 +78,10 @@ const MarketingTemplates = () => {
       if (res.data?.success) {
         setTemplates(templates.filter(t => t.id !== id));
       } else {
-        alert(res.data?.message || 'Failed to delete');
+        toast.error(res.data?.message || 'Failed to delete');
       }
     } catch (err) {
-      alert(err.response?.data?.message || 'Error deleting template');
+      toast.error(err.response?.data?.message || 'Error deleting template');
     }
   };
 
@@ -186,8 +186,8 @@ const MarketingTemplates = () => {
                 <div className="p-6">
                   <div className="flex items-center justify-between mb-4">
                     <div className={`p-2 rounded-full ${template.type === 'email' ? 'bg-blue-100' :
-                        template.type === 'sms' ? 'bg-green-100' :
-                          'bg-purple-100'
+                      template.type === 'sms' ? 'bg-green-100' :
+                        'bg-purple-100'
                       }`}>
                       {template.type === 'email' ?
                         <Mail className="w-5 h-5 text-blue-600" /> :

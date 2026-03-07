@@ -3550,7 +3550,6 @@ const LeadDetails = () => {
         throw new Error(createRes.data.message || 'Failed to create quotation record');
       }
       const quotationId = createRes.data.data.quotation.id;
-      console.log('Quotation Created ID:', quotationId);
 
       // 2. Download the PDF
       const downloadRes = await quotationsAPI.download(quotationId);

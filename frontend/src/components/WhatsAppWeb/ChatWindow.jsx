@@ -318,7 +318,6 @@ const ChatWindow = ({ chat, messages, onSendMessage, onSendMedia, isTyping, isSe
             }, 2000);
         } else {
             toast.error("Original message not found in history");
-            console.log("Message element not found for:", { messageId, fallbackText });
         }
     };
 
