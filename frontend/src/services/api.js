@@ -277,6 +277,7 @@ export const whatsappWebAPI = {
   getChats: () => api.get('/whatsapp-web/chats'),
   getMessages: (chatId, leadId = null) => api.get(`/whatsapp-web/messages`, { params: { chat_id: chatId, ...(leadId ? { lead_id: leadId } : {}) } }),
   getChatMessages: (chatId) => api.get(`/whatsapp-web/messages`, { params: { chat_id: chatId } }),
+  getProfilePicture: (jid) => api.get('/whatsapp-web/profile-picture', { params: { jid } }),
   sendMessage: (data) => api.post('/whatsapp-web/messages/send', data),
   sendMedia: (data) => {
     const formData = new FormData();
@@ -284,12 +285,16 @@ export const whatsappWebAPI = {
     formData.append('file', data.file);
     if (data.caption) formData.append('caption', data.caption);
     if (data.type) formData.append('type', data.type);
+    if (data.quoted_message_id) formData.append('quoted_message_id', data.quoted_message_id);
+    if (data.quoted_text) formData.append('quoted_text', data.quoted_text);
     return api.post('/whatsapp-web/messages/send-media', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     });
   },
   markAsRead: (chatId) => api.post(`/whatsapp-web/chats/${chatId}/read`),
   sendReaction: (data) => api.post('/whatsapp-web/messages/react', data),
+  pinMessage: (data) => api.post('/whatsapp-web/messages/pin', data),
+  starMessage: (data) => api.post('/whatsapp-web/messages/star', data),
   createGroup: (data) => api.post('/whatsapp-web/groups/create', data),
 };
 

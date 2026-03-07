@@ -158,3 +158,13 @@ body {
 .Toastify__close-button:hover {
   opacity: 1 !important;
 }
+
+@keyframes highlight-blink {
+  0% { background-color: rgba(255, 235, 59, 0.4); }
+  50% { background-color: rgba(255, 235, 59, 0.2); }
+  100% { background-color: transparent; }
+}
+
+.highlight-blink {
+  animation: highlight-blink 2s ease-in-out forwards;
+}

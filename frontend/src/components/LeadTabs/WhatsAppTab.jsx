@@ -13,6 +13,7 @@ const WhatsAppTab = memo(({
     fetchWhatsAppMessages,
     handleSendWhatsAppFromTab,
     loadingMessages,
+    profilePicUrl,
 }) => {
     // Determine JID format
     let phone = lead?.phone ? lead.phone.replace(/\D/g, '') : '';
@@ -20,7 +21,8 @@ const WhatsAppTab = memo(({
     const jid = phone ? phone + '@s.whatsapp.net' : 'No Phone Number';
 
     const chat = {
-        chat_id: lead?.client_name ? `${lead.client_name} (${phone})` : jid,
+        chat_id: jid,
+        chat_name: lead?.client_name ? `${lead.client_name} (${phone})` : jid,
         status: 'connected'
     };
 
@@ -37,11 +39,13 @@ const WhatsAppTab = memo(({
                     <ChatWindow
                         chat={chat}
                         messages={whatsappMessages}
-                        onSendMessage={(text) => handleSendWhatsAppFromTab(text, null)}
-                        onSendMedia={(file) => handleSendWhatsAppFromTab('', file)}
+                        onSendMessage={(text, quotedId, quotedPreview) => handleSendWhatsAppFromTab(text, null, quotedId, quotedPreview)}
+                        onSendMedia={(file, quotedId, quotedPreview) => handleSendWhatsAppFromTab('', file, quotedId, quotedPreview)}
                         isSending={sendingWhatsapp}
                         isTyping={false}
                         loadingMessages={loadingMessages}
+                        profilePicUrl={profilePicUrl}
+                        onRefresh={fetchWhatsAppMessages}
                     />
                 )}
             </div>

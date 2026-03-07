@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 class WhatsAppChatController extends Controller
 {
@@ -22,11 +23,12 @@ class WhatsAppChatController extends Controller
     {
         $user = auth()->user();
 
-        // Subquery to get the latest chat_id for each lead_id
-        // Filter out NULL lead_id from grouping so they stay unique
+        $effectiveCompanyId = $user->company_id ?: config('tenant.id');
+        $subordinateIds = $user->getAllSubordinateIds();
+
         $chats = DB::table('whatsapp_chats')
-            ->where('whatsapp_chats.company_id', $user->company_id)
-            ->where('whatsapp_chats.user_id', $user->id)
+            ->where('whatsapp_chats.company_id', $effectiveCompanyId)
+            ->whereIn('whatsapp_chats.user_id', $subordinateIds)
             ->leftJoin('leads', function ($join) {
                 $join->on('whatsapp_chats.lead_id', '=', 'leads.id')
                     ->whereNull('leads.deleted_at');
@@ -38,7 +40,18 @@ class WhatsAppChatController extends Controller
             ->orderBy('whatsapp_chats.last_message_at', 'desc')
             ->get();
 
-        // Deduplicate in PHP to avoid complex grouping with NULLs
+        $chatIds = $chats->pluck('id')->toArray();
+        $lastMsgs = DB::table('whatsapp_messages')
+            ->whereIn('whatsapp_chat_id', $chatIds)
+            ->whereIn('id', function ($query) use ($chatIds) {
+                $query->select(DB::raw('MAX(id)'))
+                    ->from('whatsapp_messages')
+                    ->whereIn('whatsapp_chat_id', $chatIds)
+                    ->groupBy('whatsapp_chat_id');
+            })
+            ->get()
+            ->keyBy('whatsapp_chat_id');
+
         $uniqueChats = [];
         $seenLeads = [];
         $seenJids = [];
@@ -54,16 +67,10 @@ class WhatsAppChatController extends Controller
                 $seenJids[] = $chat->chat_id;
             }
 
-            // Fetch last message details
-            $lastMsg = DB::table('whatsapp_messages')
-                ->where('whatsapp_chat_id', $chat->id)
-                ->orderBy('created_at', 'desc')
-                ->first();
-
+            $lastMsg = $lastMsgs->get($chat->id);
             $chat->last_message_body = $lastMsg ? $lastMsg->message : null;
             $chat->last_message_status = $lastMsg ? $lastMsg->status : null;
 
-            // Format phone for display if NO lead name
             if (!$chat->chat_name) {
                 $phone = explode('@', $chat->chat_id)[0];
                 if (strlen($phone) > 10 && str_starts_with($phone, '91')) {
@@ -88,10 +95,11 @@ class WhatsAppChatController extends Controller
         $limit = $request->query('limit', 50);
         $offset = $request->query('offset', 0);
         $user = auth()->user();
+        $effectiveCompanyId = $user->company_id ?: config('tenant.id');
 
         $chat = DB::table('whatsapp_chats')
             ->where('chat_id', $chatId)
-            ->where('company_id', $user->company_id)
+            ->where('company_id', $effectiveCompanyId)
             ->first();
 
         if (!$chat) {
@@ -100,9 +108,16 @@ class WhatsAppChatController extends Controller
                 'data' => []
             ]);
         }
+        $chatIds = [$chat->id];
+        if ($chat->lead_id) {
+            $chatIds = DB::table('whatsapp_chats')
+                ->where('lead_id', $chat->lead_id)
+                ->pluck('id')
+                ->toArray();
+        }
 
         $messages = DB::table('whatsapp_messages')
-            ->where('whatsapp_chat_id', $chat->id)
+            ->whereIn('whatsapp_chat_id', $chatIds)
             ->orderBy('created_at', 'desc')
             ->orderBy('id', 'desc') // Added stable ordering
             ->limit($limit)
@@ -117,6 +132,38 @@ class WhatsAppChatController extends Controller
     }
 
     /**
+     * Get WhatsApp contact profile picture
+     */
+    public function getProfilePicture(Request $request)
+    {
+        $user = auth()->user();
+        $jid = $request->query('jid');
+
+        if (!$jid) {
+            return response()->json(['success' => false, 'url' => null]);
+        }
+
+        $effectiveCompanyId = $user->company_id ?: config('tenant.id');
+
+        try {
+            $response = Http::withHeaders(['x-api-key' => $this->apiKey])
+                ->get("{$this->nodeServerUrl}/api/profile-picture", [
+                    'userId' => $user->id,
+                    'companyId' => $effectiveCompanyId,
+                    'jid' => $jid
+                ]);
+
+            if ($response->successful()) {
+                return response()->json($response->json());
+            }
+        } catch (\Exception $e) {
+            // Silently fail
+        }
+
+        return response()->json(['success' => true, 'url' => null]);
+    }
+
+    /**
      * Get messages by chat_id passed as a query parameter (?chat_id=...)
      * This avoids URL routing issues with @ symbols in path segments.
      * Also merges messages from @lid chats (WhatsApp LID system) linked to the same lead.
@@ -124,6 +171,7 @@ class WhatsAppChatController extends Controller
     public function getMessagesByChatId(Request $request)
     {
         $user = auth()->user();
+        $effectiveCompanyId = $user->company_id ?: config('tenant.id');
         $chatId = $request->query('chat_id');
         $requestLeadId = $request->query('lead_id'); // Frontend can pass lead_id directly
         $limit = $request->query('limit', 100);
@@ -144,14 +192,14 @@ class WhatsAppChatController extends Controller
         if ($leadId) {
             $byLead = DB::table('whatsapp_chats')
                 ->where('lead_id', $leadId)
-                ->where('company_id', $user->company_id)
+                ->where('company_id', $effectiveCompanyId)
                 ->pluck('id')->toArray();
             $allChatIds = array_unique(array_merge($allChatIds, $byLead));
 
             // Also update any chats found by phone to link them to this lead
             if (strlen($last10) >= 10) {
                 DB::table('whatsapp_chats')
-                    ->where('company_id', $user->company_id)
+                    ->where('company_id', $effectiveCompanyId)
                     ->where('chat_id', 'LIKE', '%' . $last10 . '%')
                     ->whereNull('lead_id')
                     ->update(['lead_id' => $leadId]);
@@ -161,7 +209,7 @@ class WhatsAppChatController extends Controller
         // Step 1: Exact chat_id match
         $primaryChat = DB::table('whatsapp_chats')
             ->where('chat_id', $chatId)
-            ->where('company_id', $user->company_id)
+            ->where('company_id', $effectiveCompanyId)
             ->first();
 
         if ($primaryChat) {
@@ -178,7 +226,7 @@ class WhatsAppChatController extends Controller
         if ($leadId) {
             $relatedByLead = DB::table('whatsapp_chats')
                 ->where('lead_id', $leadId)
-                ->where('company_id', $user->company_id)
+                ->where('company_id', $effectiveCompanyId)
                 ->pluck('id')->toArray();
             $allChatIds = array_unique(array_merge($allChatIds, $relatedByLead));
         }
@@ -186,14 +234,14 @@ class WhatsAppChatController extends Controller
         // Step 3: Match by phone number (last 10 digits) in chat_id column
         if (strlen($last10) >= 10) {
             $phoneMatched = DB::table('whatsapp_chats')
-                ->where('company_id', $user->company_id)
+                ->where('company_id', $effectiveCompanyId)
                 ->where('chat_id', 'LIKE', '%' . $last10 . '%')
                 ->pluck('id')->toArray();
             $allChatIds = array_unique(array_merge($allChatIds, $phoneMatched));
 
             if (!$leadId) {
                 $chatWithLead = DB::table('whatsapp_chats')
-                    ->where('company_id', $user->company_id)
+                    ->where('company_id', $effectiveCompanyId)
                     ->where('chat_id', 'LIKE', '%' . $last10 . '%')
                     ->whereNotNull('lead_id')
                     ->first();
@@ -201,7 +249,7 @@ class WhatsAppChatController extends Controller
                     $leadId = $chatWithLead->lead_id;
                     $moreChatIds = DB::table('whatsapp_chats')
                         ->where('lead_id', $leadId)
-                        ->where('company_id', $user->company_id)
+                        ->where('company_id', $effectiveCompanyId)
                         ->pluck('id')->toArray();
                     $allChatIds = array_unique(array_merge($allChatIds, $moreChatIds));
                 }
@@ -227,7 +275,7 @@ class WhatsAppChatController extends Controller
                 if ($searchWord) {
                     // Find unlinked chats whose chat_name matches any word from the lead name
                     $nameMatchedChats = DB::table('whatsapp_chats')
-                        ->where('company_id', $user->company_id)
+                        ->where('company_id', $effectiveCompanyId)
                         ->where('chat_name', 'LIKE', '%' . $searchWord . '%')
                         ->whereNull('lead_id')
                         ->get();
@@ -249,34 +297,46 @@ class WhatsAppChatController extends Controller
             return response()->json([
                 'success' => true,
                 'data' => [],
-                'chat_exists' => false
+                'chat_exists' => false,
+                'profile_jid' => $chatId
             ]);
         }
 
-        // Fetch all messages from every matched chat, sorted oldest first
+        // Identify best JID for profile picture (Prefer @lid if available)
+        $profileJid = $chatId;
+        $lidChat = DB::table('whatsapp_chats')
+            ->whereIn('id', $allChatIds)
+            ->where('chat_id', 'LIKE', '%@lid')
+            ->first();
+        if ($lidChat) {
+            $profileJid = $lidChat->chat_id;
+        }
+
+        // Fetch all messages from every matched chat, sorted newest first
         $messages = DB::table('whatsapp_messages')
             ->whereIn('whatsapp_chat_id', $allChatIds)
-            ->orderBy('created_at', 'asc')
-            ->orderBy('id', 'asc')
+            ->orderBy('created_at', 'desc')
+            ->orderBy('id', 'desc')
             ->limit($limit)
             ->offset($offset)
             ->get();
 
-        // Deduplicate
-        $uniqueMessages = $messages->unique('whatsapp_message_id')->values();
+        // Deduplicate and reverse to chronological order
+        $uniqueMessages = $messages->unique('whatsapp_message_id')->reverse()->values();
 
         return response()->json([
             'success' => true,
             'data' => $uniqueMessages,
             'chat_exists' => true,
-            'lead_id' => $leadId
+            'lead_id' => $leadId,
+            'profile_jid' => $profileJid
         ]);
     }
 
     public function sendMessage(Request $request)
     {
-        \Log::info('WS SendMessage Request:', $request->all());
         $user = auth()->user();
+        $effectiveCompanyId = $user->company_id ?: config('tenant.id');
         $request->validate([
             'chat_id' => 'required|string',
             'message' => 'required|string'
@@ -314,7 +374,7 @@ class WhatsAppChatController extends Controller
             }
 
             $chatId_inserted = DB::table('whatsapp_chats')->insertGetId([
-                'company_id' => $user->company_id,
+                'company_id' => $effectiveCompanyId,
                 'user_id' => $user->id,
                 'chat_id' => $chatId,
                 'lead_id' => $resolvedLeadId,
@@ -333,7 +393,7 @@ class WhatsAppChatController extends Controller
 
         // 2. Save message as Pending
         $messageId = DB::table('whatsapp_messages')->insertGetId([
-            'company_id' => $user->company_id,
+            'company_id' => $effectiveCompanyId,
             'user_id' => $user->id,
             'whatsapp_chat_id' => $whatsapp_chat_id,
             'whatsapp_message_id' => 'pending_' . uniqid(),
@@ -347,17 +407,42 @@ class WhatsAppChatController extends Controller
         ]);
 
         // 3. Forward to Node.js
-        try {
-            $response = Http::withHeaders(['x-api-key' => $this->apiKey])
-                ->post("{$this->nodeServerUrl}/api/message/send", [
-                    'userId' => $user->id,
-                    'companyId' => $user->company_id,
-                    'to' => $chatId,
-                    'message' => $messageBody,
-                    'quotedMessageId' => $quotedMessageId,
-                    'quotedText' => $quotedText
-                ]);
+        $sendAttempts = 0;
+        $response = null;
+        $lastException = null;
 
+        while ($sendAttempts < 2) {
+            try {
+                $response = Http::timeout(25)->withHeaders(['x-api-key' => $this->apiKey])
+                    ->post("{$this->nodeServerUrl}/api/message/send", [
+                        'userId' => $user->id,
+                        'companyId' => $effectiveCompanyId,
+                        'to' => $chatId,
+                        'message' => $messageBody,
+                        'quotedMessageId' => $quotedMessageId,
+                        'quotedText' => $quotedText
+                    ]);
+                $lastException = null;
+                break; // Success - exit retry loop
+            } catch (\Exception $e) {
+                $lastException = $e;
+                $sendAttempts++;
+                // cURL 56 = Connection reset (Node restarting) - wait 2s and retry once
+                if ($sendAttempts < 2 && (str_contains($e->getMessage(), 'cURL error 56') || str_contains($e->getMessage(), 'Connection'))) {
+                    Log::warning("WA Gateway connection reset, retrying... attempt {$sendAttempts}");
+                    sleep(2);
+                } else {
+                    break;
+                }
+            }
+        }
+
+        if ($lastException) {
+            Log::error("WhatsApp API Connection Error: " . $lastException->getMessage());
+            return response()->json(['success' => false, 'message' => 'Gateway connecting, please retry in a moment.'], 503);
+        }
+
+        try {
             if ($response->successful()) {
                 $nodeData = $response->json();
                 DB::table('whatsapp_messages')
@@ -370,25 +455,37 @@ class WhatsAppChatController extends Controller
                 ]);
             }
 
-            return response()->json(['success' => false, 'message' => 'Failed to send via gateway'], 500);
+            $nodeError = $response->json()['error'] ?? 'Unknown Error';
+            Log::error("WhatsApp Gateway Failure: {$nodeError} for company {$user->company_id}");
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Gateway Error: ' . $nodeError
+            ], 500);
 
         } catch (\Exception $e) {
-            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
+            Log::error("WhatsApp API Connection Error: " . $e->getMessage());
+            return response()->json(['success' => false, 'message' => 'Gateway Connection Failed: ' . $e->getMessage()], 500);
         }
     }
 
     public function sendMedia(Request $request)
     {
         $user = auth()->user();
+        $effectiveCompanyId = $user->company_id ?: config('tenant.id');
         $request->validate([
             'chat_id' => 'required|string',
             'file' => 'required|file|max:10240', // 10MB limit
             'caption' => 'nullable|string',
-            'type' => 'nullable|string|in:image,document,video,audio'
+            'type' => 'nullable|string|in:image,document,video,audio',
+            'quoted_message_id' => 'nullable|string',
+            'quoted_text' => 'nullable|string'
         ]);
 
         $chatId = $request->chat_id;
         $caption = $request->caption;
+        $quotedMessageId = $request->quoted_message_id;
+        $quotedText = $request->quoted_text;
 
         // Auto-detect type from MIME if not provided (fallback safety)
         $uploadedFile = $request->file('file');
@@ -429,7 +526,7 @@ class WhatsAppChatController extends Controller
                 })->first();
 
             $whatsapp_chat_id = DB::table('whatsapp_chats')->insertGetId([
-                'company_id' => $user->company_id,
+                'company_id' => $effectiveCompanyId,
                 'user_id' => $user->id,
                 'chat_id' => $chatId,
                 'lead_id' => $lead ? $lead->id : null,
@@ -450,10 +547,12 @@ class WhatsAppChatController extends Controller
                     $request->file('file')->getClientOriginalName()
                 )->post("{$this->nodeServerUrl}/api/message/send-media", [
                         'userId' => $user->id,
-                        'companyId' => $user->company_id,
+                        'companyId' => $effectiveCompanyId,
                         'to' => $chatId,
                         'caption' => $caption,
-                        'type' => $type
+                        'type' => $type,
+                        'quotedMessageId' => $quotedMessageId,
+                        'quotedText' => $quotedText
                     ]);
 
             if ($response->successful()) {
@@ -461,10 +560,12 @@ class WhatsAppChatController extends Controller
 
                 // Save message
                 DB::table('whatsapp_messages')->insert([
-                    'company_id' => $user->company_id,
+                    'company_id' => $effectiveCompanyId,
                     'user_id' => $user->id,
                     'whatsapp_chat_id' => $whatsapp_chat_id,
                     'whatsapp_message_id' => $nodeData['messageId'],
+                    'quoted_message_id' => $quotedMessageId,
+                    'quoted_text' => $quotedText,
                     'message' => $caption ?: "Media: $type",
                     'media_url' => $nodeData['url'],
                     'media_type' => $type,
@@ -492,17 +593,18 @@ class WhatsAppChatController extends Controller
     public function markAsRead($chatId)
     {
         $user = auth()->user();
+        $effectiveCompanyId = $user->company_id ?: config('tenant.id');
 
         // Find the chat to get lead_id
         $chat = DB::table('whatsapp_chats')
             ->where('chat_id', $chatId)
-            ->where('company_id', $user->company_id)
+            ->where('company_id', $effectiveCompanyId)
             ->first();
 
         if ($chat) {
             // 1. Clear unread_count for all chats of this lead
             $chatQuery = DB::table('whatsapp_chats')
-                ->where('company_id', $user->company_id);
+                ->where('company_id', $effectiveCompanyId);
 
             if ($chat->lead_id) {
                 $chatQuery->where('lead_id', $chat->lead_id);
@@ -566,6 +668,113 @@ class WhatsAppChatController extends Controller
 
             return response()->json(['success' => false, 'message' => 'Failed to send reaction'], 500);
 
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Pin or unpin a message
+     */
+    public function pinMessage(Request $request)
+    {
+        $user = auth()->user();
+        $request->validate([
+            'chat_id' => 'required|string',
+            'message_id' => 'required|string',
+            'duration' => 'required|integer', // 86400 (24h), 604800 (7d), 2592000 (30d)
+        ]);
+
+        try {
+            $response = Http::withHeaders(['x-api-key' => $this->apiKey])
+                ->post("{$this->nodeServerUrl}/api/message/pin", [
+                    'userId' => $user->id,
+                    'companyId' => $user->company_id,
+                    'to' => $request->chat_id,
+                    'messageId' => $request->message_id,
+                    'type' => 'pin',
+                    'duration' => $request->duration
+                ]);
+
+            if ($response->successful()) {
+                // Update chat metadata with pinned message info
+                $chat = DB::table('whatsapp_chats')
+                    ->where('chat_id', $request->chat_id)
+                    ->where('user_id', $user->id)
+                    ->first();
+
+                if ($chat) {
+                    // Update Pinned Message ID in Chat
+                    DB::table('whatsapp_chats')
+                        ->where('id', $chat->id)
+                        ->update([
+                            'pinned_message_id' => $request->message_id,
+                            'pinned_at' => now(),
+                        ]);
+
+                    // Insert a system message record for history
+                    // We need 'from' and 'to' to avoid DB constraints often found in this schema
+                    DB::table('whatsapp_messages')->insert([
+                        'company_id' => $user->company_id,
+                        'user_id' => $user->id,
+                        'whatsapp_chat_id' => $chat->id,
+                        'whatsapp_message_id' => 'sys_pin_' . now()->timestamp,
+                        'direction' => 'outbound',
+                        'from' => 'system',
+                        'to' => $request->chat_id,
+                        'message' => '[REPLY] You pinned a message',
+                        'status' => 'read',
+                        'created_at' => now(),
+                        'updated_at' => now()
+                    ]);
+                }
+
+                return response()->json(['success' => true]);
+            }
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to pin message: ' . ($response->json()['error'] ?? 'Node Error')
+            ], 500);
+
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Pin or unpin a message
+     */
+    public function starMessage(Request $request)
+    {
+        $user = auth()->user();
+        $request->validate(['message_id' => 'required']);
+
+        try {
+            // Find message in DB
+            $msg = DB::table('whatsapp_messages')
+                ->where('company_id', $user->company_id)
+                ->where(function ($q) use ($request) {
+                    $q->where('whatsapp_message_id', $request->message_id)
+                        ->orWhere('id', $request->message_id);
+                })
+                ->first();
+
+            if (!$msg) {
+                return response()->json(['success' => false, 'message' => 'Message not found'], 404);
+            }
+
+            $newStarredStatus = !$msg->is_starred;
+
+            DB::table('whatsapp_messages')
+                ->where('id', $msg->id)
+                ->update(['is_starred' => $newStarredStatus, 'updated_at' => now()]);
+
+            return response()->json([
+                'success' => true,
+                'is_starred' => $newStarredStatus,
+                'message' => $newStarredStatus ? 'Message starred' : 'Message unstarred'
+            ]);
         } catch (\Exception $e) {
             return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
         }

@@ -151,8 +151,8 @@ async function createSession(userId, companyId) {
 
             if (shouldReconnect) {
                 sessions.delete(sessionName);
-                console.log(`[Session ${sessionName}] Reconnecting in 2 seconds...`);
-                setTimeout(() => createSession(userId, companyId), 2000);
+                console.log(`[Session ${sessionName}] Reconnecting in 1 second...`);
+                setTimeout(() => createSession(userId, companyId), 1000);
             } else {
                 sessions.delete(sessionName);
                 await pool.execute(

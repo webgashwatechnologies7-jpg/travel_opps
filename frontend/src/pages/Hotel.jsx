@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
-import { Search, Plus, Edit, X, Upload, Download, Star, Trash2 } from 'lucide-react';
+import { Search, Plus, Edit, X, Upload, Download, Star, Trash2, Eye } from 'lucide-react';
 import { hotelsAPI } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -39,6 +39,8 @@ const Hotel = () => {
   });
   const [saving, setSaving] = useState(false);
   const [photoPreview, setPhotoPreview] = useState(null);
+  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+  const [viewingHotel, setViewingHotel] = useState(null);
   const [isPriceModalOpen, setIsPriceModalOpen] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [selectedHotel, setSelectedHotel] = useState(null);
@@ -217,6 +219,16 @@ const Hotel = () => {
       setError(err.response?.data?.message || 'Failed to delete hotel');
       console.error(err);
     }
+  };
+
+  const handleView = (hotel) => {
+    setViewingHotel(hotel);
+    setIsViewModalOpen(true);
+  };
+
+  const handleCloseViewModal = () => {
+    setIsViewModalOpen(false);
+    setViewingHotel(null);
   };
 
   const handleImport = () => {
@@ -658,7 +670,7 @@ const Hotel = () => {
                     Last Update
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
+                    ACTIONS PRO
                   </th>
                 </tr>
               </thead>
@@ -713,6 +725,14 @@ const Hotel = () => {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                         <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => handleView(hotel)}
+                            className="bg-blue-600 text-white p-2 hover:bg-blue-700 rounded-lg flex items-center gap-1"
+                            title="View"
+                          >
+                            <Eye className="h-4 w-4" />
+                            <span className="text-[10px] uppercase font-bold">View</span>
+                          </button>
                           {hasPermission(user, 'hotels.edit') && (
                             <button
                               onClick={() => handleEdit(hotel)}
@@ -740,6 +760,126 @@ const Hotel = () => {
             </table>
           </div>
         </div>
+
+        {/* View Hotel Modal */}
+        {isViewModalOpen && viewingHotel && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl mx-4 overflow-hidden">
+              {/* Modal Header */}
+              <div className="flex justify-between items-center p-6 border-b border-gray-200 bg-blue-600 text-white">
+                <h2 className="text-xl font-bold">Hotel Details</h2>
+                <button
+                  onClick={handleCloseViewModal}
+                  className="text-white hover:text-gray-200 transition-colors"
+                >
+                  <X className="h-6 w-6" />
+                </button>
+              </div>
+
+              {/* Modal Body */}
+              <div className="p-6 space-y-6 max-h-[80vh] overflow-y-auto">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Photo Section */}
+                  <div className="space-y-4">
+                    <div className="aspect-video rounded-lg overflow-hidden bg-gray-100 border border-gray-200">
+                      {viewingHotel.hotel_photo ? (
+                        <img
+                          src={viewingHotel.hotel_photo}
+                          alt={viewingHotel.name}
+                          className="w-full h-full object-cover"
+                          onError={(e) => { e.target.src = 'https://placehold.co/600x400?text=No+Image'; }}
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-gray-400">
+                          No Photo Available
+                        </div>
+                      )}
+                    </div>
+                    <div>
+                      <h3 className="text-2xl font-bold text-gray-900">{viewingHotel.name}</h3>
+                      <div className="mt-1">{renderStars(viewingHotel.category || 3)}</div>
+                    </div>
+                  </div>
+
+                  {/* Basic Info */}
+                  <div className="space-y-4">
+                    <div>
+                      <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Destination</label>
+                      <p className="text-gray-900 font-medium">{viewingHotel.destination || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</label>
+                      <div className="mt-1">
+                        <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${viewingHotel.status === 'active'
+                          ? 'bg-green-100 text-green-800'
+                          : 'bg-red-100 text-red-800'
+                          }`}>
+                          {viewingHotel.status === 'active' ? 'Active' : 'Inactive'}
+                        </span>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Address</label>
+                      <p className="text-gray-900 text-sm whitespace-pre-wrap">{viewingHotel.hotel_address || 'N/A'}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-6 border-t border-gray-100">
+                  {/* Contact Info */}
+                  <div className="space-y-4">
+                    <h4 className="font-bold text-gray-800 border-b pb-2">Contact Information</h4>
+                    <div>
+                      <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Contact Person</label>
+                      <p className="text-gray-900 text-sm">{viewingHotel.contact_person || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Email</label>
+                      <p className="text-gray-900 text-sm">{viewingHotel.email || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Phone</label>
+                      <p className="text-gray-900 text-sm">{viewingHotel.phone || 'N/A'}</p>
+                    </div>
+                    {viewingHotel.hotel_link && (
+                      <div>
+                        <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Website</label>
+                        <p className="text-sm">
+                          <a href={viewingHotel.hotel_link} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                            Visit Website
+                          </a>
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Details */}
+                  <div className="space-y-4">
+                    <h4 className="font-bold text-gray-800 border-b pb-2">Description / Details</h4>
+                    <p className="text-gray-700 text-sm leading-relaxed whitespace-pre-wrap">
+                      {viewingHotel.hotel_details || 'No additional details provided.'}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="pt-6 border-t border-gray-100 flex justify-between items-center text-xs text-gray-400 italic">
+                  <span>Created By: {viewingHotel.created_by_name || 'System'}</span>
+                  <span>Last Updated: {formatDate(viewingHotel.updated_at)}</span>
+                </div>
+              </div>
+
+              {/* Modal Footer */}
+              <div className="p-6 border-t border-gray-200 flex justify-end">
+                <button
+                  onClick={handleCloseViewModal}
+                  className="px-6 py-2 bg-gray-100 text-gray-700 font-bold rounded-lg hover:bg-gray-200 transition-colors"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Add/Edit Hotel Modal */}
         {isModalOpen && (

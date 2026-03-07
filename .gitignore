@@ -82,3 +82,10 @@ desktop.ini
 
 # Logs
 *.log
+
+# WhatsApp Web Server
+/travel_opps_wa_server/node_modules
+/travel_opps_wa_server/sessions
+/travel_opps_wa_server/media
+/travel_opps_wa_server/.env
+/travel_opps_wa_server/lid_debug.json

@@ -11,6 +11,15 @@ const fs = require('fs');
 const app = express();
 app.use(bodyParser.json());
 
+// CORS: Allow browser to load media files (images/audio/video) from this server
+app.use((req, res, next) => {
+    res.header('Access-Control-Allow-Origin', '*');
+    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, x-api-key');
+    res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    if (req.method === 'OPTIONS') return res.sendStatus(200);
+    next();
+});
+
 // 1. Security: Internal API Key Middleware
 const INTERNAL_API_KEY = process.env.WA_GATEWAY_API_KEY || 'travelops_secret_key_2024';
 const authMiddleware = (req, res, next) => {
@@ -70,6 +79,15 @@ app.use('/api', authMiddleware);
 
 const PORT = process.env.PORT || 3001;
 
+// Health check: is a specific session active in memory?
+app.get('/api/status', (req, res) => {
+    const { userId, companyId } = req.query;
+    const sessionName = `session_${userId}_${companyId}`;
+    const sock = sessions.get(sessionName);
+    const isConnected = sock && sock.user;
+    res.json({ connected: isConnected, sessionName });
+});
+
 // Endpoint to initialize/get QR
 app.post('/api/session/init', async (req, res) => {
     const { userId, companyId } = req.body;
@@ -101,22 +119,96 @@ app.post('/api/session/init', async (req, res) => {
     }
 });
 
-// Endpoint to send message
+// Endpoint: Get WhatsApp Contact Profile Picture
+app.get('/api/profile-picture', authMiddleware, async (req, res) => {
+    const { userId, companyId, jid } = req.query;
+    const sessionName = `session_${userId}_${companyId}`;
+    const sock = sessions.get(sessionName);
+
+    if (!sock) return res.status(404).json({ success: false, error: 'Session not active' });
+    if (!sock.user) return res.json({ success: true, url: null });
+
+    try {
+        const targetJids = [jid];
+        try {
+            const [result] = await sock.onWhatsApp(jid);
+            if (result?.jid && result.jid !== jid) targetJids.unshift(result.jid);
+        } catch (e) { }
+
+        const tryFetch = async (id, type) => {
+            try {
+                return await sock.profilePictureUrl(id, type);
+            } catch (e) {
+                return null;
+            }
+        };
+
+        let ppUrl = null;
+
+        // 2. Try all available JIDs (resolved and original)
+        for (const id of targetJids) {
+            try {
+                await sock.fetchStatus(id);
+            } catch (e) { }
+
+            ppUrl = await tryFetch(id, 'image');
+            if (ppUrl) break;
+
+            ppUrl = await tryFetch(id, 'preview');
+            if (ppUrl) break;
+        }
+
+        // 3. Fallback: Business Profile
+        if (!ppUrl) {
+            const bestJid = targetJids[0];
+            try {
+                const biz = await sock.getBusinessProfile(bestJid);
+                ppUrl = biz?.profile_picture_url || biz?.cover_photo?.url || null;
+            } catch (e) { }
+        }
+
+        return res.json({ success: true, url: ppUrl });
+    } catch (err) {
+        return res.json({ success: true, url: null, error: err.message });
+    }
+});
+
+// Diagnostic: Get OUR OWN profile picture
+app.get('/api/profile-picture/me', authMiddleware, async (req, res) => {
+    const { userId, companyId } = req.query;
+    const sessionName = `session_${userId}_${companyId}`;
+    const sock = sessions.get(sessionName);
+
+    if (!sock || !sock.user) {
+        return res.status(404).json({ success: false, error: 'Session not authenticated' });
+    }
+
+    try {
+        const myJid = sock.user.id.split(':')[0] + '@s.whatsapp.net';
+        const ppUrl = await sock.profilePictureUrl(myJid, 'preview');
+        return res.json({ success: true, url: ppUrl, jid: myJid });
+    } catch (err) {
+        return res.json({ success: false, error: err.message });
+    }
+});
 app.post('/api/message/send', async (req, res) => {
     const { userId, companyId, to, message, quotedMessageId, quotedText } = req.body;
     const sessionName = `session_${userId}_${companyId}`;
     const sock = sessions.get(sessionName);
 
     if (!sock) {
+        console.warn(`[Gateway] Session ${sessionName} not active/found.`);
         return res.status(404).json({ error: 'Session not active' });
     }
 
     try {
         const result = await sendWhatsAppMessage(sock, sessionName, to, message, quotedMessageId, quotedText);
-        res.json({ success: true, messageId: result.key.id });
+        const msgId = result?.key?.id?.toString() || ('sent_' + Date.now());
+        res.json({ success: true, messageId: msgId });
     } catch (error) {
-        console.error('Error sending message:', error);
-        res.status(500).json({ error: error.message });
+        const errMsg = error?.message || 'Send Failed';
+        console.error(`[Gateway] Error for ${sessionName}: ${errMsg}`);
+        res.status(500).json({ error: errMsg });
     }
 });
 
@@ -171,6 +263,58 @@ app.post('/api/message/react', async (req, res) => {
     }
 });
 
+// Endpoint to pin/unpin message
+app.post('/api/message/pin', async (req, res) => {
+    const { userId, companyId, to, messageId, type, duration } = req.body;
+    const sessionName = `session_${userId}_${companyId}`;
+    const sock = sessions.get(sessionName);
+
+    if (!sock) {
+        return res.status(404).json({ error: 'Session not active' });
+    }
+
+    try {
+        const jid = to.includes('@') ? to : `${to}@s.whatsapp.net`;
+        const isPin = type !== 'unpin';
+
+        // Attempt to pin - usually reacting to incoming messages (fromMe: false)
+        let pinKey = {
+            id: messageId,
+            remoteJid: jid,
+            fromMe: false
+        };
+
+        // Note: In WhatsApp, PinMessageType.PIN = 1, PinMessageType.UNPIN = 2
+        try {
+            const result = await sock.sendMessage(jid, {
+                pin: {
+                    key: pinKey,
+                    type: isPin ? 1 : 2,
+                    timeInSeconds: duration || 604800
+                }
+            });
+            return res.json({ success: true, messageId: result.key.id });
+        } catch (pinErr) {
+            // If it failed with fromMe: false, try fromMe: true as a fallback
+            if (pinErr.message.includes('not found') || pinErr.message.includes('forbidden')) {
+                pinKey.fromMe = true;
+                const result = await sock.sendMessage(jid, {
+                    pin: {
+                        key: pinKey,
+                        type: isPin ? 1 : 2,
+                        timeInSeconds: duration || 604800
+                    }
+                });
+                return res.json({ success: true, messageId: result.key.id });
+            }
+            throw pinErr;
+        }
+    } catch (error) {
+        console.error('Error pinning message:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // Endpoint to logout
 app.post('/api/session/logout', async (req, res) => {
     const { userId, companyId } = req.body;
@@ -219,8 +363,8 @@ app.post('/api/group/create', async (req, res) => {
         }
 
         if (invalidJids.length > 0) {
-            return res.status(400).json({ 
-                error: `Group creation failed. The following numbers are not on WhatsApp: ${invalidJids.join(', ')}` 
+            return res.status(400).json({
+                error: `Group creation failed. The following numbers are not on WhatsApp: ${invalidJids.join(', ')}`
             });
         }
 
@@ -231,15 +375,15 @@ app.post('/api/group/create', async (req, res) => {
 
     } catch (error) {
         console.error('❌ Error creating group:', error);
-        
+
         let errorMessage = error.message;
         if (error.data === 400 || error.message.includes('bad-request')) {
             errorMessage = 'WhatsApp rejected group creation. This usually happens if a participant is not on WhatsApp, has blocked you, or their privacy settings prevent being added to groups.';
         }
-        
-        res.status(error.data || 500).json({ 
+
+        res.status(error.data || 500).json({
             error: errorMessage,
-            details: error.data || null 
+            details: error.data || null
         });
     }
 });

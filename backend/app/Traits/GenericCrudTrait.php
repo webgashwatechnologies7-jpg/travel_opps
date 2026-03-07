@@ -35,6 +35,11 @@ trait GenericCrudTrait
     public function index(Request $request): JsonResponse
     {
         try {
+            \Illuminate\Support\Facades\Log::info('GenericCrudTrait Index: Checking auth/tenant', [
+                'user' => auth()->user()?->id,
+                'tenant' => app()->bound('tenant') ? (app('tenant')?->id ?? 'bound-but-null') : 'not-bound',
+                'sanctum_user' => auth('sanctum')->user()?->id,
+            ]);
             $query = $this->getModel()::query();
 
             // Add basic ordering
@@ -49,7 +54,13 @@ trait GenericCrudTrait
                 $query->with($this->getEagerLoads());
             }
 
+            \Illuminate\Support\Facades\Log::info('GenericCrudTrait Index: Executing query', [
+                'sql' => $query->toSql(),
+                'bindings' => $query->getBindings(),
+                'model' => get_class($query->getModel()),
+            ]);
             $items = $query->get();
+            \Illuminate\Support\Facades\Log::info('GenericCrudTrait Index: Found items', ['count' => $items->count()]);
 
             // Support custom formatting
             if (method_exists($this, 'formatResource')) {
@@ -68,6 +79,11 @@ trait GenericCrudTrait
     public function store(Request $request): JsonResponse
     {
         try {
+            \Illuminate\Support\Facades\Log::info('GenericCrudTrait Store: Checking auth/tenant', [
+                'user' => auth()->user()?->id,
+                'tenant' => app()->bound('tenant') ? (app('tenant')?->id ?? 'bound-but-null') : 'not-bound',
+                'sanctum_user' => auth('sanctum')->user()?->id,
+            ]);
             $validator = Validator::make($request->all(), $this->getValidationRules());
 
             if ($validator->fails()) {

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
-import { Search, Plus, Edit, X, Upload, Download, Trash2 } from 'lucide-react';
+import { Search, Plus, Edit, X, Upload, Download, Trash2, Eye } from 'lucide-react';
 import { transfersAPI } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -20,6 +20,8 @@ const Transfer = () => {
   });
   const [saving, setSaving] = useState(false);
   const [photoPreview, setPhotoPreview] = useState(null);
+  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+  const [viewingTransfer, setViewingTransfer] = useState(null);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [importFile, setImportFile] = useState(null);
   const [importing, setImporting] = useState(false);
@@ -157,7 +159,7 @@ const Transfer = () => {
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm('Are you sure you want to delete this transfer?')) return;
+    if (!window.confirm('Are you sure you want to delete this transport?')) return;
 
     try {
       await transfersAPI.delete(id);
@@ -184,6 +186,16 @@ const Transfer = () => {
     if (file) {
       setImportFile(file);
     }
+  };
+
+  const handleView = (transfer) => {
+    setViewingTransfer(transfer);
+    setIsViewModalOpen(true);
+  };
+
+  const handleCloseViewModal = () => {
+    setIsViewModalOpen(false);
+    setViewingTransfer(null);
   };
 
   const handleImportSubmit = async (e) => {
@@ -436,7 +448,7 @@ const Transfer = () => {
       <div className="p-6" style={{ backgroundColor: '#D8DEF5', minHeight: '100vh' }}>
         {/* Header */}
         <div className="flex justify-between items-center mb-6">
-          <h1 className="text-3xl font-bold text-gray-800">Transfer</h1>
+          <h1 className="text-3xl font-bold text-gray-800">Transport</h1>
           <div className="flex items-center gap-4">
             {/* Search Input */}
             <div className="relative">
@@ -512,7 +524,7 @@ const Transfer = () => {
                     Last Update
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
+                    TRANSPORT ACTION
                   </th>
                 </tr>
               </thead>
@@ -559,12 +571,22 @@ const Transfer = () => {
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                         <div className="flex items-center gap-2">
                           <button
-                            onClick={() => handleEdit(transfer)}
-                            className="text-green-600 hover:text-green-900 p-2 hover:bg-green-50 rounded"
-                            title="Edit"
+                            onClick={() => handleView(transfer)}
+                            className="bg-blue-600 text-white p-2 hover:bg-blue-700 rounded-lg flex items-center gap-1"
+                            title="View"
                           >
-                            <Edit className="h-5 w-5" />
+                            <Eye className="h-4 w-4" />
+                            <span className="text-[10px] uppercase font-bold">View</span>
                           </button>
+                          {isAdmin && (
+                            <button
+                              onClick={() => handleEdit(transfer)}
+                              className="text-green-600 hover:text-green-900 p-2 hover:bg-green-50 rounded"
+                              title="Edit"
+                            >
+                              <Edit className="h-5 w-5" />
+                            </button>
+                          )}
                           {isAdmin && (
                             <button
                               onClick={() => handleDelete(transfer.id)}
@@ -584,14 +606,102 @@ const Transfer = () => {
           </div>
         </div>
 
-        {/* Add/Edit Transfer Modal */}
+        {/* View Transport Modal */}
+        {isViewModalOpen && viewingTransfer && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl mx-4 overflow-hidden">
+              {/* Modal Header */}
+              <div className="flex justify-between items-center p-6 border-b border-gray-200 bg-blue-600 text-white">
+                <h2 className="text-xl font-bold">Transport Details</h2>
+                <button
+                  onClick={handleCloseViewModal}
+                  className="text-white hover:text-gray-200 transition-colors"
+                >
+                  <X className="h-6 w-6" />
+                </button>
+              </div>
+
+              {/* Modal Body */}
+              <div className="p-6 space-y-6 max-h-[80vh] overflow-y-auto">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Photo Section */}
+                  <div className="space-y-4">
+                    <div className="aspect-video rounded-lg overflow-hidden bg-gray-100 border border-gray-200">
+                      {viewingTransfer.transfer_photo ? (
+                        <img
+                          src={viewingTransfer.transfer_photo}
+                          alt={viewingTransfer.name}
+                          className="w-full h-full object-cover"
+                          onError={(e) => { e.target.src = 'https://placehold.co/600x400?text=No+Image'; }}
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-gray-400">
+                          No Photo Available
+                        </div>
+                      )}
+                    </div>
+                    <div>
+                      <h3 className="text-2xl font-bold text-gray-900">{viewingTransfer.name}</h3>
+                    </div>
+                  </div>
+
+                  {/* Basic Info */}
+                  <div className="space-y-4">
+                    <div>
+                      <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Destination</label>
+                      <p className="text-gray-900 font-medium">{viewingTransfer.destination || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</label>
+                      <div className="mt-1">
+                        <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${viewingTransfer.status === 'active'
+                          ? 'bg-green-100 text-green-800'
+                          : 'bg-red-100 text-red-800'
+                          }`}>
+                          {viewingTransfer.status === 'active' ? 'Active' : 'Inactive'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-6 border-t border-gray-100">
+                  {/* Details */}
+                  <div className="space-y-4 col-span-2">
+                    <h4 className="font-bold text-gray-800 border-b pb-2">Description / Details</h4>
+                    <p className="text-gray-700 text-sm leading-relaxed whitespace-pre-wrap">
+                      {viewingTransfer.transfer_details || 'No additional details provided.'}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="pt-6 border-t border-gray-100 flex justify-between items-center text-xs text-gray-400 italic">
+                  <span>Created By: {viewingTransfer.created_by_name || 'System'}</span>
+                  <span>Last Updated: {formatDate(viewingTransfer.updated_at)}</span>
+                </div>
+              </div>
+
+              {/* Modal Footer */}
+              <div className="p-6 border-t border-gray-200 flex justify-end">
+                <button
+                  onClick={handleCloseViewModal}
+                  className="px-6 py-2 bg-gray-100 text-gray-700 font-bold rounded-lg hover:bg-gray-200 transition-colors"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Add/Edit Transport Modal */}
         {isModalOpen && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
             <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl mx-4">
               {/* Modal Header */}
               <div className="flex justify-between items-center p-6 border-b border-gray-200">
                 <h2 className="text-xl font-bold text-gray-800">
-                  {editingTransferId ? 'Edit Transfer' : 'Add Transfer'}
+                  {editingTransferId ? 'Edit Transport' : 'Add Transport'}
                 </h2>
                 <button
                   onClick={handleCloseModal}
@@ -607,14 +717,14 @@ const Transfer = () => {
                   {/* Transfer Name */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Transfer name *
+                      Transport name *
                     </label>
                     <input
                       type="text"
                       value={formData.name}
                       onChange={(e) => handleInputChange('name', e.target.value)}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="Enter transfer name"
+                      placeholder="Enter transport name"
                       required
                     />
                   </div>
@@ -637,7 +747,7 @@ const Transfer = () => {
                   {/* Transfer Details */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Transfer Details
+                      Transport Details
                     </label>
                     <textarea
                       value={formData.transfer_details}
@@ -648,10 +758,10 @@ const Transfer = () => {
                     />
                   </div>
 
-                  {/* Transfer Photo */}
+                  {/* Transport Photo */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Transfer Photo *
+                      Transport Photo *
                     </label>
                     <div className="flex items-center gap-4">
                       <input

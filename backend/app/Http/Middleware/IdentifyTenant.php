@@ -16,6 +16,11 @@ class IdentifyTenant
      */
     public function handle(Request $request, Closure $next): Response
     {
+        \Illuminate\Support\Facades\Log::info('IdentifyTenant: Handling request', [
+            'host' => $request->getHost(),
+            'url' => $request->fullUrl(),
+            'x-subdomain' => $request->header('X-Subdomain'),
+        ]);
         // Skip tenant identification for auth routes (login, logout, etc.)
         // Super admin and regular users both need to login first
         // Also skip for super admin routes since they don't require tenant context
@@ -106,6 +111,7 @@ class IdentifyTenant
         });
 
         if (!$company) {
+            \Illuminate\Support\Facades\Log::warning('IdentifyTenant: Company NOT found by subdomain', ['subdomain' => $subdomain]);
             return response()->json([
                 'success' => false,
                 'message' => 'Company not found or inactive',
@@ -120,6 +126,7 @@ class IdentifyTenant
         config(['tenant.id' => $company->id]);
         config(['tenant.company' => $company]);
 
+        \Illuminate\Support\Facades\Log::info('IdentifyTenant: Company FOUND', ['id' => $company->id, 'subdomain' => $company->subdomain]);
         return $next($request);
     }
 

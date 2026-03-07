@@ -138,6 +138,8 @@ const LeadDetails = () => {
   const [whatsappAttachment, setWhatsappAttachment] = useState(null);
   const [sendingWhatsapp, setSendingWhatsapp] = useState(false);
   const [loadingWhatsappMessages, setLoadingWhatsappMessages] = useState(false);
+  const [profilePicUrl, setProfilePicUrl] = useState(null);
+  const [lastFetchedJid, setLastFetchedJid] = useState(null);
   const [showPaxModal, setShowPaxModal] = useState(false);
   const [paxTempList, setPaxTempList] = useState([]);
   const [savingPax, setSavingPax] = useState(false);
@@ -1229,8 +1231,18 @@ const LeadDetails = () => {
       const chatId = phoneStr.length <= 10 ? `91${phoneStr}@s.whatsapp.net` : `${phoneStr}@s.whatsapp.net`;
 
       const response = await whatsappWebAPI.getMessages(chatId, id); // pass lead id
-      if (response?.data?.success && response?.data?.data) {
-        setWhatsappMessages(response.data.data);
+      if (response?.data?.success) {
+        if (response.data.data) setWhatsappMessages(response.data.data);
+        if (response.data.profile_jid && response.data.profile_jid !== lastFetchedJid) {
+          setLastFetchedJid(response.data.profile_jid);
+          whatsappWebAPI.getProfilePicture(response.data.profile_jid)
+            .then(res => {
+              if (res?.data?.success && res?.data?.url) {
+                setProfilePicUrl(res.data.url);
+              }
+            })
+            .catch(() => { });
+        }
       }
     } catch (err) {
       console.error('Failed to fetch WhatsApp messages:', err);
@@ -1248,7 +1260,7 @@ const LeadDetails = () => {
   }, [activeTab, id, fetchWhatsAppMessages]);
 
   // Send WhatsApp message from tab
-  const handleSendWhatsAppFromTab = async (text = '', file = null) => {
+  const handleSendWhatsAppFromTab = async (text = '', file = null, quotedId = null, quotedPreview = null) => {
     const inputMsg = text || whatsappInput.trim();
     const inputAttachment = file || whatsappAttachment;
 
@@ -1273,7 +1285,9 @@ const LeadDetails = () => {
           chat_id: chatId,
           file: inputAttachment,
           caption: inputMsg || undefined,
-          type: detectedType
+          type: detectedType,
+          quoted_message_id: quotedId,
+          quoted_text: quotedPreview
         });
         if (res?.data?.success) {
           if (!text) setWhatsappInput('');
@@ -1286,7 +1300,9 @@ const LeadDetails = () => {
         const res = await whatsappWebAPI.sendMessage({
           chat_id: chatId,
           message: inputMsg,
-          lead_id: id
+          lead_id: id,
+          quoted_message_id: quotedId,
+          quoted_text: quotedPreview
         });
         if (res?.data?.success) {
           if (!text) setWhatsappInput('');
@@ -4770,6 +4786,7 @@ const LeadDetails = () => {
                         loadingMessages={loadingWhatsappMessages}
                         fetchWhatsAppMessages={fetchWhatsAppMessages}
                         handleSendWhatsAppFromTab={handleSendWhatsAppFromTab}
+                        profilePicUrl={profilePicUrl}
                       />
                     )
                       : activeTab === 'followups' ? (

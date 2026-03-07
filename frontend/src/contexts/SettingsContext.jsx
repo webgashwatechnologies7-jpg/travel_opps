@@ -69,24 +69,23 @@ export const SettingsProvider = ({ children }) => {
 
   const defaultMenuItems = [
     { path: '/dashboard', label: 'Dashboard', icon: 'LayoutDashboard' },
-    { path: '/notifications', label: 'Notifications', icon: 'Bell' },
     { path: '/leads', label: 'Queries', icon: 'MessageSquare', feature: 'leads_management' },
     { path: '/itineraries', label: 'Itineraries', icon: 'FileText', feature: 'itineraries' },
-    { path: '/payments', label: 'Payments', icon: 'CreditCard', feature: 'payments' },
+    { path: '/notifications', label: 'Notifications', icon: 'Bell' },
     { path: '/sales-reps', label: 'Sales Reps', icon: 'Users', feature: 'analytics', adminOnly: true },
+    { path: '/payments', label: 'Payments', icon: 'CreditCard', feature: 'payments' },
     { label: 'Accounts', icon: 'CreditCard', feature: 'payments', submenu: [{ path: '/accounts/clients', label: 'Clients' }, { path: '/accounts/agents', label: 'Agents' }, { path: '/accounts/corporate', label: 'Corporate' }] },
-    { path: '/whatsapp-web', label: 'WhatsApp Web', icon: 'MessageCircle', feature: 'whatsapp' },
-    { path: '/mail', label: 'Mail', icon: 'Mail', feature: 'gmail_integration' },
+    { path: '/whatsapp-web', label: 'WhatsApp', icon: 'MessageCircle', feature: 'whatsapp' },
+    { path: '/mail', label: 'All Mails', icon: 'Mail', feature: 'gmail_integration' },
     { label: 'Integrate', icon: 'Link2', submenu: [{ path: '/settings/mail', label: 'Email Integration', feature: 'gmail_integration' }, { path: '/settings/whatsapp', label: 'WhatsApp Integration', feature: 'whatsapp' }, { path: '/settings/telephony', label: 'Telephony Integration' }] },
     { path: '/call-management', label: 'Call Management System', icon: 'Phone', feature: 'call_management' },
-    { path: '/my-team', label: 'My Team Members', icon: 'Users' },
     { path: '/followups', label: 'Followups', icon: 'ClipboardList', feature: 'followups' },
     staffManagementItem,
     { label: 'Reports', icon: 'BarChart3', feature: 'reports', submenu: [{ path: '/dashboard/employee-performance', label: 'Performance', feature: 'reports' }, { path: '/dashboard/source-roi', label: 'Source ROI', feature: 'reports' }, { path: '/dashboard/destination-performance', label: 'Destination', feature: 'reports' }] },
     { label: 'Marketing', icon: 'Megaphone', feature: 'campaigns', submenu: [{ path: '/marketing', label: 'Dashboard', feature: 'campaigns' }, { path: '/client-groups', label: 'Clients Group', feature: 'campaigns' }, { path: '/marketing/templates', label: 'Email Templates', feature: 'email_templates' }, { path: '/marketing/whatsapp-templates', label: 'WhatsApp Templates', feature: 'whatsapp' }, { path: '/marketing/campaigns', label: 'Campaigns', feature: 'campaigns' }, { path: '/marketing/landing-pages', label: 'Landing Pages', feature: 'landing_pages' }] },
     { label: 'Company Settings', icon: 'Settings', adminOnly: true, submenu: [{ path: '/settings/whatsapp', label: 'WhatsApp Integration' }, { path: '/settings/mail', label: 'Email Integration' }, { path: '/settings/telephony', label: 'Telephony Integration' }, { path: '/settings/account-details', label: 'Account Details' }] },
-    { path: '/support', label: 'Support', icon: 'MessageSquare' },
-    { label: 'Masters', icon: 'Grid', submenu: [{ path: '/masters/suppliers', label: 'Suppliers', feature: 'suppliers' }, { path: '/masters/hotel', label: 'Hotel', feature: 'hotels' }, { path: '/masters/activity', label: 'Activity', feature: 'activities' }, { path: '/masters/transfer', label: 'Transfer', feature: 'transfers' }, { path: '/masters/day-itinerary', label: 'Day Itinerary', feature: 'day_itineraries' }, { path: '/masters/destinations', label: 'Destinations', feature: 'destinations' }, { path: '/masters/room-type', label: 'Room Type', feature: 'hotels' }, { path: '/masters/meal-plan', label: 'Meal Plan', feature: 'hotels' }, { path: '/masters/lead-source', label: 'Lead Source' }, { path: '/masters/expense-type', label: 'Expense Type', feature: 'expenses' }, { path: '/masters/points', label: 'Inclusions & Exclusions' }, { path: '/targets', label: 'Targets', feature: 'targets', adminOnly: true }] },
+    { label: 'Masters', icon: 'Grid', submenu: [{ path: '/masters/suppliers', label: 'Suppliers', feature: 'suppliers' }, { path: '/masters/hotel', label: 'Hotel', feature: 'hotels' }, { path: '/masters/activity', label: 'Activity', feature: 'activities' }, { path: '/masters/transfer', label: 'Transport', feature: 'transfers' }, { path: '/masters/day-itinerary', label: 'Day Itinerary', feature: 'day_itineraries' }, { path: '/masters/destinations', label: 'Destinations', feature: 'destinations' }, { path: '/masters/room-type', label: 'Room Type', feature: 'hotels' }, { path: '/masters/meal-plan', label: 'Meal Plan', feature: 'hotels' }, { path: '/masters/lead-source', label: 'Lead Source' }, { path: '/masters/expense-type', label: 'Expense Type', feature: 'expenses' }, { path: '/masters/points', label: 'Inclusions & Exclusions' }, { path: '/targets', label: 'Targets', feature: 'targets', adminOnly: true }] },
+    { path: '/support', label: 'Customer Support', icon: 'MessageSquare' },
   ];
 
   const [rawMenuItems, setRawMenuItems] = useState(defaultMenuItems);
@@ -190,19 +189,6 @@ export const SettingsProvider = ({ children }) => {
             }
           }
 
-          // Inject 'My Team Members' if missing
-          const hasMyTeam = apiMenu.some(item => item.path === '/my-team');
-          if (!hasMyTeam) {
-            const callIndex = apiMenu.findIndex(item => item.path === '/call-management');
-            const myTeamItem = { path: '/my-team', label: 'My Team Members', icon: 'Users' };
-            if (callIndex >= 0) {
-              apiMenu.splice(callIndex + 1, 0, myTeamItem);
-            } else {
-              const reportsIndex = apiMenu.findIndex((item) => item.label === 'Reports');
-              if (reportsIndex >= 0) apiMenu.splice(reportsIndex, 0, myTeamItem);
-              else apiMenu.push(myTeamItem);
-            }
-          }
 
           apiMenu = ensureSettingsIntegrationItems(apiMenu);
 
@@ -265,13 +251,13 @@ export const SettingsProvider = ({ children }) => {
       }
 
       // 3. Managers see everything that is not explicitly adminOnly (except Support which we check here)
-      if (label === 'support') {
+      if (label === 'support' || label === 'customer support') {
         return isRealAdmin || isManager;
       }
       if (isManager) return true;
 
       // 4. Staff see core items by default
-      const coreFeatures = ['queries', 'itineraries', 'followups', 'payments', 'whatsapp', 'mail', 'accounts', 'masters', 'call management system'];
+      const coreFeatures = ['queries', 'itineraries', 'followups', 'payments', 'whatsapp', 'all mails', 'mail', 'accounts', 'masters', 'call management system'];
       if (isStaff && coreFeatures.includes(label)) return true;
 
       // Special check for 'My Team'

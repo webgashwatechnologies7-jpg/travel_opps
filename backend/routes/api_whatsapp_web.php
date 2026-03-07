@@ -28,6 +28,9 @@ Route::middleware('auth:sanctum')->prefix('whatsapp-web')->group(function () {
     Route::post('messages/send', [WhatsAppChatController::class, 'sendMessage']);
     Route::post('messages/send-media', [WhatsAppChatController::class, 'sendMedia']);
     Route::post('messages/react', [WhatsAppChatController::class, 'sendReaction']);
+    Route::post('messages/pin', [WhatsAppChatController::class, 'pinMessage']);
+    Route::post('messages/star', [WhatsAppChatController::class, 'starMessage']);
     Route::post('groups/create', [WhatsAppChatController::class, 'createGroup']);
     Route::post('chats/{chatId}/read', [WhatsAppChatController::class, 'markAsRead']);
+    Route::get('profile-picture', [WhatsAppChatController::class, 'getProfilePicture']); // ?jid=xxx@s.whatsapp.net
 });

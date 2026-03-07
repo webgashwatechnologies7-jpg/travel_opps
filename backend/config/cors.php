@@ -15,7 +15,7 @@ return [
     |
     */
 
-    'paths' => ['api/*', 'sanctum/csrf-cookie', 'storage/*', 'public/*'],
+    'paths' => ['api/*', 'sanctum/csrf-cookie', 'storage/*', 'public/*', 'broadcasting/auth'],
 
     // We will handle 'web-to-lead' manually to allow wildcard origins, 
     // since the default cors middleware supports credentials block wildcard.

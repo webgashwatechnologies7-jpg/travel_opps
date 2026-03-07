@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Setting;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 
 class MenuController extends Controller
 {
@@ -16,11 +17,11 @@ class MenuController extends Controller
     {
         return [
             ['path' => '/dashboard', 'label' => 'Dashboard', 'icon' => 'LayoutDashboard'],
-            ['path' => '/notifications', 'label' => 'Notifications', 'icon' => 'Bell'],
             ['path' => '/leads', 'label' => 'Queries', 'icon' => 'MessageSquare'],
             ['path' => '/itineraries', 'label' => 'Itineraries', 'icon' => 'FileText'],
-            ['path' => '/payments', 'label' => 'Payments', 'icon' => 'CreditCard'],
+            ['path' => '/notifications', 'label' => 'Notifications', 'icon' => 'Bell'],
             ['path' => '/sales-reps', 'label' => 'Sales Reps', 'icon' => 'Users'],
+            ['path' => '/payments', 'label' => 'Payments', 'icon' => 'CreditCard'],
             [
                 'label' => 'Accounts',
                 'icon' => 'CreditCard',
@@ -30,10 +31,30 @@ class MenuController extends Controller
                     ['path' => '/accounts/corporate', 'label' => 'Corporate'],
                 ],
             ],
-            ['path' => '/whatsapp', 'label' => 'WhatsApp', 'icon' => 'MessageCircle'],
-            ['path' => '/mail', 'label' => 'Mail', 'icon' => 'Mail'],
+            ['path' => '/whatsapp-web', 'label' => 'WhatsApp', 'icon' => 'MessageCircle'],
+            ['path' => '/mail', 'label' => 'All Mails', 'icon' => 'Mail'],
+            [
+                'label' => 'Integrate',
+                'icon' => 'Link2',
+                'submenu' => [
+                    ['path' => '/settings/mail', 'label' => 'Email Integration'],
+                    ['path' => '/settings/whatsapp', 'label' => 'WhatsApp Integration'],
+                    ['path' => '/settings/telephony', 'label' => 'Telephony Integration'],
+                ],
+            ],
             ['path' => '/call-management', 'label' => 'Call Management System', 'icon' => 'Phone'],
             ['path' => '/followups', 'label' => 'Followups', 'icon' => 'ClipboardList'],
+            [
+                'label' => 'Staff Management',
+                'icon' => 'Users',
+                'submenu' => [
+                    ['path' => '/staff-management/dashboard', 'label' => 'Dashboard'],
+                    ['path' => '/staff-management/users', 'label' => 'All Users'],
+                    ['path' => '/staff-management/teams', 'label' => 'All Team'],
+                    ['path' => '/staff-management/roles', 'label' => 'All Role'],
+                    ['path' => '/staff-management/branches', 'label' => 'All Branch'],
+                ],
+            ],
             [
                 'label' => 'Reports',
                 'icon' => 'BarChart3',
@@ -56,17 +77,13 @@ class MenuController extends Controller
                 ],
             ],
             [
-                'label' => 'Settings',
+                'label' => 'Company Settings',
                 'icon' => 'Settings',
                 'submenu' => [
-                    ['path' => '/settings', 'label' => 'Settings'],
                     ['path' => '/settings/whatsapp', 'label' => 'WhatsApp Integration'],
                     ['path' => '/settings/mail', 'label' => 'Email Integration'],
-                    ['path' => '/email-templates', 'label' => 'Email Templates'],
-                    ['path' => '/settings/terms-conditions', 'label' => 'Terms & Conditions'],
-                    ['path' => '/settings/policies', 'label' => 'Policies'],
+                    ['path' => '/settings/telephony', 'label' => 'Telephony Integration'],
                     ['path' => '/settings/account-details', 'label' => 'Account Details'],
-                    ['path' => '/settings/logo', 'label' => 'Logo'],
                 ],
             ],
             [
@@ -76,20 +93,18 @@ class MenuController extends Controller
                     ['path' => '/masters/suppliers', 'label' => 'Suppliers'],
                     ['path' => '/masters/hotel', 'label' => 'Hotel'],
                     ['path' => '/masters/activity', 'label' => 'Activity'],
-                    ['path' => '/masters/transfer', 'label' => 'Transfer'],
+                    ['path' => '/masters/transfer', 'label' => 'Transport'],
                     ['path' => '/masters/day-itinerary', 'label' => 'Day Itinerary'],
                     ['path' => '/masters/destinations', 'label' => 'Destinations'],
                     ['path' => '/masters/room-type', 'label' => 'Room Type'],
                     ['path' => '/masters/meal-plan', 'label' => 'Meal Plan'],
                     ['path' => '/masters/lead-source', 'label' => 'Lead Source'],
                     ['path' => '/masters/expense-type', 'label' => 'Expense Type'],
-                    ['path' => '/masters/package-theme', 'label' => 'Package Theme'],
-                    ['path' => '/masters/currency', 'label' => 'Currency'],
-                    ['path' => '/users', 'label' => 'Users'],
+                    ['path' => '/masters/points', 'label' => 'Inclusions & Exclusions'],
                     ['path' => '/targets', 'label' => 'Targets'],
-                    ['path' => '/permissions', 'label' => 'Permissions'],
                 ],
             ],
+            ['path' => '/support', 'label' => 'Customer Support', 'icon' => 'MessageSquare'],
         ];
     }
 

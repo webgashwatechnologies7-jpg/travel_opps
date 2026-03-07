@@ -74,14 +74,12 @@ class WhatsAppWebhookController extends Controller
         if (!$session)
             return;
 
-        // 2. Extract phone number and find Lead, handling both @s.whatsapp.net and @lid JIDs
         $jid = $data['chat_id'];
         $cleanNumber = explode('@', $jid)[0];
         $jidType = strpos($jid, '@lid') !== false ? 'lid' : 'phone';
         $lead = null;
 
         if ($jidType === 'phone') {
-            // Normal phone JID - extract phone and match lead
             $phoneNumber = preg_replace('/[^0-9]/', '', $cleanNumber);
             $lead = DB::table('leads')
                 ->where('company_id', $session->company_id)
@@ -92,25 +90,40 @@ class WhatsAppWebhookController extends Controller
                 })
                 ->first();
         } else {
-            // @lid JID — Check for existing chat mapping or try to link via replied message
-            $existingChat = DB::table('whatsapp_chats')
-                ->where('chat_id', $jid)
-                ->where('company_id', $session->company_id)
-                ->whereNotNull('lead_id')
-                ->first();
+            // @lid JID — Try to link via remote_jid_alt (Linked Phone) if available
+            $remoteJidAlt = $data['remote_jid_alt'] ?? null;
+            if ($remoteJidAlt) {
+                $altNumber = preg_replace('/[^0-9]/', '', explode('@', $remoteJidAlt)[0]);
+                $lead = DB::table('leads')
+                    ->where('company_id', $session->company_id)
+                    ->whereNull('deleted_at')
+                    ->where(function ($query) use ($altNumber) {
+                        $query->where('phone', 'LIKE', '%' . substr($altNumber, -10))
+                            ->orWhere('phone_secondary', 'LIKE', '%' . substr($altNumber, -10));
+                    })
+                    ->first();
+            }
 
-            if ($existingChat) {
-                $lead = DB::table('leads')->where('id', $existingChat->lead_id)->first();
-            } else if (!empty($data['quoted_message_id'])) {
-                // Try to find the original message this is replying to
-                $originalMsg = DB::table('whatsapp_messages')
-                    ->where('whatsapp_message_id', $data['quoted_message_id'])
+            if (!$lead) {
+                $existingChat = DB::table('whatsapp_chats')
+                    ->where('chat_id', $jid)
+                    ->where('company_id', $session->company_id)
+                    ->whereNotNull('lead_id')
                     ->first();
 
-                if ($originalMsg) {
-                    $parentChat = DB::table('whatsapp_chats')->where('id', $originalMsg->whatsapp_chat_id)->first();
-                    if ($parentChat && $parentChat->lead_id) {
-                        $lead = DB::table('leads')->where('id', $parentChat->lead_id)->first();
+                if ($existingChat) {
+                    $lead = DB::table('leads')->where('id', $existingChat->lead_id)->first();
+                } else if (!empty($data['quoted_message_id'])) {
+                    // Try to find the original message this is replying to
+                    $originalMsg = DB::table('whatsapp_messages')
+                        ->where('whatsapp_message_id', $data['quoted_message_id'])
+                        ->first();
+
+                    if ($originalMsg) {
+                        $parentChat = DB::table('whatsapp_chats')->where('id', $originalMsg->whatsapp_chat_id)->first();
+                        if ($parentChat && $parentChat->lead_id) {
+                            $lead = DB::table('leads')->where('id', $parentChat->lead_id)->first();
+                        }
                     }
                 }
             }
@@ -216,6 +229,8 @@ class WhatsAppWebhookController extends Controller
             return;
         }
 
+        $direction = $data['direction'] ?? 'inbound';
+
         DB::table('whatsapp_messages')->insert([
             'company_id' => $session->company_id,
             'whatsapp_chat_id' => $chatId,
@@ -226,7 +241,7 @@ class WhatsAppWebhookController extends Controller
             'media_caption' => $data['media_caption'] ?? null,
             'quoted_message_id' => $data['quoted_message_id'] ?? null,
             'quoted_text' => $data['quoted_text'] ?? null,
-            'direction' => 'inbound',
+            'direction' => $direction,
             'status' => 'received',
             'created_at' => $currentTime,
             'updated_at' => $currentTime
@@ -234,32 +249,53 @@ class WhatsAppWebhookController extends Controller
 
         // 6. Real-time Dispatch
         $this->dispatchRealTimeEvent('whatsapp.message', [
+            'id' => $data['message_id'], // Map to ID for frontend consistency
+            'whatsapp_message_id' => $data['message_id'],
             'session_name' => $data['session_name'],
             'chat_id' => $jid,
+            'message' => $data['body'], // Consistent with message model
             'body' => $data['body'],
             'media_url' => $data['media_url'] ?? null,
             'media_type' => $data['media_type'] ?? null,
             'media_caption' => $data['media_caption'] ?? null,
-            'direction' => 'inbound',
+            'quoted_message_id' => $data['quoted_message_id'] ?? null,
+            'quoted_text' => $data['quoted_text'] ?? null,
+            'direction' => $direction,
             'lead_id' => $lead ? $lead->id : null,
-            'sender_name' => $lead ? $lead->client_name : ($data['chat_name'] ?? $cleanNumber)
+            'sender_name' => $lead ? $lead->client_name : ($data['chat_name'] ?? $cleanNumber),
+            'created_at' => now()->toISOString()
         ]);
     }
 
     protected function handleMessageReceipt($data)
     {
         // Point 2: Tracking "Sent", "Delivered", "Read" (Blue Ticks)
+        $status = $data['status'];
+        $updateData = [
+            'status' => $status,
+            'updated_at' => now()
+        ];
+
+        if ($status === 'delivered') {
+            $updateData['delivered_at'] = now();
+        } elseif ($status === 'read') {
+            $updateData['read_at'] = now();
+        }
+
         DB::table('whatsapp_messages')
             ->where('whatsapp_message_id', $data['message_id'])
-            ->update([
-                'status' => $data['status'],
-                'updated_at' => now()
-            ]);
+            ->update($updateData);
+
+        $msg = DB::table('whatsapp_messages')
+            ->where('whatsapp_message_id', $data['message_id'])
+            ->first();
 
         $this->dispatchRealTimeEvent('whatsapp.receipt', [
             'session_name' => $data['session_name'],
             'message_id' => $data['message_id'],
-            'status' => $data['status']
+            'status' => $status,
+            'delivered_at' => $msg->delivered_at ?? null,
+            'read_at' => $msg->read_at ?? null
         ]);
     }
 

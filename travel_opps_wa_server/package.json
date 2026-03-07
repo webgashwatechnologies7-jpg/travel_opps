@@ -5,7 +5,7 @@
   "main": "app.js",
   "scripts": {
     "start": "node app.js",
-    "dev": "nodemon --ignore sessions/ --ignore media/ app.js"
+    "dev": "nodemon --ignore sessions/ --ignore media/ --ignore '*.json' --ignore '*.log' --delay 1000 app.js"
   },
   "dependencies": {
     "@whiskeysockets/baileys": "^7.0.0-rc.9",

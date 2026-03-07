@@ -13,7 +13,6 @@ module.exports = (sock, sessionName, pool) => {
         if (m.type === 'notify') {
             for (const msg of m.messages) {
                 if (!msg.key.fromMe && !msg.key.remoteJid.includes('status@broadcast')) {
-                    console.log('New message from:', msg.key.remoteJid, '| Type:', Object.keys(msg.message || {})[0]);
 
                     let messageBody = '';
                     let mediaUrl = null;
@@ -23,9 +22,6 @@ module.exports = (sock, sessionName, pool) => {
                     let quotedText = null;
                     let isReaction = false;
 
-                    if (msg.key.remoteJid.includes('@lid')) {
-                        fs.writeFileSync(path.join(__dirname, 'lid_debug.json'), JSON.stringify(msg, null, 2));
-                    }
 
                     const msgContent = msg.message || {};
                     // Unwrap viewOnceMessage or ephemeralMessage wrappers
@@ -170,12 +166,10 @@ module.exports = (sock, sessionName, pool) => {
                         }
 
                         default:
-                            // Try common fallbacks before showing unknown
                             messageBody = inner?.conversation
                                 || inner?.extendedTextMessage?.text
                                 || inner?.caption
                                 || (messageType ? `[${messageType.replace('Message', '')} message]` : '');
-                            console.log('Unhandled message type:', messageType, JSON.stringify(inner).substring(0, 200));
                     }
 
                     // Resolve chat name (Group subject or Push name)
@@ -186,14 +180,10 @@ module.exports = (sock, sessionName, pool) => {
                             // We use a small optimization/cache if possible, but for now just fetch.
                             const groupMeta = await sock.groupMetadata(msg.key.remoteJid);
                             chatName = groupMeta.subject;
-                        } catch (e) {
-                            console.log('Failed to fetch group metadata for:', msg.key.remoteJid);
-                        }
+                        } catch (e) { }
                     }
 
-                    // Skip truly empty/null messages (e.g. key-only updates)
                     if (!messageBody && !mediaUrl && !isReaction) {
-                        console.log('Skipping empty message of type:', messageType);
                         continue;
                     }
 
@@ -203,6 +193,7 @@ module.exports = (sock, sessionName, pool) => {
                             type: 'incoming_message',
                             session_name: sessionName,
                             chat_id: msg.key.remoteJid,
+                            remote_jid_alt: msg.key.remoteJidAlt || null, // Include alternate JID (phone) if available
                             chat_name: chatName, // Capture sender name/group name if available
                             message_id: msg.key.id,
                             from: msg.key.remoteJid.split('@')[0],
@@ -213,13 +204,13 @@ module.exports = (sock, sessionName, pool) => {
                             quoted_message_id: quotedMessageId,
                             quoted_text: quotedText,
                             is_reaction: isReaction,
+                            direction: msg.key.fromMe ? 'outbound' : 'inbound',
                             timestamp: msg.messageTimestamp,
                         };
 
                         await axios.post(process.env.LARAVEL_WEBHOOK_URL, payload, {
                             headers: { 'x-api-key': process.env.WA_GATEWAY_API_KEY || 'travelops_secret_key_2024' }
                         });
-                        console.log('✅ Forwarded to Laravel:', messageType, messageBody.substring(0, 50));
                     } catch (error) {
                         console.error('Error forwarding incoming message to Laravel:', error.message);
                     }
@@ -292,16 +283,32 @@ async function processQueue(sessionName) {
         const { sock, to, content, resolve, reject } = queues[sessionName].items.shift();
 
         try {
-            const randomDelay = Math.floor(Math.random() * (8000 - 4000 + 1)) + 4000;
-            console.log(`[Queue ${sessionName}] Waiting ${randomDelay}ms... Items left: ${queues[sessionName].items.length}`);
-            await delay(randomDelay);
-
             const jid = to.includes('@') ? to : `${to}@s.whatsapp.net`;
             const result = await sock.sendMessage(jid, content);
             resolve(result);
         } catch (error) {
-            console.error(`[Queue ${sessionName}] Error:`, error);
-            reject(error);
+            const errMsg = error?.message || '';
+            // If WhatsApp closed the connection, wait 3s and retry ONCE
+            if (errMsg.includes('Connection Closed') || errMsg.includes('lost') || errMsg.includes('timed out')) {
+                console.warn(`[Queue ${sessionName}] Connection issue, retrying in 3s: ${errMsg}`);
+                await new Promise(r => setTimeout(r, 3000));
+                try {
+                    const jid = to.includes('@') ? to : `${to}@s.whatsapp.net`;
+                    const retryResult = await sock.sendMessage(jid, content);
+                    resolve(retryResult);
+                } catch (retryErr) {
+                    console.error(`[Queue ${sessionName}] Retry also failed:`, retryErr.message);
+                    reject(retryErr);
+                }
+            } else {
+                console.error(`[Queue ${sessionName}] Error:`, error.message);
+                reject(error);
+            }
+        }
+
+        // Anti-ban pause: 300ms between messages prevents WhatsApp from disconnecting
+        if (queues[sessionName].items.length > 0) {
+            await new Promise(r => setTimeout(r, 300));
         }
     }
     queues[sessionName].processing = false;
