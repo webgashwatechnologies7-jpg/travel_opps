@@ -21,8 +21,6 @@ use Illuminate\Support\Facades\Route;
 
 // Suppliers routes - require authentication
 Route::middleware('auth:sanctum')->prefix('suppliers')->group(function () {
-    Route::get('/', [SupplierController::class, 'index']);
-    Route::post('/', [SupplierController::class, 'store']);
     Route::post('/send-email', [SupplierController::class, 'sendEmail']);
     // Part 2 - Supplier financial summary
     Route::get('/{supplierId}/financial-summary', [SupplierFinancialController::class, 'getSupplierFinancialSummary']);
@@ -31,8 +29,7 @@ Route::middleware('auth:sanctum')->prefix('suppliers')->group(function () {
     Route::post('/{supplierId}/financial-transactions', [SupplierFinancialController::class, 'storeSupplierFinancialTransaction']);
     Route::get('/{supplierId}/financial-transactions', [SupplierFinancialController::class, 'getSupplierFinancialTransactions']);
     Route::post('/{supplierId}/financial-transactions/{transactionId}/payment', [SupplierFinancialController::class, 'recordSupplierTransactionPayment']);
-    Route::get('/{id}', [SupplierController::class, 'show']);
-    Route::put('/{id}', [SupplierController::class, 'update']);
+    Route::apiResource('/', SupplierController::class)->parameters(['' => 'id'])->except(['destroy']);
     Route::delete('/{id}', [SupplierController::class, 'destroy'])->middleware('role:Admin|Company Admin');
 });
 
@@ -62,40 +59,24 @@ Route::middleware('auth:sanctum')->prefix('content')->group(function () {
 
 // Lead Sources routes - require authentication
 Route::middleware('auth:sanctum')->prefix('lead-sources')->group(function () {
-    Route::get('/', [LeadSourceController::class, 'index']);
-    Route::post('/', [LeadSourceController::class, 'store']);
-    Route::get('/{id}', [LeadSourceController::class, 'show']);
-    Route::put('/{id}', [LeadSourceController::class, 'update']);
-    Route::delete('/{id}', [LeadSourceController::class, 'destroy'])->middleware('role:Admin|Company Admin');
+    Route::apiResource('/', LeadSourceController::class)->parameters(['' => 'id']);
 });
 
 // Expense Types routes - require authentication
 Route::middleware('auth:sanctum')->prefix('expense-types')->group(function () {
-    Route::get('/', [ExpenseTypeController::class, 'index']);
-    Route::post('/', [ExpenseTypeController::class, 'store']);
-    Route::get('/{id}', [ExpenseTypeController::class, 'show']);
-    Route::put('/{id}', [ExpenseTypeController::class, 'update']);
-    Route::delete('/{id}', [ExpenseTypeController::class, 'destroy'])->middleware('role:Admin|Company Admin');
+    Route::apiResource('/', ExpenseTypeController::class)->parameters(['' => 'id']);
 });
 
 // Package Themes routes - require authentication
 Route::middleware('auth:sanctum')->prefix('package-themes')->group(function () {
-    Route::get('/', [PackageThemeController::class, 'index']);
-    Route::post('/', [PackageThemeController::class, 'store']);
-    Route::get('/{id}', [PackageThemeController::class, 'show']);
-    Route::put('/{id}', [PackageThemeController::class, 'update']);
-    Route::delete('/{id}', [PackageThemeController::class, 'destroy'])->middleware('role:Admin|Company Admin');
+    Route::apiResource('/', PackageThemeController::class)->parameters(['' => 'id']);
 });
 
 // Currencies routes - require authentication
 Route::middleware('auth:sanctum')->prefix('currencies')->group(function () {
     Route::get('/live-rate', [CurrencyController::class, 'fetchLiveRate']);
     Route::put('/{id}/set-primary', [CurrencyController::class, 'setPrimary']);
-    Route::get('/', [CurrencyController::class, 'index']);
-    Route::post('/', [CurrencyController::class, 'store']);
-    Route::get('/{id}', [CurrencyController::class, 'show']);
-    Route::put('/{id}', [CurrencyController::class, 'update']);
-    Route::delete('/{id}', [CurrencyController::class, 'destroy'])->middleware('role:Admin|Company Admin');
+    Route::apiResource('/', CurrencyController::class)->parameters(['' => 'id']);
 });
 
 // Company Settings routes - require authentication

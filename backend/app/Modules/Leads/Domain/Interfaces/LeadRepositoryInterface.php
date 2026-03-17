@@ -49,5 +49,14 @@ interface LeadRepositoryInterface
      * @return bool
      */
     public function delete(int $id): bool;
+
+    /**
+     * Get analytics data for leads.
+     *
+     * @param array $filters
+     * @param string $timeframe
+     * @return array
+     */
+    public function getAnalytics(array $filters = [], string $timeframe = 'month'): array;
 }
 

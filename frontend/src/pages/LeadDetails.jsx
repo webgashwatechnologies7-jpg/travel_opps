@@ -138,7 +138,9 @@ const LeadDetails = () => {
   const [whatsappAttachment, setWhatsappAttachment] = useState(null);
   const [sendingWhatsapp, setSendingWhatsapp] = useState(false);
   const [loadingWhatsappMessages, setLoadingWhatsappMessages] = useState(false);
+  const [waStatus, setWaStatus] = useState('Checking...');
   const [profilePicUrl, setProfilePicUrl] = useState(null);
+  const [showWaConnectModal, setShowWaConnectModal] = useState(false);
   const [lastFetchedJid, setLastFetchedJid] = useState(null);
   const [showPaxModal, setShowPaxModal] = useState(false);
   const [paxTempList, setPaxTempList] = useState([]);
@@ -199,7 +201,17 @@ const LeadDetails = () => {
     fetchMaxHotelOptions();
     fetchSuppliers();
     fetchCompanySettings();
+    checkConnectionStatus();
   }, [id]);
+
+  const checkConnectionStatus = async () => {
+    try {
+      const response = await whatsappWebAPI.getStatus();
+      setWaStatus(response.data.status || 'Disconnected');
+    } catch (err) {
+      setWaStatus('Disconnected');
+    }
+  };
 
   // Mark 'new' leads as 'proposal' (or viewed) when opened to remove the "New" badge
   useEffect(() => {
@@ -258,18 +270,6 @@ const LeadDetails = () => {
     }
   }, [user?.id]);
 
-  useEffect(() => {
-    if (activeTab !== 'calls') {
-      return;
-    }
-
-    fetchCallHistory();
-    const interval = setInterval(() => {
-      fetchCallHistory();
-    }, 5000);
-
-    return () => clearInterval(interval);
-  }, [activeTab, id]);
 
   // When quotation modal is open, lock body scroll so only modal scrolls
   useEffect(() => {
@@ -1200,10 +1200,18 @@ const LeadDetails = () => {
   }, [id]);
 
   useEffect(() => {
-    if (activeTab === 'calls' && id) {
-      fetchLeadCalls();
+    if (activeTab !== 'calls' || !id) {
+      return;
     }
+
+    fetchLeadCalls();
+    const interval = setInterval(() => {
+      fetchLeadCalls();
+    }, 5000);
+
+    return () => clearInterval(interval);
   }, [activeTab, id, fetchLeadCalls]);
+
 
   const handlePlayRecording = async (callId) => {
     if (recordingUrls[callId]) {
@@ -1265,6 +1273,13 @@ const LeadDetails = () => {
     const inputAttachment = file || whatsappAttachment;
 
     if (!id || (!inputMsg && !inputAttachment)) return;
+
+    // Check WhatsApp Connection
+    if (waStatus !== 'Connected') {
+      setShowWaConnectModal(true);
+      return;
+    }
+
     if (!lead?.phone) {
       showToastNotification('warning', 'Missing Phone', 'Lead has no phone number. Please add phone to send WhatsApp.');
       return;
@@ -3621,6 +3636,12 @@ const LeadDetails = () => {
     });
     message += `Best regards,\nTravelOps Team`;
 
+    // Check WhatsApp Connection
+    if (waStatus !== 'Connected') {
+      setShowWaConnectModal(true);
+      return;
+    }
+
     try {
       const response = await whatsappAPI.send(id, message);
       if (response.data.success) {
@@ -4027,6 +4048,12 @@ const LeadDetails = () => {
     message += `\n*Total Package Price: ₹${totalPrice.toLocaleString('en-IN')}*\n\n`;
     message += `This is your confirmed itinerary. For detailed quotation with images, please check your email.\n\n`;
     message += `Best regards,\nTravelOps Team`;
+
+    // Check WhatsApp Connection
+    if (waStatus !== 'Connected') {
+      setShowWaConnectModal(true);
+      return;
+    }
 
     const whatsappUrl = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
     window.open(whatsappUrl, '_blank');
@@ -6298,6 +6325,60 @@ const LeadDetails = () => {
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* WhatsApp Connection Warning Modal */}
+      {showWaConnectModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100] transition-all duration-300">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md mx-4 overflow-hidden transform transition-all scale-100 border border-gray-100">
+            {/* Top Accent Gradient overlay */}
+            <div className="h-2 bg-gradient-to-r from-orange-500 via-red-500 to-pink-500"></div>
+            
+            <div className="p-8">
+              <div className="flex justify-center mb-6">
+                <div className="bg-orange-100 p-5 rounded-full ring-8 ring-orange-50 animate-bounce">
+                  <Smartphone className="h-12 w-12 text-orange-600" />
+                </div>
+              </div>
+
+              <div className="text-center mb-8">
+                <h3 className="text-2xl font-black text-gray-900 mb-Subtle tracking-tight uppercase">
+                   WhatsApp Disconnected
+                </h3>
+                <p className="text-gray-500 font-medium leading-relaxed mt-4">
+                  Please connect your WhatsApp from the <span className="text-blue-600 font-bold underline cursor-pointer" onClick={() => navigate('/whatsapp-web')}>WhatsApp Menu</span> to send messages.
+                </p>
+              </div>
+
+              <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-2xl p-6 border border-gray-200 shadow-inner mb-8">
+                <div className="flex items-start gap-4">
+                  <div className="bg-blue-600 p-2 rounded-lg mt-1 shadow-lg shadow-blue-200">
+                    <Info className="h-5 w-5 text-white" />
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-1">Authorization Notice</h4>
+                    <p className="text-sm text-gray-700 font-semibold leading-relaxed">
+                      You MUST login using your registered number:<br/>
+                      <span className="text-blue-600 text-lg font-black underline tracking-wide bg-blue-50 px-2 py-0.5 rounded">
+                        {user?.phone || 'Your Registered Number'}
+                      </span>
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setShowWaConnectModal(false)}
+                className="w-full bg-gray-900 hover:bg-black text-white font-black py-4 rounded-2xl transition-all duration-200 shadow-xl hover:shadow-2xl active:scale-95 flex items-center justify-center gap-2 uppercase tracking-widest text-sm"
+              >
+                Okay, I Understand
+              </button>
+              
+              <p className="text-center mt-4 text-[10px] text-gray-400 font-bold uppercase tracking-tighter">
+                Security Enforced Mode
+              </p>
             </div>
           </div>
         </div>

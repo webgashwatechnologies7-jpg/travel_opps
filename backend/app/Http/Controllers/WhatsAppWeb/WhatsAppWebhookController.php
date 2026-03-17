@@ -51,6 +51,40 @@ class WhatsAppWebhookController extends Controller
 
     protected function handleConnectionUpdate($data)
     {
+        $session = DB::table('whatsapp_sessions')
+            ->where('session_name', $data['session_name'])
+            ->first();
+
+        // Security Check: Ensure the connected WhatsApp number matches the Employee's CRM number
+        if ($session && $data['status'] === 'Connected' && !empty($data['phone_number'])) {
+            $user = DB::table('users')->where('id', $session->user_id)->first();
+            if ($user && !empty($user->phone)) {
+                $userPhone = preg_replace('/[^0-9]/', '', $user->phone);
+                $whatsappPhone = preg_replace('/[^0-9]/', '', $data['phone_number']);
+                
+                // Compare last 10 digits to allow for country code variations
+                if (substr($userPhone, -10) !== substr($whatsappPhone, -10)) {
+                    Log::warning("WhatsApp Phone Mismatch for User {$user->id}: CRM expects ...".substr($userPhone, -4).", Scanned ...".substr($whatsappPhone, -4));
+                    
+                    // Kill the session immediately
+                    $this->forceLogout($session->user_id, $session->company_id);
+                    
+                    DB::table('whatsapp_sessions')
+                        ->where('session_name', $data['session_name'])
+                        ->update([
+                            'status' => 'Unauthorized_Phone',
+                            'qr_code' => null,
+                            'phone_number' => $data['phone_number'],
+                            'updated_at' => now()
+                        ]);
+                        
+                    $data['status'] = 'Unauthorized_Phone';
+                    $this->dispatchRealTimeEvent('whatsapp.connection', $data);
+                    return;
+                }
+            }
+        }
+
         DB::table('whatsapp_sessions')
             ->where('session_name', $data['session_name'])
             ->update([
@@ -62,6 +96,20 @@ class WhatsAppWebhookController extends Controller
 
         // Dispatch real-time event if using Pusher
         $this->dispatchRealTimeEvent('whatsapp.connection', $data);
+    }
+
+    protected function forceLogout($userId, $companyId)
+    {
+        try {
+            \Illuminate\Support\Facades\Http::withHeaders([
+                'x-api-key' => env('WHATSAPP_INTERNAL_API_KEY', 'travelops_secret_key_2024')
+            ])->post(env('WHATSAPP_NODE_SERVER_URL', 'http://localhost:3001') . "/api/session/logout", [
+                'userId' => $userId,
+                'companyId' => $companyId
+            ]);
+        } catch (\Exception $e) {
+            Log::error("Failed to force logout WhatsApp session: " . $e->getMessage());
+        }
     }
 
     protected function handleIncomingMessage($data)

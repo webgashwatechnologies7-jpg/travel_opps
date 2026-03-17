@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { notificationsAPI } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
-import { Bell, Check, Trash2, Calendar, ShieldAlert } from 'lucide-react';
+import { Bell, Check, Trash2, Calendar, ShieldAlert, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
 import { toast } from 'react-toastify';
@@ -10,6 +10,8 @@ export default function Notifications() {
     const { user } = useAuth();
     const [notifications, setNotifications] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [page, setPage] = useState(1);
+    const [pagination, setPagination] = useState(null);
     const navigate = useNavigate();
 
     // Check if user is Admin
@@ -17,15 +19,16 @@ export default function Notifications() {
     const isAdmin = user?.is_super_admin || roleNames.some(r => ['Admin', 'Company Admin', 'Super Admin'].includes(r));
 
     useEffect(() => {
-        fetchNotifications();
-    }, []);
+        fetchNotifications(page);
+    }, [page]);
 
-    const fetchNotifications = async () => {
+    const fetchNotifications = async (currentPage = 1) => {
         setLoading(true);
         try {
-            const res = await notificationsAPI.getInApp();
+            const res = await notificationsAPI.getInApp({ page: currentPage, per_page: 10 });
             if (res.data?.success) {
                 setNotifications(res.data.data.notifications);
+                setPagination(res.data.data.pagination);
             }
         } catch (e) {
             console.error("Failed to fetch notifications", e);
@@ -192,6 +195,50 @@ export default function Notifications() {
                                         </div>
                                     </div>
                                 ))}
+                            </div>
+                        )}
+
+                        {/* Pagination Section */}
+                        {!loading && pagination && notifications.length > 0 && (
+                            <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 flex items-center justify-between">
+                                <div className="text-xs font-bold text-gray-500 uppercase tracking-widest">
+                                    Showing <span className="text-blue-600">{pagination.from || 0}</span> to <span className="text-blue-600">{pagination.to || 0}</span> of <span className="text-blue-600">{pagination.total}</span> notifications
+                                </div>
+                                {pagination.last_page > 1 && (
+                                    <div className="flex items-center gap-2">
+                                        <button
+                                            onClick={() => setPage(p => Math.max(1, p - 1))}
+                                            disabled={page === 1}
+                                            className="p-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm"
+                                        >
+                                            <ChevronLeft size={18} className="text-gray-600" />
+                                        </button>
+                                        
+                                        <div className="flex items-center gap-1">
+                                            {[...Array(pagination.last_page)].map((_, i) => (
+                                                <button
+                                                    key={i + 1}
+                                                    onClick={() => setPage(i + 1)}
+                                                    className={`w-8 h-8 rounded-lg text-xs font-black transition-all ${
+                                                        page === i + 1 
+                                                            ? 'bg-blue-600 text-white shadow-lg shadow-blue-200' 
+                                                            : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
+                                                    }`}
+                                                >
+                                                    {i + 1}
+                                                </button>
+                                            ))}
+                                        </div>
+
+                                        <button
+                                            onClick={() => setPage(p => Math.min(pagination.last_page, p + 1))}
+                                            disabled={page === pagination.last_page}
+                                            className="p-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm"
+                                        >
+                                            <ChevronRight size={18} className="text-gray-600" />
+                                        </button>
+                                    </div>
+                                )}
                             </div>
                         )}
                     </div>

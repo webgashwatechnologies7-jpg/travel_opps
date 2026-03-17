@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Send, Paperclip, Smile, Phone, Video, Info } from 'lucide-react';
+import { Send, Paperclip, Smile, Phone, Video, Info, Smartphone } from 'lucide-react';
 import { useErrorHandler } from '../hooks/useErrorHandler';
 
 const WhatsAppChat = ({ lead, onMessageSent }) => {
@@ -9,6 +9,8 @@ const WhatsAppChat = ({ lead, onMessageSent }) => {
   const [loading, setLoading] = useState(false);
   const [typing, setTyping] = useState(false);
   const [isOnline, setIsOnline] = useState(false);
+  const [waStatus, setWaStatus] = useState('Checking...');
+  const [showWarningModal, setShowWarningModal] = useState(false);
   const messagesEndRef = useRef(null);
   const fileInputRef = useRef(null);
 
@@ -21,12 +23,23 @@ const WhatsAppChat = ({ lead, onMessageSent }) => {
     scrollToBottom();
   }, [messages]);
 
-  // Load conversation
+  // Load conversation and status
   useEffect(() => {
     if (lead?.phone) {
       loadConversation();
+      checkConnectionStatus();
     }
   }, [lead?.phone]);
+
+  const checkConnectionStatus = async () => {
+    try {
+      const response = await fetch('/api/whatsapp-web/status');
+      const data = await response.json();
+      setWaStatus(data.status || 'Disconnected');
+    } catch (err) {
+      setWaStatus('Disconnected');
+    }
+  };
 
   // Simulate online status
   useEffect(() => {
@@ -52,6 +65,12 @@ const WhatsAppChat = ({ lead, onMessageSent }) => {
 
   const sendMessage = async () => {
     if (!newMessage.trim() || loading) return;
+
+    // Check WhatsApp Connection
+    if (waStatus !== 'Connected') {
+      setShowWarningModal(true);
+      return;
+    }
 
     setLoading(true);
     const messageText = newMessage.trim();
@@ -111,6 +130,12 @@ const WhatsAppChat = ({ lead, onMessageSent }) => {
 
   const sendMedia = async (file) => {
     if (!file || loading) return;
+
+    // Check WhatsApp Connection
+    if (waStatus !== 'Connected') {
+      setShowWarningModal(true);
+      return;
+    }
 
     setLoading(true);
 
@@ -191,8 +216,10 @@ const WhatsAppChat = ({ lead, onMessageSent }) => {
     }
   };
 
+  const localUser = JSON.parse(localStorage.getItem('user') || '{}');
+
   return (
-    <div className="flex flex-col h-full bg-white">
+    <div className="flex flex-col h-full bg-white relative">
       {/* Chat Header */}
       <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-white">
         <div className="flex items-center space-x-3">
@@ -206,7 +233,12 @@ const WhatsAppChat = ({ lead, onMessageSent }) => {
           </div>
           <div>
             <h3 className="font-semibold text-gray-900">{lead?.client_name || 'Customer'}</h3>
-            <p className="text-sm text-gray-500">{lead?.phone}</p>
+            <div className="flex items-center gap-2">
+               <p className="text-sm text-gray-500">{lead?.phone}</p>
+               <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${waStatus === 'Connected' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                  {waStatus === 'Connected' ? 'WA Connected' : 'WA Disconnected'}
+               </span>
+            </div>
           </div>
         </div>
         <div className="flex items-center space-x-2">
@@ -341,6 +373,60 @@ const WhatsAppChat = ({ lead, onMessageSent }) => {
           </button>
         </div>
       </div>
+
+      {/* Custom Connection Warning Modal */}
+      {showWarningModal && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center p-4 bg-white/80 backdrop-blur-md transition-all duration-500 rounded-lg">
+          <div className="bg-white rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.1)] w-full max-w-sm overflow-hidden animate-in fade-in zoom-in duration-300 border border-gray-100">
+            <div className="h-1.5 bg-gradient-to-r from-green-400 via-emerald-500 to-teal-600"></div>
+            
+            <div className="p-8">
+              <div className="flex justify-center mb-6">
+                <div className="bg-emerald-50 p-4 rounded-2xl relative">
+                  <Smartphone className="h-10 w-10 text-emerald-600" />
+                  <div className="absolute -top-1 -right-1 flex h-4 w-4">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-4 w-4 bg-red-500"></span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="text-center mb-6">
+                <h3 className="text-xl font-bold text-gray-900 leading-tight">
+                  WhatsApp Disconnected
+                </h3>
+                <p className="text-sm text-gray-500 font-medium mt-3 leading-relaxed">
+                  Please connect your WhatsApp from the main menu to send messages.
+                </p>
+              </div>
+
+              <div className="bg-gray-50 rounded-2xl p-5 border border-gray-100 mb-6 group hover:border-emerald-200 transition-colors">
+                <div className="flex gap-3">
+                  <div className="bg-white p-2 rounded-xl shadow-sm group-hover:bg-emerald-50 transition-colors">
+                    <Info className="h-4 w-4 text-emerald-600" />
+                  </div>
+                  <div>
+                    <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Authorization Requirement</h4>
+                    <p className="text-xs text-gray-700 font-bold leading-relaxed">
+                      Login only with your registered number:<br/>
+                      <span className="text-emerald-700 text-sm font-black underline decoration-emerald-200 underline-offset-4">
+                        {localUser?.phone || 'Your Number'}
+                      </span>
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setShowWarningModal(false)}
+                className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3.5 rounded-2xl transition-all duration-300 shadow-lg shadow-emerald-100 hover:shadow-xl hover:shadow-emerald-200 active:scale-95 flex items-center justify-center gap-2 uppercase tracking-wide text-xs"
+              >
+                Got it, Thanks
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

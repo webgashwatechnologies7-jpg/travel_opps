@@ -194,7 +194,7 @@ const SubscriptionDetails = () => {
                                 onClick={() => {
                                     toast.success("Redirecting to upgrade panel...", { position: "top-center" });
                                     setTimeout(() => {
-                                        window.open('https://gashwatechnologies.com/contact', '_blank');
+                                        window.open('', '_blank');
                                     }, 1500);
                                 }}
                                 className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-blue-900/40 relative group"

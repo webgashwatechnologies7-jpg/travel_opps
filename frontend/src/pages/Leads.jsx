@@ -4,8 +4,11 @@ import { leadsAPI, leadSourcesAPI, usersAPI } from '../services/api';
 import { toast } from 'react-toastify';
 import { useAuth } from '../contexts/AuthContext';
 import Layout from '../components/Layout';
-import { X, ChevronDown, Filter, Eye, Mail, MessageSquare, Edit, MoreVertical, History, Plus } from 'lucide-react';
+import { X, ChevronDown, Filter, Eye, Mail, MessageSquare, Edit, MoreVertical, History, Plus, TrendingUp, BarChart3, Calendar } from 'lucide-react';
 import LeadCard from '../components/Quiries/LeadCard';
+import { 
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line 
+} from 'recharts';
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const getCurrentMonth = () => MONTHS[new Date().getMonth()];
@@ -51,6 +54,20 @@ const Leads = () => {
   const [destinationFilter, setDestinationFilter] = useState('');
   const [assignedToFilter, setAssignedToFilter] = useState('');
   const [assignedNameFilter, setAssignedNameFilter] = useState('');
+  const [advancedFilters, setAdvancedFilters] = useState({
+    from_date: '',
+    to_date: '',
+    travel_month: '',
+    source: '',
+    service: '',
+    adult: '',
+    description: '',
+  });
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+  const [showAnalytics, setShowAnalytics] = useState(false);
+  const [analyticsData, setAnalyticsData] = useState([]);
+  const [analyticsTimeframe, setAnalyticsTimeframe] = useState('month');
+  const [analyticsLoading, setAnalyticsLoading] = useState(false);
   const [openActionMenu, setOpenActionMenu] = useState(null); // Track which row's action menu is open
   const [formData, setFormData] = useState(getDefaultFormData);
   // Pagination state
@@ -71,6 +88,45 @@ const Leads = () => {
     fetchUsers();
     fetchLeads();
   }, []);
+
+  useEffect(() => {
+    if (showAnalytics) {
+      fetchAnalytics();
+    }
+  }, [showAnalytics, analyticsTimeframe, advancedFilters, assignedToFilter, destinationFilter]);
+
+  const fetchAnalytics = async () => {
+    try {
+      setAnalyticsLoading(true);
+      
+      let activeFilterParams = {};
+      if (activeFilter === 'new') activeFilterParams = { status: 'new' };
+      else if (activeFilter === 'proposalSent') activeFilterParams = { status: 'proposal' };
+      else if (activeFilter === 'followUp') activeFilterParams = { status: 'followup' };
+      else if (activeFilter === 'confirmed') activeFilterParams = { status: 'confirmed' };
+      else if (activeFilter === 'cancel') activeFilterParams = { status: 'cancelled' };
+      else if (activeFilter === 'hotLead') activeFilterParams = { priority: 'hot' };
+      else if (activeFilter === 'assignedToMe') activeFilterParams = { assigned_to: currentUser?.id };
+      else if (activeFilter === 'unassigned') activeFilterParams = { unassigned: 1 };
+      else if (activeFilter === 'today') activeFilterParams = { today: 1 };
+
+      const response = await leadsAPI.analytics({
+        timeframe: analyticsTimeframe,
+        destination: destinationFilter,
+        assigned_to: assignedToFilter,
+        ...activeFilterParams,
+        ...advancedFilters
+      });
+      
+      if (response.data?.success) {
+        setAnalyticsData(response.data.data);
+      }
+    } catch (err) {
+      console.error('Failed to fetch analytics:', err);
+    } finally {
+      setAnalyticsLoading(false);
+    }
+  };
 
   const location = useLocation();
 
@@ -193,7 +249,27 @@ const Leads = () => {
   const fetchLeads = useCallback(async (filters = {}, page = 1) => {
     try {
       setLoading(true);
-      const params = { ...filters, per_page: 20, page };
+      
+      let activeFilterParams = {};
+      if (activeFilter === 'new') activeFilterParams = { status: 'new' };
+      else if (activeFilter === 'proposalSent') activeFilterParams = { status: 'proposal' };
+      else if (activeFilter === 'followUp') activeFilterParams = { status: 'followup' };
+      else if (activeFilter === 'confirmed') activeFilterParams = { status: 'confirmed' };
+      else if (activeFilter === 'cancel') activeFilterParams = { status: 'cancelled' };
+      else if (activeFilter === 'hotLead') activeFilterParams = { priority: 'hot' };
+      else if (activeFilter === 'assignedToMe') activeFilterParams = { assigned_to: currentUser?.id };
+      else if (activeFilter === 'unassigned') activeFilterParams = { unassigned: 1 };
+      else if (activeFilter === 'today') activeFilterParams = { today: 1 };
+
+      const params = { 
+        per_page: 20, 
+        page,
+        destination: destinationFilter,
+        assigned_to: assignedToFilter,
+        ...activeFilterParams,
+        ...advancedFilters,
+        ...filters // filters passed explicitly override current state
+      };
       const response = await leadsAPI.list(params);
 
       // Handle different response structures
@@ -224,7 +300,7 @@ const Leads = () => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [destinationFilter, assignedToFilter, advancedFilters, activeFilter, currentUser]);
 
   const fetchLeadSources = useCallback(async () => {
     try {
@@ -265,6 +341,7 @@ const Leads = () => {
         child: formData.child ? parseInt(formData.child, 10) : 0,
         infant: formData.infant ? parseInt(formData.infant, 10) : 0,
         remark: formData.remark || null,
+        service: formData.service || null,
         date_of_birth: formData.date_of_birth || null,
         marriage_anniversary: formData.marriage_anniversary || null,
       };
@@ -592,6 +669,25 @@ const Leads = () => {
     setDestinationFilter('');
     setAssignedToFilter('');
     setAssignedNameFilter('');
+    const resetFilters = {
+      from_date: '',
+      to_date: '',
+      travel_month: '',
+      source: '',
+      service: '',
+      adult: '',
+      description: '',
+    };
+    setAdvancedFilters(resetFilters);
+    fetchLeads({ destination: '', assigned_to: '', ...resetFilters });
+  };
+
+  const handleAdvancedFilterChange = (e) => {
+    const { name, value } = e.target;
+    setAdvancedFilters(prev => ({ ...prev, [name]: value }));
+  };
+
+  const applyAdvancedFilters = () => {
     fetchLeads();
   };
 
@@ -620,151 +716,458 @@ const Leads = () => {
         </div>
 
         {/* Filters */}
-        <div className="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-          <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
-            <div className="relative flex-1 min-w-[220px]">
-              <input
-                type="text"
-                value={destinationFilter}
+        <div className="mb-6 bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+            <div className="flex flex-wrap gap-3 flex-1">
+              <div className="relative flex-1 min-w-[200px]">
+                <input
+                  type="text"
+                  value={destinationFilter}
+                  onChange={(e) => {
+                    setDestinationFilter(e.target.value);
+                  }}
+                  onKeyDown={(e) => e.key === 'Enter' && fetchLeads()}
+                  placeholder="Search by destination"
+                  className="w-full pl-3 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <select
+                value={activeFilter}
                 onChange={(e) => {
-                  setDestinationFilter(e.target.value);
-                  setActiveFilter(e.target.value ? 'destination' : 'total');
+                  const val = e.target.value;
+                  setActiveFilter(val);
+                  if (val === 'total') fetchLeads({});
+                  else if (val === 'new') fetchLeads({ status: 'new' });
+                  else if (val === 'proposalSent') fetchLeads({ status: 'proposal' });
+                  else if (val === 'followUp') fetchLeads({ status: 'followup' });
+                  else if (val === 'confirmed') fetchLeads({ status: 'confirmed' });
+                  else if (val === 'cancel') fetchLeads({ status: 'cancelled' });
+                  else if (val === 'hotLead') fetchLeads({ priority: 'hot' });
+                  else if (val === 'assignedToMe') fetchLeads({ assigned_to: currentUser?.id });
+                  else if (val === 'unassigned') fetchLeads({ unassigned: 1 });
+                  else if (val === 'today') fetchLeads({ today: 1 });
                 }}
-                placeholder="Search by destination"
-                className="w-full pl-3 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
+                className="w-full sm:w-48 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="total">All Queries ({stats.total})</option>
+                {stats.assignedToMe > 0 && <option value="assignedToMe">Assigned to Me ({stats.assignedToMe})</option>}
+                <option value="today">Today ({stats.today})</option>
+                {canAssign && <option value="unassigned" className="font-semibold text-orange-600">Unassigned ({stats.unassigned})</option>}
+                <option value="new">New ({stats.new})</option>
+                <option value="proposalSent">Proposal Sent ({stats.proposalSent})</option>
+                <option value="hotLead">Hot Lead ({stats.hotLead})</option>
+                <option value="cancel">Cancel ({stats.cancel})</option>
+                <option value="followUp">Follow ups ({stats.followUp})</option>
+                <option value="confirmed">Confirmed ({stats.confirmed})</option>
+              </select>
+              
+              <button
+                type="button"
+                onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+                className={`flex items-center gap-2 px-4 py-2 text-sm border rounded-lg font-bold transition-all shadow-sm ${
+                  showAdvancedFilters 
+                    ? 'bg-blue-50 border-blue-400 text-blue-700' 
+                    : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                <Filter size={16} />
+                Advanced Filters
+              </button>
+
+              <button
+                type="button"
+                onClick={() => fetchLeads()}
+                className="bg-blue-600 text-white px-6 py-2 rounded-lg text-sm font-bold hover:bg-blue-700 transition-all shadow-md active:scale-95"
+              >
+                Apply Filters
+              </button>
             </div>
-            <select
-              value={activeFilter}
-              onChange={(e) => setActiveFilter(e.target.value)}
-              className="w-full sm:w-48 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="total">All Queries ({stats.total})</option>
-              {stats.assignedToMe > 0 && <option value="assignedToMe">Assigned to Me ({stats.assignedToMe})</option>}
-              <option value="today">Today ({stats.today})</option>
-              {canAssign && <option value="unassigned" className="font-semibold text-orange-600">Unassigned ({stats.unassigned})</option>}
-              <option value="new">New ({stats.new})</option>
-              <option value="proposalSent">Proposal Sent ({stats.proposalSent})</option>
-              <option value="noConnect">No Connect ({stats.noConnect})</option>
-              <option value="hotLead">Hot Lead ({stats.hotLead})</option>
-              <option value="proposalConfirmed">Proposal Conn. ({stats.proposalConfirmed})</option>
-              <option value="cancel">Cancel ({stats.cancel})</option>
-              <option value="followUp">Follow ups ({stats.followUp})</option>
-              <option value="confirmed">Confirmed ({stats.confirmed})</option>
-              <option value="birthdays">Birthdays ({stats.birthdays || 0})</option>
-              <option value="anniversaries">Anniversaries ({stats.anniversaries || 0})</option>
-              <option value="postponed">Postponed ({stats.postponed})</option>
-              <option value="invalid">Invalid ({stats.invalid})</option>
-            </select>
+            
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={handleRefresh}
+                className="flex items-center gap-2 px-4 py-2 text-sm border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+              >
+                <History size={16} />
+                Reset
+              </button>
+              
+              <button
+                type="button"
+                onClick={() => setShowAnalytics(!showAnalytics)}
+                className={`flex items-center gap-2 px-4 py-2 text-sm border rounded-lg font-bold shadow-sm transition-all ${
+                  showAnalytics 
+                    ? 'bg-blue-600 border-blue-600 text-white hover:bg-blue-700' 
+                    : 'bg-white border-blue-200 text-blue-600 hover:bg-blue-50'
+                }`}
+              >
+                <TrendingUp size={16} />
+                {showAnalytics ? 'Hide Graph' : 'Show Lead Graph'}
+              </button>
+            </div>
           </div>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={handleRefresh}
-              className="flex items-center gap-2 px-4 py-2 text-sm border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
-            >
-              <History size={16} />
-              Refresh
-            </button>
-          </div>
-        </div>
 
-        {filteredLeads.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-12 bg-white rounded-lg shadow">
-            <p className="text-gray-500 text-lg mb-2">No leads found</p>
-            <p className="text-gray-400 text-sm">Click "+ Add New" to create your first lead</p>
-          </div>
-        ) : (
-          <>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {filteredLeads.map((lead) => {
-                // Get assigned user name from various possible fields
-                // Backend returns assignedUser relationship or assigned_user object
-                const assignedUserName =
-                  lead.assignedUser?.name ||
-                  lead.assigned_user?.name ||
-                  lead.assigned_to?.name ||
-                  lead.assigned_to_name ||
-                  lead.assigned_user_name ||
-                  null;
-
-                return (
-                  <LeadCard
-                    id={lead.id}
-                    key={lead.id}
-                    name={lead.client_name}
-                    phone={lead.phone || "N/A"}
-                    email={lead.email}
-                    tag={
-                      lead.status === "confirmed"
-                        ? "Confirmed"
-                        : lead.status === "new"
-                          ? "New"
-                          : ""
-                    }
-                    location={lead.destination || "N/A"}
-                    date={formatDate(lead.created_at)}
-                    amount={lead.amount || 0}
-                    status={lead.status}
-                    assignedTo={lead.assignedUser || lead.assigned_user || lead.assigned_to}
-                    assignedUserName={assignedUserName}
-                    onAssign={canAssign ? handleOpenAssignModal : null}
-                    onStatusChange={handleOpenStatusModal}
-                    onDelete={handleDelete}
+          {/* Advanced Filters Expandable Area */}
+          {showAdvancedFilters && (
+            <div className="mt-4 p-6 bg-gray-50/50 rounded-2xl border border-gray-100 animate-in fade-in slide-in-from-top-2 duration-300">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                <div className="space-y-1.5">
+                  <label className="block text-[11px] font-extrabold text-gray-400 uppercase tracking-wider ml-1">From Date</label>
+                  <input
+                    type="date"
+                    name="from_date"
+                    value={advancedFilters.from_date}
+                    onChange={handleAdvancedFilterChange}
+                    className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
                   />
-                );
-              })}
-            </div>
-
-            {/* Pagination Controls */}
-            {pagination.last_page > 1 && (
-              <div className="flex items-center justify-between mt-6 bg-white rounded-lg shadow px-4 py-3">
-                <p className="text-sm text-gray-600">
-                  Showing <span className="font-semibold">{((currentPage - 1) * pagination.per_page) + 1}</span>–<span className="font-semibold">{Math.min(currentPage * pagination.per_page, pagination.total)}</span> of <span className="font-semibold">{pagination.total}</span> leads
-                </p>
-                <div className="flex items-center gap-1">
-                  <button
-                    onClick={() => { fetchLeads({}, currentPage - 1); }}
-                    disabled={currentPage === 1}
-                    className="px-3 py-1.5 text-sm border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                </div>
+                <div className="space-y-1.5">
+                  <label className="block text-[11px] font-extrabold text-gray-400 uppercase tracking-wider ml-1">To Date</label>
+                  <input
+                    type="date"
+                    name="to_date"
+                    value={advancedFilters.to_date}
+                    onChange={handleAdvancedFilterChange}
+                    className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="block text-[11px] font-extrabold text-gray-400 uppercase tracking-wider ml-1">Travel Month</label>
+                  <select
+                    name="travel_month"
+                    value={advancedFilters.travel_month}
+                    onChange={handleAdvancedFilterChange}
+                    className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
                   >
-                    ← Prev
-                  </button>
-                  {Array.from({ length: Math.min(5, pagination.last_page) }, (_, i) => {
-                    let page;
-                    if (pagination.last_page <= 5) {
-                      page = i + 1;
-                    } else if (currentPage <= 3) {
-                      page = i + 1;
-                    } else if (currentPage >= pagination.last_page - 2) {
-                      page = pagination.last_page - 4 + i;
-                    } else {
-                      page = currentPage - 2 + i;
-                    }
-                    return (
-                      <button
-                        key={page}
-                        onClick={() => fetchLeads({}, page)}
-                        className={`px-3 py-1.5 text-sm border rounded-md ${page === currentPage
-                          ? 'bg-blue-600 text-white border-blue-600'
-                          : 'border-gray-300 hover:bg-gray-50'
-                          }`}
-                      >
-                        {page}
-                      </button>
-                    );
-                  })}
-                  <button
-                    onClick={() => { fetchLeads({}, currentPage + 1); }}
-                    disabled={currentPage === pagination.last_page}
-                    className="px-3 py-1.5 text-sm border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                    <option value="">All Months</option>
+                    {MONTHS.map(m => <option key={m} value={m}>{m}</option>)}
+                  </select>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="block text-[11px] font-extrabold text-gray-400 uppercase tracking-wider ml-1">Lead Source</label>
+                  <select
+                    name="source"
+                    value={advancedFilters.source}
+                    onChange={handleAdvancedFilterChange}
+                    className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
                   >
-                    Next →
-                  </button>
+                    <option value="">All Sources</option>
+                    {leadSources.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
+                  </select>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="block text-[11px] font-extrabold text-gray-400 uppercase tracking-wider ml-1">Service</label>
+                  <input
+                    type="text"
+                    name="service"
+                    value={advancedFilters.service}
+                    onChange={handleAdvancedFilterChange}
+                    placeholder="e.g. Activities"
+                    className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="block text-[11px] font-extrabold text-gray-400 uppercase tracking-wider ml-1">Pax (Adult)</label>
+                  <input
+                    type="number"
+                    name="adult"
+                    value={advancedFilters.adult}
+                    onChange={handleAdvancedFilterChange}
+                    placeholder="Count"
+                    className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="block text-[11px] font-extrabold text-gray-400 uppercase tracking-wider ml-1">Assign To</label>
+                  <select
+                    value={assignedToFilter}
+                    onChange={(e) => setAssignedToFilter(e.target.value)}
+                    className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                  >
+                    <option value="">All Staff</option>
+                    {users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+                  </select>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="block text-[11px] font-extrabold text-gray-400 uppercase tracking-wider ml-1">Description</label>
+                  <input
+                    type="text"
+                    name="description"
+                    value={advancedFilters.description}
+                    onChange={handleAdvancedFilterChange}
+                    placeholder="Search in remark..."
+                    className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                  />
                 </div>
               </div>
-            )}
-          </>
+            </div>
+          )}
+
+          {/* Analytics Visualization Section */}
+          {showAnalytics && (
+            <div className="mt-6 bg-white rounded-2xl shadow-xl border border-blue-100 overflow-hidden animate-in fade-in zoom-in-95 duration-500">
+              <div className="flex flex-col lg:flex-row divide-y lg:divide-y-0 lg:divide-x divide-gray-100">
+                {/* Left Side: Chart */}
+                <div className="lg:w-2/3 p-6 sm:p-8">
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
+                    <div>
+                      <h3 className="text-lg font-extrabold text-gray-900 flex items-center gap-2">
+                        <TrendingUp className="text-blue-600" size={24} />
+                        Query Growth Trends
+                      </h3>
+                      <p className="text-xs text-gray-500 font-medium">Monitoring lead volume and success rate</p>
+                    </div>
+                    
+                    <div className="flex items-center bg-blue-50/50 p-1.5 rounded-xl border border-blue-100">
+                      {['day', 'week', 'month', 'year'].map((tf) => (
+                        <button
+                          key={tf}
+                          onClick={() => setAnalyticsTimeframe(tf)}
+                          className={`px-4 py-1.5 text-[10px] uppercase tracking-wider font-extrabold rounded-lg transition-all ${
+                            analyticsTimeframe === tf 
+                              ? 'bg-white text-blue-600 shadow-md ring-1 ring-black/5' 
+                              : 'text-gray-500 hover:text-gray-900'
+                          }`}
+                        >
+                          {tf}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {analyticsLoading ? (
+                    <div className="h-[300px] flex flex-col items-center justify-center">
+                      <div className="w-12 h-12 border-4 border-blue-100 border-t-blue-600 rounded-full animate-spin mb-4"></div>
+                      <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">Generating Graphics...</p>
+                    </div>
+                  ) : analyticsData.length > 0 ? (
+                    <div className="h-[300px] w-full">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={analyticsData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                          <defs>
+                            <linearGradient id="colorTotal" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.8}/>
+                              <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.2}/>
+                            </linearGradient>
+                            <linearGradient id="colorConfirmed" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="5%" stopColor="#10b981" stopOpacity={0.8}/>
+                              <stop offset="95%" stopColor="#10b981" stopOpacity={0.2}/>
+                            </linearGradient>
+                          </defs>
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                          <XAxis 
+                            dataKey="label" 
+                            axisLine={false}
+                            tickLine={false}
+                            tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 600 }}
+                            dy={10}
+                          />
+                          <YAxis 
+                            axisLine={false}
+                            tickLine={false}
+                            tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 600 }}
+                          />
+                          <Tooltip 
+                            cursor={{ fill: '#f8fafc' }}
+                            contentStyle={{ 
+                              borderRadius: '16px', 
+                              border: '1px solid #e2e8f0', 
+                              boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
+                              fontSize: '12px',
+                              fontWeight: 600
+                            }}
+                          />
+                          <Legend 
+                            verticalAlign="top" 
+                            align="right" 
+                            iconType="circle"
+                            wrapperStyle={{ paddingBottom: '30px', fontSize: '11px', fontWeight: 700 }} 
+                          />
+                          <Bar 
+                            name="Total Queries" 
+                            dataKey="total" 
+                            fill="url(#colorTotal)" 
+                            radius={[6, 6, 0, 0]} 
+                            barSize={analyticsTimeframe === 'day' ? 24 : 32} 
+                          />
+                          <Bar 
+                            name="Confirmed" 
+                            dataKey="confirmed" 
+                            fill="url(#colorConfirmed)" 
+                            radius={[6, 6, 0, 0]} 
+                            barSize={analyticsTimeframe === 'day' ? 24 : 32} 
+                          />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  ) : (
+                    <div className="h-[300px] flex flex-col items-center justify-center bg-gray-50/50 rounded-2xl border-2 border-dashed border-gray-100">
+                      <BarChart3 className="text-gray-200 mb-4" size={48} />
+                      <p className="text-sm font-bold text-gray-400">No data points available</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Right Side: Insights */}
+                <div className="lg:w-1/3 bg-gray-50/30 p-6 sm:p-8 flex flex-col gap-6">
+                  <h4 className="text-sm font-bold text-gray-900 uppercase tracking-widest flex items-center gap-2 mb-2">
+                    <TrendingUp size={16} className="text-blue-500" />
+                    Quick Insights
+                  </h4>
+                  
+                  <div className="grid grid-cols-1 gap-4">
+                    <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm transition-transform hover:scale-[1.02]">
+                      <p className="text-[11px] font-bold text-gray-500 uppercase tracking-tight mb-1">Conversion Efficiency</p>
+                      <div className="flex items-end justify-between">
+                        <h5 className="text-3xl font-black text-gray-900">
+                          {analyticsData.length > 0 
+                            ? Math.round((analyticsData.reduce((acc, curr) => acc + (curr.confirmed || 0), 0) / (analyticsData.reduce((acc, curr) => acc + (curr.total || 0), 0) || 1)) * 100) 
+                            : 0}%
+                        </h5>
+                        <div className="h-2 w-24 bg-gray-100 rounded-full overflow-hidden">
+                          <div 
+                            className="h-full bg-green-500 rounded-full" 
+                            style={{ 
+                              width: `${analyticsData.length > 0 ? Math.min(100, (analyticsData.reduce((acc, curr) => acc + (curr.confirmed || 0), 0) / (analyticsData.reduce((acc, curr) => acc + (curr.total || 0), 0) || 1)) * 100) : 0}%` 
+                            }}
+                          ></div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm transition-transform hover:scale-[1.02]">
+                      <p className="text-[11px] font-bold text-gray-500 uppercase tracking-tight mb-1">Peak Performance</p>
+                      {analyticsData.length > 0 ? (
+                        <div>
+                          <h5 className="text-xl font-bold text-blue-600">
+                            {analyticsData.reduce((prev, current) => (prev.total > current.total) ? prev : current).label}
+                          </h5>
+                          <p className="text-[10px] text-gray-400 font-bold uppercase mt-1">Busy Period Identified</p>
+                        </div>
+                      ) : (
+                        <p className="text-sm text-gray-400">Awaiting more data...</p>
+                      )}
+                    </div>
+
+                    <div className="bg-blue-600 p-5 rounded-2xl border border-blue-500 shadow-lg shadow-blue-200 transition-transform hover:scale-[1.02]">
+                      <p className="text-[11px] font-bold text-blue-100 uppercase tracking-tight mb-1">Total Success</p>
+                      <h5 className="text-3xl font-black text-white">
+                        {analyticsData.reduce((acc, curr) => acc + (curr.confirmed || 0), 0)}
+                      </h5>
+                      <p className="text-[10px] text-blue-200 font-bold uppercase mt-1">Leads Won Overall</p>
+                    </div>
+                  </div>
+
+                  <div className="mt-auto bg-white/60 backdrop-blur-sm p-4 rounded-xl border border-gray-100">
+                    <p className="text-[10px] text-gray-500 font-bold leading-relaxed">
+                      💡 Pro-Tip: Comparison helps identify seasonal peaks. Use it to plan your marketing spend!
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {!showAnalytics && (
+          filteredLeads.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 bg-white rounded-lg shadow">
+              <p className="text-gray-500 text-lg mb-2">No leads found</p>
+              <p className="text-gray-400 text-sm">Click "+ Add New" to create your first lead</p>
+            </div>
+          ) : (
+            <>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                {filteredLeads.map((lead) => {
+                  // Get assigned user name from various possible fields
+                  // Backend returns assignedUser relationship or assigned_user object
+                  const assignedUserName =
+                    lead.assignedUser?.name ||
+                    lead.assigned_user?.name ||
+                    lead.assigned_to?.name ||
+                    lead.assigned_to_name ||
+                    lead.assigned_user_name ||
+                    null;
+
+                  return (
+                    <LeadCard
+                      id={lead.id}
+                      key={lead.id}
+                      name={lead.client_name}
+                      phone={lead.phone || "N/A"}
+                      email={lead.email}
+                      tag={
+                        lead.status === "confirmed"
+                          ? "Confirmed"
+                          : lead.status === "new"
+                            ? "New"
+                            : ""
+                      }
+                      location={lead.destination || "N/A"}
+                      date={formatDate(lead.created_at)}
+                      amount={lead.amount || 0}
+                      status={lead.status}
+                      assignedTo={lead.assignedUser || lead.assigned_user || lead.assigned_to}
+                      assignedUserName={assignedUserName}
+                      onAssign={canAssign ? handleOpenAssignModal : null}
+                      onStatusChange={handleOpenStatusModal}
+                      onDelete={handleDelete}
+                    />
+                  );
+                })}
+              </div>
+
+              {/* Pagination Controls */}
+              {pagination.last_page > 1 && (
+                <div className="flex items-center justify-between mt-6 bg-white rounded-lg shadow px-4 py-3">
+                  <p className="text-sm text-gray-600">
+                    Showing <span className="font-semibold">{((currentPage - 1) * pagination.per_page) + 1}</span>–<span className="font-semibold">{Math.min(currentPage * pagination.per_page, pagination.total)}</span> of <span className="font-semibold">{pagination.total}</span> leads
+                  </p>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => { fetchLeads({}, currentPage - 1); }}
+                      disabled={currentPage === 1}
+                      className="px-3 py-1.5 text-sm border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      ← Prev
+                    </button>
+                    {Array.from({ length: Math.min(5, pagination.last_page) }, (_, i) => {
+                      let page;
+                      if (pagination.last_page <= 5) {
+                        page = i + 1;
+                      } else if (currentPage <= 3) {
+                        page = i + 1;
+                      } else if (currentPage >= pagination.last_page - 2) {
+                        page = pagination.last_page - 4 + i;
+                      } else {
+                        page = currentPage - 2 + i;
+                      }
+                      return (
+                        <button
+                          key={page}
+                          onClick={() => fetchLeads({}, page)}
+                          className={`px-3 py-1.5 text-sm border rounded-md ${page === currentPage
+                            ? 'bg-blue-600 text-white border-blue-600'
+                            : 'border-gray-300 hover:bg-gray-50'
+                            }`}
+                        >
+                          {page}
+                        </button>
+                      );
+                    })}
+                    <button
+                      onClick={() => { fetchLeads({}, currentPage + 1); }}
+                      disabled={currentPage === pagination.last_page}
+                      className="px-3 py-1.5 text-sm border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      Next →
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
+          )
         )}
 
         {/* ADD QUERY Modal */}

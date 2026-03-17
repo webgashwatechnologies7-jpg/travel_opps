@@ -27,10 +27,8 @@ Route::middleware('auth:sanctum')->prefix('payments')->group(function () {
 
 // Expense routes - require authentication
 Route::middleware('auth:sanctum')->prefix('expenses')->group(function () {
-    Route::post('/', [ExpenseController::class, 'store']);
-    Route::get('/', [ExpenseController::class, 'index']);
     Route::get('/monthly-summary', [ExpenseController::class, 'monthlySummary']);
-    Route::delete('/{id}', [ExpenseController::class, 'destroy']);
+    Route::apiResource('/', ExpenseController::class)->parameters(['' => 'id'])->except(['show', 'update']);
 });
 
 // Target routes - require authentication and Admin or Company Admin role

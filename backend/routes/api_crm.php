@@ -23,12 +23,8 @@ Route::middleware(['auth:sanctum', 'active'])->prefix('profile')->group(function
 Route::middleware(['auth:sanctum', 'role:Admin|Company Admin|Manager|Team Leader'])->prefix('admin')->group(function () {
     // User management routes
     Route::prefix('users')->group(function () {
-        Route::post('/', [AdminUserController::class, 'store']);
-        Route::get('/', [AdminUserController::class, 'index']);
-        Route::get('/{id}', [AdminUserController::class, 'show']);
-        Route::put('/{id}', [AdminUserController::class, 'update']);
-        Route::delete('/{id}', [AdminUserController::class, 'destroy']);
         Route::put('/{id}/status', [AdminUserController::class, 'updateStatus']);
+        Route::apiResource('/', AdminUserController::class)->parameters(['' => 'id']);
     });
 
     // Permission management routes
@@ -48,9 +44,7 @@ Route::middleware(['auth:sanctum', 'role:Admin|Company Admin|Manager|Team Leader
 
     // Support Tickets
     Route::prefix('support')->group(function () {
-        Route::get('/tickets', [\App\Http\Controllers\SupportController::class, 'index']);
-        Route::post('/tickets', [\App\Http\Controllers\SupportController::class, 'store']);
-        Route::get('/tickets/{id}', [\App\Http\Controllers\SupportController::class, 'show']);
         Route::post('/tickets/{id}/messages', [\App\Http\Controllers\SupportController::class, 'sendMessage']);
+        Route::apiResource('/tickets', \App\Http\Controllers\SupportController::class)->parameters(['' => 'id'])->except(['update', 'destroy']);
     });
 });

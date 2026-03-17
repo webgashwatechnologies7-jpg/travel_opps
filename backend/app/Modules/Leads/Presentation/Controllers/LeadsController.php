@@ -36,23 +36,49 @@ class LeadsController extends Controller
     public function index(Request $request): JsonResponse
     {
         try {
-            $filters = $request->only(['status', 'assigned_to', 'created_by', 'source', 'destination', 'priority', 'birth_month', 'anniversary_month']);
+            $filters = $request->only(['status', 'assigned_to', 'created_by', 'source', 'destination', 'priority', 'birth_month', 'anniversary_month', 'from_date', 'to_date', 'travel_month', 'service', 'adult', 'description', 'today', 'unassigned', 'created_from', 'created_to', 'search']);
             $filters['company_id'] = function_exists('tenant') ? tenant('id') : $request->user()?->company_id;
 
             $perPage = $request->get('per_page', 15);
             $leads = $this->leadRepository->getPaginated($filters, $perPage);
 
-            return $this->successResponse([
-                'leads' => array_map([$this, 'formatLeadBasic'], $leads->items()),
-                'pagination' => [
-                    'current_page' => $leads->currentPage(),
-                    'last_page' => $leads->lastPage(),
-                    'per_page' => $leads->perPage(),
-                    'total' => $leads->total(),
-                ],
-            ], 'Leads retrieved successfully');
+            return response()->json([
+                'success' => true,
+                'message' => 'Leads retrieved successfully',
+                'data' => [
+                    'leads' => array_map([$this, 'formatLeadBasic'], $leads->items()),
+                    'pagination' => [
+                        'current_page' => $leads->currentPage(),
+                        'last_page' => $leads->lastPage(),
+                        'per_page' => $leads->perPage(),
+                        'total' => $leads->total(),
+                    ],
+                ]
+            ], 200);
         } catch (\Exception $e) {
-            return $this->serverErrorResponse('An error occurred while retrieving leads', $e);
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
+        }
+    }
+
+    /**
+     * Get lead analytics data.
+     */
+    public function analytics(Request $request): JsonResponse
+    {
+        try {
+            $filters = $request->only(['status', 'assigned_to', 'created_by', 'source', 'destination', 'priority', 'birth_month', 'anniversary_month', 'from_date', 'to_date', 'travel_month', 'service', 'adult', 'description', 'today', 'unassigned', 'created_from', 'created_to', 'search']);
+            $filters['company_id'] = function_exists('tenant') ? tenant('id') : $request->user()?->company_id;
+            
+            $timeframe = $request->get('timeframe', 'month');
+            $data = $this->leadRepository->getAnalytics($filters, $timeframe);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Analytics retrieved successfully',
+                'data' => $data
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
         }
     }
 
@@ -252,6 +278,13 @@ class LeadsController extends Controller
             'priority' => $lead->priority,
             'assigned_to' => $lead->assigned_to,
             'client_title' => $lead->client_title,
+            'travel_start_date' => optional($lead->travel_start_date)->format('Y-m-d'),
+            'travel_end_date' => optional($lead->travel_end_date)->format('Y-m-d'),
+            'adult' => $lead->adult ?? 0,
+            'child' => $lead->child ?? 0,
+            'infant' => $lead->infant ?? 0,
+            'service' => $lead->service,
+            'remark' => $lead->remark,
             'date_of_birth' => optional($lead->date_of_birth)->format('Y-m-d'),
             'marriage_anniversary' => optional($lead->marriage_anniversary)->format('Y-m-d'),
             'updated_at' => $lead->updated_at,

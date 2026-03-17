@@ -163,8 +163,8 @@ const SuperAdminTickets = () => {
     const handleFileChange = (e) => {
         const file = e.target.files[0];
         if (file) {
-            if (file.size > 5 * 1024 * 1024) {
-                toast.error('File size should be less than 5MB');
+            if (file.size > 10 * 1024 * 1024) {
+                toast.error('File size should be less than 10MB');
                 return;
             }
             setAttachment(file);
@@ -455,17 +455,19 @@ const SuperAdminTickets = () => {
                                                     </button>
                                                     <p className="text-[10px] text-gray-400 font-medium">Replying as Super Admin • Emails will be sent on completion</p>
                                                 </div>
-                                                <button
-                                                    type="submit"
-                                                    disabled={sendingMessage || (!newMessage.trim() && !attachment)}
-                                                    className="bg-blue-600 text-white px-5 py-2 rounded-xl hover:bg-blue-700 transition-all font-bold text-xs disabled:opacity-50 shadow-md shadow-blue-500/10 flex items-center gap-2"
-                                                >
-                                                    {sendingMessage ? 'Sending...' : (
-                                                        <>
-                                                            <Send size={14} /> Send Reply
-                                                        </>
-                                                    )}
-                                                </button>
+                                                {newMessage.trim() && (
+                                                    <button
+                                                        type="submit"
+                                                        disabled={sendingMessage}
+                                                        className="bg-blue-600 text-white px-5 py-2 rounded-xl hover:bg-blue-700 transition-all font-bold text-xs shadow-md shadow-blue-500/10 flex items-center gap-2 animate-in fade-in zoom-in duration-200"
+                                                    >
+                                                        {sendingMessage ? 'Sending...' : (
+                                                            <>
+                                                                <Send size={14} /> Send Reply
+                                                            </>
+                                                        )}
+                                                    </button>
+                                                )}
                                             </div>
                                         </div>
                                     </form>

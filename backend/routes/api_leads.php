@@ -23,21 +23,19 @@ Route::post('/leads/web-to-lead', [\App\Http\Controllers\WebToLeadController::cl
 Route::middleware('auth:sanctum')->prefix('leads')->group(function () {
     // Import routes (must come before /{id} routes)
     Route::get('/import-template', [LeadImportController::class, 'downloadTemplate']);
+    Route::get('/analytics', [LeadsController::class, 'analytics']);
     Route::post('/import', [LeadImportController::class, 'import']);
 
-    Route::get('/', [LeadsController::class, 'index']);
-    Route::post('/', [LeadsController::class, 'store']);
     Route::get('/{leadId}/invoices/{invoiceId}/preview', [LeadInvoiceController::class, 'preview']);
     Route::get('/{leadId}/invoices/{invoiceId}/download', [LeadInvoiceController::class, 'download']);
     Route::post('/{leadId}/invoices/{invoiceId}/send', [LeadInvoiceController::class, 'send']);
     Route::delete('/{leadId}/invoices/{invoiceId}', [LeadInvoiceController::class, 'destroy']);
-    Route::get('/{id}', [LeadsController::class, 'show']);
     Route::post('/{id}/confirm-option', LeadConfirmOptionController::class);
     Route::get('/{id}/calls', [CallController::class, 'leadHistory']);
     Route::put('/{id}/assign', [LeadsController::class, 'assign']);
     Route::put('/{id}/status', [LeadsController::class, 'updateStatus']);
-    Route::put('/{id}', [LeadsController::class, 'update']);
-    Route::delete('/{id}', [LeadsController::class, 'destroy']);
+    
+    Route::apiResource('/', LeadsController::class)->parameters(['' => 'id']);
 
     // Lead email routes
     Route::get('/{leadId}/emails', [LeadEmailController::class, 'index']);

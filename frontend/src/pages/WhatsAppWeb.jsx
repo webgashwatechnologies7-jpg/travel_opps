@@ -7,6 +7,7 @@ import { Search, MoreVertical, Smile, Paperclip, Send, Check, CheckCheck, Loader
 const WhatsAppWeb = () => {
     const [status, setStatus] = useState('Disconnected');
     const [qrCode, setQrCode] = useState(null);
+    const [userPhone, setUserPhone] = useState(null);
     const [chats, setChats] = useState([]);
     const [activeChat, setActiveChat] = useState(null);
     const [messages, setMessages] = useState([]);
@@ -46,8 +47,13 @@ const WhatsAppWeb = () => {
         try {
             const res = await whatsappWebAPI.getStatus();
             setStatus(res.data.status);
-            if (res.data.status === 'Scanning' || res.data.status === 'Disconnected') {
-                // Keep checking QR if we are in scanning mode
+            
+            // Get user phone from localStorage or similar if needed, or from status response
+            const localUser = JSON.parse(localStorage.getItem('user') || '{}');
+            setUserPhone(localUser.phone || 'Register Number');
+
+            if (res.data.status === 'Unauthorized_Phone') {
+                toast.error("Account Mismatch: Please login with your registered number (" + localUser.phone + ")");
             }
         } catch (err) {
             console.error('Status check failed', err);
@@ -72,6 +78,12 @@ const WhatsAppWeb = () => {
                         clearInterval(pollInterval);
                         loadChats();
                         toast.success('WhatsApp Connected!');
+                    } else if (statusRes.data.status === 'Unauthorized_Phone') {
+                        setStatus('Unauthorized_Phone');
+                        setQrCode(null);
+                        setPollingQr(false);
+                        clearInterval(pollInterval);
+                        toast.error("Mismatch: Use your registered number only (" + userPhone + ")");
                     } else if (statusRes.data.status === 'Scanning') {
                         // Refresh QR if updated
                         const qrRes = await whatsappWebAPI.getQrCode();
@@ -157,7 +169,23 @@ const WhatsAppWeb = () => {
                             </div>
                         </div>
                         <h1 className="text-3xl font-bold text-gray-800 mb-4">WhatsApp Web Clone</h1>
-                        <p className="text-gray-600 mb-8 text-lg">Connect your WhatsApp to start chatting with your leads directly from the CRM.</p>
+                        <p className="text-gray-600 mb-2 text-lg">Connect your WhatsApp to start chatting with your leads directly.</p>
+                        
+                        <div className="bg-orange-50 border border-orange-200 rounded-xl p-4 mb-8 text-left inline-block w-full">
+                            <h4 className="text-orange-800 font-bold text-sm flex items-center gap-2 mb-1">
+                                <Info size={16} /> IMPORTANT NOTICE:
+                            </h4>
+                            <p className="text-orange-700 text-xs leading-relaxed">
+                                Please login using your registered CRM phone number: <span className="font-black underline">{userPhone}</span>.
+                                If you try to connect using any other WhatsApp account, it will be automatically disconnected for security reasons.
+                            </p>
+                        </div>
+
+                        {status === 'Unauthorized_Phone' && (
+                            <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded-xl mb-6 text-sm font-bold flex items-center justify-center gap-2">
+                                <X size={20} /> Connection Failed: Phone number mismatch.
+                            </div>
+                        )}
 
                         {qrCode ? (
                             <div className="flex flex-col items-center">
@@ -168,16 +196,20 @@ const WhatsAppWeb = () => {
                                     <RefreshCcw className="animate-spin" size={20} />
                                     <span>Waiting for scan...</span>
                                 </div>
-                                <p className="text-sm text-gray-500 max-w-md">1. Open WhatsApp on your phone<br />2. Tap Menu or Settings and select Linked Devices<br />3. Point your phone to this screen to capture the code</p>
+                                <p className="text-xs text-gray-500 max-w-md bg-gray-100 p-3 rounded-lg border border-gray-200">
+                                    1. Open WhatsApp on your phone<br />
+                                    2. Tap Menu or Settings and select <b>Linked Devices</b><br />
+                                    3. Point your phone to this screen to capture the code
+                                </p>
                             </div>
                         ) : (
                             <button
                                 onClick={handleConnect}
                                 disabled={pollingQr}
-                                className="bg-[#25D366] hover:bg-[#128C7E] text-white font-bold py-4 px-10 rounded-full transition-all flex items-center gap-3 mx-auto shadow-lg shadow-[#25d36644]"
+                                className="bg-[#25D366] hover:bg-[#128C7E] text-white font-black uppercase tracking-widest text-sm py-4 px-12 rounded-full transition-all flex items-center gap-3 mx-auto shadow-xl shadow-[#25d36644] hover:shadow-2xl active:scale-95"
                             >
                                 {pollingQr ? <Loader2 className="animate-spin" /> : <RefreshCcw />}
-                                Get QR Code
+                                Get QR Code To Connect
                             </button>
                         )}
                     </div>

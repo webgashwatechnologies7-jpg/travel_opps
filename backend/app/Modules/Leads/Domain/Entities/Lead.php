@@ -73,7 +73,8 @@ class Lead extends Model
         'marriage_anniversary',
         'pax_details',
         'contact_person',
-        'designation'
+        'designation',
+        'service'
     ];
 
     /**

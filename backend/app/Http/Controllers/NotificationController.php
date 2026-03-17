@@ -227,26 +227,36 @@ class NotificationController extends Controller
     {
         try {
             $user = $request->user();
-            $notifications = $user->notifications()
+            $perPage = $request->input('per_page', 20);
+            
+            $paginator = $user->notifications()
                 ->orderBy('created_at', 'desc')
-                ->limit(50)
-                ->get()
-                ->map(function ($n) {
-                    $data = is_string($n->data) ? json_decode($n->data, true) : $n->data;
-                    return [
-                        'id' => $n->id,
-                        'type' => $data['type'] ?? 'system',
-                        'title' => $data['title'] ?? 'Notification',
-                        'message' => $data['message'] ?? '',
-                        'action_url' => $data['action_url'] ?? null,
-                        'is_read' => !is_null($n->read_at),
-                        'created_at' => $n->created_at->toISOString(),
-                    ];
-                });
+                ->paginate($perPage);
+
+            $notifications = collect($paginator->items())->map(function ($n) {
+                $data = is_string($n->data) ? json_decode($n->data, true) : $n->data;
+                return [
+                    'id' => $n->id,
+                    'type' => $data['type'] ?? 'system',
+                    'title' => $data['title'] ?? 'Notification',
+                    'message' => $data['message'] ?? '',
+                    'action_url' => $data['action_url'] ?? null,
+                    'is_read' => !is_null($n->read_at),
+                    'created_at' => $n->created_at->toISOString(),
+                ];
+            });
 
             return $this->successResponse([
                 'notifications' => $notifications,
                 'unread_count' => $user->unreadNotifications()->count(),
+                'pagination' => [
+                    'total' => $paginator->total(),
+                    'per_page' => $paginator->perPage(),
+                    'current_page' => $paginator->currentPage(),
+                    'last_page' => $paginator->lastPage(),
+                    'from' => $paginator->firstItem(),
+                    'to' => $paginator->lastItem()
+                ]
             ], 'Notifications retrieved');
         } catch (\Exception $e) {
             return $this->serverErrorResponse('Failed to retrieve notifications', $e);

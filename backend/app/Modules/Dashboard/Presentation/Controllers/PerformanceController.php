@@ -21,12 +21,16 @@ class PerformanceController extends Controller
     public function employeePerformance(Request $request): JsonResponse
     {
         try {
-            // Validate the month parameter
+            // Validate the parameters
             $validator = Validator::make($request->all(), [
                 'month' => 'nullable|regex:/^\d{4}-\d{2}$/',
-            ], [
-                'month.required' => 'The month parameter is required.',
-                'month.regex' => 'The month must be in YYYY-MM format (e.g., 2025-12).',
+                'timeframe' => 'nullable|in:day,week,month,year,custom',
+                'from_date' => 'nullable|date',
+                'to_date' => 'nullable|date',
+                'destination' => 'nullable|string',
+                'employee_id' => 'nullable|exists:users,id',
+                'filter_by' => 'nullable|in:created_at,travel_date',
+                'group_by' => 'nullable|in:user,destination,source',
             ]);
 
             if ($validator->fails()) {
@@ -37,82 +41,152 @@ class PerformanceController extends Controller
                 ], 422);
             }
 
-            // Use provided month or default to current month
+            $timeframe = $request->input('timeframe', 'month');
+            $groupBy = $request->input('group_by', 'user');
             $month = $request->input('month', now()->format('Y-m'));
+            $destination = $request->input('destination');
+            $employeeId = $request->input('employee_id');
+            $filterBy = $request->input('filter_by', 'created_at');
 
-            // Validate month format and extract year and month
-            $monthParts = explode('-', $month);
-            $year = (int) $monthParts[0];
-            $monthNum = (int) $monthParts[1];
+            // Determine start and end dates
+            $startDate = null;
+            $endDate = null;
 
-            if ($monthNum < 1 || $monthNum > 12) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Invalid month. Month must be between 01 and 12.',
-                ], 422);
+            switch ($timeframe) {
+                case 'day':
+                    $startDate = now()->startOfDay();
+                    $endDate = now()->endOfDay();
+                    break;
+                case 'week':
+                    $startDate = now()->startOfWeek();
+                    $endDate = now()->endOfWeek();
+                    break;
+                case 'year':
+                    $startDate = now()->startOfYear();
+                    $endDate = now()->endOfYear();
+                    break;
+                case 'custom':
+                    $startDate = $request->input('from_date') ? \Carbon\Carbon::parse($request->input('from_date'))->startOfDay() : now()->startOfMonth();
+                    $endDate = $request->input('to_date') ? \Carbon\Carbon::parse($request->input('to_date'))->endOfDay() : now()->endOfMonth();
+                    break;
+                case 'month':
+                default:
+                    if (!$month) $month = now()->format('Y-m');
+                    $monthParts = explode('-', $month);
+                    $yearNum = (int) $monthParts[0];
+                    $monthNum = (int) $monthParts[1];
+                    $startDate = \Carbon\Carbon::createFromDate($yearNum, $monthNum, 1)->startOfMonth();
+                    $endDate = $startDate->copy()->endOfMonth();
+                    break;
             }
 
-            // Get start and end dates for the month
-            $startDate = \Carbon\Carbon::createFromDate($year, $monthNum, 1)->startOfMonth();
-            $endDate = $startDate->copy()->endOfMonth();
+            // Date field for filtering
+            $dateField = ($filterBy === 'travel_date') ? 'travel_start_date' : 'created_at';
+            $leadsQuery = Lead::whereBetween($dateField, [$startDate, $endDate]);
 
-            // Filter users based on hierarchy
+            // Apply universal filters
+            if ($destination) {
+                $leadsQuery->where('destination', 'like', '%' . $destination . '%');
+            }
+            if ($employeeId) {
+                $leadsQuery->where('assigned_to', $employeeId);
+            }
+
+            // Hierarchy filter for users
             $currentUser = auth()->user();
-            $query = User::where('is_active', true);
-
             if (!$currentUser->is_super_admin && !$currentUser->hasRole(['Company Admin', 'Admin'])) {
                 $subordinateIds = $currentUser->getAllSubordinateIds();
-                $query->whereIn('id', $subordinateIds);
+                $leadsQuery->whereIn('assigned_to', $subordinateIds);
             }
-
-            $users = $query->get();
 
             $performanceData = [];
 
-            foreach ($users as $user) {
-                // Count total leads assigned to this user in the given month
-                $totalLeads = Lead::where('assigned_to', $user->id)
-                    ->whereBetween('created_at', [$startDate, $endDate])
-                    ->count();
-
-                // Count confirmed leads assigned to this user in the given month
-                $confirmedLeads = Lead::where('assigned_to', $user->id)
-                    ->where('status', 'confirmed')
-                    ->whereBetween('created_at', [$startDate, $endDate])
-                    ->count();
-
-                // Get target and achieved amount from employee_targets
-                $target = EmployeeTarget::where('user_id', $user->id)
-                    ->where('month', $month)
-                    ->first();
-
-                $targetAmount = $target ? (float) $target->target_amount : 0;
-                $achievedAmount = $target ? (float) $target->achieved_amount : 0;
-
-                // Calculate completion percentage
-                $completionPercentage = 0;
-                if ($targetAmount > 0) {
-                    $completionPercentage = round(($achievedAmount / $targetAmount) * 100, 2);
+            if ($groupBy === 'user') {
+                // Group by User
+                $userQuery = User::where('is_active', true);
+                
+                // Ensure users are filtered by company_id if current user is tied to a company
+                if (!$currentUser->is_super_admin && $currentUser->company_id) {
+                    $userQuery->where('company_id', $currentUser->company_id);
                 }
 
-                $performanceData[] = [
-                    'user_id' => $user->id,
-                    'name' => $user->name,
-                    'total_leads' => $totalLeads,
-                    'confirmed_leads' => $confirmedLeads,
-                    'achieved_amount' => round($achievedAmount, 2),
-                    'target_amount' => round($targetAmount, 2),
-                    'completion_percentage' => round($completionPercentage, 2),
-                ];
+                if ($employeeId) {
+                    $userQuery->where('id', $employeeId);
+                } elseif (!$currentUser->is_super_admin && !$currentUser->hasRole(['Company Admin', 'Admin'])) {
+                    $subordinateIds = $currentUser->getAllSubordinateIds();
+                    $userQuery->whereIn('id', $subordinateIds);
+                }
+                $users = $userQuery->select('id', 'name')->get();
+                $userIds = $users->pluck('id')->toArray();
+
+                $leadsStats = (clone $leadsQuery)->setEagerLoads([])
+                    ->select('assigned_to', 
+                        \Illuminate\Support\Facades\DB::raw('COUNT(*) as total_leads'),
+                        \Illuminate\Support\Facades\DB::raw('SUM(CASE WHEN status = "confirmed" THEN 1 ELSE 0 END) as confirmed_leads')
+                    )
+                    ->whereIn('assigned_to', $userIds)
+                    ->groupBy('assigned_to')
+                    ->get()
+                    ->keyBy('assigned_to');
+
+                // Get Targets for Users
+                $targetMonth = $startDate->format('Y-m');
+                $targets = EmployeeTarget::whereIn('user_id', $userIds)
+                    ->where('month', $targetMonth)
+                    ->get()
+                    ->keyBy('user_id');
+
+                foreach ($users as $user) {
+                    $stats = $leadsStats->get($user->id);
+                    $target = $targets->get($user->id);
+                    $performanceData[] = [
+                        'id' => $user->id,
+                        'name' => $user->name,
+                        'total_leads' => $stats ? (int) $stats->total_leads : 0,
+                        'confirmed_leads' => $stats ? (int) $stats->confirmed_leads : 0,
+                        'target_amount' => $target ? (float) $target->target_amount : 0,
+                        'achieved_amount' => $target ? (float) $target->achieved_amount : 0,
+                        'completion_percentage' => $target && (float)$target->target_amount > 0 ? round(((float)$target->achieved_amount / (float)$target->target_amount) * 100, 2) : 0,
+                    ];
+                }
+            } else {
+                // Group by Destination or Source
+                $groupField = $groupBy === 'destination' ? 'destination' : 'source';
+                
+                // We must use setEagerLoads([]) to prevent relationship joins adding columns that break groupBy
+                $stats = (clone $leadsQuery)->setEagerLoads([])
+                    ->select($groupField, 
+                        \Illuminate\Support\Facades\DB::raw('COUNT(*) as total_leads'),
+                        \Illuminate\Support\Facades\DB::raw('SUM(CASE WHEN status = "confirmed" THEN 1 ELSE 0 END) as confirmed_leads')
+                    )
+                    ->groupBy($groupField)
+                    ->orderBy('total_leads', 'DESC')
+                    ->get();
+
+                foreach ($stats as $item) {
+                    $val = $item->$groupField ?: ($groupBy === 'destination' ? 'Not Specified' : 'Direct/Other');
+                    $performanceData[] = [
+                        'id' => $val,
+                        'name' => $val,
+                        'total_leads' => (int) $item->total_leads,
+                        'confirmed_leads' => (int) $item->confirmed_leads,
+                        'target_amount' => 0,
+                        'achieved_amount' => 0,
+                        'completion_percentage' => (int)$item->total_leads > 0 ? round(((int)$item->confirmed_leads / (int)$item->total_leads) * 100, 2) : 0,
+                    ];
+                }
             }
 
             return response()->json([
                 'success' => true,
-                'message' => 'Employee performance data retrieved successfully',
+                'message' => 'Performance data retrieved successfully',
                 'data' => [
-                    'month' => $month,
-                    'employees' => $performanceData,
-                    'total_employees' => count($performanceData),
+                    'group_by' => $groupBy,
+                    'timeframe' => $timeframe,
+                    'start_date' => $startDate->toDateTimeString(),
+                    'end_date' => $endDate->toDateTimeString(),
+                    'employees' => $performanceData, // Reusing key 'employees' for frontend compatibility
+                    'total_items' => count($performanceData),
                 ],
             ], 200);
 

@@ -174,8 +174,8 @@ const Support = () => {
     const handleReplyFileChange = (e) => {
         const file = e.target.files[0];
         if (file) {
-            if (file.size > 5 * 1024 * 1024) {
-                toast.error('File size should be less than 5MB');
+            if (file.size > 10 * 1024 * 1024) {
+                toast.error('File size should be less than 10MB');
                 return;
             }
             setAttachment(file);
@@ -190,8 +190,8 @@ const Support = () => {
     const handleFileChange = (e) => {
         const file = e.target.files[0];
         if (file) {
-            if (file.size > 5 * 1024 * 1024) {
-                toast.error('File size should be less than 5MB');
+            if (file.size > 10 * 1024 * 1024) {
+                toast.error('File size should be less than 10MB');
                 return;
             }
             setNewTicket({ ...newTicket, screenshot: file });
@@ -299,26 +299,33 @@ const Support = () => {
                                 {/* Messages Area */}
                                 <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-gray-50/20">
                                     {/* Initial Ticket Description */}
-                                    <div className="flex justify-start mb-4">
-                                        <div className="flex flex-col max-w-[80%]">
-                                            <div className="bg-white border border-gray-200 p-4 rounded-2xl rounded-tl-none shadow-sm">
-                                                <p className="text-sm text-gray-800 whitespace-pre-wrap">{selectedTicket.description}</p>
-                                                {selectedTicket.screenshot && (
-                                                    <div className="mt-3">
-                                                        <img
-                                                            src={`${ASSET_URL}/storage/${selectedTicket.screenshot}`}
-                                                            alt="Screenshot"
-                                                            className="rounded-lg max-h-64 object-contain border border-gray-100 cursor-pointer hover:opacity-90 transition-opacity"
-                                                            onClick={() => window.open(`${ASSET_URL}/storage/${selectedTicket.screenshot}`, '_blank')}
-                                                        />
+                                    {(() => {
+                                        const isOwn = selectedTicket.user_id === user?.id || selectedTicket.user?.id === user?.id || true;
+                                        return (
+                                            <div className={`flex flex-col gap-1 mb-4 transition-all duration-500 rounded-xl items-end`}>
+                                                <div className={`flex items-center gap-2 mb-1 px-1 flex-row-reverse`}>
+                                                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{selectedTicket.user?.name || user?.name || 'User'}</span>
+                                                    <span className="text-[10px] text-gray-300">•</span>
+                                                    <span className="text-[10px] text-gray-400 uppercase">{new Date(selectedTicket.created_at).toLocaleString()}</span>
+                                                </div>
+                                                <div className={`flex flex-col max-w-[80%]`}>
+                                                    <div className={`relative group p-4 rounded-2xl shadow-sm bg-blue-600 text-white rounded-tr-none`}>
+                                                        <p className="text-sm whitespace-pre-wrap">{selectedTicket.description}</p>
+                                                        {selectedTicket.screenshot && (
+                                                            <div className="mt-3 pt-3 border-t border-gray-200/20">
+                                                                <img
+                                                                    src={`${ASSET_URL}/storage/${selectedTicket.screenshot}`}
+                                                                    alt="Screenshot"
+                                                                    className="rounded-lg max-h-60 object-contain border border-white/20 cursor-pointer hover:opacity-90 transition-opacity"
+                                                                    onClick={() => window.open(`${ASSET_URL}/storage/${selectedTicket.screenshot}`, '_blank')}
+                                                                />
+                                                            </div>
+                                                        )}
                                                     </div>
-                                                )}
-                                                <p className="text-[10px] text-gray-400 mt-2 text-right">
-                                                    {new Date(selectedTicket.created_at).toLocaleString()}
-                                                </p>
+                                                </div>
                                             </div>
-                                        </div>
-                                    </div>
+                                        );
+                                    })()}
 
                                     {messages.map((msg, index) => {
                                         const isOwn = msg.user_id === user?.id || msg.user?.id === user?.id;
@@ -463,13 +470,15 @@ const Support = () => {
                                                         </button>
                                                     </div>
                                                 </div>
-                                                <button
-                                                    type="submit"
-                                                    disabled={sendingMessage || (!newMessage.trim() && !attachment)}
-                                                    className="bg-blue-600 text-white p-3 rounded-xl hover:bg-blue-700 transition-colors disabled:opacity-50 shadow-md shadow-blue-500/20"
-                                                >
-                                                    <Send size={18} />
-                                                </button>
+                                                {newMessage.trim() && (
+                                                    <button
+                                                        type="submit"
+                                                        disabled={sendingMessage}
+                                                        className="bg-blue-600 text-white p-3 rounded-xl hover:bg-blue-700 transition-colors shadow-md shadow-blue-500/20 animate-in fade-in zoom-in duration-200"
+                                                    >
+                                                        <Send size={18} />
+                                                    </button>
+                                                )}
                                             </form>
                                         </div>
                                     )}

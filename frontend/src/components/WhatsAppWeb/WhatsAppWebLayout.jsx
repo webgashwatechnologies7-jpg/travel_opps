@@ -452,7 +452,7 @@ const WhatsAppWebLayout = () => {
                 <QrScanner
                     qrCode={qrCode}
                     status={status}
-                    onRefresh={initSession}
+                    onRefresh={fetchStatus}
                 />
             </div>
         );

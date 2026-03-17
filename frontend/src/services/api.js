@@ -135,7 +135,7 @@ export const dashboardAPI = {
   latestLeadNotes: () => api.get('/dashboard/latest-lead-notes'),
   salesRepsStats: () => api.get('/dashboard/sales-reps-stats'),
   topDestinations: () => api.get('/dashboard/top-destinations'),
-  employeePerformance: (month) => api.get('/dashboard/employee-performance', { params: { month } }),
+  employeePerformance: (params = {}) => api.get('/dashboard/employee-performance', { params }),
   sourceRoi: (month) => api.get('/dashboard/source-roi', { params: { month } }),
   destinationPerformance: (month) => api.get('/dashboard/destination-performance', { params: { month } }),
 };
@@ -143,6 +143,7 @@ export const dashboardAPI = {
 // Leads APIs
 export const leadsAPI = {
   list: (filters = {}) => api.get('/leads', { params: filters }),
+  analytics: (filters = {}) => api.get('/leads/analytics', { params: filters }),
   get: (id) => api.get(`/leads/${id}`),
   confirmOption: (id, data) => api.post(`/leads/${id}/confirm-option`, data),
   create: (data) => api.post('/leads', data),
@@ -730,7 +731,7 @@ export const superAdminAPI = {
   sendTicketMessage: (id, data) => {
     if (data.attachment) {
       const formData = new FormData();
-      formData.append('message', data.message);
+      if (data.message !== undefined && data.message !== null) formData.append('message', data.message);
       formData.append('attachment', data.attachment);
       if (data.parent_id) formData.append('parent_id', data.parent_id);
       return api.post(`/super-admin/tickets/${id}/messages`, formData, {
@@ -760,7 +761,7 @@ export const supportAPI = {
   sendMessage: (id, data) => {
     if (data.attachment) {
       const formData = new FormData();
-      formData.append('message', data.message);
+      if (data.message !== undefined && data.message !== null) formData.append('message', data.message);
       formData.append('attachment', data.attachment);
       if (data.parent_id) formData.append('parent_id', data.parent_id);
       return api.post(`/admin/support/tickets/${id}/messages`, formData, {
@@ -864,7 +865,7 @@ export const notificationsAPI = {
     return api.post('/notifications/email', data);
   },
   // In-app notifications
-  getInApp: () => api.get('/notifications'),
+  getInApp: (params = {}) => api.get('/notifications', { params }),
   markAsRead: (id) => api.post(`/notifications/${id}/read`),
   markAllAsRead: () => api.post('/notifications/read-all'),
   delete: (id) => api.delete(`/notifications/${id}`),

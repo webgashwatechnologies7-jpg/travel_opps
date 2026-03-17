@@ -108,8 +108,8 @@ class SupportController extends Controller
     public function sendMessage(Request $request, $id)
     {
         $validator = Validator::make($request->all(), [
-            'message' => 'required|string',
-            'attachment' => 'nullable|file|max:5120|mimes:jpg,jpeg,png,pdf,doc,docx,xls,xlsx',
+            'message' => 'nullable|string',
+            'attachment' => 'nullable|file|max:10240|mimes:jpg,jpeg,png,gif,webp,avif,pdf,doc,docx,xls,xlsx,txt,csv,zip',
             'parent_id' => 'nullable|exists:ticket_messages,id'
         ]);
 

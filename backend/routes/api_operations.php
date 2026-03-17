@@ -24,8 +24,6 @@ use Illuminate\Support\Facades\Route;
 
 // Hotels routes - require authentication
 Route::middleware(['auth:sanctum', 'plan.feature:hotels'])->prefix('hotels')->group(function () {
-    Route::get('/', [HotelController::class, 'index']);
-    Route::post('/', [HotelController::class, 'store']);
     Route::get('/search', [HotelController::class, 'search']);
     Route::get('/{hotelId}/rooms', [HotelController::class, 'getRooms']);
 
@@ -39,9 +37,8 @@ Route::middleware(['auth:sanctum', 'plan.feature:hotels'])->prefix('hotels')->gr
     Route::get('/export', [HotelController::class, 'export']);
     Route::get('/import-template', [HotelController::class, 'downloadTemplate']);
 
-    Route::get('/{id}', [HotelController::class, 'show']);
     Route::post('/{id}', [HotelController::class, 'update']);
-    Route::put('/{id}', [HotelController::class, 'update']);
+    Route::apiResource('/', HotelController::class)->parameters(['' => 'id'])->except(['destroy']);
     Route::delete('/{id}', [HotelController::class, 'destroy'])->middleware('role:Admin|Company Admin');
 
     // Hotel rates routes
@@ -53,17 +50,14 @@ Route::middleware(['auth:sanctum', 'plan.feature:hotels'])->prefix('hotels')->gr
 
 // Activities routes - require authentication
 Route::middleware(['auth:sanctum', 'plan.feature:activities'])->prefix('activities')->group(function () {
-    Route::get('/', [ActivityController::class, 'index']);
-    Route::post('/', [ActivityController::class, 'store']);
 
     // Activity import/export routes (must come before /{id} routes)
     Route::post('/import', [ActivityController::class, 'import']);
     Route::get('/export', [ActivityController::class, 'export']);
     Route::get('/import-template', [ActivityController::class, 'downloadTemplate']);
 
-    Route::get('/{id}', [ActivityController::class, 'show']);
     Route::post('/{id}', [ActivityController::class, 'update']);
-    Route::put('/{id}', [ActivityController::class, 'update']);
+    Route::apiResource('/', ActivityController::class)->parameters(['' => 'id'])->except(['destroy']);
     Route::delete('/{id}', [ActivityController::class, 'destroy'])->middleware('role:Admin|Company Admin');
 
     // Activity prices routes
@@ -75,8 +69,6 @@ Route::middleware(['auth:sanctum', 'plan.feature:activities'])->prefix('activiti
 
 // Transfers routes - require authentication
 Route::middleware(['auth:sanctum', 'plan.feature:transfers'])->prefix('transfers')->group(function () {
-    Route::get('/', [TransferController::class, 'index']);
-    Route::post('/', [TransferController::class, 'store']);
 
     // Transfer import/export routes (must come before /{id} routes)
     Route::post('/import', [TransferController::class, 'import']);
@@ -88,9 +80,8 @@ Route::middleware(['auth:sanctum', 'plan.feature:transfers'])->prefix('transfers
     Route::post('/{transferId}/lead-costs', [VehicleFinancialController::class, 'storeLeadVehicleCost']);
     Route::get('/{transferId}/lead-costs', [VehicleFinancialController::class, 'getVehicleLeadCosts']);
 
-    Route::get('/{id}', [TransferController::class, 'show']);
     Route::post('/{id}', [TransferController::class, 'update']);
-    Route::put('/{id}', [TransferController::class, 'update']);
+    Route::apiResource('/', TransferController::class)->parameters(['' => 'id'])->except(['destroy']);
     Route::delete('/{id}', [TransferController::class, 'destroy'])->middleware('role:Admin|Company Admin');
 
     // Transfer prices routes
@@ -102,11 +93,8 @@ Route::middleware(['auth:sanctum', 'plan.feature:transfers'])->prefix('transfers
 
 // Day Itineraries routes - require authentication
 Route::middleware(['auth:sanctum', 'plan.feature:day_itineraries'])->prefix('day-itineraries')->group(function () {
-    Route::get('/', [DayItineraryController::class, 'index']);
-    Route::post('/', [DayItineraryController::class, 'store']);
-    Route::get('/{id}', [DayItineraryController::class, 'show']);
-    Route::put('/{id}', [DayItineraryController::class, 'update']);
     Route::post('/{id}', [DayItineraryController::class, 'update']);
+    Route::apiResource('/', DayItineraryController::class)->parameters(['' => 'id'])->except(['destroy']);
     Route::delete('/{id}', [DayItineraryController::class, 'destroy'])->middleware('role:Admin|Company Admin');
 });
 
@@ -125,27 +113,18 @@ Route::middleware(['auth:sanctum', 'plan.feature:itineraries'])->prefix('package
 
 // Destinations routes - require authentication
 Route::middleware(['auth:sanctum', 'plan.feature:destinations'])->prefix('destinations')->group(function () {
-    Route::get('/', [DestinationController::class, 'index']);
-    Route::post('/', [DestinationController::class, 'store']);
-    Route::get('/{id}', [DestinationController::class, 'show']);
-    Route::put('/{id}', [DestinationController::class, 'update']);
+    Route::apiResource('/', DestinationController::class)->parameters(['' => 'id'])->except(['destroy']);
     Route::delete('/{id}', [DestinationController::class, 'destroy'])->middleware('role:Admin|Company Admin');
 });
 
 // Room Types routes - require authentication
 Route::middleware(['auth:sanctum', 'plan.feature:hotels'])->prefix('room-types')->group(function () {
-    Route::get('/', [RoomTypeController::class, 'index']);
-    Route::post('/', [RoomTypeController::class, 'store']);
-    Route::get('/{id}', [RoomTypeController::class, 'show']);
-    Route::put('/{id}', [RoomTypeController::class, 'update']);
+    Route::apiResource('/', RoomTypeController::class)->parameters(['' => 'id'])->except(['destroy']);
     Route::delete('/{id}', [RoomTypeController::class, 'destroy'])->middleware('role:Admin|Company Admin');
 });
 
 // Meal Plans routes - require authentication
 Route::middleware(['auth:sanctum', 'plan.feature:hotels'])->prefix('meal-plans')->group(function () {
-    Route::get('/', [MealPlanController::class, 'index']);
-    Route::post('/', [MealPlanController::class, 'store']);
-    Route::get('/{id}', [MealPlanController::class, 'show']);
-    Route::put('/{id}', [MealPlanController::class, 'update']);
+    Route::apiResource('/', MealPlanController::class)->parameters(['' => 'id'])->except(['destroy']);
     Route::delete('/{id}', [MealPlanController::class, 'destroy'])->middleware('role:Admin|Company Admin');
 });
