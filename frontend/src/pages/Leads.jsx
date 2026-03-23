@@ -716,14 +716,50 @@ const Leads = () => {
       <div className="p-6">
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-3xl font-bold text-gray-800">Queries</h1>
-          <button
-            type="button"
-            onClick={() => { setFormData(getDefaultFormData()); setShowModal(true); }}
-            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium shadow-sm"
-          >
-            <Plus size={18} />
-            Add Query
-          </button>
+          <div className="flex items-center gap-3 relative">
+            <button
+              onClick={() => setShowOptionsDropdown(!showOptionsDropdown)}
+              className="flex items-center gap-2 bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 px-4 py-2 rounded-lg text-sm font-medium shadow-sm transition-colors"
+              title="Options"
+            >
+              <MoreVertical size={18} />
+              Options
+            </button>
+            
+            {showOptionsDropdown && (
+              <div className="absolute top-full right-[130px] mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-100 z-50 overflow-hidden">
+                <div className="py-1">
+                  <button
+                    onClick={() => { setShowImportModal(true); setShowOptionsDropdown(false); }}
+                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors"
+                  >
+                    Import Leads (CSV)
+                  </button>
+                  <button
+                    onClick={handleDownloadCSVTemplate}
+                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors border-b border-gray-100"
+                  >
+                    Download CSV Template
+                  </button>
+                  <button
+                    onClick={handleExportData}
+                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors"
+                  >
+                    Export Data (CSV)
+                  </button>
+                </div>
+              </div>
+            )}
+
+            <button
+              type="button"
+              onClick={() => { setFormData(getDefaultFormData()); setShowModal(true); }}
+              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium shadow-sm"
+            >
+              <Plus size={18} />
+              Add Query
+            </button>
+          </div>
         </div>
 
         {/* Filters */}

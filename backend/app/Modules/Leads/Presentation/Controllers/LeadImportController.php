@@ -46,28 +46,18 @@ class LeadImportController extends Controller
             
             // Add header row
             fputcsv($file, [
+                'Name',
                 'Phone',
-                'From City',
                 'Destination',
-                'Check-In',
-                'Check-Out',
-                'Adult',
-                'Child',
-                'Infant',
-                'Details'
+                'Email'
             ]);
             
             // Add example row
             fputcsv($file, [
-                '9655784547',
-                'Delhi',
-                'Bali',
-                '20-01-2021',
-                '20-01-2021',
-                '2',
-                '3',
-                '1',
-                'ABC'
+                'Mr. Paras Jaswal',
+                '9805598988',
+                'Shimla',
+                'paras@example.com'
             ]);
             
             fclose($file);
@@ -139,16 +129,16 @@ class LeadImportController extends Controller
             }, $header);
 
             // Expected columns (case-insensitive)
-            $expectedColumns = ['phone', 'from city', 'destination', 'check-in', 'check-out', 'adult', 'child', 'infant', 'details'];
+            $expectedColumns = ['name', 'phone', 'destination', 'email'];
             
-            // Validate header columns - check if at least Phone and Destination are present
-            $requiredColumns = ['phone', 'destination'];
+            // Validate header columns - check if Name, Phone and Destination are present
+            $requiredColumns = ['name', 'phone', 'destination'];
             $missingColumns = array_diff($requiredColumns, $header);
             if (!empty($missingColumns)) {
                 fclose($handle);
                 return response()->json([
                     'success' => false,
-                    'message' => 'CSV file is missing required columns: ' . implode(', ', $missingColumns),
+                    'message' => 'CSV file is missing required columns: ' . implode(', ', $missingColumns) . '. Required: Name, Phone, Destination.',
                 ], 400);
             }
 
@@ -173,59 +163,31 @@ class LeadImportController extends Controller
                 }
 
                 // Map CSV columns to lead data structure
+                $name = $rowData['name'] ?? ($rowData['client name'] ?? null);
                 $phone = $rowData['phone'] ?? null;
-                $fromCity = $rowData['from city'] ?? null;
                 $destination = $rowData['destination'] ?? null;
-                $checkIn = $rowData['check-in'] ?? null;
-                $checkOut = $rowData['check-out'] ?? null;
-                $adult = $rowData['adult'] ?? '1';
-                $child = $rowData['child'] ?? '0';
-                $infant = $rowData['infant'] ?? '0';
-                $details = $rowData['details'] ?? null;
+                $email = $rowData['email'] ?? null;
 
                 // Validate required fields
-                if (empty($phone) || empty($destination)) {
+                if (empty($name) || empty($phone) || empty($destination)) {
                     $failedRows[] = [
                         'row' => $totalRows,
                         'data' => $rowData,
-                        'errors' => ['Phone and Destination are required fields.'],
+                        'errors' => ['Name, Phone and Destination are required fields.'],
                     ];
                     continue;
                 }
 
-                // Prepare lead data
-                // Use phone number as client name if no name provided, or use Details field
-                $clientName = $details ?: 'Customer ' . $phone;
-                
-                // Parse dates
-                $travelStartDate = null;
-                if ($checkIn) {
-                    try {
-                        $date = \DateTime::createFromFormat('d-m-Y', $checkIn);
-                        if ($date) {
-                            $travelStartDate = $date->format('Y-m-d');
-                        }
-                    } catch (\Exception $e) {
-                        // Try alternative format
-                        try {
-                            $date = new \DateTime($checkIn);
-                            $travelStartDate = $date->format('Y-m-d');
-                        } catch (\Exception $e2) {
-                            // Keep null if parsing fails
-                        }
-                    }
-                }
-
                 $leadData = [
-                    'client_name' => $clientName,
+                    'client_name' => $name,
                     'phone' => $phone,
-                    'email' => null, // Not in new format
-                    'source' => 'csv_import', // Default source
+                    'email' => $email,
+                    'source' => 'excel_import', // Default source
                     'destination' => $destination,
                     'priority' => 'warm', // Default priority
                     'created_by' => $createdBy,
+                    'company_id' => $request->user()->company_id, // Important for multi-tenancy
                     'status' => 'new',
-                    'travel_start_date' => $travelStartDate,
                 ];
 
                 // Create lead
