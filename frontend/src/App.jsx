@@ -106,6 +106,10 @@ const Policies = lazy(() => import('./pages/Policies'));
 const TermsConditions = lazy(() => import('./pages/TermsConditions'));
 const EmailTemplates = lazy(() => import('./pages/EmailTemplates'));
 
+// --- B2B TRAVEL INTEGRATIONS ---
+const FlightSearch = lazy(() => import('./pages/FlightSearch'));
+const HotelSearch = lazy(() => import('./pages/HotelSearch'));
+
 // Fallback loader
 const PageLoader = () => (
   <div className="flex items-center justify-center min-h-[60vh]">
@@ -837,6 +841,23 @@ const AppRoutes = () => {
               <FeatureGuard feature="landing_pages">
                 <LandingPageEditor />
               </FeatureGuard>
+            </ProtectedRoute>
+          }
+        />
+        {/* B2B Travel Search */}
+        <Route
+          path="/flight-search"
+          element={
+            <ProtectedRoute>
+              <FlightSearch />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/hotel-search"
+          element={
+            <ProtectedRoute>
+              <HotelSearch />
             </ProtectedRoute>
           }
         />

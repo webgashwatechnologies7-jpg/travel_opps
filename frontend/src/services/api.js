@@ -195,7 +195,9 @@ export const callsAPI = {
   createMapping: (data) => api.post('/calls/mappings', data),
   updateMapping: (id, data) => api.put(`/calls/mappings/${id}`, data),
   deleteMapping: (id) => api.delete(`/calls/mappings/${id}`),
+  delete: (id) => api.delete(`/calls/${id}`),
 };
+
 
 // Payments APIs
 export const paymentsAPI = {

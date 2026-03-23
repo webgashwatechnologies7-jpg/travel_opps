@@ -14,12 +14,10 @@ use Illuminate\Support\Facades\Route;
 |
 */
 
-// Test route
-Route::any('/test-unique', function () {
-    return response()->json(['status' => 'ok']);
-});
 
-Route::get('/test-broadcast', [\App\Http\Controllers\TestBroadcastController::class, 'test']);
+// Route::post('/recording-test', [App\Modules\Calls\Presentation\Controllers\CallController::class, 'uploadMobileRecording']);
+
+
 
 // Debug route
 require __DIR__ . '/test-debug.php';

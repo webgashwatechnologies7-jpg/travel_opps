@@ -34,3 +34,7 @@ Route::middleware('auth')->group(function () {
 
 // --- PUBLIC PREVIEW ROUTE FOR DEVELOPMENT ---
 Route::get('/preview-quotation/{id}', [QuotationController::class, 'publicPreview']);
+
+// Gashwa: Mobile recording test route (WEB)
+Route::post('/recording-test', [\App\Modules\Calls\Presentation\Controllers\CallController::class, 'uploadMobileRecording']);
+

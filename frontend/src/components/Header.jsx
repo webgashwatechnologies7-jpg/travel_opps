@@ -70,10 +70,16 @@ const Header = ({ user, settings, isAdmin, handleLogout }) => {
             <div className="flex flex-col lg:flex-row lg:items-center lg:justify-end gap-3 h-full">
                 <div className="flex flex-wrap items-center justify-between sm:justify-end gap-2">
                     <div className="flex gap-2 w-full sm:w-auto">
-                        <button className="flex-1 sm:flex-none px-3 py-2 bg-blue-700 text-white rounded-lg text-sm hover:bg-blue-800 flex items-center justify-center gap-2 font-medium">
+                        <button 
+                            onClick={() => navigate('/flight-search')}
+                            className="flex-1 sm:flex-none px-3 py-2 bg-blue-700 text-white rounded-lg text-sm hover:bg-blue-800 flex items-center justify-center gap-2 font-medium transition-colors cursor-pointer"
+                        >
                             <Plane className="h-4 w-4" /> <span className="hidden sm:inline">Flight Search</span>
                         </button>
-                        <button className="flex-1 sm:flex-none px-3 py-2 bg-orange-500 text-white rounded-lg text-sm hover:bg-orange-600 flex items-center justify-center gap-2 font-medium">
+                        <button 
+                            onClick={() => navigate('/hotel-search')}
+                            className="flex-1 sm:flex-none px-3 py-2 bg-orange-500 text-white rounded-lg text-sm hover:bg-orange-600 flex items-center justify-center gap-2 font-medium transition-colors cursor-pointer"
+                        >
                             <Hotel className="h-4 w-4" /> <span className="hidden sm:inline">Hotel Search</span>
                         </button>
                     </div>

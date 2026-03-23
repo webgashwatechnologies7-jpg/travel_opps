@@ -897,6 +897,14 @@ const LeadDetails = () => {
         setLoading(false);
         return;
       }
+
+      // FIX: If this is a completely 'new' lead, it should NOT have existing proposals in local storage.
+      // This protects against ID collisions when the database is wiped but local storage still has old data.
+      if (leadData.status === 'new') {
+        localStorage.removeItem(`lead_${id}_proposals`);
+        setProposals([]); // ensure state is clean
+      }
+
       setLead(leadData);
 
       // Split followups vs notes:
@@ -1184,9 +1192,9 @@ const LeadDetails = () => {
     }
   }, [activeTab, id]);
 
-  const fetchLeadCalls = useCallback(async () => {
+  const fetchLeadCalls = useCallback(async (isInitial = false) => {
     if (!id) return;
-    setLoadingCalls(true);
+    if (isInitial) setLoadingCalls(true);
     try {
       const response = await callsAPI.list({ lead_id: id });
       if (response.data.success) {
@@ -1195,19 +1203,35 @@ const LeadDetails = () => {
     } catch (err) {
       console.error('Failed to fetch lead calls:', err);
     } finally {
-      setLoadingCalls(false);
+      if (isInitial) setLoadingCalls(false);
     }
   }, [id]);
+
+  const handleDeleteCall = async (callId) => {
+    if (!window.confirm('Are you sure you want to delete this call log?')) return;
+    try {
+      const response = await callsAPI.delete(callId);
+      if (response.data.success) {
+        showToastNotification('success', 'Deleted', 'Call log deleted successfully');
+        fetchLeadCalls(); // Refresh list silently
+      }
+    } catch (err) {
+      console.error('Failed to delete call:', err);
+      showToastNotification('error', 'Delete Failed', 'Could not delete call log');
+    }
+  };
+
 
   useEffect(() => {
     if (activeTab !== 'calls' || !id) {
       return;
     }
 
-    fetchLeadCalls();
+    fetchLeadCalls(true); // Show loader only first time
     const interval = setInterval(() => {
-      fetchLeadCalls();
-    }, 5000);
+      fetchLeadCalls(false); // Update silently in background
+    }, 30000); // 30 seconds interval (slower refresh)
+
 
     return () => clearInterval(interval);
   }, [activeTab, id, fetchLeadCalls]);
@@ -4899,9 +4923,11 @@ const LeadDetails = () => {
                                       calls={leadCalls}
                                       loading={loadingCalls}
                                       onPlayRecording={handlePlayRecording}
+                                      onDeleteCall={handleDeleteCall}
                                       recordingUrls={recordingUrls}
                                       activeRecordingId={activeRecordingId}
                                     />
+
                                   )
                                     :
                                     activeTab === 'history' && (

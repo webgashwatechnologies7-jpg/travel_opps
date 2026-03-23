@@ -76,8 +76,13 @@ class CallController extends Controller
             $perPage = (int) $request->input('per_page', 15);
             $calls = $query->paginate($perPage);
 
+            $callItems = collect($calls->items())->map(function ($call) {
+                $call->recording_available = (bool) $call->recording_url;
+                return $call;
+            })->all();
+
             return $this->successResponse([
-                'calls' => $calls->items(),
+                'calls' => $callItems,
                 'pagination' => [
                     'current_page' => $calls->currentPage(),
                     'last_page' => $calls->lastPage(),
@@ -271,24 +276,37 @@ class CallController extends Controller
         }
 
         $recordingUrl = $call->recording_url;
-        if (Str::startsWith($recordingUrl, ['storage/', 'public/'])) {
-            $path = Str::replaceFirst('storage/', 'public/', $recordingUrl);
-            if (!\Storage::exists($path)) {
-                return $this->notFoundResponse('Recording file not found');
+        
+        // Gashwa FIX: Handle full URLs that are actually local assets
+        $baseUrl = asset('storage');
+        $isLocal = false;
+        $localPath = null;
+        
+        if (Str::startsWith($recordingUrl, $baseUrl)) {
+            $isLocal = true;
+            $localPath = 'public/' . Str::after($recordingUrl, $baseUrl);
+        } elseif (Str::startsWith($recordingUrl, ['storage/', 'public/'])) {
+            $isLocal = true;
+            $localPath = Str::replaceFirst('storage/', 'public/', $recordingUrl);
+        }
+
+        if ($isLocal) {
+            if (!\Storage::exists($localPath)) {
+                return $this->notFoundResponse('Recording file not found on server');
             }
 
-            $stream = \Storage::readStream($path);
+            $stream = \Storage::readStream($localPath);
             if (!$stream) {
                 return $this->notFoundResponse('Recording file not accessible');
             }
 
             return response()->stream(function () use ($stream) {
-                fpassthru($stream);
                 if (is_resource($stream)) {
+                    fpassthru($stream);
                     fclose($stream);
                 }
             }, 200, [
-                'Content-Type' => \Storage::mimeType($path) ?? 'audio/mpeg',
+                'Content-Type' => \Storage::mimeType($localPath) ?? 'audio/mpeg',
                 'Cache-Control' => 'no-store',
             ]);
         }
@@ -306,6 +324,105 @@ class CallController extends Controller
             'Content-Type' => $response['content_type'] ?? 'audio/mpeg',
             'Cache-Control' => 'no-store',
         ]);
+    }
+
+    public function syncMobileCalls(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'calls' => 'required|array',
+            'calls.*.phone_number' => 'required|string|max:32',
+            'calls.*.call_type' => 'required|string|in:incoming,outgoing,missed',
+            'calls.*.duration' => 'required|integer',
+            'calls.*.timestamp' => 'required|date_format:Y-m-d H:i:s',
+            'calls.*.contact_name' => 'nullable|string|max:100',
+        ]);
+
+        if ($validator->fails()) {
+            return $this->validationErrorResponse($validator);
+        }
+
+        try {
+            $user = $request->user();
+            $syncedCount = 0;
+            $skippedCount = 0;
+
+            foreach ($request->input('calls') as $callData) {
+                // Check if this call already exists to avoid duplicates
+                // Mobile apps might send the same log multiple times if sync fails
+                $startTime = $callData['timestamp'];
+                $normalizedPhone = CallLog::normalizePhoneNumber($callData['phone_number']);
+
+                // Gashwa IMPROV: Stricter duplicate check using provider_call_id (with safety) OR heuristic matching
+                $hasProviderId = !empty($callData['provider_call_id']);
+                
+                $exists = \App\Modules\Calls\Domain\Entities\CallLog::withoutGlobalScopes()
+                    ->where('user_id', $user->id)
+                    ->where(function($q) use ($normalizedPhone, $callData, $startTime, $hasProviderId) {
+                        if ($hasProviderId) {
+                            $q->where('provider_call_id', $callData['provider_call_id']);
+                        } else {
+                            // If no provider ID, ensure we ONLY match by phone, duration, and time
+                            // We use an impossible where to essentially skip the 'orWhere' dependency
+                            $q->whereRaw('1 = 0');
+                        }
+                        
+                        $q->orWhere(function($sub) use ($normalizedPhone, $callData, $startTime) {
+                            $sub->where(function($qq) use ($normalizedPhone) {
+                                $qq->where('from_number_normalized', $normalizedPhone)
+                                   ->orWhere('to_number_normalized', $normalizedPhone)
+                                   ->orWhere('contact_phone_normalized', $normalizedPhone);
+                            })
+                            ->where('duration_seconds', $callData['duration'])
+                            ->whereBetween('call_started_at', [
+                                date('Y-m-d H:i:s', strtotime($startTime) - 1800), // 30 min window
+                                date('Y-m-d H:i:s', strtotime($startTime) + 1800)
+                            ]);
+                        });
+                    })
+                    ->exists();
+
+
+
+                if ($exists) {
+                    $skippedCount++;
+                    continue;
+                }
+
+                // Try to find a matching lead
+                $lead = \App\Modules\Leads\Domain\Entities\Lead::where('phone_normalized', $normalizedPhone)
+                    ->orWhere('phone', 'like', '%' . $normalizedPhone)
+                    ->first();
+
+                $logData = [
+                    'company_id' => $user->company_id,
+                    'user_id' => $user->id,
+                    'lead_id' => $lead?->id,
+                    'source' => 'mobile',
+                    'status' => 'completed',
+                    'duration_seconds' => $callData['duration'],
+                    'from_number' => $callData['call_type'] === 'incoming' ? $callData['phone_number'] : $user->phone,
+                    'to_number' => $callData['call_type'] === 'outgoing' ? $callData['phone_number'] : $user->phone,
+                    'contact_phone' => $callData['phone_number'],
+                    'contact_name' => $callData['contact_name'] ?? null,
+                    'provider_call_id' => $callData['provider_call_id'] ?? null,
+                    'call_started_at' => $startTime,
+                    'call_ended_at' => date('Y-m-d H:i:s', strtotime($startTime) + $callData['duration']),
+                ];
+
+
+                CallLog::create($logData);
+                $syncedCount++;
+            }
+
+            return $this->successResponse([
+                'synced_count' => $syncedCount,
+                'skipped_count' => $skippedCount,
+                'has_updates' => $syncedCount > 0, // Frontend indicator
+            ], $syncedCount > 0 ? 'Mobile calls synchronized successfully' : 'No new calls found');
+
+        } catch (\Throwable $e) {
+            return $this->serverErrorResponse('Failed to synchronize mobile calls', $e);
+        }
     }
 
     public function listMappings(Request $request): JsonResponse
@@ -398,4 +515,106 @@ class CallController extends Controller
             return $this->serverErrorResponse('Failed to delete mapping', $e);
         }
     }
+
+    public function uploadMobileRecording(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'audio' => 'required|file',
+            'phone_number' => 'required|string',
+            'timestamp' => 'required|date_format:Y-m-d H:i:s',
+        ]);
+
+        if ($validator->fails()) {
+            return $this->validationErrorResponse($validator);
+        }
+
+        try {
+            // Force resolve tenant for test route if not set
+            if (!app()->bound('tenant')) {
+                $tenant = \App\Models\Company::where('id', 2)->first() ?: \App\Models\Company::first();
+                app()->instance('tenant', $tenant);
+                config(['tenant.id' => $tenant->id]);
+            }
+
+            $user = $request->user();
+            $userId = $user ? $user->id : 2; // Default to ID 2 for testing if not auth
+            $companyId = $user ? $user->company_id : 1; // Default to ID 1
+            
+            $phone = $request->input('phone_number');
+            $timestamp = $request->input('timestamp');
+            \Log::info("Mobile Upload Attempt", ['phone' => $phone, 'timestamp' => $timestamp, 'userId' => $userId]);
+            
+            $normalizedPhone = \App\Modules\Calls\Domain\Entities\CallLog::normalizePhoneNumber($phone);
+            \Log::info("Processing recording match", ['normalized_phone' => $normalizedPhone, 'timestamp' => $timestamp]);
+
+            // Gashwa IMPROV: Extreme time window to handle possible device-server clock drift or timezone offsets (±24 hours fallback)
+            $searchTimes = [
+                ['start' => date('Y-m-d H:i:s', strtotime($timestamp) - 600), 'end' => date('Y-m-d H:i:s', strtotime($timestamp) + 600)],
+                ['start' => date('Y-m-d H:i:s', strtotime($timestamp) - 86400), 'end' => date('Y-m-d H:i:s', strtotime($timestamp) + 86400)]
+            ];
+
+            $callLog = null;
+            foreach ($searchTimes as $window) {
+                $query = \App\Modules\Calls\Domain\Entities\CallLog::withoutGlobalScopes()
+                    ->where(function($q) use ($normalizedPhone) {
+                        $q->where('from_number_normalized', $normalizedPhone)
+                          ->orWhere('to_number_normalized', $normalizedPhone)
+                          ->orWhere('contact_phone_normalized', $normalizedPhone)
+                          ->orWhere('contact_phone', $normalizedPhone);
+                    })
+                    ->whereBetween('call_started_at', [$window['start'], $window['end']])
+                    ->orderBy('call_started_at', 'desc');
+                
+                // Try with user first, then without
+                $callLog = (clone $query)->where('user_id', $userId)->first() ?: $query->first();
+                
+                if ($callLog) {
+                    \Log::info("Matched call for recording", ['id' => $callLog->id, 'matched_user_id' => $callLog->user_id, 'started_at' => $callLog->call_started_at]);
+                    break;
+                }
+            }
+
+
+
+            if (!$callLog) {
+                \Log::warning("Call matching failed", ['phone' => $normalizedPhone, 'provided_timestamp' => $timestamp]);
+                return $this->notFoundResponse('Call log not found for this recording. Please sync logs first.');
+            }
+
+
+            $path = $request->file('audio')->store('recordings', 'public');
+            
+            $callLog->update([
+                'recording_url' => asset('storage/' . $path),
+                'status' => 'completed'
+            ]);
+
+            return $this->successResponse([
+                'id' => $callLog->id,
+                'url' => $callLog->recording_url
+            ], 'Recording uploaded successfully');
+
+        } catch (\Throwable $e) {
+            \Log::error("Recording Upload Error", ['message' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
+            return $this->serverErrorResponse('Failed to upload recording: ' . $e->getMessage(), $e);
+        }
+    }
+
+    public function destroy(int $id): JsonResponse
+    {
+        try {
+            $call = CallLog::find($id);
+            if (!$call) {
+                return $this->notFoundResponse('Call log not found');
+            }
+
+            $call->delete();
+
+            return $this->successResponse(null, 'Call log deleted successfully');
+        } catch (\Throwable $e) {
+            return $this->serverErrorResponse('Failed to delete call log', $e);
+        }
+    }
 }
+
+

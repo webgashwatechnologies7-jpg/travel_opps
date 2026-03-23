@@ -24,10 +24,12 @@ class IdentifyTenant
         // Skip tenant identification for auth routes (login, logout, etc.)
         // Super admin and regular users both need to login first
         // Also skip for super admin routes since they don't require tenant context
-        if ($request->is('api/auth/*') || $request->is('api/password/*') || $request->is('api/test-unique') || $request->is('api/super-admin/*')) {
+        if ($request->is('api/auth/*') || $request->is('api/password/*') || $request->is('api/test-unique') || $request->is('api/recording-test') || $request->is('api/calls/sync') || $request->is('api/super-admin/*')) {
+
             app()->instance('tenant', null);
             return $next($request);
         }
+
 
         // If subdomain is provided explicitly, use it first
         $forcedSubdomain = $request->header('X-Subdomain') ?? $request->query('subdomain');

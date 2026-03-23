@@ -16,6 +16,8 @@ Route::prefix('calls/webhooks')->group(function () {
     Route::post('/exotel', [CallWebhookController::class, 'exotel']);
 });
 
+Route::post('calls/recording', [CallController::class, 'uploadMobileRecording']);
+
 // Call management routes - require authentication
 Route::middleware('auth:sanctum')->prefix('calls')->group(function () {
     Route::get('/', [CallController::class, 'index']);
@@ -23,6 +25,12 @@ Route::middleware('auth:sanctum')->prefix('calls')->group(function () {
     Route::post('/mappings', [CallController::class, 'storeMapping']);
     Route::put('/mappings/{mappingId}', [CallController::class, 'updateMapping']);
     Route::delete('/mappings/{mappingId}', [CallController::class, 'deleteMapping']);
+
+    Route::post('/sync', [CallController::class, 'syncMobileCalls']);
+    Route::delete('/{id}', [CallController::class, 'destroy']);
+
+
+
 
     Route::get('/{id}', [CallController::class, 'show']);
     Route::get('/{id}/recording', [CallController::class, 'recording']);

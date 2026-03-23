@@ -57,7 +57,22 @@ class CallLog extends Model
 
     protected $appends = [
         'recording_available',
+        'direction',
     ];
+
+    public function getDirectionAttribute(): string
+    {
+        // Based on normalized numbers and source
+        if ($this->source === 'mobile') {
+            // For mobile sync, we can use the call_type logic
+            // However, we didn't save call_type in the table (we should have or use logic)
+            // Let's assume if from_number is NOT the user's phone, it's inbound.
+            // But since we have both in logs, let's look at the source.
+            return $this->from_number_normalized === $this->contact_phone_normalized ? 'inbound' : 'outbound';
+        }
+        
+        return $this->from_number === $this->employee?->phone ? 'outbound' : 'inbound';
+    }
 
     protected static function booted()
     {

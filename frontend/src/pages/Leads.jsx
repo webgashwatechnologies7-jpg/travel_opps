@@ -346,7 +346,14 @@ const Leads = () => {
         marriage_anniversary: formData.marriage_anniversary || null,
       };
 
-      await leadsAPI.create(apiData);
+      const response = await leadsAPI.create(apiData);
+      
+      // Fix: Clear any old localStorage proposals if this ID was previously used
+      const newLead = response?.data?.data?.lead || response?.data?.lead;
+      if (newLead?.id) {
+        localStorage.removeItem(`lead_${newLead.id}_proposals`);
+      }
+
       setShowModal(false);
       setFormData(getDefaultFormData());
       fetchLeads();
@@ -401,6 +408,10 @@ const Leads = () => {
   const handleDelete = useCallback(async (leadId) => {
     try {
       await leadsAPI.delete(leadId);
+      
+      // Fix: Clean up localStorage when a lead is deleted
+      localStorage.removeItem(`lead_${leadId}_proposals`);
+      
       fetchLeads();
       toast.success('Lead deleted successfully');
     } catch (err) {
