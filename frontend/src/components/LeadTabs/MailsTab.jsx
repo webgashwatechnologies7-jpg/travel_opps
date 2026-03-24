@@ -1,7 +1,6 @@
-import React, { memo } from 'react';
+import React, { memo, useState } from 'react';
 import { Mail, RefreshCw, Reply, Send, FileText } from 'lucide-react';
 
-// Helper: sanitize HTML for display (pass-through — defined in parent, reused via prop)
 const MailsTab = memo(({
     lead,
     user,
@@ -16,8 +15,9 @@ const MailsTab = memo(({
     rewriteHtmlImageUrls,
     sanitizeEmailHtmlForDisplay,
 }) => {
-    const [expandedThreads, setExpandedThreads] = React.useState({});
-    const [visibleCount, setVisibleCount] = React.useState(5);
+    const [currentPage, setCurrentPage] = useState(1);
+    const [expandedThreads, setExpandedThreads] = useState({});
+    const itemsPerPage = 5;
 
     const toggleThread = (tid) => {
         setExpandedThreads(prev => ({
@@ -26,8 +26,9 @@ const MailsTab = memo(({
         }));
     };
 
+    // Process and Group Gmail Emails into Threads
     const groupedThreads = Object.values(
-        gmailEmails.reduce((acc, email) => {
+        (gmailEmails || []).reduce((acc, email) => {
             const tid = email.thread_id || `single-${email.id}`;
             if (!acc[tid]) acc[tid] = [];
             acc[tid].push(email);
@@ -35,20 +36,18 @@ const MailsTab = memo(({
         }, {})
     )
         .map((t) => t.sort((a, b) => new Date(b.created_at) - new Date(a.created_at)))
-        .sort(
-            (a, b) =>
-                new Date(b[0]?.created_at || 0) - new Date(a[0]?.created_at || 0)
-        );
+        .sort((a, b) => new Date(b[0]?.created_at || 0) - new Date(a[0]?.created_at || 0));
 
-    const displayedThreads = groupedThreads.slice(0, visibleCount);
+    const totalPages = Math.ceil(groupedThreads.length / itemsPerPage);
+    const displayedThreads = groupedThreads.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
     return (
         <div className="space-y-4">
-            {/* Header */}
+            {/* Header / Actions */}
             <div className="flex flex-wrap items-center gap-4 mb-6">
                 <button
                     onClick={openComposeModal}
-                    className="bg-blue-600 text-white px-5 py-2.5 rounded-lg hover:bg-blue-700 flex items-center gap-2 font-medium shadow-md"
+                    className="bg-blue-600 text-white px-5 py-2.5 rounded-lg hover:bg-blue-700 flex items-center gap-2 font-medium shadow-md transition-all active:scale-95"
                 >
                     <Mail className="h-5 w-5" />
                     Compose
@@ -59,144 +58,125 @@ const MailsTab = memo(({
                         type="button"
                         onClick={handleSyncInbox}
                         disabled={syncingInbox}
-                        className="bg-gray-100 text-gray-700 px-4 py-2.5 rounded-lg hover:bg-gray-200 flex items-center gap-2 font-medium border border-gray-300 disabled:opacity-60"
+                        className="bg-white text-gray-700 px-4 py-2.5 rounded-lg hover:bg-gray-50 flex items-center gap-2 font-medium border border-gray-300 disabled:opacity-60 shadow-sm"
                     >
                         {syncingInbox ? (
                             <span className="animate-spin rounded-full h-4 w-4 border-2 border-gray-500 border-t-transparent" />
                         ) : (
                             <RefreshCw className="h-4 w-4" />
                         )}
-                        {syncingInbox ? 'Syncing...' : 'Sync inbox'}
+                        Sync inbox
                     </button>
                 )}
 
                 {lead?.email && (
-                    <div className="flex items-center gap-2 px-4 py-2.5 bg-gray-100 rounded-lg border border-gray-200">
-                        <span className="text-gray-500 text-sm">ℹ</span>
+                    <div className="flex items-center gap-2 px-4 py-2 bg-gray-50 rounded-lg border border-gray-200">
+                        <span className="text-gray-400 text-sm">To:</span>
                         <span className="text-gray-700 font-medium">{lead.email}</span>
                     </div>
                 )}
             </div>
 
-            {user?.google_token && (
-                <p className="text-sm text-gray-600 mb-2">
-                    Received and reply emails appear in &quot;Gmail Conversations&quot; when you connect Gmail in Settings and use &quot;Sync inbox&quot;.
-                </p>
-            )}
-
-            {/* Email List */}
+            {/* Content List */}
             {loadingEmails || loadingGmail ? (
-                <div className="flex items-center justify-center py-12">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                <div className="flex items-center justify-center py-20">
+                    <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
                 </div>
             ) : leadEmails.length === 0 && gmailEmails.length === 0 ? (
-                <div className="text-center py-12 text-gray-500 bg-gray-50 rounded-lg border border-gray-200">
-                    <Mail className="h-12 w-12 mx-auto text-gray-300 mb-3" />
-                    <p>No mails yet</p>
-                    <p className="text-sm mt-1">Click &quot;Compose&quot; to send your first email to the client</p>
+                <div className="text-center py-20 text-gray-500 bg-gray-50 rounded-xl border-2 border-dashed border-gray-200">
+                    <Mail className="h-12 w-12 mx-auto text-gray-300 mb-4" />
+                    <p className="text-lg font-medium">No mails found</p>
+                    <p className="text-sm">Mails sent from the system or synced from Gmail will appear here.</p>
                 </div>
             ) : (
-                <div className="space-y-6">
-                    {/* Gmail Conversations */}
-                    {gmailEmails.length > 0 && (
+                <div className="space-y-8">
+                    {/* Gmail Threads Section */}
+                    {groupedThreads.length > 0 && (
                         <div className="space-y-4">
-                            <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-2">
-                                <div className="h-2 w-2 rounded-full bg-red-500"></div>
-                                Gmail Conversations
-                            </h3>
+                            <div className="flex justify-between items-center">
+                                <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest flex items-center gap-2">
+                                    <div className="h-2 w-2 rounded-full bg-red-500"></div>
+                                    Gmail Conversations ({groupedThreads.length})
+                                </h3>
+                                {totalPages > 1 && (
+                                    <span className="text-xs text-gray-400 font-medium bg-gray-100 px-2 py-1 rounded">
+                                        Page {currentPage} of {totalPages}
+                                    </span>
+                                )}
+                            </div>
+
                             <div className="space-y-3">
                                 {displayedThreads.map((thread) => {
-                                    const sorted = [...thread].sort(
-                                        (a, b) => new Date(a.created_at) - new Date(b.created_at)
-                                    );
                                     const latestEmail = thread[0];
                                     const tid = latestEmail.thread_id || latestEmail.id;
                                     const isExpanded = expandedThreads[tid];
-                                    const hasUnread = thread.some(
-                                        (e) => e.direction === 'inbound' && !e.is_read
-                                    );
+                                    const hasUnread = thread.some(e => e.direction === 'inbound' && !e.is_read);
 
                                     return (
-                                        <div
-                                            key={tid}
-                                            className={`bg-white border rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow ${hasUnread ? 'border-blue-300 ring-1 ring-blue-100' : 'border-gray-200'
-                                                }`}
-                                        >
-                                            <div
-                                                className="p-4 bg-gray-50 border-b border-gray-200 flex justify-between items-center cursor-pointer hover:bg-gray-100"
+                                        <div key={tid} className={`bg-white border rounded-xl overflow-hidden shadow-sm transition-all ${hasUnread ? 'border-blue-400 ring-4 ring-blue-50' : 'border-gray-200'}`}>
+                                            {/* Thread Header */}
+                                            <div 
+                                                className="p-4 bg-gray-50/50 hover:bg-gray-50 cursor-pointer flex justify-between items-center group"
                                                 onClick={() => toggleThread(tid)}
                                             >
-                                                <div className="flex items-center gap-3">
-                                                    <div className="bg-red-100 p-2 rounded-lg">
-                                                        <Mail className="h-4 w-4 text-red-600" />
+                                                <div className="flex items-center gap-4 flex-1 min-w-0">
+                                                    <div className={`p-2 rounded-lg ${hasUnread ? 'bg-blue-100' : 'bg-gray-100 grayscale'}`}>
+                                                        <Mail className={`h-5 w-5 ${hasUnread ? 'text-blue-600' : 'text-gray-500'}`} />
                                                     </div>
-                                                    <div>
-                                                        <p
-                                                            className={`${hasUnread ? 'font-bold text-gray-900' : 'font-semibold text-gray-800'
-                                                                }`}
-                                                        >
-                                                            {latestEmail.subject}
-                                                        </p>
-                                                        <p className="text-xs text-gray-500">
-                                                            {thread.length} message{thread.length > 1 ? 's' : ''} &bull; {isExpanded ? 'Click to hide' : 'Click to show'}
-                                                            {hasUnread && (
-                                                                <span className="ml-2 px-1.5 py-0.5 rounded bg-blue-200 text-blue-800">
-                                                                    Unread
-                                                                </span>
-                                                            )}
-                                                        </p>
+                                                    <div className="min-w-0 flex-1">
+                                                        <div className="flex items-center gap-2">
+                                                            <p className={`truncate ${hasUnread ? 'font-bold text-gray-900' : 'font-semibold text-gray-700'}`}>
+                                                                {latestEmail.subject || '(No Subject)'}
+                                                            </p>
+                                                            {hasUnread && <span className="h-2 w-2 rounded-full bg-blue-500"></span>}
+                                                        </div>
+                                                        <div className="flex items-center gap-2 text-xs text-gray-500 mt-0.5">
+                                                            <span>{thread.length} message{thread.length > 1 ? 's' : ''}</span>
+                                                            <span>&bull;</span>
+                                                            <span>{isExpanded ? 'Collapse' : 'Click to read'}</span>
+                                                        </div>
                                                     </div>
                                                 </div>
-                                                <div className="flex items-center gap-2">
+                                                <div className="flex items-center gap-3">
+                                                    <span className="text-xs text-gray-400 hidden sm:block">
+                                                        {new Date(latestEmail.created_at).toLocaleDateString()}
+                                                    </span>
                                                     <button
                                                         type="button"
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            openReplyModal(thread);
-                                                        }}
-                                                        className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+                                                        onClick={(e) => { e.stopPropagation(); openReplyModal(thread); }}
+                                                        className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                                        title="Reply to thread"
                                                     >
-                                                        <Reply className="h-4 w-4" />
-                                                        Reply
+                                                        <Reply className="h-5 w-5" />
                                                     </button>
                                                 </div>
                                             </div>
 
+                                            {/* Thread Messages */}
                                             {isExpanded && (
-                                                <div className="divide-y divide-gray-100 max-h-96 overflow-y-auto">
-                                                    {sorted.map((email) => (
-                                                        <div
-                                                            key={email.id}
-                                                            className={`p-4 ${email.direction === 'inbound' ? 'bg-white' : 'bg-blue-50/50'
-                                                                }`}
-                                                        >
-                                                            <div className="flex justify-between items-start mb-2 flex-wrap gap-1">
-                                                                <span
-                                                                    className={`text-xs font-medium px-2 py-0.5 rounded-full ${email.direction === 'inbound'
-                                                                        ? 'bg-gray-100 text-gray-600'
-                                                                        : 'bg-blue-100 text-blue-600'
-                                                                        }`}
-                                                                >
-                                                                    {email.direction === 'inbound' ? 'Received' : 'Sent'}
+                                                <div className="divide-y divide-gray-100 border-t border-gray-100 bg-white">
+                                                    {[...thread].sort((a,b) => new Date(a.created_at) - new Date(b.created_at)).map((email) => (
+                                                        <div key={email.id} className={`p-5 ${email.direction === 'inbound' ? 'bg-white' : 'bg-blue-50/30'}`}>
+                                                            <div className="flex justify-between items-center mb-4">
+                                                                <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded-md tracking-wider ${
+                                                                    email.direction === 'inbound' ? 'bg-gray-100 text-gray-600' : 'bg-blue-100 text-blue-700'
+                                                                }`}>
+                                                                    {email.direction === 'inbound' ? 'Inbox' : 'Sent'}
                                                                 </span>
-                                                                <span className="flex items-center gap-2 text-xs text-gray-400">
+                                                                <span className="text-xs text-gray-400">
                                                                     {new Date(email.created_at).toLocaleString()}
                                                                 </span>
                                                             </div>
-                                                            <div
-                                                                className="text-sm text-gray-800 prose prose-sm max-w-none break-words"
-                                                                dangerouslySetInnerHTML={{
+                                                            <div 
+                                                                className="text-sm text-gray-800 prose prose-sm max-w-none leading-relaxed"
+                                                                dangerouslySetInnerHTML={{ 
                                                                     __html: (() => {
                                                                         const raw = email.body || '—';
                                                                         const isHtml = /<[a-z][\s\S]*>/i.test(raw);
-                                                                        return isHtml
+                                                                        return isHtml 
                                                                             ? rewriteHtmlImageUrls(sanitizeEmailHtmlForDisplay(raw))
-                                                                            : raw
-                                                                                .replace(/&/g, '&amp;')
-                                                                                .replace(/</g, '&lt;')
-                                                                                .replace(/>/g, '&gt;')
-                                                                                .replace(/\n/g, '<br/>');
-                                                                    })(),
+                                                                            : raw.replace(/\n/g, '<br/>');
+                                                                    })()
                                                                 }}
                                                             />
                                                         </div>
@@ -207,13 +187,48 @@ const MailsTab = memo(({
                                     );
                                 })}
 
-                                {groupedThreads.length > visibleCount && (
-                                    <div className="flex justify-center pt-2">
+                                {/* Pagination Buttons */}
+                                {totalPages > 1 && (
+                                    <div className="flex items-center justify-center gap-1.5 pt-6">
                                         <button
-                                            onClick={() => setVisibleCount(prev => prev + 5)}
-                                            className="text-sm text-blue-600 font-medium hover:underline"
+                                            disabled={currentPage === 1}
+                                            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                                            className="p-2 border border-gray-300 rounded-lg bg-white hover:bg-gray-50 disabled:opacity-30 disabled:hover:bg-white text-gray-600 transition-colors"
                                         >
-                                            Load more conversations (+5)
+                                            <span className="sr-only">Previous</span>
+                                            &laquo;
+                                        </button>
+                                        
+                                        {[...Array(totalPages)].map((_, i) => {
+                                            const page = i + 1;
+                                            // Simple logic to show current, first, last, and neighbors
+                                            if (page === 1 || page === totalPages || (page >= currentPage - 1 && page <= currentPage + 1)) {
+                                                return (
+                                                    <button
+                                                        key={page}
+                                                        onClick={() => setCurrentPage(page)}
+                                                        className={`w-9 h-9 flex items-center justify-center rounded-lg border font-medium transition-all ${
+                                                            currentPage === page 
+                                                            ? 'bg-blue-600 border-blue-600 text-white shadow-sm' 
+                                                            : 'bg-white border-gray-300 text-gray-600 hover:border-gray-400'
+                                                        }`}
+                                                    >
+                                                        {page}
+                                                    </button>
+                                                );
+                                            } else if (page === currentPage - 2 || page === currentPage + 2) {
+                                                return <span key={page} className="text-gray-400 px-1">...</span>;
+                                            }
+                                            return null;
+                                        })}
+
+                                        <button
+                                            disabled={currentPage === totalPages}
+                                            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                                            className="p-2 border border-gray-300 rounded-lg bg-white hover:bg-gray-50 disabled:opacity-30 disabled:hover:bg-white text-gray-600 transition-colors"
+                                        >
+                                            <span className="sr-only">Next</span>
+                                            &raquo;
                                         </button>
                                     </div>
                                 )}
@@ -221,44 +236,22 @@ const MailsTab = memo(({
                         </div>
                     )}
 
-                    {/* System Emails Section */}
+                    {/* System Emails Section (Logged) */}
                     {leadEmails.length > 0 && (
-                        <div className="space-y-4 pt-4 border-t border-gray-200">
-                            <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-2">
+                        <div className="space-y-4 pt-6 border-t border-gray-100">
+                            <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest flex items-center gap-2">
                                 <FileText className="h-4 w-4" />
-                                System Logged Emails
+                                System Logs ({leadEmails.length})
                             </h3>
-                            <div className="space-y-3">
-                                {leadEmails.map((email) => (
-                                    <div
-                                        key={email.id}
-                                        className="flex items-start gap-4 p-4 bg-white border border-gray-200 rounded-lg hover:shadow-md transition-shadow"
-                                    >
-                                        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
-                                            <Send className="h-4 w-4 text-blue-600" />
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {leadEmails.slice(0, 4).map((email) => (
+                                    <div key={email.id} className="p-4 bg-gray-50/50 border border-gray-200 rounded-xl flex items-center gap-3">
+                                        <div className="h-10 w-10 flex-shrink-0 rounded-full bg-blue-50 flex items-center justify-center">
+                                            <Send className="h-4 w-4 text-blue-500" />
                                         </div>
-                                        <div className="flex-1 min-w-0">
-                                            <div className="flex items-center gap-2 mb-1">
-                                                <span className="font-medium text-gray-800 truncate">{email.to_email}</span>
-                                                {email.status === 'failed' && (
-                                                    <span className="px-2 py-0.5 bg-red-100 text-red-700 text-xs rounded">
-                                                        Failed
-                                                    </span>
-                                                )}
-                                            </div>
-                                            <p className="text-blue-600 font-medium truncate">{email.subject}</p>
-                                            <div
-                                                className="text-sm text-gray-500 truncate mt-1"
-                                                dangerouslySetInnerHTML={{
-                                                    __html: rewriteHtmlImageUrls(sanitizeEmailHtmlForDisplay(email.body || '')),
-                                                }}
-                                            />
-                                        </div>
-                                        <div className="flex-shrink-0 text-right">
-                                            <p className="text-sm text-gray-500">
-                                                {new Date(email.created_at).toLocaleDateString('en-IN')}
-                                            </p>
-                                            <p className="text-xs text-gray-400 mt-1">by {email.user?.name || 'System'}</p>
+                                        <div className="min-w-0">
+                                            <p className="text-sm font-semibold text-gray-800 truncate">{email.subject}</p>
+                                            <p className="text-xs text-gray-500">{new Date(email.created_at).toLocaleDateString()}</p>
                                         </div>
                                     </div>
                                 ))}
