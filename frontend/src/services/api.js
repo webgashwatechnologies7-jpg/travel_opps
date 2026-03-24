@@ -110,7 +110,13 @@ const postWithFile = (url, data, method = 'POST') => {
   if (isFormData) {
     if (method !== 'POST') data.append('_method', method);
     return api.post(url, data, {
-      headers: { 'Content-Type': undefined }
+      transformRequest: [(data, headers) => {
+        if (data instanceof FormData) {
+          delete headers['Content-Type'];
+          return data;
+        }
+        return data;
+      }, ...axios.defaults.transformRequest]
     });
   }
   return method === 'PUT' ? api.put(url, data) : api.post(url, data);
