@@ -4,7 +4,7 @@ import { toast } from 'react-toastify';
 import { useAuth } from '../contexts/AuthContext';
 import { companySettingsAPI, whatsappAPI } from '../services/api';
 import Layout from '../components/Layout';
-import { ArrowLeft, User, Mail, Phone, Building, Shield, Calendar, Edit, Save, X, MapPin, Users, PhoneCall, CheckCircle, ClipboardList, Download, MessageCircle } from 'lucide-react';
+import { ArrowLeft, User, Mail, Phone, Building, Shield, Calendar, Edit, Save, X, MapPin, Users, PhoneCall, CheckCircle, ClipboardList, Download, MessageCircle, Camera } from 'lucide-react';
 
 const UserDetails = () => {
   const { id } = useParams();
@@ -93,7 +93,8 @@ const UserDetails = () => {
           state: userResponse.data.data.state || '',
           country: userResponse.data.data.country || '',
           postal_code: userResponse.data.data.postal_code || '',
-          is_active: userResponse.data.data.is_active
+          is_active: userResponse.data.data.is_active,
+          profile_picture: null
         });
       } else {
         // Use mock data if API fails
@@ -326,14 +327,35 @@ const UserDetails = () => {
 
   const handleSaveUser = async () => {
     try {
-      const response = await companySettingsAPI.updateUser(id, editForm);
+      const formData = new FormData();
+      Object.keys(editForm).forEach(key => {
+        if (key === 'profile_picture') {
+          if (editForm[key] instanceof File) {
+            formData.append('profile_picture', editForm[key]);
+          }
+        } else if (editForm[key] !== null) {
+          formData.append(key, editForm[key]);
+        }
+      });
+
+      const response = await companySettingsAPI.updateUser(id, formData);
       if (response.data.success) {
-        const { password, ...userData } = editForm;
-        setUser({
-          ...user,
-          ...userData
+        const userData = response.data.data;
+        setUser(userData);
+        setEditForm({
+          name: userData.name,
+          email: userData.email,
+          phone: userData.phone || '',
+          employee_id: userData.employee_id || '',
+          address: userData.address || '',
+          city: userData.city || '',
+          state: userData.state || '',
+          country: userData.country || '',
+          postal_code: userData.postal_code || '',
+          is_active: userData.is_active,
+          password: '',
+          profile_picture: null
         });
-        setEditForm(prev => ({ ...prev, password: '' }));
         setEditingUser(false);
         toast.success('User updated successfully!');
       } else {
@@ -471,11 +493,38 @@ const UserDetails = () => {
         <div className="bg-white shadow-sm rounded-lg mb-6">
           <div className="px-6 py-4">
             <div className="flex flex-col md:flex-row items-center gap-6 mb-6 pb-6 border-b border-gray-100">
-              <div className="h-24 w-24 rounded-full bg-blue-100 flex items-center justify-center overflow-hidden border-4 border-white shadow-sm ring-1 ring-gray-100">
-                {user.profile_picture ? (
-                  <img src={user.profile_picture} className="h-full w-full object-cover" alt={user.name} />
-                ) : (
-                  <span className="text-3xl font-bold text-blue-600 uppercase">{user.name.charAt(0)}</span>
+              <div className="relative group">
+                <div className="h-24 w-24 rounded-full bg-blue-100 flex items-center justify-center overflow-hidden border-4 border-white shadow-sm ring-1 ring-gray-100">
+                  {editForm.profile_picture instanceof File ? (
+                    <img src={URL.createObjectURL(editForm.profile_picture)} className="h-full w-full object-cover" alt="Preview" />
+                  ) : user.profile_picture ? (
+                    <img src={user.profile_picture} className="h-full w-full object-cover" alt={user.name} />
+                  ) : (
+                    <span className="text-3xl font-bold text-blue-600 uppercase">{user.name.charAt(0)}</span>
+                  )}
+                </div>
+                {editingUser && (
+                  <>
+                    <button
+                      onClick={() => document.getElementById('user-profile-upload').click()}
+                      className="absolute bottom-0 right-0 bg-blue-600 text-white p-1.5 rounded-full shadow-lg hover:bg-blue-700 transition-colors"
+                      title="Update Photo"
+                    >
+                      <Camera className="h-4 w-4" />
+                    </button>
+                    <input
+                      id="user-profile-upload"
+                      type="file"
+                      className="hidden"
+                      accept="image/*"
+                      onChange={(e) => {
+                        const file = e.target.files[0];
+                        if (file) {
+                          setEditForm(prev => ({ ...prev, profile_picture: file }));
+                        }
+                      }}
+                    />
+                  </>
                 )}
               </div>
               <div>

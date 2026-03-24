@@ -88,7 +88,7 @@ Route::middleware(['auth:sanctum', 'role:Admin|Company Admin'])->prefix('company
 
     Route::get('/team-reports', [CompanySettingsController::class, 'getTeamReport']);
     Route::post('/users', [CompanySettingsController::class, 'createUser']);
-    Route::put('/users/{id}', [CompanySettingsController::class, 'updateUser']);
+    Route::post('/users/{id}', [CompanySettingsController::class, 'updateUser']);
     Route::delete('/users/{id}', [CompanySettingsController::class, 'deleteUser']);
 
     // Branches management

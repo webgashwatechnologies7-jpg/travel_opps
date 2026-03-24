@@ -106,9 +106,12 @@ api.interceptors.response.use(
  * Optionally appends `_method` override (e.g. 'PUT') for FormData updates.
  */
 const postWithFile = (url, data, method = 'POST') => {
-  if (data instanceof FormData) {
+  const isFormData = data && typeof data.append === 'function';
+  if (isFormData) {
     if (method !== 'POST') data.append('_method', method);
-    return api.post(url, data);
+    return api.post(url, data, {
+      headers: { 'Content-Type': undefined }
+    });
   }
   return method === 'PUT' ? api.put(url, data) : api.post(url, data);
 };
@@ -425,8 +428,8 @@ export const googleMailAPI = {
 export const usersAPI = {
   list: () => api.get('/admin/users'),
   get: (id) => api.get(`/admin/users/${id}`),
-  create: (data) => api.post('/admin/users', data),
-  update: (id, data) => api.put(`/admin/users/${id}`, data),
+  create: (data) => postWithFile('/admin/users', data),
+  update: (id, data) => postWithFile(`/admin/users/${id}`, data, 'PUT'),
   delete: (id) => api.delete(`/admin/users/${id}`),
   updateStatus: (id, isActive) => api.put(`/admin/users/${id}/status`, { is_active: isActive }),
 };
@@ -798,8 +801,8 @@ export const companySettingsAPI = {
   getDetailedUserStats: (id) => api.get(`/company-settings/users/${id}/detailed-stats`),
   getUserLogs: (id, params = {}) => api.get(`/company-settings/users/${id}/logs`, { params }),
   getUserCommunications: (id) => api.get(`/company-settings/users/${id}/communications`),
-  createUser: (data) => api.post('/company-settings/users', data),
-  updateUser: (id, data) => api.put(`/company-settings/users/${id}`, data),
+  createUser: (data) => postWithFile('/company-settings/users', data),
+  updateUser: (id, data) => postWithFile(`/company-settings/users/${id}`, data, 'PUT'),
   deleteUser: (id) => api.delete(`/company-settings/users/${id}`),
 
   // Branches management

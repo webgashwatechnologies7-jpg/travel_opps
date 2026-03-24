@@ -545,6 +545,11 @@ class CompanySettingsController extends Controller
                 $updateData['reports_to'] = $request->reports_to;
             }
 
+            if ($request->hasFile('profile_picture')) {
+                $path = $request->file('profile_picture')->store('profiles', 'public');
+                $updateData['profile_picture'] = $path;
+            }
+
             $user->update($updateData);
 
             // Update password if provided
