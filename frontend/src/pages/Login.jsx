@@ -11,6 +11,8 @@ const Login = () => {
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
+  const queryParams = new URLSearchParams(window.location.search);
+  const reason = queryParams.get('reason');
 
   const appSettings = JSON.parse(localStorage.getItem('appSettings') || '{}');
   const companyName = appSettings.company_name || 'CRM';
@@ -89,6 +91,12 @@ const Login = () => {
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-5">
+              {reason === 'inactivity' && !error && (
+                <div className="bg-amber-50 border border-amber-200 text-amber-600 px-4 py-3 rounded-lg text-sm mb-4">
+                  You were logged out due to 5 minutes of inactivity for security reasons.
+                </div>
+              )}
+
               {error && (
                 <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg text-sm">
                   {error}

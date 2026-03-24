@@ -17,6 +17,7 @@ use Illuminate\Support\Facades\Route;
 Route::middleware(['auth:sanctum'])->prefix('dashboard')->group(function () {
     // Basic Dashboard Stats (Accessible to all plans)
     Route::get('/stats', [DashboardController::class, 'stats']);
+    Route::get('/presence-stats', [DashboardController::class, 'getPresenceStats']);
     Route::get('/upcoming-tours', [DashboardController::class, 'upcomingTours']);
     Route::get('/latest-lead-notes', [DashboardController::class, 'latestLeadNotes']);
 

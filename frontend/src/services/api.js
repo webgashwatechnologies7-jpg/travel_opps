@@ -147,6 +147,7 @@ export const dashboardAPI = {
   employeePerformance: (params = {}) => api.get('/dashboard/employee-performance', { params }),
   sourceRoi: (month) => api.get('/dashboard/source-roi', { params: { month } }),
   destinationPerformance: (month) => api.get('/dashboard/destination-performance', { params: { month } }),
+  getPresenceStats: () => api.get('/dashboard/presence-stats'),
 };
 
 // Leads APIs
@@ -806,6 +807,7 @@ export const companySettingsAPI = {
   getMyTeam: (params = {}) => api.get('/settings/my-team', { params }), // Use the correct prefix 'settings'
   getDetailedUserStats: (id) => api.get(`/company-settings/users/${id}/detailed-stats`),
   getUserLogs: (id, params = {}) => api.get(`/company-settings/users/${id}/logs`, { params }),
+  getUserLoginLogs: (id, params = {}) => api.get(`/company-settings/users/${id}/login-logs`, { params }),
   getUserCommunications: (id) => api.get(`/company-settings/users/${id}/communications`),
   createUser: (data) => postWithFile('/company-settings/users', data),
   updateUser: (id, data) => postWithFile(`/company-settings/users/${id}`, data, 'PUT'),

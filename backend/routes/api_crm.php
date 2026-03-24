@@ -23,6 +23,7 @@ Route::middleware(['auth:sanctum', 'active'])->prefix('profile')->group(function
 Route::middleware(['auth:sanctum', 'role:Admin|Company Admin|Manager|Team Leader'])->prefix('admin')->group(function () {
     // User management routes
     Route::prefix('users')->group(function () {
+        Route::get('/{user}/login-logs', [AdminUserController::class, 'loginLogs']);
         Route::put('/{id}/status', [AdminUserController::class, 'updateStatus']);
         Route::apiResource('/', AdminUserController::class)->parameters(['' => 'id']);
     });

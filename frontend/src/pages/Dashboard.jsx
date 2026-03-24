@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { Clock, Activity, XCircle } from 'lucide-react';
 import { dashboardAPI, followupsAPI, leadsAPI } from '../services/api';
 import Layout from '../components/Layout';
 import PaymentCollectionTable from '../components/PaymentCollectionTable';
@@ -39,6 +40,12 @@ const Dashboard = () => {
     hot: 0,
     unassigned: 0,
   });
+  const [presenceStats, setPresenceStats] = useState({
+    formatted_time: '0h 0m',
+    logout_count: 0,
+    login_count: 0,
+    total_seconds: 0
+  });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   let navigate = useNavigate();
@@ -74,15 +81,18 @@ const Dashboard = () => {
         revenueRes,
         toursRes,
         notesRes,
-        followupsRes
+        followupsRes,
+        presenceRes
       ] = await Promise.all([
         dashboardAPI.stats(),
         hasAnalytics ? dashboardAPI.getRevenueGrowthMonthly() : Promise.resolve({ data: { data: [] } }),
         dashboardAPI.upcomingTours(),
         dashboardAPI.latestLeadNotes(),
-        followupsAPI.today()
+        followupsAPI.today(),
+        dashboardAPI.getPresenceStats()
       ]);
       setStats(statsRes.data.data);
+      setPresenceStats(presenceRes.data.data || { formatted_time: '0h 0m', logout_count: 0, login_count: 0 });
       setRevenueData(revenueRes?.data?.data || []);
       setUpcomingTours(toursRes.data.data || []);
       setLatestNotes(notesRes.data.data || []);
@@ -254,6 +264,51 @@ const Dashboard = () => {
             onViewUnassigned={() => navigate("/leads?status=unassigned")}
           />
         )}
+
+        {/* Presence & Activity Summary Row */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex items-center gap-4 hover:shadow-md transition-all">
+            <div className="p-3 bg-blue-50 rounded-xl">
+              <Clock className="h-6 w-6 text-blue-600" />
+            </div>
+            <div>
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Active Today</p>
+              <h3 className="text-xl font-black text-gray-900">{presenceStats.formatted_time}</h3>
+            </div>
+          </div>
+          
+          <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex items-center gap-4 hover:shadow-md transition-all">
+            <div className="p-3 bg-amber-50 rounded-xl">
+              <Activity className="h-6 w-6 text-amber-600" />
+            </div>
+            <div>
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Work Sessions</p>
+              <h3 className="text-xl font-black text-gray-900">{presenceStats.login_count}</h3>
+            </div>
+          </div>
+
+          <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex items-center gap-4 hover:shadow-md transition-all">
+            <div className="p-3 bg-red-50 rounded-xl">
+              <XCircle className="h-6 w-6 text-red-600" />
+            </div>
+            <div>
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Total Logouts</p>
+              <h3 className="text-xl font-black text-gray-900">{presenceStats.logout_count}</h3>
+            </div>
+          </div>
+
+          <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex items-center gap-4 hover:shadow-md transition-all border-l-4 border-l-green-500">
+            <div className="p-3 bg-green-50 rounded-xl relative">
+              <div className="h-2.5 w-2.5 bg-green-500 rounded-full animate-ping absolute top-3 left-3"></div>
+              <Activity className="h-6 w-6 text-green-600 relative z-10" />
+            </div>
+            <div>
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Presence</p>
+              <h3 className="text-xl font-black text-green-600 uppercase">Live Now</h3>
+            </div>
+          </div>
+        </div>
+
         <div className="grid grid-cols-1 md:grid-cols-12 gap-4 lg:gap-6 items-stretch">
           {/* Row 1: 3-6-3 Summary */}
           {hasQueries && (

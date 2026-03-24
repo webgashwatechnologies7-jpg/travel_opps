@@ -72,6 +72,57 @@ export const AuthProvider = ({ children }) => {
     };
   }, [user?.id]);
 
+  // Handle auto-logout on 5-minute inactivity
+  useEffect(() => {
+    if (!user) return;
+
+    let timeout;
+    const INACTIVITY_LIMIT = 5 * 60 * 1000; // 5 minutes
+
+    const resetTimer = () => {
+      if (timeout) clearTimeout(timeout);
+      timeout = setTimeout(() => {
+        console.warn('Inactivity detected (5m). Auto-logging out...');
+        logout();
+        // Optional: Notify user they were logged out due to inactivity
+        if (typeof window !== 'undefined') {
+          window.location.href = '/login?reason=inactivity';
+        }
+      }, INACTIVITY_LIMIT);
+    };
+
+    // Events to track user activity
+    const events = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart'];
+    
+    // Setup event listeners
+    const setupHandlers = () => {
+      events.forEach((event) => {
+        window.addEventListener(event, resetTimer);
+      });
+    };
+
+    const removeHandlers = () => {
+      events.forEach((event) => {
+        window.removeEventListener(event, resetTimer);
+      });
+    };
+
+    // Initial start
+    setupHandlers();
+    resetTimer();
+
+    // Pulse activity to backend on initial load if logged in 
+    // to ensure last_seen_at is reasonably fresh
+    if (user) {
+      authAPI.profile().catch(() => {});
+    }
+
+    return () => {
+      if (timeout) clearTimeout(timeout);
+      removeHandlers();
+    };
+  }, [user?.id]);
+
   const login = async (email, password) => {
     try {
       const response = await authAPI.login(email, password);

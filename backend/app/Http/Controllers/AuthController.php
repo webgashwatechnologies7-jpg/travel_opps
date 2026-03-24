@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\User;
 use App\Models\Company;
+use App\Models\UserLoginLog;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -173,6 +174,7 @@ class AuthController extends Controller
                 'email' => $user->email,
                 'is_super_admin' => (bool) $user->is_super_admin,
                 'roles' => $user->roles->pluck('name'),
+                'profile_picture' => $user->profile_picture ? asset('storage/' . $user->profile_picture) : null,
             ];
 
             // Add company info if not super admin
@@ -204,6 +206,15 @@ class AuthController extends Controller
                 'email' => $user->email,
                 'ip' => $request->ip(),
                 'user_agent' => $request->userAgent()
+            ]);
+
+            // Track login in UserLoginLog
+            UserLoginLog::create([
+                'user_id' => $user->id,
+                'login_at' => now(),
+                'ip_address' => $request->ip(),
+                'user_agent' => $request->userAgent(),
+                'last_activity_at' => now(),
             ]);
 
             return response()->json([
@@ -299,6 +310,16 @@ class AuthController extends Controller
                         'token_id' => $tokenId,
                         'ip' => $request->ip()
                     ]);
+
+                    // Update latest login log with logout time
+                    UserLoginLog::where('user_id', $user->id)
+                        ->whereNull('logout_at')
+                        ->orderByDesc('login_at')
+                        ->first()
+                        ?->update(['logout_at' => now()]);
+
+                    // Also clear last_seen_at so user doesn't show as Online for the next 5 mins
+                    $user->update(['last_seen_at' => null]);
                 } else {
                     \Log::warning('Logout attempt but no current token found', [
                         'user_id' => $user->id,

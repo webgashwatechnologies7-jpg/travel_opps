@@ -169,6 +169,8 @@ class AdminUserController extends Controller
                         'is_active' => $user->is_active,
                         'roles' => $user->roles,
                         'reports_to' => $user->reports_to,
+                        'is_online' => $user->is_online,
+                        'last_seen_at' => $user->last_seen_at,
                         'created_at' => $user->created_at,
                         'updated_at' => $user->updated_at,
                     ];
@@ -549,6 +551,48 @@ class AdminUserController extends Controller
                 'success' => false,
                 'message' => 'An error occurred while updating user status',
                 'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
+            ], 500);
+        }
+    }
+
+    /**
+     * Get login logs for a specific user.
+     *
+     * @param Request $request
+     * @param int $userId
+     * @return JsonResponse
+     */
+    public function loginLogs(Request $request, int $userId): JsonResponse
+    {
+        try {
+            $companyId = $request->user()->company_id;
+
+            // Ensure target user belongs to same company
+            $user = User::where('company_id', $companyId)->find($userId);
+            if (!$user) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'User not found in your company',
+                ], 404);
+            }
+
+            $logs = \App\Models\UserLoginLog::where('user_id', $userId)
+                ->orderByDesc('login_at')
+                ->limit(50)
+                ->get();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Login logs retrieved successfully',
+                'data' => [
+                    'logs' => $logs
+                ]
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error fetching logs',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error'
             ], 500);
         }
     }

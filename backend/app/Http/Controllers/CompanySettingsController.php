@@ -319,6 +319,7 @@ class CompanySettingsController extends Controller
         }
         $query = User::with(['branch', 'roles'])
             ->where('company_id', $companyId)
+            ->where('id', '!=', Auth::id())
             ->where('is_super_admin', false);
 
         // Filter by branch if provided
@@ -337,12 +338,6 @@ class CompanySettingsController extends Controller
                     ->orWhere('email', 'like', '%' . $request->search . '%');
             });
         }
-
-        // Exclude Super Admins, Company Admins and Admins from the staff/reporting lists as per request
-        $query->where('is_super_admin', false);
-        $query->whereDoesntHave('roles', function ($q) {
-            $q->whereIn('name', ['Super Admin', 'Admin', 'Company Admin']);
-        });
 
         // Manager Restriction: Only see subordinates
         if (Auth::user()->hasRole('Manager') && !Auth::user()->hasAnyRole(['Admin', 'Company Admin', 'Super Admin'])) {
@@ -505,6 +500,7 @@ class CompanySettingsController extends Controller
             'roles' => 'nullable|array',
             'roles.*' => 'exists:roles,name',
             'is_active' => 'boolean',
+            'password' => 'nullable|string|min:8',
             'reports_to' => 'nullable|exists:users,id'
         ]);
 
@@ -1596,6 +1592,67 @@ class CompanySettingsController extends Controller
         return response()->json([
             'success' => true,
             'data' => $communications
+        ]);
+    }
+    /**
+     * Get user login history.
+     */
+    public function getUserLoginLogs(Request $request, $id)
+    {
+        if (!$this->checkHierarchyAccess($id)) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized access'], 403);
+        }
+
+        $companyId = $this->resolveCompanyId();
+        $user = User::where('company_id', $companyId)->findOrFail($id);
+
+        $fromDate = $request->query('from_date') ? \Carbon\Carbon::parse($request->query('from_date'))->startOfDay() : null;
+        $toDate = $request->query('to_date') ? \Carbon\Carbon::parse($request->query('to_date'))->endOfDay() : null;
+
+        $logsQuery = \App\Models\UserLoginLog::where('user_id', $user->id)
+            ->orderBy('login_at', 'desc');
+
+        if ($fromDate) {
+            $logsQuery->where('login_at', '>=', $fromDate);
+        }
+        if ($toDate) {
+            $logsQuery->where('login_at', '<=', $toDate);
+        }
+
+        $logs = $logsQuery->paginate(3);
+
+        // Calculate summary for the selected period
+        // Default to today if no filter
+        $summaryFrom = $fromDate ?: now()->startOfDay();
+        $summaryTo = $toDate ?: now()->endOfDay();
+
+        $summaryLogs = \App\Models\UserLoginLog::where('user_id', $user->id)
+            ->whereBetween('login_at', [$summaryFrom, $summaryTo])
+            ->get();
+
+        $totalSeconds = 0;
+        $logoutCount = 0;
+        foreach ($summaryLogs as $log) {
+            $start = \Carbon\Carbon::parse($log->login_at);
+            $end = $log->logout_at ? \Carbon\Carbon::parse($log->logout_at) : ($log->last_activity_at ? \Carbon\Carbon::parse($log->last_activity_at) : now());
+            if ($log->logout_at) $logoutCount++;
+            $diff = $end->diffInSeconds($start);
+            if ($diff > 0) $totalSeconds += $diff;
+        }
+
+        $hours = floor($totalSeconds / 3600);
+        $minutes = floor(($totalSeconds % 3600) / 60);
+
+        return response()->json([
+            'success' => true,
+            'data' => $logs,
+            'summary' => [
+                'formatted_time' => "{$hours}h {$minutes}m",
+                'logout_count' => $logoutCount,
+                'login_count' => $summaryLogs->count(),
+                'is_absent' => $summaryLogs->count() === 0,
+                'period_label' => $fromDate && $toDate ? $fromDate->format('d M') . ' to ' . $toDate->format('d M') : 'Today'
+            ]
         ]);
     }
 }

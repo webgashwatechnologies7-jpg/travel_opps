@@ -88,7 +88,7 @@ Route::middleware(['auth:sanctum', 'role:Admin|Company Admin'])->prefix('company
 
     Route::get('/team-reports', [CompanySettingsController::class, 'getTeamReport']);
     Route::post('/users', [CompanySettingsController::class, 'createUser']);
-    Route::post('/users/{id}', [CompanySettingsController::class, 'updateUser']);
+    Route::match(['post', 'put'], '/users/{id}', [CompanySettingsController::class, 'updateUser']);
     Route::delete('/users/{id}', [CompanySettingsController::class, 'deleteUser']);
 
     // Branches management
@@ -142,6 +142,7 @@ Route::middleware(['auth:sanctum', 'role:Admin|Company Admin|Manager|Team Leader
     Route::get('/users/{id}', [CompanySettingsController::class, 'getUserDetails']);
     Route::get('/users/{id}/detailed-stats', [CompanySettingsController::class, 'getDetailedUserStats']);
     Route::get('/users/{id}/logs', [CompanySettingsController::class, 'getUserLogs']);
+    Route::get('/users/{id}/login-logs', [CompanySettingsController::class, 'getUserLoginLogs']);
     Route::get('/users/{id}/communications', [CompanySettingsController::class, 'getUserCommunications']);
     Route::get('/users/{id}/performance', [CompanySettingsController::class, 'getUserPerformance']);
 });

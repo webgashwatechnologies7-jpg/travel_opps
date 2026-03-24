@@ -42,6 +42,7 @@ class User extends Authenticatable
         'user_type',
         'created_by',
         'reports_to',
+        'last_seen_at',
     ];
 
     /**
@@ -64,8 +65,26 @@ class User extends Authenticatable
         'is_active' => 'boolean',
         'is_super_admin' => 'boolean',
         'last_login_at' => 'datetime',
+        'last_seen_at' => 'datetime',
         'google_token_expires_at' => 'datetime',
     ];
+
+    protected $appends = ['is_online'];
+
+    /**
+     * Check if user is currently online.
+     *
+     * @return bool
+     */
+    public function getIsOnlineAttribute(): bool
+    {
+        if (!$this->last_seen_at) {
+            return false;
+        }
+
+        // Return true if last activity was within last 5 minutes
+        return $this->last_seen_at->diffInMinutes(now()) <= 5;
+    }
 
     /**
      * Get the company that owns the user.

@@ -334,6 +334,60 @@ class DashboardController extends Controller
     }
 
     /**
+     * Get user presence and working hours statistics.
+     */
+    public function getPresenceStats(Request $request): JsonResponse
+    {
+        try {
+            $user = $request->user();
+            $today = now()->startOfDay();
+
+            $logs = \App\Models\UserLoginLog::where('user_id', $user->id)
+                ->where('login_at', '>=', $today)
+                ->get();
+
+            $totalSeconds = 0;
+            $logoutCount = 0;
+
+            foreach ($logs as $log) {
+                $start = \Carbon\Carbon::parse($log->login_at);
+                $end = $log->logout_at ? \Carbon\Carbon::parse($log->logout_at) : ($log->last_activity_at ? \Carbon\Carbon::parse($log->last_activity_at) : now());
+                
+                if ($log->logout_at) {
+                    $logoutCount++;
+                }
+
+                $diff = $end->diffInSeconds($start);
+                if ($diff > 0) {
+                    $totalSeconds += $diff;
+                }
+            }
+
+            $hours = floor($totalSeconds / 3600);
+            $minutes = floor(($totalSeconds % 3600) / 60);
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'total_hours' => (int)$hours,
+                    'total_minutes' => (int)$minutes,
+                    'total_seconds' => (int)$totalSeconds,
+                    'logout_count' => (int)$logoutCount,
+                    'formatted_time' => "{$hours}h {$minutes}m",
+                    'login_count' => $logs->count()
+                ]
+            ], 200);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error calculating presence stats',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
      * Get revenue growth monthly for current year.
      *
      * @param Request $request
