@@ -19,38 +19,42 @@ class WhatsAppSessionController extends Controller
         $this->apiKey = env('WHATSAPP_INTERNAL_API_KEY', 'travelops_secret_key_2024');
     }
 
-    public function getQrCode()
+    public function getQrCode(Request $request)
     {
         $user = auth()->user();
         $companyId = $user->company_id;
         $userId = $user->id;
+        $force = $request->query('force', false);
 
         try {
-            // Trigger Node.js to initialize session and get QR
+            // If force refresh, we could tell Node to logout first, but init usually handles it
             $response = Http::withHeaders(['x-api-key' => $this->apiKey])
                 ->post("{$this->nodeServerUrl}/api/session/init", [
                 'userId' => $userId,
-                'companyId' => $companyId
+                'companyId' => $companyId,
+                'force' => $force
             ]);
 
             if ($response->successful()) {
-                // Poll DB for QR code (it will be updated by Node server)
+                // Poll DB for QR code
                 $session = DB::table('whatsapp_sessions')
                     ->where('user_id', $userId)
                     ->where('company_id', $companyId)
                     ->first();
 
+                // If session exists but no QR yet, it might be generating
                 return response()->json([
                     'success' => true,
                     'qr_code' => $session->qr_code ?? null,
-                    'status' => $session->status ?? 'Disconnected'
+                    'status' => $session->status ?? 'Disconnected',
+                    'message' => 'Initializing session...'
                 ]);
             }
 
-            return response()->json(['success' => false, 'message' => 'Failed to initialize session'], 500);
+            return response()->json(['success' => false, 'message' => 'Node server unreachable. Please check if WhatsApp backend is running.'], 500);
 
         } catch (\Exception $e) {
-            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
+            return response()->json(['success' => false, 'message' => 'Connection Error: ' . $e->getMessage()], 500);
         }
     }
 

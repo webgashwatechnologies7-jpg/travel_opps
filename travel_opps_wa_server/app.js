@@ -97,6 +97,14 @@ app.post('/api/session/init', async (req, res) => {
 
     try {
         const sessionName = `session_${userId}_${companyId}`;
+        const { force } = req.body;
+
+        if (force === true) {
+            console.log(`[Session ${sessionName}] Force refresh requested. Logging out...`);
+            await logoutSession(userId, companyId);
+            // Optional: short delay
+            await new Promise(resolve => setTimeout(resolve, 1000));
+        }
 
         // Check if session exists in DB
         const [rows] = await pool.execute(
@@ -112,7 +120,7 @@ app.post('/api/session/init', async (req, res) => {
         }
 
         await createSession(userId, companyId);
-        res.json({ message: 'Session initialization started' });
+        res.json({ message: 'Session initialization started' + (force ? ' (Force Refreshed)' : '') });
     } catch (error) {
         console.error('Error init session:', error);
         res.status(500).json({ error: error.message });
