@@ -37,7 +37,7 @@ const Sidebar = ({
                                         className={`h-8 object-contain transition-all duration-300 ${isSidebarOpen ? 'opacity-100 max-w-[180px]' : 'opacity-100 w-8'}`}
                                     />
                                 ) : (
-                                    <h1 className="text-xl font-bold text-white">T <span className={`ml-2 ${isSidebarOpen ? 'opacity-100' : 'opacity-0 w-0'}`}>TravelOps</span></h1>
+                                    <h1 className="text-xl font-bold text-white">T <span className={`ml-2 ${isSidebarOpen ? 'opacity-100' : 'opacity-0 w-0'}`}>TravelFusion</span></h1>
                                 )}
                             </Link>
                         </div>

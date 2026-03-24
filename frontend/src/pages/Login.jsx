@@ -78,7 +78,7 @@ const Login = () => {
             )}
             {/* Fallback Blue T Icon if logo.png is also not found */}
             <div className={`${companyLogo ? 'hidden' : 'hidden'} bg-[#2765B0] p-1.5 rounded-lg items-center justify-center`}>
-              <span className="text-white font-bold text-xl">T</span>
+              <span className="text-white font-bold text-xl">TF</span>
             </div>
           </div>
 
