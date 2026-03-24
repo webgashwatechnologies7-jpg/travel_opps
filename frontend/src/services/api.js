@@ -108,7 +108,7 @@ api.interceptors.response.use(
 const postWithFile = (url, data, method = 'POST') => {
   if (data instanceof FormData) {
     if (method !== 'POST') data.append('_method', method);
-    return api.post(url, data, { headers: { 'Content-Type': 'multipart/form-data' } });
+    return api.post(url, data);
   }
   return method === 'PUT' ? api.put(url, data) : api.post(url, data);
 };
