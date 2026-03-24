@@ -16,6 +16,7 @@ const MailsTab = memo(({
     sanitizeEmailHtmlForDisplay,
 }) => {
     const [currentPage, setCurrentPage] = useState(1);
+    const [currentLogPage, setCurrentLogPage] = useState(1);
     const [expandedThreads, setExpandedThreads] = useState({});
     const itemsPerPage = 5;
 
@@ -26,7 +27,7 @@ const MailsTab = memo(({
         }));
     };
 
-    // Process and Group Gmail Emails into Threads
+    // Process and Group Gmail Emails into Threads (Latest on top)
     const groupedThreads = Object.values(
         (gmailEmails || []).reduce((acc, email) => {
             const tid = email.thread_id || `single-${email.id}`;
@@ -36,10 +37,20 @@ const MailsTab = memo(({
         }, {})
     )
         .map((t) => t.sort((a, b) => new Date(b.created_at) - new Date(a.created_at)))
-        .sort((a, b) => new Date(b[0]?.created_at || 0) - new Date(a[0]?.created_at || 0));
+        .sort((a, b) => {
+            const dateA = new Date(a[0]?.created_at || 0);
+            const dateB = new Date(b[0]?.created_at || 0);
+            return dateB - dateA; // Descending: Newest first
+        });
+
+    // Sort Lead Emails (System Logs) - Newest First
+    const sortedLeadEmails = [...(leadEmails || [])].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
     const totalPages = Math.ceil(groupedThreads.length / itemsPerPage);
     const displayedThreads = groupedThreads.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
+    const totalLogPages = Math.ceil(sortedLeadEmails.length / 6);
+    const displayedLogs = sortedLeadEmails.slice((currentLogPage - 1) * 6, currentLogPage * 6);
 
     return (
         <div className="space-y-4">
@@ -237,25 +248,62 @@ const MailsTab = memo(({
                     )}
 
                     {/* System Emails Section (Logged) */}
-                    {leadEmails.length > 0 && (
-                        <div className="space-y-4 pt-6 border-t border-gray-100">
-                            <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest flex items-center gap-2">
-                                <FileText className="h-4 w-4" />
-                                System Logs ({leadEmails.length})
-                            </h3>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                {leadEmails.slice(0, 4).map((email) => (
-                                    <div key={email.id} className="p-4 bg-gray-50/50 border border-gray-200 rounded-xl flex items-center gap-3">
-                                        <div className="h-10 w-10 flex-shrink-0 rounded-full bg-blue-50 flex items-center justify-center">
-                                            <Send className="h-4 w-4 text-blue-500" />
+                    {sortedLeadEmails.length > 0 && (
+                        <div className="space-y-4 pt-8 border-t border-gray-100">
+                            <div className="flex justify-between items-center">
+                                <h3 className="text-sm font-bold text-gray-400 uppercase tracking-widest flex items-center gap-2">
+                                    <FileText className="h-4 w-4" />
+                                    System Logs ({sortedLeadEmails.length})
+                                </h3>
+                                {totalLogPages > 1 && (
+                                    <span className="text-xs text-gray-400 font-medium bg-gray-100 px-2 py-1 rounded">Page {currentLogPage} of {totalLogPages}</span>
+                                )}
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                {displayedLogs.map((email) => (
+                                    <div 
+                                        key={email.id} 
+                                        className="p-4 bg-white border border-gray-200 rounded-xl flex items-start gap-3 shadow-sm hover:shadow-md transition-shadow cursor-pointer group"
+                                    >
+                                        <div className="h-10 w-10 flex-shrink-0 rounded-full bg-blue-50 flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white transition-colors">
+                                            <Send className="h-4 w-4 text-blue-500 group-hover:text-white" />
                                         </div>
-                                        <div className="min-w-0">
-                                            <p className="text-sm font-semibold text-gray-800 truncate">{email.subject}</p>
-                                            <p className="text-xs text-gray-500">{new Date(email.created_at).toLocaleDateString()}</p>
+                                        <div className="min-w-0 flex-1">
+                                            <div className="flex justify-between items-start gap-1">
+                                                <p className="text-sm font-bold text-gray-800 truncate">{email.subject || '(No Subject)'}</p>
+                                                {email.opened_at && (
+                                                    <span className="px-1.5 py-0.5 bg-green-100 text-green-700 text-[8px] font-bold rounded uppercase">Opened</span>
+                                                )}
+                                            </div>
+                                            <p className="text-[10px] text-gray-400 font-medium mt-0.5">{new Date(email.created_at).toLocaleString()}</p>
+                                            <div 
+                                                className="text-xs text-gray-500 line-clamp-2 mt-2 leading-tight"
+                                                dangerouslySetInnerHTML={{ __html: sanitizeEmailHtmlForDisplay(email.body || '') }}
+                                            />
                                         </div>
                                     </div>
                                 ))}
                             </div>
+
+                            {totalLogPages > 1 && (
+                                <div className="flex items-center justify-center gap-2 mt-6">
+                                    <button
+                                        disabled={currentLogPage === 1}
+                                        onClick={() => setCurrentLogPage(p => Math.max(1, p - 1))}
+                                        className="px-3 py-1.5 border border-gray-300 rounded-lg text-xs font-semibold bg-white disabled:opacity-30"
+                                    >
+                                        &larr; Prev
+                                    </button>
+                                    <button
+                                        disabled={currentLogPage === totalLogPages}
+                                        onClick={() => setCurrentLogPage(p => p + 1)}
+                                        className="px-3 py-1.5 border border-gray-300 rounded-lg text-xs font-semibold bg-white disabled:opacity-30"
+                                    >
+                                        Next &rarr;
+                                    </button>
+                                </div>
+                            )}
                         </div>
                     )}
                 </div>
