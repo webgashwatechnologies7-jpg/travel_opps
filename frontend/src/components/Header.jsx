@@ -159,9 +159,13 @@ const Header = ({ user, settings, isAdmin, handleLogout }) => {
                         
                         {isUserDropdownOpen && (
                             <div className="absolute right-0 mt-3 w-56 bg-white rounded-xl shadow-2xl border border-gray-100 z-[60] overflow-hidden transform origin-top-right transition-all">
-                                <div className="px-5 py-4 bg-gray-50/50 border-b">
+                                <Link 
+                                    to="/profile" 
+                                    onClick={() => setIsUserDropdownOpen(false)}
+                                    className="px-5 py-4 bg-gray-50/50 border-b block hover:bg-blue-50/50 transition-colors"
+                                >
                                     <div className="flex items-center gap-3 mb-1">
-                                        <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center text-blue-700 text-base font-bold">
+                                        <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center text-blue-700 text-base font-bold uppercase">
                                             {user?.name?.charAt(0) || 'A'}
                                         </div>
                                         <div className="flex flex-col overflow-hidden">
@@ -169,7 +173,7 @@ const Header = ({ user, settings, isAdmin, handleLogout }) => {
                                             <p className="text-[11px] text-gray-500 truncate">{user?.email}</p>
                                         </div>
                                     </div>
-                                </div>
+                                </Link>
                                 <div className="p-1.5 font-medium">
                                     {isAdmin && (
                                         <Link 
