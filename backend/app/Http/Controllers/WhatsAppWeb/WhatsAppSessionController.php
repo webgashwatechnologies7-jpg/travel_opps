@@ -64,17 +64,27 @@ class WhatsAppSessionController extends Controller
         $companyId = $user->company_id;
         $userId = $user->id;
 
-        // Try to find exact match first
+        // PRIORITIZE: Any session for this company that is Scanning or Connected
+        // This solves the issue if User A started it but User B (or Admin) is looking at it
         $session = DB::table('whatsapp_sessions')
-            ->where('user_id', $userId)
             ->where('company_id', $companyId)
+            ->whereIn('status', ['Scanning', 'Connected'])
+            ->orderBy('updated_at', 'desc')
             ->first();
 
-        // Fallback: If not found for this specific user, try any session for this company (e.g. if the owner connected it)
+        // FALLBACK: If no active session, look for specifically this user's last session
         if (!$session) {
             $session = DB::table('whatsapp_sessions')
+                ->where('user_id', $userId)
                 ->where('company_id', $companyId)
-                ->orderBy('updated_at', 'desc')
+                ->first();
+        }
+
+        // LAST RESORT: Just get anything for this company
+        if (!$session && $companyId) {
+            $session = DB::table('whatsapp_sessions')
+                ->where('company_id', $companyId)
+                ->orderBy('id', 'desc')
                 ->first();
         }
 
