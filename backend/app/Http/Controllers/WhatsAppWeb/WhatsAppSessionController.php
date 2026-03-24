@@ -61,16 +61,29 @@ class WhatsAppSessionController extends Controller
     public function getStatus()
     {
         $user = auth()->user();
+        $companyId = $user->company_id;
+        $userId = $user->id;
+
+        // Try to find exact match first
         $session = DB::table('whatsapp_sessions')
-            ->where('user_id', $user->id)
-            ->where('company_id', $user->company_id)
+            ->where('user_id', $userId)
+            ->where('company_id', $companyId)
             ->first();
+
+        // Fallback: If not found for this specific user, try any session for this company (e.g. if the owner connected it)
+        if (!$session) {
+            $session = DB::table('whatsapp_sessions')
+                ->where('company_id', $companyId)
+                ->orderBy('updated_at', 'desc')
+                ->first();
+        }
 
         return response()->json([
             'success' => true,
             'status' => $session->status ?? 'Disconnected',
             'phone_number' => $session->phone_number ?? null,
-            'qr_code' => $session->qr_code ?? null
+            'qr_code' => $session->qr_code ?? null,
+            'session_name' => $session->session_name ?? null
         ]);
     }
 
