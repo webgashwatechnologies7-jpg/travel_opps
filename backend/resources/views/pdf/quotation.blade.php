@@ -17,7 +17,7 @@
             color: #1e293b;
             margin: 0;
             padding: 20px 40px;
-            line-height: 1.5;
+            line-height: 1.6;
             font-size: 11px;
         }
 
@@ -41,9 +41,9 @@
         /* HEADER */
         .header {
             width: 100%;
-            border-bottom: 3px solid #1e3a8a;
-            padding-bottom: 15px;
-            margin-bottom: 25px;
+            border-bottom: 4px solid #1e3a8a;
+            padding-bottom: 16px;
+            margin-bottom: 26px;
         }
 
         .header-table {
@@ -57,12 +57,14 @@
             color: #1e3a8a;
             margin: 0;
             text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
 
         .company-info {
             font-size: 9px;
             color: #64748b;
-            margin-top: 4px;
+            margin-top: 5px;
+            line-height: 1.7;
         }
 
         /* HERO SECTION */
@@ -87,20 +89,23 @@
         }
 
         .proposal-title {
-            font-size: 26px;
+            font-size: 22px;
             font-weight: bold;
             color: #1e3a8a;
-            margin: 15px 0;
+            margin: 16px 0 20px;
             text-transform: uppercase;
             letter-spacing: 1px;
+            padding-left: 14px;
+            border-left: 5px solid #2563eb;
         }
 
         /* INFO ISLAND */
         .info-island {
-            background: #f1f5f9;
+            background: #f0f6ff;
             border-radius: 10px;
-            padding: 15px;
-            margin-bottom: 30px;
+            padding: 14px 18px;
+            margin-bottom: 28px;
+            border: 1px solid #bfdbfe;
             border-left: 5px solid #1e3a8a;
         }
 
@@ -116,11 +121,12 @@
 
         .label {
             font-size: 8px;
-            color: #64748b;
+            color: #1d4ed8;
             text-transform: uppercase;
             display: block;
-            margin-bottom: 2px;
+            margin-bottom: 3px;
             font-weight: bold;
+            letter-spacing: 1px;
         }
 
         .value {
@@ -132,33 +138,33 @@
         /* SECTION TITLES */
         .section-header {
             background: #1e3a8a;
-            color: white;
-            padding: 8px 15px;
-            border-radius: 4px;
-            font-size: 14px;
+            color: #ffffff;
+            padding: 9px 16px;
+            border-radius: 6px;
+            font-size: 11px;
             font-weight: bold;
-            margin: 25px 0 15px 0;
+            margin: 26px 0 14px 0;
             text-transform: uppercase;
+            letter-spacing: 2px;
         }
 
         /* ITINERARY TIMELINE */
         .day-card {
-            margin-bottom: 20px;
-            border-left: 2px dashed #cbd5e1;
-            padding-left: 25px;
+            margin-bottom: 16px;
+            border-left: 3px solid #1e3a8a;
+            padding-left: 22px;
             position: relative;
             page-break-inside: avoid;
         }
 
         .day-marker {
             position: absolute;
-            left: -11px;
-            top: -4px;
-            /* Shifted further up to match title baseline */
-            width: 20px;
-            height: 20px;
+            left: -12px;
+            top: 0;
+            width: 22px;
+            height: 22px;
             background: #1e3a8a;
-            border-radius: 10px;
+            border-radius: 11px;
             z-index: 99;
             overflow: hidden;
         }
@@ -171,25 +177,30 @@
         }
 
         .day-date {
-            font-size: 10px;
-            color: #64748b;
+            font-size: 9px;
+            color: #475569;
             float: right;
             font-weight: normal;
+            background: #e2e8f0;
+            padding: 2px 9px;
+            border-radius: 20px;
         }
 
         .day-body {
-            background: #fafafa;
-            padding: 12px;
+            background: #f8faff;
+            padding: 11px 13px;
             border-radius: 8px;
-            border: 1px solid #f1f5f9;
+            border: 1px solid #dbeafe;
+            color: #334155;
+            font-size: 10.5px;
         }
 
         .svc-badge {
             display: inline-block;
-            background: #e0f2fe;
-            color: #0369a1;
-            padding: 3px 8px;
-            border-radius: 4px;
+            background: #dbeafe;
+            color: #1e40af;
+            padding: 3px 9px;
+            border-radius: 20px;
             font-size: 9px;
             margin-right: 5px;
             margin-top: 5px;
@@ -211,12 +222,12 @@
 
         .inc-cell {
             background: #f0fdf4;
-            border: 1px solid #bbf7d0;
+            border: 1px solid #86efac;
         }
 
         .exc-cell {
-            background: #fef2f2;
-            border: 1px solid #fecaca;
+            background: #fff1f2;
+            border: 1px solid #fca5a5;
         }
 
         .policy-title {
@@ -247,20 +258,22 @@
 
         /* HOTEL OPTIONS */
         .option-card {
-            background: #f8fafc;
+            background: #ffffff;
             border: 1px solid #e2e8f0;
             border-radius: 12px;
-            margin-bottom: 25px;
+            margin-bottom: 20px;
             overflow: hidden;
             page-break-inside: avoid;
         }
 
         .option-header {
             background: #1e3a8a;
-            color: white;
-            padding: 10px 15px;
+            color: #ffffff;
+            padding: 10px 16px;
             font-weight: bold;
-            font-size: 13px;
+            font-size: 11px;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
         }
 
         .option-content {
@@ -292,15 +305,14 @@
         }
 
         .price-tag {
-            background: #fffbeb;
-            border: 1px solid #fde68a;
-            color: #92400e;
-            padding: 10px;
+            background: #1e3a8a;
+            color: #facc15;
+            padding: 13px 18px;
             text-align: center;
-            font-size: 16px;
+            font-size: 18px;
             font-weight: bold;
-            margin-top: 10px;
-            border-radius: 6px;
+            margin-top: 14px;
+            border-radius: 8px;
         }
 
         /* FOOTER */
@@ -445,10 +457,10 @@
         @endphp
         <div class="day-card">
             <div class="day-marker">
-                <table width="100%" height="20" style="border-collapse: collapse;">
+                <table width="100%" height="100%" style="border-collapse: collapse;">
                     <tr>
                         <td align="center" valign="middle"
-                            style="color: white; font-size: 10px; font-weight: bold; line-height: 20px;">
+                            style="color: white; font-size: 10px; font-weight: bold; line-height: 1; padding-top: 4px;">
                             {{ $day }}
                         </td>
                     </tr>
@@ -575,15 +587,15 @@
                             </tr>
                         @endforeach
                     </table>
-                @php
-                    $showPrice = $customFields['show_price'] ?? true;
-                @endphp
+                    @php
+                        $showPrice = $customFields['show_price'] ?? true;
+                    @endphp
 
-                @if($showPrice)
-                    <div class="price-tag">
-                        Total Package Cost: {{ $quotation->currency }} {{ number_format($price, 0) }}
-                    </div>
-                @endif
+                    @if($showPrice)
+                        <div class="price-tag">
+                            Total Package Cost: {{ $quotation->currency }} {{ number_format($price, 0) }}
+                        </div>
+                    @endif
                 </div>
             </div>
         @endforeach
