@@ -15,7 +15,7 @@ use Illuminate\Support\Facades\Route;
 // Profile routes - require authentication and active user
 Route::middleware(['auth:sanctum', 'active'])->prefix('profile')->group(function () {
     Route::get('/', [ProfileController::class, 'show']);
-    Route::put('/', [ProfileController::class, 'update']);
+    Route::post('/', [ProfileController::class, 'update']);
     Route::put('/password', [ProfileController::class, 'updatePassword']);
 });
 

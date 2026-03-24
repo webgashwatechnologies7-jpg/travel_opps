@@ -83,7 +83,7 @@ const Profile = () => {
       const formData = new FormData();
       formData.append('name', profileForm.name);
       formData.append('phone', profileForm.phone || '');
-      if (profileForm.profile_picture) {
+      if (profileForm.profile_picture instanceof File) {
         formData.append('profile_picture', profileForm.profile_picture);
       }
 
@@ -239,7 +239,7 @@ const Profile = () => {
                         />
                     </div>
                     <h2 className="text-xl font-bold text-gray-900">{profile.name}</h2>
-                    <p className="text-sm text-gray-500 mb-6">{profile.email}</p>
+                    <p className="text-sm text-gray-500 mb-6 truncate max-w-full" title={profile.email}>{profile.email}</p>
                     
                     <div className="flex flex-col gap-2 pt-4 border-t border-gray-100">
                         <div className="flex items-center justify-between text-sm">
