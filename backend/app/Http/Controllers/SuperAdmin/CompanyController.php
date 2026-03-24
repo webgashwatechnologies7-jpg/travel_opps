@@ -270,15 +270,27 @@ class CompanyController extends Controller
                     }
                 }
 
-                // 4. Delete Itineraries & Day Itineraries
-                \DB::table('day_itineraries')->whereIn('itinerary_id', function ($q) use ($id) {
-                    $q->select('id')->from('itineraries')->where('company_id', $id);
-                })->delete();
-                \DB::table('itineraries')->where('company_id', $id)->delete();
+                // 4. Delete Itineraries & Day Itineraries (Safely)
+                if (\Schema::hasTable('itineraries')) {
+                    if (\Schema::hasTable('day_itineraries') && \Schema::hasColumn('day_itineraries', 'itinerary_id')) {
+                        \DB::table('day_itineraries')->whereIn('itinerary_id', function ($q) use ($id) {
+                            $q->select('id')->from('itineraries')->where('company_id', $id);
+                        })->delete();
+                    }
+                    \DB::table('itineraries')->where('company_id', $id)->delete();
+                }
 
                 // 5. Delete from all tables containing company_id
                 $tables = [
                     'leads',
+                    'itineraries',
+                    'day_itineraries',
+                    'packages',
+                    'hotels',
+                    'activities',
+                    'proposals',
+                    'quotations',
+                    'payments',
                     'whatsapp_messages',
                     'whatsapp_chats',
                     'whatsapp_campaigns',
