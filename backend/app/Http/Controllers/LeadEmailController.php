@@ -96,19 +96,36 @@ class LeadEmailController extends Controller
                 ], 404);
             }
 
-            // Prefer Email Integration (company mail) From Name/Email when enabled — so sender shows company name and company email
-            $mailSettings = CompanyMailSettingsService::getSettings();
-            $useCompanyMail = !empty($mailSettings['enabled']) && (!empty($mailSettings['from_address']) || !empty($mailSettings['from_name']));
+            $user = Auth::user();
+            $company = $user->company;
+            
+            if (!$company) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'User is not associated with any company',
+                ], 404);
+            }
 
-            $companyLogo = Setting::getValue('company_logo', '');
-            $companyName = $useCompanyMail && !empty($mailSettings['from_name'])
-                ? $mailSettings['from_name']
-                : Setting::getValue('company_name', config('app.name', 'TravelOps'));
-            $companyEmail = $useCompanyMail && !empty($mailSettings['from_address'])
-                ? $mailSettings['from_address']
-                : Setting::getValue('company_email', config('mail.from.address', ''));
-            $companyPhone = Setting::getValue('company_phone', '');
-            $companyAddress = Setting::getValue('company_address', '');
+            // Apply Company Mail Settings if enabled
+            CompanyMailSettingsService::applyIfEnabled($company->id);
+
+            // Fetch company branding directly from company model
+            $companyLogo = $company->logo ? (filter_var($company->logo, FILTER_VALIDATE_URL) ? $company->logo : asset('storage/' . $company->logo)) : '';
+            $companyName = $company->name ?: config('app.name', 'TravelOps');
+            $companyEmail = $company->email ?: config('mail.from.address', '');
+            $companyPhone = $company->phone ?: '';
+            $companyAddress = $company->address ?: '';
+
+            // Use integration settings if specifically configured
+            $mailSettings = CompanyMailSettingsService::getSettings($company->id);
+            if (!empty($mailSettings['enabled'])) {
+                if (!empty($mailSettings['from_name'])) {
+                    $companyName = $mailSettings['from_name'];
+                }
+                if (!empty($mailSettings['from_address'])) {
+                    $companyEmail = $mailSettings['from_address'];
+                }
+            }
 
             // Create email HTML with company branding
             $emailBody = '<!DOCTYPE html>
