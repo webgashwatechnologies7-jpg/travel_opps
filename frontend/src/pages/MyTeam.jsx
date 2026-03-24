@@ -74,8 +74,12 @@ const MyTeam = () => {
                                 >
                                     <div className="p-6">
                                         <div className="flex items-center gap-4 mb-4">
-                                            <div className="h-12 w-12 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 text-white flex items-center justify-center text-xl font-bold">
-                                                {member.name.charAt(0)}
+                                            <div className="h-12 w-12 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 text-white flex items-center justify-center text-xl font-bold overflow-hidden border border-gray-100">
+                                                {member.profile_picture ? (
+                                                    <img src={member.profile_picture} className="h-full w-full object-cover" alt="" />
+                                                ) : (
+                                                    member.name.charAt(0)
+                                                )}
                                             </div>
                                             <div>
                                                 <h3 className="font-bold text-gray-800 group-hover:text-blue-600 transition-colors">{member.name}</h3>

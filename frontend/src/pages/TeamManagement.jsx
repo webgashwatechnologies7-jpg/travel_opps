@@ -701,8 +701,12 @@ const TeamManagement = () => {
                     <tr key={user.id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
-                          <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center">
-                            <span className="text-sm font-medium text-blue-600">{user.name.charAt(0)}</span>
+                          <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center overflow-hidden border border-gray-200">
+                            {user.profile_picture ? (
+                              <img src={user.profile_picture} className="h-full w-full object-cover" alt="" />
+                            ) : (
+                              <span className="text-sm font-medium text-blue-600 uppercase font-bold">{user.name.charAt(0)}</span>
+                            )}
                           </div>
                           <div className="ml-3">
                             <div className="text-sm font-medium text-gray-900">{user.name}</div>
@@ -776,8 +780,12 @@ const TeamManagement = () => {
                   {/* Manager Header */}
                   <div className="bg-blue-600 p-4 flex items-center justify-between text-white">
                     <div className="flex items-center gap-4">
-                      <div className="bg-white/20 p-2 rounded-lg">
-                        <UserCheck className="h-6 w-6" />
+                      <div className="bg-white/20 h-12 w-12 rounded-lg overflow-hidden flex items-center justify-center border border-white/20">
+                        {manager.profile_picture ? (
+                          <img src={manager.profile_picture} className="h-full w-full object-cover" alt="" />
+                        ) : (
+                          <UserCheck className="h-6 w-6" />
+                        )}
                       </div>
                       <div>
                         <h3 className="font-bold text-lg">{manager.name}</h3>
@@ -814,8 +822,12 @@ const TeamManagement = () => {
                             {/* TL Info */}
                             <div className="p-4 border-b border-gray-100 bg-gradient-to-r from-blue-50 to-white flex items-center justify-between">
                               <div className="flex items-center gap-3">
-                                <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 border border-blue-200 shadow-sm font-bold">
-                                  {tl.name.charAt(0)}
+                                <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center overflow-hidden text-blue-600 border border-blue-200 shadow-sm font-bold">
+                                  {tl.profile_picture ? (
+                                    <img src={tl.profile_picture} className="h-full w-full object-cover" alt="" />
+                                  ) : (
+                                    tl.name.charAt(0)
+                                  )}
                                 </div>
                                 <div>
                                   <h4 className="font-bold text-gray-800">{tl.name}</h4>
@@ -847,8 +859,12 @@ const TeamManagement = () => {
                                   .map(emp => (
                                     <div key={emp.id} className="flex items-center justify-between p-2.5 rounded-lg hover:bg-gray-50 border border-transparent hover:border-gray-100 transition-all group">
                                       <div className="flex items-center gap-3">
-                                        <div className="h-8 w-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 text-xs font-semibold">
-                                          {emp.name.charAt(0)}
+                                        <div className="h-8 w-8 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden text-gray-500 text-xs font-semibold border border-gray-200">
+                                          {emp.profile_picture ? (
+                                            <img src={emp.profile_picture} className="h-full w-full object-cover" alt="" />
+                                          ) : (
+                                            emp.name.charAt(0)
+                                          )}
                                         </div>
                                         <div>
                                           <p className="text-sm font-medium text-gray-700">{emp.name}</p>
@@ -913,8 +929,12 @@ const TeamManagement = () => {
                     .map(emp => (
                       <div key={emp.id} className="p-4 border border-gray-200 rounded-xl hover:border-blue-200 hover:bg-blue-50/30 transition-all flex items-center justify-between group">
                         <div className="flex items-center gap-3">
-                          <div className="h-10 w-10 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 font-bold border border-gray-200">
-                            {emp.name.charAt(0)}
+                          <div className="h-10 w-10 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden text-gray-500 font-bold border border-gray-200">
+                            {emp.profile_picture ? (
+                              <img src={emp.profile_picture} className="h-full w-full object-cover" alt="" />
+                            ) : (
+                              emp.name.charAt(0)
+                            )}
                           </div>
                           <div>
                             <p className="text-sm font-bold text-gray-800">{emp.name}</p>

@@ -147,8 +147,20 @@ const Header = ({ user, settings, isAdmin, handleLogout }) => {
                             onClick={toggleUser} 
                             className="flex items-center gap-2.5 pl-3 border-l border-gray-300 ml-2 hover:bg-gray-200/30 rounded-full pr-1.5 py-1 transition-all"
                         >
-                            <div className="w-9 h-9 bg-blue-700 rounded-full flex items-center justify-center text-white text-sm font-bold shadow-sm border-2 border-white">
-                                {user?.name?.charAt(0) || 'A'}
+                            <div key={user?.profile_picture} className="w-9 h-9 bg-blue-700 rounded-full flex items-center justify-center text-white text-sm font-bold shadow-sm border-2 border-white overflow-hidden">
+                                {user?.profile_picture ? (
+                                    <img 
+                                        src={`${user.profile_picture}${user.profile_picture.includes('?') ? '&' : '?'}t=${new Date().getTime()}`} 
+                                        alt="" 
+                                        className="w-full h-full object-cover"
+                                        onError={(e) => {
+                                            e.target.style.display = 'none';
+                                            e.target.parentElement.innerText = user?.name?.charAt(0) || 'A';
+                                        }}
+                                    />
+                                ) : (
+                                    user?.name?.charAt(0) || 'A'
+                                )}
                             </div>
                             <div className="hidden sm:flex flex-col items-start leading-tight">
                                 <span className="text-sm font-bold text-gray-800 max-w-[120px] truncate">{user?.name || 'Admin User'}</span>
@@ -165,8 +177,16 @@ const Header = ({ user, settings, isAdmin, handleLogout }) => {
                                     className="px-5 py-4 bg-gray-50/50 border-b block hover:bg-blue-50/50 transition-colors"
                                 >
                                     <div className="flex items-center gap-3 mb-1">
-                                        <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center text-blue-700 text-base font-bold uppercase">
-                                            {user?.name?.charAt(0) || 'A'}
+                                        <div key={user?.profile_picture} className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center text-blue-700 text-base font-bold uppercase overflow-hidden">
+                                            {user?.profile_picture ? (
+                                                <img 
+                                                    src={`${user.profile_picture}${user.profile_picture.includes('?') ? '&' : '?'}t=${new Date().getTime()}`} 
+                                                    alt="" 
+                                                    className="w-full h-full object-cover"
+                                                />
+                                            ) : (
+                                                user?.name?.charAt(0) || 'A'
+                                            )}
                                         </div>
                                         <div className="flex flex-col overflow-hidden">
                                             <p className="text-sm font-bold text-gray-900 truncate">{user?.name}</p>

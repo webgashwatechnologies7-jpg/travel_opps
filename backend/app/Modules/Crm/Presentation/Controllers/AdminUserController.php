@@ -136,7 +136,10 @@ class AdminUserController extends Controller
 
             $query = User::with('roles')
                 ->where('company_id', $companyId)
-                ->where('is_super_admin', false);
+                ->where('is_super_admin', false)
+                ->whereDoesntHave('roles', function ($q) {
+                    $q->whereIn('name', ['Super Admin', 'Admin', 'Company Admin']);
+                });
 
             // Manager/TL Restriction: Only see subordinates
             if ($currentUser->hasRole(['Manager', 'Team Leader'])) {

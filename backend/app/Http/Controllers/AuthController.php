@@ -377,6 +377,7 @@ class AuthController extends Controller
                 'is_super_admin' => (bool) $user->is_super_admin,
                 'email_verified_at' => $user->email_verified_at,
                 'is_active' => $user->is_active ?? true,
+                'profile_picture' => $user->profile_picture ? asset('storage/' . $user->profile_picture) : null,
                 'created_at' => $user->created_at,
                 'updated_at' => $user->updated_at,
                 'roles' => isset($user->roles) ? $user->roles->pluck('name') : [],

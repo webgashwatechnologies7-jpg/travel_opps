@@ -177,14 +177,15 @@ class DashboardController extends Controller
                         }
                     ]);
 
+                // Exclude high-level roles from reporting as per request
+                $salesRepsQuery->whereDoesntHave('roles', function ($q) {
+                    $q->whereIn('name', ['Super Admin', 'Admin', 'Company Admin']);
+                });
+
                 // Hierarchy Restriction: Non-admins see own + subordinates
                 if (!$currentUser->is_super_admin && !$currentUser->hasRole(['Company Admin', 'Admin'])) {
                     $subordinateIds = $currentUser->getAllSubordinateIds();
                     $salesRepsQuery->whereIn('id', $subordinateIds);
-                } elseif ($currentUser->hasRole('Manager')) {
-                    $salesRepsQuery->whereDoesntHave('roles', function ($q) {
-                        $q->whereIn('name', ['Super Admin', 'Admin', 'Company Admin', 'Manager']);
-                    });
                 }
 
                 $salesReps = $salesRepsQuery->get()
@@ -503,34 +504,39 @@ class DashboardController extends Controller
     {
         try {
             $currentUser = $request->user();
-            // Group leads by assigned_to and get statistics
-            $query = DB::table('leads')
-                ->join('users', 'leads.assigned_to', '=', 'users.id')
-                ->select(
-                    'users.id',
-                    'users.name',
-                    DB::raw('COUNT(leads.id) as assigned'),
-                    DB::raw("SUM(CASE WHEN leads.status = 'confirmed' THEN 1 ELSE 0 END) as confirmed")
-                )
-                ->where('leads.company_id', $currentUser->company_id)
-                ->where('users.is_super_admin', false)
-                ->whereNotNull('leads.assigned_to');
+            $companyId = $currentUser->company_id;
 
-            if (!$currentUser->is_super_admin && !$currentUser->hasRole(['Company Admin', 'Admin'])) {
+            // Get users who are not Admins/Super Admins
+            $query = User::where('company_id', $companyId)
+                ->where('is_super_admin', false)
+                ->whereDoesntHave('roles', function ($q) {
+                    $q->whereIn('name', ['Super Admin', 'Admin', 'Company Admin']);
+                })
+                ->withCount(['leadsAssigned as assigned'])
+                ->withCount([
+                    'leadsAssigned as confirmed' => function ($q) {
+                        $q->where('status', 'confirmed');
+                    }
+                ]);
+
+            if (!$currentUser->hasRole(['Company Admin', 'Admin'])) {
                 $subordinateIds = $currentUser->getAllSubordinateIds();
-                $query->whereIn('leads.assigned_to', $subordinateIds);
+                $query->whereIn('id', $subordinateIds);
             }
 
-            $salesReps = $query->groupBy('leads.assigned_to', 'users.name')
-                ->orderBy('assigned', 'desc')
+            $salesReps = $query->orderBy('assigned', 'desc')
                 ->get()
-                ->map(function ($rep) {
+                ->filter(function ($user) {
+                    return $user->assigned > 0;
+                })
+                ->map(function ($user) {
                     return [
-                        'name' => $rep->name,
-                        'assigned' => (int) $rep->assigned,
-                        'confirmed' => (int) $rep->confirmed,
+                        'name' => $user->name,
+                        'assigned' => (int) $user->assigned,
+                        'confirmed' => (int) $user->confirmed,
                     ];
                 })
+                ->values()
                 ->toArray();
 
             return response()->json([

@@ -123,7 +123,7 @@ export const authAPI = {
 // Profile APIs
 export const profileAPI = {
   get: () => api.get('/profile'),
-  update: (data) => api.put('/profile', data),
+  update: (data) => postWithFile('/profile', data, 'PUT'),
   updatePassword: (data) => api.put('/profile/password', data),
 };
 

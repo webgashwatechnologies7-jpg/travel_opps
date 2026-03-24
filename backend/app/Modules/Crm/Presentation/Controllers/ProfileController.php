@@ -81,6 +81,7 @@ class ProfileController extends Controller
                         'name' => $user->name,
                         'email' => $user->email,
                         'phone' => $user->phone,
+                        'profile_picture' => $user->profile_picture ? asset('storage/' . $user->profile_picture) : null,
                         'is_active' => $user->is_active,
                         'role' => $user->roles->first()?->name,
                         'plan_features' => $planFeatures,
@@ -145,9 +146,12 @@ class ProfileController extends Controller
                     'max:20',
                     'unique:users,phone,' . $user->id,
                 ],
+                'profile_picture' => 'sometimes|nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
             ], [
                 'email.unique' => 'The email has already been taken.',
                 'phone.unique' => 'The phone number has already been taken.',
+                'profile_picture.image' => 'The file must be an image.',
+                'profile_picture.max' => 'The image size must not exceed 2MB.',
             ]);
 
             if ($validator->fails()) {
@@ -174,6 +178,18 @@ class ProfileController extends Controller
                 $updateData['phone'] = $request->phone;
             }
 
+            // Handle Profile Picture Upload
+            if ($request->hasFile('profile_picture')) {
+                // Delete old picture if exists
+                if ($user->profile_picture && \Illuminate\Support\Facades\Storage::disk('public')->exists($user->profile_picture)) {
+                    \Illuminate\Support\Facades\Storage::disk('public')->delete($user->profile_picture);
+                }
+
+                $file = $request->file('profile_picture');
+                $path = $file->store('profile_pictures', 'public');
+                $updateData['profile_picture'] = $path;
+            }
+
             $user->update($updateData);
             $user->refresh();
 
@@ -186,6 +202,7 @@ class ProfileController extends Controller
                         'name' => $user->name,
                         'email' => $user->email,
                         'phone' => $user->phone,
+                        'profile_picture' => $user->profile_picture ? asset('storage/' . $user->profile_picture) : null,
                         'is_active' => $user->is_active,
                         'last_login_at' => $user->last_login_at,
                         'email_verified_at' => $user->email_verified_at,

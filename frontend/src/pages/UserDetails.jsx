@@ -328,10 +328,12 @@ const UserDetails = () => {
     try {
       const response = await companySettingsAPI.updateUser(id, editForm);
       if (response.data.success) {
+        const { password, ...userData } = editForm;
         setUser({
           ...user,
-          ...editForm
+          ...userData
         });
+        setEditForm(prev => ({ ...prev, password: '' }));
         setEditingUser(false);
         toast.success('User updated successfully!');
       } else {
@@ -354,7 +356,8 @@ const UserDetails = () => {
       state: user.state || '',
       country: user.country || '',
       postal_code: user.postal_code || '',
-      is_active: user.is_active
+      is_active: user.is_active,
+      password: ''
     });
     setEditingUser(false);
   };
@@ -467,6 +470,25 @@ const UserDetails = () => {
         {/* User Info Card */}
         <div className="bg-white shadow-sm rounded-lg mb-6">
           <div className="px-6 py-4">
+            <div className="flex flex-col md:flex-row items-center gap-6 mb-6 pb-6 border-b border-gray-100">
+              <div className="h-24 w-24 rounded-full bg-blue-100 flex items-center justify-center overflow-hidden border-4 border-white shadow-sm ring-1 ring-gray-100">
+                {user.profile_picture ? (
+                  <img src={user.profile_picture} className="h-full w-full object-cover" alt={user.name} />
+                ) : (
+                  <span className="text-3xl font-bold text-blue-600 uppercase">{user.name.charAt(0)}</span>
+                )}
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-gray-900">{user.name}</h2>
+                <p className="text-gray-500">{user.roles?.map(r => r.name).join(', ') || 'N/A'}</p>
+                <div className="flex items-center gap-2 mt-2">
+                  <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${user.is_active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                    {user.is_active ? 'Active' : 'Inactive'}
+                  </span>
+                </div>
+              </div>
+            </div>
+
             <h2 className="text-lg font-semibold text-gray-900 mb-4">Personal Information</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {editingUser ? (
@@ -585,6 +607,21 @@ const UserDetails = () => {
                         value={editForm.postal_code}
                         onChange={handleEditFormChange}
                         className="w-full px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-3">
+                    <Shield className="h-5 w-5 text-blue-400" />
+                    <div className="flex-1">
+                      <p className="text-sm text-blue-600 font-semibold">New Password (reset)</p>
+                      <input
+                        type="password"
+                        name="password"
+                        value={editForm.password || ''}
+                        onChange={handleEditFormChange}
+                        autoComplete="new-password"
+                        placeholder="Leave blank to keep current"
+                        className="w-full px-2 py-1 border border-blue-200 rounded focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />
                     </div>
                   </div>

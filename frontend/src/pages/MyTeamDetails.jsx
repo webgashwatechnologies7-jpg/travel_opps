@@ -110,8 +110,12 @@ const MyTeamDetails = () => {
             <div className="p-6 space-y-6">
                 {/* Header */}
                 <div className="bg-white rounded-xl shadow-sm p-6 flex flex-col md:flex-row items-start md:items-center gap-6">
-                    <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 text-2xl font-bold">
-                        {user.name?.charAt(0)}
+                    <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center overflow-hidden border border-gray-100 shadow-sm">
+                        {user.profile_picture ? (
+                            <img src={user.profile_picture} className="h-full w-full object-cover" alt="" />
+                        ) : (
+                            <span className="text-2xl font-bold text-blue-600 uppercase">{user.name?.charAt(0)}</span>
+                        )}
                     </div>
                     <div className="flex-1">
                         <div className="flex items-center gap-3 mb-1">

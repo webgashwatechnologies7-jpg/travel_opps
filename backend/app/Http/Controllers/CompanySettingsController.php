@@ -292,6 +292,13 @@ class CompanySettingsController extends Controller
 
         $users = $query->orderBy('name')->get();
 
+        $users->transform(function ($user) {
+            if ($user->profile_picture) {
+                $user->profile_picture = asset('storage/' . $user->profile_picture);
+            }
+            return $user;
+        });
+
         return response()->json([
             'success' => true,
             'data' => $users
@@ -331,19 +338,28 @@ class CompanySettingsController extends Controller
             });
         }
 
+        // Exclude Super Admins, Company Admins and Admins from the staff/reporting lists as per request
+        $query->where('is_super_admin', false);
+        $query->whereDoesntHave('roles', function ($q) {
+            $q->whereIn('name', ['Super Admin', 'Admin', 'Company Admin']);
+        });
+
         // Manager Restriction: Only see subordinates
         if (Auth::user()->hasRole('Manager') && !Auth::user()->hasAnyRole(['Admin', 'Company Admin', 'Super Admin'])) {
             $query->whereDoesntHave('roles', function ($q) {
-                $q->whereIn('name', ['Super Admin', 'Admin', 'Company Admin', 'Manager']);
+                // Already excluded above, but keeping for logic safety
+                $q->whereIn('name', ['Manager']);
             });
         }
 
-        // Current user should not see themselves in the team list (unless they are Admin/Company Admin looking for mapping)
-        if (!Auth::user()->hasAnyRole(['Admin', 'Company Admin', 'Super Admin'])) {
-            $query->where('id', '!=', Auth::id());
-        }
-
         $users = $query->orderBy('name')->get();
+
+        $users->transform(function ($user) {
+            if ($user->profile_picture) {
+                $user->profile_picture = asset('storage/' . $user->profile_picture);
+            }
+            return $user;
+        });
 
         return response()->json([
             'success' => true,
@@ -390,6 +406,10 @@ class CompanySettingsController extends Controller
             ->where('company_id', $companyId)
             ->where('is_super_admin', false)
             ->findOrFail($id);
+
+        if ($user->profile_picture) {
+            $user->profile_picture = asset('storage/' . $user->profile_picture);
+        }
 
         return response()->json([
             'success' => true,
