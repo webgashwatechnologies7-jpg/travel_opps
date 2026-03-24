@@ -182,26 +182,52 @@ class LeadEmailController extends Controller
             $fromName = $companyName ?: config('mail.from.name', 'TravelOps');
 
             try {
-                CompanyMailSettingsService::applyIfEnabled();
-                Mail::send([], [], function ($message) use ($request, $emailBody, $fromEmail, $fromName) {
-                    $message->from($fromEmail, $fromName)
-                        ->to($request->to_email)
-                        ->subject($request->subject)
-                        ->html($emailBody);
-                    
-                    if ($request->cc_email) {
-                        $message->cc($request->cc_email);
+                // If user has Gmail connected, prefer sending via Gmail API for better deliverability and thread support
+                if ($user->google_token) {
+                    $gmailService = app(\App\Services\GmailService::class);
+                    // Sync company config to GmailService
+                    $gmailService->setClientConfig(
+                        $company->google_client_id ?? config('services.google.client_id'),
+                        $company->google_client_secret ?? config('services.google.client_secret'),
+                        $company->google_redirect_uri ?? config('services.google.redirect')
+                    );
+
+                    $result = $gmailService->sendMail(
+                        $user,
+                        $request->to_email,
+                        $request->subject,
+                        $emailBody,
+                        $leadId,
+                        $request->thread_id ?? null,
+                        $request->hasFile('attachment') ? $request->file('attachment') : null
+                    );
+
+                    if ($result['status'] !== 'success') {
+                        throw new \Exception($result['error'] ?? 'Failed to send via Gmail API');
                     }
-                    
-                    // Handle attachment
-                    if ($request->hasFile('attachment')) {
-                        $file = $request->file('attachment');
-                        $message->attach($file->getRealPath(), [
-                            'as' => $file->getClientOriginalName(),
-                            'mime' => $file->getMimeType(),
-                        ]);
-                    }
-                });
+                } else {
+                    // Fallback to standard SMTP
+                    CompanyMailSettingsService::applyIfEnabled($company->id);
+                    Mail::send([], [], function ($message) use ($request, $emailBody, $fromEmail, $fromName) {
+                        $message->from($fromEmail, $fromName)
+                            ->to($request->to_email)
+                            ->subject($request->subject)
+                            ->html($emailBody);
+                        
+                        if ($request->cc_email) {
+                            $message->cc($request->cc_email);
+                        }
+                        
+                        // Handle attachment
+                        if ($request->hasFile('attachment')) {
+                            $file = $request->file('attachment');
+                            $message->attach($file->getRealPath(), [
+                                'as' => $file->getClientOriginalName(),
+                                'mime' => $file->getMimeType(),
+                            ]);
+                        }
+                    });
+                }
 
                 // Save email record
                 $email = LeadEmail::create([
@@ -218,7 +244,7 @@ class LeadEmailController extends Controller
 
                 return response()->json([
                     'success' => true,
-                    'message' => 'Email sent successfully',
+                    'message' => 'Email sent successfully' . ($user->google_token ? ' via Gmail' : ''),
                     'data' => [
                         'email' => $email->load('user:id,name,email'),
                     ],
