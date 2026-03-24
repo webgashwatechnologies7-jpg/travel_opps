@@ -16,6 +16,32 @@ const MailsTab = memo(({
     rewriteHtmlImageUrls,
     sanitizeEmailHtmlForDisplay,
 }) => {
+    const [expandedThreads, setExpandedThreads] = React.useState({});
+    const [visibleCount, setVisibleCount] = React.useState(5);
+
+    const toggleThread = (tid) => {
+        setExpandedThreads(prev => ({
+            ...prev,
+            [tid]: !prev[tid]
+        }));
+    };
+
+    const groupedThreads = Object.values(
+        gmailEmails.reduce((acc, email) => {
+            const tid = email.thread_id || `single-${email.id}`;
+            if (!acc[tid]) acc[tid] = [];
+            acc[tid].push(email);
+            return acc;
+        }, {})
+    )
+        .map((t) => t.sort((a, b) => new Date(b.created_at) - new Date(a.created_at)))
+        .sort(
+            (a, b) =>
+                new Date(b[0]?.created_at || 0) - new Date(a[0]?.created_at || 0)
+        );
+
+    const displayedThreads = groupedThreads.slice(0, visibleCount);
+
     return (
         <div className="space-y-4">
             {/* Header */}
@@ -54,7 +80,7 @@ const MailsTab = memo(({
 
             {user?.google_token && (
                 <p className="text-sm text-gray-600 mb-2">
-                    Received and reply emails appear in &quot;Gmail Conversations&quot; when you connect Gmail in Settings and use &quot;Sync inbox&quot; (or they sync automatically every 5 minutes).
+                    Received and reply emails appear in &quot;Gmail Conversations&quot; when you connect Gmail in Settings and use &quot;Sync inbox&quot;.
                 </p>
             )}
 
@@ -79,68 +105,65 @@ const MailsTab = memo(({
                                 Gmail Conversations
                             </h3>
                             <div className="space-y-3">
-                                {Object.values(
-                                    gmailEmails.reduce((acc, email) => {
-                                        const tid = email.thread_id || `single-${email.id}`;
-                                        if (!acc[tid]) acc[tid] = [];
-                                        acc[tid].push(email);
-                                        return acc;
-                                    }, {})
-                                )
-                                    .map((t) => t.sort((a, b) => new Date(b.created_at) - new Date(a.created_at)))
-                                    .sort(
-                                        (a, b) =>
-                                            new Date(b[0]?.created_at || 0) - new Date(a[0]?.created_at || 0)
-                                    )
-                                    .map((thread) => {
-                                        const sorted = [...thread].sort(
-                                            (a, b) => new Date(a.created_at) - new Date(b.created_at)
-                                        );
-                                        const latestEmail = thread[0];
-                                        const hasUnread = thread.some(
-                                            (e) => e.direction === 'inbound' && !e.is_read
-                                        );
+                                {displayedThreads.map((thread) => {
+                                    const sorted = [...thread].sort(
+                                        (a, b) => new Date(a.created_at) - new Date(b.created_at)
+                                    );
+                                    const latestEmail = thread[0];
+                                    const tid = latestEmail.thread_id || latestEmail.id;
+                                    const isExpanded = expandedThreads[tid];
+                                    const hasUnread = thread.some(
+                                        (e) => e.direction === 'inbound' && !e.is_read
+                                    );
 
-                                        return (
+                                    return (
+                                        <div
+                                            key={tid}
+                                            className={`bg-white border rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow ${hasUnread ? 'border-blue-300 ring-1 ring-blue-100' : 'border-gray-200'
+                                                }`}
+                                        >
                                             <div
-                                                key={latestEmail.thread_id || latestEmail.id}
-                                                className={`bg-white border rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow ${hasUnread ? 'border-blue-300 ring-1 ring-blue-100' : 'border-gray-200'
-                                                    }`}
+                                                className="p-4 bg-gray-50 border-b border-gray-200 flex justify-between items-center cursor-pointer hover:bg-gray-100"
+                                                onClick={() => toggleThread(tid)}
                                             >
-                                                <div className="p-4 bg-gray-50 border-b border-gray-200 flex justify-between items-center">
-                                                    <div className="flex items-center gap-3">
-                                                        <div className="bg-red-100 p-2 rounded-lg">
-                                                            <Mail className="h-4 w-4 text-red-600" />
-                                                        </div>
-                                                        <div>
-                                                            <p
-                                                                className={`${hasUnread ? 'font-bold text-gray-900' : 'font-semibold text-gray-800'
-                                                                    }`}
-                                                            >
-                                                                {latestEmail.subject}
-                                                            </p>
-                                                            <p className="text-xs text-gray-500">
-                                                                {thread.length} message{thread.length > 1 ? 's' : ''} &bull; Last
-                                                                message {new Date(latestEmail.created_at).toLocaleString()}
-                                                                {hasUnread && (
-                                                                    <span className="ml-2 px-1.5 py-0.5 rounded bg-blue-200 text-blue-800">
-                                                                        Unread
-                                                                    </span>
-                                                                )}
-                                                            </p>
-                                                        </div>
+                                                <div className="flex items-center gap-3">
+                                                    <div className="bg-red-100 p-2 rounded-lg">
+                                                        <Mail className="h-4 w-4 text-red-600" />
                                                     </div>
+                                                    <div>
+                                                        <p
+                                                            className={`${hasUnread ? 'font-bold text-gray-900' : 'font-semibold text-gray-800'
+                                                                }`}
+                                                        >
+                                                            {latestEmail.subject}
+                                                        </p>
+                                                        <p className="text-xs text-gray-500">
+                                                            {thread.length} message{thread.length > 1 ? 's' : ''} &bull; {isExpanded ? 'Click to hide' : 'Click to show'}
+                                                            {hasUnread && (
+                                                                <span className="ml-2 px-1.5 py-0.5 rounded bg-blue-200 text-blue-800">
+                                                                    Unread
+                                                                </span>
+                                                            )}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center gap-2">
                                                     <button
                                                         type="button"
-                                                        onClick={() => openReplyModal(thread)}
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            openReplyModal(thread);
+                                                        }}
                                                         className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
                                                     >
                                                         <Reply className="h-4 w-4" />
                                                         Reply
                                                     </button>
                                                 </div>
+                                            </div>
 
-                                                <div className="divide-y divide-gray-100 max-h-80 overflow-y-auto">
+                                            {isExpanded && (
+                                                <div className="divide-y divide-gray-100 max-h-96 overflow-y-auto">
                                                     {sorted.map((email) => (
                                                         <div
                                                             key={email.id}
@@ -150,24 +173,14 @@ const MailsTab = memo(({
                                                             <div className="flex justify-between items-start mb-2 flex-wrap gap-1">
                                                                 <span
                                                                     className={`text-xs font-medium px-2 py-0.5 rounded-full ${email.direction === 'inbound'
-                                                                            ? 'bg-gray-100 text-gray-600'
-                                                                            : 'bg-blue-100 text-blue-600'
+                                                                        ? 'bg-gray-100 text-gray-600'
+                                                                        : 'bg-blue-100 text-blue-600'
                                                                         }`}
                                                                 >
                                                                     {email.direction === 'inbound' ? 'Received' : 'Sent'}
                                                                 </span>
-                                                                <span className="flex items-center gap-2">
-                                                                    {email.direction === 'outbound' && email.opened_at && (
-                                                                        <span
-                                                                            className="text-xs px-2 py-0.5 rounded bg-green-100 text-green-700"
-                                                                            title={`Opened ${new Date(email.opened_at).toLocaleString()}`}
-                                                                        >
-                                                                            Opened
-                                                                        </span>
-                                                                    )}
-                                                                    <span className="text-xs text-gray-400">
-                                                                        {new Date(email.created_at).toLocaleString()}
-                                                                    </span>
+                                                                <span className="flex items-center gap-2 text-xs text-gray-400">
+                                                                    {new Date(email.created_at).toLocaleString()}
                                                                 </span>
                                                             </div>
                                                             <div
@@ -189,9 +202,21 @@ const MailsTab = memo(({
                                                         </div>
                                                     ))}
                                                 </div>
-                                            </div>
-                                        );
-                                    })}
+                                            )}
+                                        </div>
+                                    );
+                                })}
+
+                                {groupedThreads.length > visibleCount && (
+                                    <div className="flex justify-center pt-2">
+                                        <button
+                                            onClick={() => setVisibleCount(prev => prev + 5)}
+                                            className="text-sm text-blue-600 font-medium hover:underline"
+                                        >
+                                            Load more conversations (+5)
+                                        </button>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     )}

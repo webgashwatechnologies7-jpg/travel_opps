@@ -64,23 +64,28 @@ class WhatsAppSessionController extends Controller
         $companyId = $user->company_id;
         $userId = $user->id;
 
-        // PRIORITIZE: Any session for this company that is Scanning or Connected
-        // This solves the issue if User A started it but User B (or Admin) is looking at it
+        // If Super Admin has no company_id fixed, try to get the first company's session or the only session
+        if (!$companyId && $user->isSuperAdmin()) {
+            $firstSession = DB::table('whatsapp_sessions')->orderBy('updated_at', 'desc')->first();
+            $companyId = $firstSession->company_id ?? null;
+        }
+
+        // 1. Try exact match (user + company)
         $session = DB::table('whatsapp_sessions')
+            ->where('user_id', $userId)
             ->where('company_id', $companyId)
-            ->whereIn('status', ['Scanning', 'Connected'])
-            ->orderBy('updated_at', 'desc')
             ->first();
 
-        // FALLBACK: If no active session, look for specifically this user's last session
-        if (!$session) {
+        // 2. Fallback: Any session for this company that is active
+        if (!$session && $companyId) {
             $session = DB::table('whatsapp_sessions')
-                ->where('user_id', $userId)
                 ->where('company_id', $companyId)
+                ->whereIn('status', ['Scanning', 'Connected'])
+                ->orderBy('updated_at', 'desc')
                 ->first();
         }
 
-        // LAST RESORT: Just get anything for this company
+        // 3. Last Resort: Any session for this company
         if (!$session && $companyId) {
             $session = DB::table('whatsapp_sessions')
                 ->where('company_id', $companyId)
@@ -96,8 +101,8 @@ class WhatsAppSessionController extends Controller
             'debug' => [
                 'current_user_id' => $userId,
                 'current_company_id' => $companyId,
-                'found_session_for_user' => (bool)$session,
-                'db_total_sessions' => DB::table('whatsapp_sessions')->count()
+                'found_session' => (bool)$session,
+                'is_super_admin' => $user->isSuperAdmin()
             ]
         ]);
     }
