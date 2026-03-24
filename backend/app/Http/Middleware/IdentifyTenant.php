@@ -77,7 +77,8 @@ class IdentifyTenant
             $allowSingleDomainLogin = \App\Models\Setting::getValue('allow_single_domain_login', true);
 
             // Infer tenant from authenticated user
-            $user = auth('sanctum')->user();
+            // Use Auth::guard('sanctum')->user() which can resolve the user even if the middleware hasn't run yet
+            $user = \Illuminate\Support\Facades\Auth::guard('sanctum')->user();
 
             // If NOT allowed, and NOT a Super Admin, block access on main domain
             if (!$allowSingleDomainLogin) {
@@ -97,6 +98,7 @@ class IdentifyTenant
                 app()->instance('tenant', $user->company);
                 config(['tenant.id' => $user->company->id]);
                 config(['tenant.company' => $user->company]);
+                \Illuminate\Support\Facades\Log::info('IdentifyTenant: Company FOUND via user', ['id' => $user->company->id]);
                 return $next($request);
             }
 

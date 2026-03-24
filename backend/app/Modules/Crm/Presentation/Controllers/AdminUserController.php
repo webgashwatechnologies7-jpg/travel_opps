@@ -135,7 +135,8 @@ class AdminUserController extends Controller
             $currentUser = $request->user();
 
             $query = User::with('roles')
-                ->where('company_id', $companyId);
+                ->where('company_id', $companyId)
+                ->where('is_super_admin', false);
 
             // Manager/TL Restriction: Only see subordinates
             if ($currentUser->hasRole(['Manager', 'Team Leader'])) {
@@ -193,10 +194,13 @@ class AdminUserController extends Controller
      * @param int $id
      * @return JsonResponse
      */
-    public function show(int $id): JsonResponse
+    public function show(Request $request, int $id): JsonResponse
     {
         try {
-            $user = User::with(['roles', 'targets'])->find($id);
+            $currentUser = auth()->user();
+            $user = User::with(['roles', 'targets'])
+                ->where('company_id', $currentUser->company_id)
+                ->find($id);
 
             if (!$user) {
                 return response()->json([
@@ -257,7 +261,10 @@ class AdminUserController extends Controller
     public function update(Request $request, int $id): JsonResponse
     {
         try {
-            $user = User::with('roles')->find($id);
+            $currentUser = $request->user();
+            $user = User::with('roles')
+                ->where('company_id', $currentUser->company_id)
+                ->find($id);
 
             if (!$user) {
                 return response()->json([
@@ -394,7 +401,10 @@ class AdminUserController extends Controller
     public function destroy(Request $request, int $id): JsonResponse
     {
         try {
-            $user = User::with('roles')->find($id);
+            $currentUser = $request->user();
+            $user = User::with('roles')
+                ->where('company_id', $currentUser->company_id)
+                ->find($id);
 
             if (!$user) {
                 return response()->json([
@@ -451,8 +461,11 @@ class AdminUserController extends Controller
     public function updateStatus(Request $request, int $id): JsonResponse
     {
         try {
+            $currentUser = $request->user();
             // Find the user
-            $user = User::with('roles')->find($id);
+            $user = User::with('roles')
+                ->where('company_id', $currentUser->company_id)
+                ->find($id);
 
             if (!$user) {
                 return response()->json([

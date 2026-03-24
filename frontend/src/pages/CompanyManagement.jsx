@@ -290,7 +290,7 @@ const CompanyManagement = () => {
           </div>
 
           {/* Companies Table */}
-          <div className="bg-white rounded-lg shadow overflow-hidden">
+          <div className="bg-white rounded-lg shadow overflow-x-auto whitespace-nowrap">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
@@ -301,7 +301,7 @@ const CompanyManagement = () => {
                     Subdomain URL
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Domain
+                    Main Domain
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Email
@@ -323,7 +323,7 @@ const CompanyManagement = () => {
               <tbody className="bg-white divide-y divide-gray-200">
                 {companies.length === 0 ? (
                   <tr>
-                    <td colSpan="7" className="px-6 py-8 text-center text-gray-500">
+                    <td colSpan="8" className="px-6 py-8 text-center text-gray-500">
                       No companies found
                     </td>
                   </tr>
@@ -513,7 +513,7 @@ const CompanyManagement = () => {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Company Domain *
+                      Main Domain *
                     </label>
                     <input
                       type="text"
@@ -732,7 +732,7 @@ const CompanyManagement = () => {
                     <p className="text-lg text-gray-900">{selectedCompany.subdomain}</p>
                   </div>
                   <div>
-                    <label className="text-sm font-medium text-gray-600">Domain</label>
+                    <label className="text-sm font-medium text-gray-600">Main Domain</label>
                     <p className="text-lg text-gray-900">{selectedCompany.domain || '-'}</p>
                   </div>
                   <div>

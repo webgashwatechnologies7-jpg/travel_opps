@@ -24,10 +24,12 @@ class EmployeeController extends Controller
      * @param int $employeeId
      * @return JsonResponse
      */
-    public function getEmployeeDetails($employeeId): JsonResponse
+    public function getEmployeeDetails(Request $request, $employeeId): JsonResponse
     {
         try {
+            $currentUser = $request->user();
             $employee = User::with(['company', 'branch', 'targets'])
+                ->where('company_id', $currentUser->company_id)
                 ->findOrFail($employeeId);
 
             // Get basic employee info
@@ -130,7 +132,9 @@ class EmployeeController extends Controller
 
             list($startDate, $endDate) = $this->getPeriodDates($request);
             $period = $request->input('period', 'monthly');
-            $employee = User::findOrFail($employeeId);
+            $currentUser = $request->user();
+            $employee = User::where('company_id', $currentUser->company_id)
+                ->findOrFail($employeeId);
 
             // Get leads data for the period
             $leadsQuery = Lead::where('assigned_to', $employeeId)
@@ -280,10 +284,13 @@ class EmployeeController extends Controller
      *
      * @return JsonResponse
      */
-    public function getEmployeesList(): JsonResponse
+    public function getEmployeesList(Request $request): JsonResponse
     {
         try {
+            $currentUser = $request->user();
             $employees = User::where('is_active', true)
+                ->where('company_id', $currentUser->company_id)
+                ->where('is_super_admin', false)
                 ->select('id', 'name', 'email', 'phone', 'created_at')
                 ->orderBy('name')
                 ->get();
@@ -327,7 +334,10 @@ class EmployeeController extends Controller
                 ], 422);
             }
 
-            $employee = User::findOrFail($employeeId);
+            $currentUser = $request->user();
+            $employee = User::where('company_id', $currentUser->company_id)
+                ->findOrFail($employeeId);
+
             list($startDate, $endDate) = $this->getPeriodDates($request);
             $period = $request->input('period', 'custom');
 
@@ -451,7 +461,10 @@ class EmployeeController extends Controller
                 ], 422);
             }
 
-            $employee = User::findOrFail($employeeId);
+            $currentUser = $request->user();
+            $employee = User::where('company_id', $currentUser->company_id)
+                ->findOrFail($employeeId);
+
             $period = $request->input('period');
             $startDate = $request->input('start_date', now()->subDays(30));
             $endDate = $request->input('end_date', now());
@@ -625,7 +638,9 @@ class EmployeeController extends Controller
 
             list($startDate, $endDate) = $this->getPeriodDates($request);
             $period = $request->input('period', 'monthly');
-            $employee = User::findOrFail($employeeId);
+            $currentUser = $request->user();
+            $employee = User::where('company_id', $currentUser->company_id)
+                ->findOrFail($employeeId);
 
             // 1. PROFIT - Dynamic: Revenue from confirmed leads (actual Payment data)
             $revenue = Payment::whereHas('lead', function ($query) use ($employeeId, $startDate, $endDate) {
@@ -720,7 +735,9 @@ class EmployeeController extends Controller
                 ], 422);
             }
 
-            $user = User::findOrFail($employeeId);
+            $currentUser = $request->user();
+            $user = User::where('company_id', $currentUser->company_id)
+                ->findOrFail($employeeId);
 
             $transaction = EmployeeFinancialTransaction::create([
                 'company_id' => $request->user()->company_id,
@@ -794,7 +811,9 @@ class EmployeeController extends Controller
                 ], 422);
             }
 
+            $currentUser = $request->user();
             $query = EmployeeFinancialTransaction::where('user_id', $employeeId)
+                ->where('company_id', $currentUser->company_id)
                 ->with(['lead:id,client_name', 'creator:id,name'])
                 ->orderBy('transaction_date', 'desc')
                 ->orderBy('created_at', 'desc');
@@ -843,7 +862,7 @@ class EmployeeController extends Controller
                 'created_at' => $t->created_at->toIso8601String(),
             ]);
 
-            $employee = User::find($employeeId);
+            $employee = User::where('company_id', $currentUser->company_id)->find($employeeId);
 
             return response()->json([
                 'success' => true,
@@ -888,7 +907,10 @@ class EmployeeController extends Controller
                 ], 422);
             }
 
-            $transaction = EmployeeFinancialTransaction::where('user_id', $employeeId)->findOrFail($transactionId);
+            $currentUser = $request->user();
+            $transaction = EmployeeFinancialTransaction::where('user_id', $employeeId)
+                ->where('company_id', $currentUser->company_id)
+                ->findOrFail($transactionId);
             $paidAmount = (float) $request->paid_amount;
             $outstanding = (float) ($transaction->amount - $transaction->paid_amount);
 

@@ -242,7 +242,8 @@ class DashboardController extends Controller
                 \Illuminate\Support\Facades\Log::info('Dashboard Stats: teamLeaderStats calculated');
 
                 // Top lead sources
-                $topLeadSources = Lead::withTrashed()->select('source', DB::raw('COUNT(*) as total'))
+                $topLeadSources = Lead::withTrashed()->where('company_id', $companyId)
+                    ->select('source', DB::raw('COUNT(*) as total'))
                     ->selectRaw("SUM(CASE WHEN status = 'confirmed' THEN 1 ELSE 0 END) as confirmed")
                     ->groupBy('source')
                     ->orderBy('total', 'desc')
@@ -259,7 +260,8 @@ class DashboardController extends Controller
                 \Illuminate\Support\Facades\Log::info('Dashboard Stats: topLeadSources calculated');
 
                 // Top destinations
-                $topDestinations = Lead::withTrashed()->whereNotNull('destination')
+                $topDestinations = Lead::withTrashed()->where('company_id', $companyId)
+                    ->whereNotNull('destination')
                     ->select('destination', DB::raw('COUNT(*) as total'))
                     ->groupBy('destination')
                     ->orderBy('total', 'desc')
@@ -350,6 +352,7 @@ class DashboardController extends Controller
                     DB::raw('SUM(paid_amount) as amount')
                 )
                 ->join('leads', 'leads.id', '=', 'lead_payments.lead_id')
+                ->where('leads.company_id', $currentUser->company_id)
                 ->whereYear('lead_payments.created_at', $currentYear);
 
             if (!$currentUser->is_super_admin && !$currentUser->hasRole(['Company Admin', 'Admin'])) {
@@ -398,10 +401,11 @@ class DashboardController extends Controller
     public function upcomingTours(Request $request): JsonResponse
     {
         try {
+            $currentUser = $request->user();
             $today = now()->toDateString();
-
             // Query confirmed leads with travel_start_date >= today
-            $upcomingTours = Lead::where('status', 'confirmed')
+            $upcomingTours = Lead::where('company_id', $currentUser->company_id)
+                ->where('status', 'confirmed')
                 ->where('travel_start_date', '>=', $today)
                 ->whereNotNull('travel_start_date')
                 ->orderBy('travel_start_date', 'asc')
@@ -451,6 +455,7 @@ class DashboardController extends Controller
                     'lead_followups.remark as note',
                     'lead_followups.created_at'
                 )
+                ->where('leads.company_id', $currentUser->company_id)
                 ->whereNotNull('lead_followups.remark')
                 ->where('lead_followups.remark', '!=', '')
                 ->whereNull('lead_followups.reminder_time');
@@ -502,10 +507,13 @@ class DashboardController extends Controller
             $query = DB::table('leads')
                 ->join('users', 'leads.assigned_to', '=', 'users.id')
                 ->select(
+                    'users.id',
                     'users.name',
                     DB::raw('COUNT(leads.id) as assigned'),
                     DB::raw("SUM(CASE WHEN leads.status = 'confirmed' THEN 1 ELSE 0 END) as confirmed")
                 )
+                ->where('leads.company_id', $currentUser->company_id)
+                ->where('users.is_super_admin', false)
                 ->whereNotNull('leads.assigned_to');
 
             if (!$currentUser->is_super_admin && !$currentUser->hasRole(['Company Admin', 'Admin'])) {
