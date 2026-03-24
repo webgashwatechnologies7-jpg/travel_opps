@@ -83,7 +83,12 @@ class WhatsAppSessionController extends Controller
             'status' => $session->status ?? 'Disconnected',
             'phone_number' => $session->phone_number ?? null,
             'qr_code' => $session->qr_code ?? null,
-            'session_name' => $session->session_name ?? null
+            'debug' => [
+                'current_user_id' => $userId,
+                'current_company_id' => $companyId,
+                'found_session_for_user' => (bool)$session,
+                'db_total_sessions' => DB::table('whatsapp_sessions')->count()
+            ]
         ]);
     }
 
