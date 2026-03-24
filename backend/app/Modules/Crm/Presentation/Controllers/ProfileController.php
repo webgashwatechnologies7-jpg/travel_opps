@@ -146,12 +146,13 @@ class ProfileController extends Controller
                     'max:20',
                     'unique:users,phone,' . $user->id,
                 ],
-                'profile_picture' => 'sometimes|nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
+                'profile_picture' => 'sometimes|nullable|image|mimes:jpeg,png,jpg,gif,webp,svg,bmp,ico,tiff,tif,heic,heif,jfif,pjpeg,pjp|max:10240',
             ], [
                 'email.unique' => 'The email has already been taken.',
                 'phone.unique' => 'The phone number has already been taken.',
                 'profile_picture.image' => 'The file must be an image.',
-                'profile_picture.max' => 'The image size must not exceed 2MB.',
+                'profile_picture.mimes' => 'The profile picture must be a file of type: jpeg, png, jpg, gif, webp, svg, bmp, ico, tiff, heic, jfif.',
+                'profile_picture.max' => 'The image size must not exceed 10MB.',
             ]);
 
             if ($validator->fails()) {
