@@ -77,13 +77,13 @@ export const SettingsProvider = ({ children }) => {
     { label: 'Accounts', icon: 'CreditCard', feature: 'payments', submenu: [{ path: '/accounts/clients', label: 'Clients' }, { path: '/accounts/agents', label: 'Agents' }, { path: '/accounts/corporate', label: 'Corporate' }] },
     { path: '/whatsapp-web', label: 'WhatsApp', icon: 'MessageCircle', feature: 'whatsapp' },
     { path: '/mail', label: 'All Mails', icon: 'Mail', feature: 'gmail_integration' },
-    { label: 'Integrate', icon: 'Link2', submenu: [{ path: '/settings/mail', label: 'Email Integration', feature: 'gmail_integration' }, { path: '/settings/telephony', label: 'Telephony Integration' }] },
+    { label: 'Integrate', icon: 'Link2', submenu: [{ path: '/settings/mail', label: 'Email Integration', feature: 'gmail_integration' }] },
     { path: '/call-management', label: 'Call Management System', icon: 'Phone', feature: 'call_management' },
     { path: '/followups', label: 'Followups', icon: 'ClipboardList', feature: 'followups' },
     staffManagementItem,
     { label: 'Reports', icon: 'BarChart3', feature: 'reports', submenu: [{ path: '/dashboard/employee-performance', label: 'Performance', feature: 'reports' }] },
     { label: 'Marketing', icon: 'Megaphone', feature: 'campaigns', submenu: [{ path: '/marketing', label: 'Dashboard', feature: 'campaigns' }, { path: '/client-groups', label: 'Clients Group', feature: 'campaigns' }, { path: '/marketing/templates', label: 'Email Templates', feature: 'email_templates' }, { path: '/marketing/whatsapp-templates', label: 'WhatsApp Templates', feature: 'whatsapp' }, { path: '/marketing/campaigns', label: 'Campaigns', feature: 'campaigns' }, { path: '/marketing/landing-pages', label: 'Landing Pages', feature: 'landing_pages' }] },
-    { label: 'Company Settings', icon: 'Settings', adminOnly: true, submenu: [{ path: '/settings/telephony', label: 'Telephony Integration' }, { path: '/settings/account-details', label: 'Account Details' }] },
+    { label: 'Company Settings', icon: 'Settings', adminOnly: true, submenu: [{ path: '/settings/account-details', label: 'Account Details' }] },
     { label: 'Masters', icon: 'Grid', submenu: [{ path: '/masters/suppliers', label: 'Suppliers', feature: 'suppliers' }, { path: '/masters/hotel', label: 'Hotel', feature: 'hotels' }, { path: '/masters/activity', label: 'Activity', feature: 'activities' }, { path: '/masters/transfer', label: 'Transport', feature: 'transfers' }, { path: '/masters/day-itinerary', label: 'Day Itinerary', feature: 'day_itineraries' }, { path: '/masters/destinations', label: 'Destinations', feature: 'destinations' }, { path: '/masters/room-type', label: 'Room Type', feature: 'hotels' }, { path: '/masters/meal-plan', label: 'Meal Plan', feature: 'hotels' }, { path: '/masters/lead-source', label: 'Lead Source' }, { path: '/masters/expense-type', label: 'Expense Type', feature: 'expenses' }, { path: '/masters/points', label: 'Inclusions & Exclusions' }, { path: '/targets', label: 'Targets', feature: 'targets', adminOnly: true }] },
     { path: '/support', label: 'Customer Support', icon: 'MessageSquare' },
   ];
@@ -102,10 +102,6 @@ export const SettingsProvider = ({ children }) => {
     return menu.map((item) => {
       if (item.label === 'Company Settings' && item.submenu && Array.isArray(item.submenu)) {
         const sub = [...item.submenu];
-        if (!hasTelephony) {
-          sub.splice(insertAt++, 0, { path: '/settings/telephony', label: 'Telephony Integration' });
-        }
-
         // Remove 'Terms & Conditions' and 'Policies' as they are now in Masters
         return {
           ...item,
@@ -114,7 +110,8 @@ export const SettingsProvider = ({ children }) => {
             s.path !== '/settings/policies' &&
             s.path !== '/email-templates' &&
             s.label !== 'Settings' &&
-            s.label !== 'Company Settings'
+            s.label !== 'Company Settings' &&
+            s.path !== '/settings/telephony'
           )
         };
       }
