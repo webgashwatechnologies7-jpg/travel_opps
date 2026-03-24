@@ -575,9 +575,15 @@
                             </tr>
                         @endforeach
                     </table>
+                @php
+                    $showPrice = $customFields['show_price'] ?? true;
+                @endphp
+
+                @if($showPrice)
                     <div class="price-tag">
                         Total Package Cost: {{ $quotation->currency }} {{ number_format($price, 0) }}
                     </div>
+                @endif
                 </div>
             </div>
         @endforeach

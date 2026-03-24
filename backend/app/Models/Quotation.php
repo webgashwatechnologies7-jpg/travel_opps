@@ -114,7 +114,8 @@ class Quotation extends Model
         static::addGlobalScope(new ScopeByLeadAccess);
 
         static::creating(function ($quotation) {
-            $quotation->quotation_number = 'QOT-' . date('Y') . '-' . str_pad((static::max('id') + 1), 5, '0', STR_PAD_LEFT);
+            $maxId = \App\Models\Quotation::withoutGlobalScopes()->max('id') ?? 0;
+            $quotation->quotation_number = 'QOT-' . date('Y') . '-' . str_pad(($maxId + 1), 5, '0', STR_PAD_LEFT);
         });
     }
 }

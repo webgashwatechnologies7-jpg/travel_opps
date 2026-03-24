@@ -141,6 +141,8 @@ const LeadDetails = () => {
   const [waStatus, setWaStatus] = useState('Checking...');
   const [profilePicUrl, setProfilePicUrl] = useState(null);
   const [showWaConnectModal, setShowWaConnectModal] = useState(false);
+  const [showPdfPriceOptionModal, setShowPdfPriceOptionModal] = useState(false);
+  const [pdfDownloadParams, setPdfDownloadParams] = useState(null);
   const [lastFetchedJid, setLastFetchedJid] = useState(null);
   const [showPaxModal, setShowPaxModal] = useState(false);
   const [paxTempList, setPaxTempList] = useState([]);
@@ -3497,7 +3499,7 @@ const LeadDetails = () => {
   // PDF includes: company header (logo/name/details), query info, both options A–Z with full price details, all terms & policies.
   // quotationDataOverride: pass when downloading so PDF is not blank.
   // itineraryIdForPricing: when set, fetches final_client_prices + option_gst_settings so PDF shows correct Total Price.
-  const handleDownloadSingleOptionPdf = async (optionNum, quotationDataOverride = null, itineraryIdForPricing = null) => {
+  const handleDownloadSingleOptionPdf = async (optionNum, quotationDataOverride = null, itineraryIdForPricing = null, showPrice = true) => {
     const qData = quotationDataOverride || quotationData;
     if (!qData) {
       showToastNotification('warning', 'Quotation Failed', 'Quotation data not loaded. Please open View Quotation first or try again.');
@@ -3575,7 +3577,8 @@ const LeadDetails = () => {
         custom_fields: {
           hotel_options: qData.hotelOptions,
           display_option: optionNum, // Single option vs All
-          policies: qData.policies // Send all policies (Remarks, Cancellation, etc.)
+          policies: qData.policies, // Send all policies (Remarks, Cancellation, etc.)
+          show_price: showPrice // User choice: with or without price
         },
         inclusions: qData.policies?.inclusions || [],
         exclusions: qData.policies?.exclusions || [],
@@ -3611,6 +3614,11 @@ const LeadDetails = () => {
       console.error('Error generating PDF via Backend:', error);
       showToastNotification('error', 'Download Failed', error.response?.data?.message || error.message || 'Backend error');
     }
+  };
+
+  const triggerPdfDownloadWithOptions = (optionNum, quotationDataOverride = null, itineraryIdForPricing = null) => {
+    setPdfDownloadParams({ optionNum, quotationDataOverride, itineraryIdForPricing });
+    setShowPdfPriceOptionModal(true);
   };
 
   const handleSendWhatsApp = async (optionNum, quotationDataOverride = null) => {
@@ -3736,7 +3744,7 @@ const LeadDetails = () => {
       setSelectedProposal(opt);
       const optNum = opt.optionNumber?.toString() || Object.keys(qData.hotelOptions || {})[0];
       setSelectedOption(optNum);
-      await handleDownloadSingleOptionPdf(optNum, qData, opt.itinerary_id || null);
+      await triggerPdfDownloadWithOptions(optNum, qData, opt.itinerary_id || null);
     } catch (err) {
       console.error('PDF download failed:', err);
       showToastNotification('error', 'Download Failed', 'Failed to download PDF. ' + (err.message || ''));
@@ -3745,6 +3753,7 @@ const LeadDetails = () => {
 
   // Download PDF with both options – single button above cards (black box area)
   const handleDownloadAllOptionsPdf = async () => {
+    const first = visibleProposals[0];
     if (!first) {
       showToastNotification('warning', 'No Proposal', 'No proposal found. Please add an itinerary first.');
       return;
@@ -3766,7 +3775,7 @@ const LeadDetails = () => {
       const confirmedProposal = proposals?.find(p => p.confirmed === true);
       const optionToDownload = confirmedProposal?.optionNumber ?? null;
 
-      await handleDownloadSingleOptionPdf(optionToDownload, qData, first.itinerary_id || null);
+      await triggerPdfDownloadWithOptions(optionToDownload, qData, first.itinerary_id || null);
     } catch (err) {
       console.error('Download PDF failed:', err);
       showToastNotification('error', 'Download Failed', 'Failed to download PDF. ' + (err?.message || ''));
@@ -4650,7 +4659,7 @@ const LeadDetails = () => {
                                       onClick={() => setSendAllDropdownOpen(!sendAllDropdownOpen)}
                                       disabled={sendingOptionChannel || !visibleProposals.length}
                                       className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-semibold text-white bg-green-600 hover:bg-green-700 rounded-lg border border-green-700 transition-colors disabled:opacity-50"
-                                      title="Dono options ek saath Email / WhatsApp pe bhejen"
+                                      title="Send all options via Email / WhatsApp"
                                     >
                                       <Send className="h-4 w-4" />
                                       {sendingOptionChannel ? 'Sending…' : 'Send'}
@@ -4659,13 +4668,13 @@ const LeadDetails = () => {
                                     {sendAllDropdownOpen && (
                                       <div className="absolute top-full right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-20 py-1 min-w-[180px]">
                                         <button type="button" onClick={() => handleSendAllOptions('email')} className="w-full text-left px-3 py-2 hover:bg-gray-100 flex items-center gap-2 text-sm">
-                                          <Mail className="h-4 w-4 text-blue-600" /> Email (dono options)
+                                          <Mail className="h-4 w-4 text-blue-600" /> Email (Both Options)
                                         </button>
                                         <button type="button" onClick={() => handleSendAllOptions('whatsapp')} className="w-full text-left px-3 py-2 hover:bg-gray-100 flex items-center gap-2 text-sm">
-                                          <MessageCircle className="h-4 w-4 text-green-600" /> WhatsApp (dono options)
+                                          <MessageCircle className="h-4 w-4 text-green-600" /> WhatsApp (Both Options)
                                         </button>
                                         <button type="button" onClick={() => handleSendAllOptions('both')} className="w-full text-left px-3 py-2 hover:bg-gray-100 flex items-center gap-2 text-sm">
-                                          <Send className="h-4 w-4" /> Dono pe bhejo (Email + WhatsApp)
+                                          <Send className="h-4 w-4" /> Send on Both (Email + WhatsApp)
                                         </button>
                                       </div>
                                     )}
@@ -5649,7 +5658,7 @@ const LeadDetails = () => {
                         Send All Options
                       </button>
                       <button
-                        onClick={() => handleDownloadSingleOptionPdf(selectedOption, quotationData)}
+                        onClick={() => triggerPdfDownloadWithOptions(selectedOption, quotationData)}
                         className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 text-sm font-medium"
                         title="Download PDF (all options)"
                       >
@@ -6405,6 +6414,57 @@ const LeadDetails = () => {
               <p className="text-center mt-4 text-[10px] text-gray-400 font-bold uppercase tracking-tighter">
                 Security Enforced Mode
               </p>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* PDF Price Option Modal */}
+      {showPdfPriceOptionModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[110] transition-all duration-300">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-sm mx-4 overflow-hidden transform transition-all scale-100 border border-gray-100">
+            <div className="h-2 bg-gradient-to-r from-purple-500 via-blue-500 to-indigo-500"></div>
+            <div className="p-8">
+              <div className="flex justify-center mb-6">
+                <div className="bg-purple-100 p-5 rounded-full ring-8 ring-purple-50">
+                  <Download className="h-10 w-10 text-purple-600" />
+                </div>
+              </div>
+              <div className="text-center mb-8">
+                <h3 className="text-xl font-black text-gray-900 mb-2 tracking-tight">
+                  Download PDF
+                </h3>
+                <p className="text-gray-500 font-medium">
+                  Do you want to include the price in the PDF?
+                </p>
+              </div>
+              <div className="space-y-3">
+                <button
+                  onClick={() => {
+                    setShowPdfPriceOptionModal(false);
+                    handleDownloadSingleOptionPdf(pdfDownloadParams.optionNum, pdfDownloadParams.quotationDataOverride, pdfDownloadParams.itineraryIdForPricing, true);
+                  }}
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 rounded-2xl transition-all shadow-lg hover:shadow-blue-200 flex items-center justify-center gap-2"
+                >
+                  <Info className="h-4 w-4" />
+                  With Price
+                </button>
+                <button
+                  onClick={() => {
+                    setShowPdfPriceOptionModal(false);
+                    handleDownloadSingleOptionPdf(pdfDownloadParams.optionNum, pdfDownloadParams.quotationDataOverride, pdfDownloadParams.itineraryIdForPricing, false);
+                  }}
+                  className="w-full bg-white hover:bg-gray-50 text-gray-800 border-2 border-gray-200 font-bold py-3.5 rounded-2xl transition-all flex items-center justify-center gap-2"
+                >
+                  <X className="h-4 w-4" />
+                  Without Price
+                </button>
+                <button
+                  onClick={() => setShowPdfPriceOptionModal(false)}
+                  className="w-full text-gray-400 hover:text-gray-600 font-bold py-2 text-sm uppercase tracking-widest"
+                >
+                  Cancel
+                </button>
+              </div>
             </div>
           </div>
         </div>
