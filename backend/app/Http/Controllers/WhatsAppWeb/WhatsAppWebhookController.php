@@ -6,6 +6,9 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use App\Models\User;
+use App\Notifications\GenericNotification;
+
 
 class WhatsAppWebhookController extends Controller
 {
@@ -313,6 +316,24 @@ class WhatsAppWebhookController extends Controller
             'sender_name' => $lead ? $lead->client_name : ($data['chat_name'] ?? $cleanNumber),
             'created_at' => now()->toISOString()
         ]);
+
+        // 7. Bell Icon Notification for Inbound
+        if ($direction === 'inbound') {
+            try {
+                $recipient = User::find($session->user_id);
+                if ($recipient) {
+                    $senderName = $lead ? $lead->client_name : ($data['chat_name'] ?? $cleanNumber);
+                    $recipient->notify(new GenericNotification([
+                        'type' => 'whatsapp',
+                        'title' => 'New WhatsApp Message',
+                        'message' => 'New message from ' . $senderName . ': ' . substr($data['body'], 0, 50) . (strlen($data['body']) > 50 ? '...' : ''),
+                        'action_url' => $lead ? '/leads/' . $lead->id : '/whatsapp-web',
+                    ]));
+                }
+            } catch (\Exception $e) {
+                Log::error('WhatsApp Notification Error: ' . $e->getMessage());
+            }
+        }
     }
 
     protected function handleMessageReceipt($data)

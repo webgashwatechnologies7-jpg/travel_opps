@@ -10,6 +10,8 @@ use App\Models\CrmEmail;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
+use App\Notifications\GenericNotification;
+
 
 class GmailService
 {
@@ -240,6 +242,18 @@ class GmailService
                 'direction' => 'inbound',
                 'status' => 'received',
             ]);
+
+            // Bell Icon Notification
+            try {
+                $user->notify(new GenericNotification([
+                    'type' => 'email',
+                    'title' => 'New Email Received',
+                    'message' => 'New email from ' . $fromEmail . ': ' . $subject,
+                    'action_url' => $lead ? '/leads/' . $lead->id : '/mail',
+                ]));
+            } catch (\Exception $e) {
+                Log::error('Gmail Notification Error: ' . $e->getMessage());
+            }
         }
 
         try {
