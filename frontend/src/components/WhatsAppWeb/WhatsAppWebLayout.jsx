@@ -34,14 +34,26 @@ const WhatsAppWebLayout = () => {
     const activeChatRef = useRef(activeChat);
     const sendQueue = useRef([]);
     const sendingRef = useRef(false);
+    const isInitializingRef = useRef(false);
 
     useEffect(() => {
         activeChatRef.current = activeChat;
     }, [activeChat]);
 
-    const fetchStatus = useCallback(async () => {
+    const fetchStatus = useCallback(async (isHardRefresh = false) => {
+        if (isInitializingRef.current && !isHardRefresh) return;
+
         try {
-            const result = await whatsappWebAPI.getStatus();
+            // If we're disconnected, we need to call getQrCode to trigger initialization
+            // Otherwise getStatus just returns nothing for a new environment
+            let result;
+            if (isHardRefresh || status === 'Disconnected') {
+                isInitializingRef.current = true;
+                result = await whatsappWebAPI.getQrCode();
+            } else {
+                result = await whatsappWebAPI.getStatus();
+            }
+
             if (result?.data?.success) {
                 const newStatus = result.data.status;
                 setStatus(prev => {
@@ -54,8 +66,14 @@ const WhatsAppWebLayout = () => {
             }
         } catch (e) {
             console.error("fetchStatus failed:", e);
+            // Only toast if it's the first attempt or manual refresh
+            if (isHardRefresh || status === 'Disconnected') {
+                toast.error(e.response?.data?.message || "Failed to reach WhatsApp Gateway. Make sure the Node server is running on the live server.");
+            }
+        } finally {
+            isInitializingRef.current = false;
         }
-    }, []);
+    }, [status]);
 
     const fetchChats = useCallback(async () => {
         setLoading(true);
@@ -154,7 +172,7 @@ const WhatsAppWebLayout = () => {
                     setChats(uniqueChats);
                 }
             }).catch(() => { });
-        }, 8000); // Increased to 8s for stability
+        }, 4000); // Increased to 4s for stability and faster QR loading
     }, [fetchStatus, fetchMessages]);
 
     // 1. Initial Load Effect
@@ -452,7 +470,7 @@ const WhatsAppWebLayout = () => {
                 <QrScanner
                     qrCode={qrCode}
                     status={status}
-                    onRefresh={fetchStatus}
+                    onRefresh={() => fetchStatus(true)}
                 />
             </div>
         );
