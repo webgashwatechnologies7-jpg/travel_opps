@@ -37,8 +37,17 @@ class GoogleSheetSyncController extends Controller
                 ], 422);
             }
 
-            // Get or create the connection (assuming single connection for now)
-            $connection = GoogleSheetConnection::firstOrNew([]);
+            $companyId = auth()->user()->company_id;
+
+            if (!$companyId) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Company context not found. Please log in again.',
+                ], 403);
+            }
+
+            // Get or create the connection for this company
+            $connection = GoogleSheetConnection::firstOrNew(['company_id' => $companyId]);
             $connection->sheet_url = $request->input('sheet_url');
             $connection->is_active = $request->boolean('is_active');
             $connection->save();
@@ -75,7 +84,22 @@ class GoogleSheetSyncController extends Controller
     public function status(): JsonResponse
     {
         try {
-            $connection = GoogleSheetConnection::first();
+            $companyId = auth()->user()->company_id;
+            
+            if (!$companyId) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'No Google Sheet connection found (no company context)',
+                    'data' => [
+                        'connected' => false,
+                        'sheet_url' => null,
+                        'is_active' => false,
+                        'last_synced_at' => null,
+                    ],
+                ], 200);
+            }
+
+            $connection = GoogleSheetConnection::where('company_id', $companyId)->first();
 
             if (!$connection) {
                 return response()->json([
@@ -105,6 +129,54 @@ class GoogleSheetSyncController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'An error occurred while retrieving Google Sheet connection status',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
+            ], 500);
+        }
+    }
+
+    /**
+     * Trigger manual Google Sheet sync.
+     *
+     * @return JsonResponse
+     */
+    public function sync(): JsonResponse
+    {
+        try {
+            $companyId = auth()->user()->company_id;
+
+            if (!$companyId) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Company context not found',
+                ], 403);
+            }
+
+            // Trigger the Artisan command with company_id parameter
+            \Illuminate\Support\Facades\Artisan::call('google-sheets:sync-leads', [
+                '--company' => $companyId
+            ]);
+            
+            // Get the output if needed (optional)
+            $output = \Illuminate\Support\Facades\Artisan::output();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Google Sheet sync triggered successfully',
+                'data' => [
+                    'output' => $output,
+                    'synced_at' => now(),
+                ],
+            ], 200);
+
+        } catch (\Exception $e) {
+            \Log::error('Google Sheet manual sync failed', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to sync Google Sheets',
                 'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
             ], 500);
         }

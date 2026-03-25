@@ -267,6 +267,11 @@ class Company extends Model
         if (empty($value)) {
             return '/assets/defaults/logo.jpg';
         }
+
+        if (!filter_var($value, FILTER_VALIDATE_URL)) {
+            return asset('storage/' . $value);
+        }
+
         return $value;
     }
 
@@ -278,6 +283,11 @@ class Company extends Model
         if (empty($value)) {
             return '/assets/defaults/fav.jpg';
         }
+
+        if (!filter_var($value, FILTER_VALIDATE_URL)) {
+            return asset('storage/' . $value);
+        }
+
         return $value;
     }
 

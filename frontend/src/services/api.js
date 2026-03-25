@@ -392,6 +392,7 @@ export const targetsAPI = {
 export const googleSheetsAPI = {
   connect: (sheetUrl, isActive) => api.post('/google-sheets/connect', { sheet_url: sheetUrl, is_active: isActive }),
   status: () => api.get('/google-sheets/status'),
+  sync: () => api.post('/google-sheets/sync'),
 };
 
 // Google Mail APIs

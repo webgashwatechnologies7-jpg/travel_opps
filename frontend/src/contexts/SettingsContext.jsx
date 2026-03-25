@@ -377,17 +377,22 @@ export const SettingsProvider = ({ children }) => {
 
       if (response.data?.success && response.data?.data) {
         const raw = response.data.data;
-        obj = Array.isArray(raw)
+        const normalizedResponse = Array.isArray(raw)
           ? raw.reduce((acc, s) => ({ ...acc, [s.key]: s.value }), {})
           : raw;
+        obj = { ...obj, ...normalizedResponse };
       }
 
       // Merge dashboard colors if successful
       if (colorsResponse.data?.success && colorsResponse.data?.data) {
-        obj = { ...obj, ...colorsResponse.data.data };
+        const rawColors = colorsResponse.data.data;
+        const normalizedColors = Array.isArray(rawColors)
+          ? rawColors.reduce((acc, s) => ({ ...acc, [s.key]: s.value }), {})
+          : rawColors;
+        obj = { ...obj, ...normalizedColors };
       }
 
-      // Merge company logo and favicon from companies table
+      // Merge company branding and theme colors from companies table
       if (!user.is_super_admin && companyResponse.data?.success && companyResponse.data?.data) {
         const company = companyResponse.data.data;
         const defaultLogo = '/assets/defaults/logo.jpg';
@@ -397,7 +402,16 @@ export const SettingsProvider = ({ children }) => {
         obj.company_name = company.name;
         if (company.favicon) obj.company_favicon = company.favicon;
 
-        // Apply fallback if still missing (e.g. if company.logo was null despite accessor)
+        // Apply theme colors from company record if available
+        if (company.sidebar_color) {
+          obj.sidebar_color = company.sidebar_color;
+          obj.sidebar_color1 = company.sidebar_color;
+          obj.sidebar_color2 = company.sidebar_color;
+        }
+        if (company.dashboard_background_color) obj.dashboard_background_color = company.dashboard_background_color;
+        if (company.header_background_color) obj.header_background_color = company.header_background_color;
+
+        // Apply fallback if still missing
         if (!obj.company_logo) obj.company_logo = defaultLogo;
         if (!obj.company_favicon) obj.company_favicon = defaultFavIcon;
 

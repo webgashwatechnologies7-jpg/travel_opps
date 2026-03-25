@@ -54,6 +54,10 @@ class CompanySettings extends Model
     public static function getSettings(?int $companyId = null): self
     {
         if (!$companyId) {
+            $companyId = auth()->user()?->company_id;
+        }
+        
+        if (!$companyId && function_exists('tenant')) {
             $companyId = tenant('id');
         }
 

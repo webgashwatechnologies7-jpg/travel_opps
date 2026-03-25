@@ -17,6 +17,7 @@ use Illuminate\Support\Facades\Route;
 Route::middleware('auth:sanctum')->prefix('google-sheets')->group(function () {
     Route::post('/connect', [GoogleSheetSyncController::class, 'connect']);
     Route::get('/status', [GoogleSheetSyncController::class, 'status']);
+    Route::post('/sync', [GoogleSheetSyncController::class, 'sync']);
 });
 
 // WhatsApp webhook routes - public (Meta will call these)

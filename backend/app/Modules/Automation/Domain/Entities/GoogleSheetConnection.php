@@ -22,6 +22,7 @@ class GoogleSheetConnection extends Model
      * @var array<int, string>
      */
     protected $fillable = [
+        'company_id',
         'sheet_url',
         'is_active',
         'last_synced_at',

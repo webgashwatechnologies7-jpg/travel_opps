@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Setting;
+use App\Models\CompanySettings;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
@@ -81,6 +82,44 @@ class SettingsController extends Controller
             // Get all settings with error handling
             try {
                 $settings = Setting::orderBy('key')->get();
+
+                // Merge company-specific theme colors if user is not super admin
+                $user = auth()->user();
+                if ($user && $user->company_id) {
+                    $companySettings = CompanySettings::where('company_id', $user->company_id)->first();
+                    if ($companySettings) {
+                        $settingsArray = $settings->toArray();
+                        $themeKeys = ['sidebar_color', 'sidebar_color1', 'sidebar_color2', 'dashboard_background_color', 'header_background_color'];
+                        
+                        foreach ($themeKeys as $tKey) {
+                            $found = false;
+                            foreach ($settingsArray as &$s) {
+                                if ($s['key'] === $tKey) {
+                                    $s['value'] = $companySettings->$tKey ?? $s['value'];
+                                    $found = true;
+                                    break;
+                                }
+                            }
+                            if (!$found && isset($companySettings->$tKey)) {
+                                $settingsArray[] = [
+                                    'key' => $tKey,
+                                    'value' => $companySettings->$tKey,
+                                    'type' => 'string'
+                                ];
+                            }
+                        }
+                        
+                        \Log::info('All settings retrieved with company themes', [
+                            'company_id' => $user->company_id,
+                            'user_id' => $user->id
+                        ]);
+                        
+                        return response()->json([
+                            'success' => true,
+                            'data' => $settingsArray,
+                        ], 200);
+                    }
+                }
 
                 \Log::info('All settings retrieved successfully', [
                     'settings_count' => $settings->count(),
@@ -255,12 +294,30 @@ class SettingsController extends Controller
                 'header_background_color' => 'string',
             ];
 
+            $user = auth()->user();
+            $themeKeys = ['sidebar_color', 'sidebar_color1', 'sidebar_color2', 'dashboard_background_color', 'header_background_color'];
+            $companySettings = null;
+            if ($user && $user->company_id) {
+                $companySettings = CompanySettings::where('company_id', $user->company_id)->first();
+            }
+
             foreach ($data as $key => $value) {
                 if (!array_key_exists($key, $allowedSettings)) {
                     continue; // Skip unknown settings
                 }
 
                 try {
+                    // Update company settings if it's a theme key and user is not super admin
+                    if ($companySettings && in_array($key, $themeKeys)) {
+                        $dbKey = $key;
+                        // Map sidebar_color1/2 to sidebar_color if needed
+                        if ($key === 'sidebar_color1' || $key === 'sidebar_color2') $dbKey = 'sidebar_color';
+                        
+                        $companySettings->update([$dbKey => $value]);
+                        $updated[] = $key;
+                        continue;
+                    }
+
                     $type = $allowedSettings[$key];
                     $description = ucwords(str_replace('_', ' ', $key));
 
@@ -405,20 +462,25 @@ class SettingsController extends Controller
             }
 
             $file = $request->file('logo');
-            $logoPath = $file->store('logos', 'public');
-            $logoUrl = url('storage/' . $logoPath);
+            $isFavicon = $request->boolean('is_favicon', false);
+            $folder = $isFavicon ? 'favicons' : 'logos';
+            $fileName = $isFavicon ? 'favicon' : 'logo';
+            
+            $path = $file->store($folder, 'public');
+            $url = url('storage/' . $path);
 
-            // ONLY Save logo URL to global settings if user is super admin
+            // ONLY Save to global settings if user is super admin
             if (auth()->user()?->is_super_admin) {
-                Setting::setValue('company_logo', $logoUrl, 'string', 'Company logo URL');
+                $settingKey = $isFavicon ? 'company_favicon' : 'company_logo';
+                Setting::setValue($settingKey, $url, 'string', $isFavicon ? 'Company favicon URL' : 'Company logo URL');
             }
 
             return response()->json([
                 'success' => true,
                 'message' => 'Logo uploaded successfully',
                 'data' => [
-                    'logo_url' => $logoUrl,
-                    'logo_path' => $logoPath,
+                    'logo_url' => $url,
+                    'logo_path' => $path,
                 ],
             ], 200);
         } catch (\Exception $e) {
@@ -460,6 +522,9 @@ class SettingsController extends Controller
                 $company->save();
             }
 
+            // Include company theme colors
+            $themeColors = CompanySettings::where('company_id', $company->id)->first();
+
             return response()->json([
                 'success' => true,
                 'data' => [
@@ -474,6 +539,9 @@ class SettingsController extends Controller
                     'domain' => $company->domain,
                     'status' => $company->status,
                     'api_key' => $company->api_key,
+                    'sidebar_color' => $themeColors->sidebar_color ?? '#2765B0',
+                    'dashboard_background_color' => $themeColors->dashboard_background_color ?? '#D8DEF5',
+                    'header_background_color' => $themeColors->header_background_color ?? '#D8DEF5',
                 ],
             ], 200);
         } catch (\Exception $e) {
@@ -523,10 +591,28 @@ class SettingsController extends Controller
                 'logo' => 'nullable|string|max:500',
                 'favicon' => 'nullable|string|max:500',
                 'website' => 'nullable|string|max:255',
+                'sidebar_color' => 'nullable|string|max:20',
+                'dashboard_background_color' => 'nullable|string|max:20',
+                'header_background_color' => 'nullable|string|max:20',
             ]);
 
+            // Separate company and theme settings
+            $companyData = array_intersect_key($validated, array_flip(['name', 'email', 'phone', 'address', 'logo', 'favicon', 'website']));
+            $themeData = array_intersect_key($validated, array_flip(['sidebar_color', 'dashboard_background_color', 'header_background_color']));
+
             // Update company details (including null values for logo removal)
-            $company->update($validated);
+            $company->update($companyData);
+
+            // Update theme colors if provided
+            if (!empty($themeData)) {
+                $companySettings = CompanySettings::where('company_id', $company->id)->first();
+                if (!$companySettings) {
+                    $companySettings = new CompanySettings();
+                    $companySettings->company_id = $company->id;
+                }
+                $companySettings->fill($themeData);
+                $companySettings->save();
+            }
 
             \Log::info('Company details updated', [
                 'company_id' => $company->id,
@@ -545,6 +631,9 @@ class SettingsController extends Controller
                     'address' => $company->address,
                     'logo' => $company->logo,
                     'favicon' => $company->favicon,
+                    'sidebar_color' => $themeData['sidebar_color'] ?? ($companySettings->sidebar_color ?? null),
+                    'dashboard_background_color' => $themeData['dashboard_background_color'] ?? ($companySettings->dashboard_background_color ?? null),
+                    'header_background_color' => $themeData['header_background_color'] ?? ($companySettings->header_background_color ?? null),
                 ],
             ], 200);
         } catch (\Illuminate\Validation\ValidationException $e) {

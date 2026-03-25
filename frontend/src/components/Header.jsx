@@ -9,6 +9,11 @@ const Header = ({ user, settings, isAdmin, handleLogout }) => {
     const [unreadCount, setUnreadCount] = useState(0);
     const [isNotifDropdownOpen, setIsNotifDropdownOpen] = useState(false);
     const [isUserDropdownOpen, setIsUserDropdownOpen] = useState(false);
+    const [imageError, setImageError] = useState(false);
+
+    useEffect(() => {
+        setImageError(false);
+    }, [user?.profile_picture]);
 
     useEffect(() => {
         const fetchNotifications = async () => {
@@ -150,14 +155,13 @@ const Header = ({ user, settings, isAdmin, handleLogout }) => {
                             className="flex items-center gap-2.5 pl-3 border-l border-gray-300 ml-2 hover:bg-gray-200/30 rounded-full pr-1.5 py-1 transition-all"
                         >
                             <div key={user?.profile_picture} className="w-9 h-9 bg-blue-700 rounded-full flex items-center justify-center text-white text-sm font-bold shadow-sm border-2 border-white overflow-hidden">
-                                {user?.profile_picture ? (
+                                {user?.profile_picture && !imageError ? (
                                     <img 
                                         src={`${user.profile_picture}${user.profile_picture.includes('?') ? '&' : '?'}t=${new Date().getTime()}`} 
                                         alt="" 
                                         className="w-full h-full object-cover"
                                         onError={(e) => {
-                                            e.target.style.display = 'none';
-                                            e.target.parentElement.innerText = user?.name?.charAt(0) || 'A';
+                                            setImageError(true);
                                         }}
                                     />
                                 ) : (

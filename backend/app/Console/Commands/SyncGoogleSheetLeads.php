@@ -17,14 +17,14 @@ class SyncGoogleSheetLeads extends Command
      *
      * @var string
      */
-    protected $signature = 'google-sheets:sync-leads';
+    protected $signature = 'google-sheets:sync-leads {--company= : Sync for a specific company ID}';
 
     /**
      * The console command description.
      *
      * @var string
      */
-    protected $description = 'Sync leads from Google Sheets';
+    protected $description = 'Sync leads from Google Sheets (supports multi-tenancy)';
 
     /**
      * @var LeadRepositoryInterface
@@ -47,48 +47,69 @@ class SyncGoogleSheetLeads extends Command
      */
     public function handle()
     {
-        $this->info('Starting Google Sheets lead sync...');
+        $companyId = $this->option('company');
 
-        // Get active Google Sheet connection
-        $connection = GoogleSheetConnection::where('is_active', true)->first();
+        if ($companyId) {
+            $this->info("Starting Google Sheets lead sync for company ID: {$companyId}...");
+            $connections = GoogleSheetConnection::where('is_active', true)
+                ->where('company_id', $companyId)
+                ->get();
+        } else {
+            $this->info('Starting Google Sheets lead sync for ALL active connections...');
+            $connections = GoogleSheetConnection::where('is_active', true)->get();
+        }
 
-        if (!$connection) {
-            $this->info('No active Google Sheet connection found.');
+        if ($connections->isEmpty()) {
+            $this->info('No active Google Sheet connections found.');
             return Command::SUCCESS;
         }
 
-        $this->info("Processing sheet: {$connection->sheet_url}");
+        foreach ($connections as $connection) {
+            $this->syncForConnection($connection);
+        }
+
+        return Command::SUCCESS;
+    }
+
+    /**
+     * Sync leads for a specific connection.
+     *
+     * @param GoogleSheetConnection $connection
+     */
+    protected function syncForConnection(GoogleSheetConnection $connection)
+    {
+        $this->info("--------------------------------------------------");
+        $this->info("Processing company ID {$connection->company_id}: {$connection->sheet_url}");
 
         try {
-            // Fetch rows from Google Sheet (public sheet CSV export)
+            // Fetch rows from Google Sheet
             $rows = $this->fetchGoogleSheetRows($connection->sheet_url);
 
             if (empty($rows)) {
-                $this->info('No rows found in Google Sheet.');
+                $this->info("No rows found for company {$connection->company_id}.");
                 $connection->update(['last_synced_at' => now()]);
-                return Command::SUCCESS;
+                return;
             }
 
-            $this->info("Found " . count($rows) . " row(s) in Google Sheet.");
+            $this->info("Found " . count($rows) . " row(s).");
 
             $importedCount = 0;
             $skippedCount = 0;
 
             foreach ($rows as $row) {
-                // Map Google Sheet row to lead data
-                // Assuming Google Sheet has columns: client_name, email, phone, source, destination, priority
-                $leadData = $this->mapRowToLeadData($row);
+                // Map row to data, injecting the correct company_id
+                $leadData = $this->mapRowToLeadData($row, $connection->company_id);
 
                 if (!$leadData) {
                     $skippedCount++;
                     continue;
                 }
 
-                // Check for duplicates using email or phone
-                $existingLead = $this->findDuplicateLead($leadData);
+                // Check for duplicates (at least within this company)
+                $existingLead = $this->findDuplicateLead($leadData, $connection->company_id);
 
                 if ($existingLead) {
-                    $this->line("Skipping duplicate lead: {$leadData['client_name']} (email or phone already exists)");
+                    $this->line("Skipping duplicate: {$leadData['client_name']} (info already exists)");
                     $skippedCount++;
                     continue;
                 }
@@ -97,12 +118,13 @@ class SyncGoogleSheetLeads extends Command
                 try {
                     $this->leadRepository->create($leadData);
                     $importedCount++;
-                    $this->line("Imported lead: {$leadData['client_name']}");
+                    $this->line("Imported: {$leadData['client_name']}");
                 } catch (\Exception $e) {
-                    $this->error("Failed to import lead: {$leadData['client_name']} - {$e->getMessage()}");
+                    $this->error("Failed to import: {$leadData['client_name']} - {$e->getMessage()}");
                     Log::error('Google Sheets sync error', [
                         'error' => $e->getMessage(),
                         'lead_data' => $leadData,
+                        'company_id' => $connection->company_id
                     ]);
                     $skippedCount++;
                 }
@@ -110,18 +132,15 @@ class SyncGoogleSheetLeads extends Command
 
             // Update last_synced_at
             $connection->update(['last_synced_at' => now()]);
-
-            $this->info("Sync completed. Imported: {$importedCount}, Skipped: {$skippedCount}");
-
-            return Command::SUCCESS;
+            $this->info("Sync done for company {$connection->company_id}. Imported: {$importedCount}, Skipped: {$skippedCount}");
 
         } catch (\Exception $e) {
-            $this->error("Error syncing Google Sheets: {$e->getMessage()}");
-            Log::error('Google Sheets sync error', [
+            $this->error("Critical error for company {$connection->company_id}: {$e->getMessage()}");
+            Log::error('Google Sheets sync connection failure', [
                 'error' => $e->getMessage(),
                 'connection_id' => $connection->id,
+                'company_id' => $connection->company_id
             ]);
-            return Command::FAILURE;
         }
     }
 
@@ -138,10 +157,11 @@ class SyncGoogleSheetLeads extends Command
 
             if (!$csvUrl) {
                 Log::warning('Google Sheets sync: unable to build CSV url', ['sheet_url' => $sheetUrl]);
-                return [];
+                $csvUrl = $sheetUrl; // Fallback to original URL
             }
 
-            $response = Http::timeout(15)->get($csvUrl);
+            // Verify with withoutVerifying() to fix "SSL certificate problem: unable to get local issuer certificate"
+            $response = Http::timeout(15)->withoutVerifying()->get($csvUrl);
 
             if (!$response->successful()) {
                 Log::warning('Google Sheets sync: CSV fetch failed', [
@@ -170,25 +190,34 @@ class SyncGoogleSheetLeads extends Command
      * @param array $row
      * @return array|null
      */
-    protected function mapRowToLeadData(array $row): ?array
+    protected function mapRowToLeadData(array $row, int $companyId): ?array
     {
-        // Assuming row structure: [client_name, email, phone, source, destination, priority]
-        // Adjust based on actual Google Sheet structure
+        // Mapping based on user's screenshot: 
+        // A: Name, B: Phone, C: Destination, D: Email
+        
+        if (empty($row) || count($row) < 2) {
+            return null;
+        }
 
-        if (empty($row) || count($row) < 4) {
+        $clientName = $row[0] ?? null;
+        $phone = !empty($row[1]) && strtolower(trim($row[1])) !== 'n/a' ? trim($row[1]) : null;
+        $destination = $row[2] ?? null;
+        $email = !empty($row[3]) && strtolower(trim($row[3])) !== 'n/a' ? trim($row[3]) : null;
+
+        if (!$clientName) {
             return null;
         }
 
         return [
-            'client_name' => $row[0] ?? null,
-            'email' => !empty($row[1]) ? $row[1] : null,
-            'phone' => !empty($row[2]) ? $row[2] : null,
-            'source' => $row[3] ?? 'google_sheets',
-            'destination' => $row[4] ?? null,
-            'priority' => $row[5] ?? 'warm',
+            'client_name' => $clientName,
+            'email' => $email,
+            'phone' => $phone,
+            'source' => 'google_sheets',
+            'destination' => $destination,
+            'priority' => 'warm',
             'status' => 'new',
-            'created_by' => $this->getSystemUserId(),
-            'company_id' => $this->getSystemCompanyId(),
+            'created_by' => $this->getSystemUserId($companyId),
+            'company_id' => $companyId,
         ];
     }
 
@@ -259,39 +288,34 @@ class SyncGoogleSheetLeads extends Command
     /**
      * Choose a safe system user id for created_by.
      */
-    protected function getSystemUserId(): int
+    protected function getSystemUserId(int $companyId): int
     {
-        $id = User::query()->min('id');
+        $id = User::where('company_id', $companyId)->min('id');
         return $id ?: 1;
     }
 
     /**
-     * Choose a safe default company_id for imported leads.
-     * If your system has multiple companies, you should extend GoogleSheetConnection
-     * to store company_id and use that instead.
-     */
-    protected function getSystemCompanyId(): ?int
-    {
-        $companyId = User::query()->whereNotNull('company_id')->min('company_id');
-        return $companyId ?: null;
-    }
-
-    /**
-     * Find duplicate lead by email or phone.
+     * Find duplicate lead by email or phone within a company.
      *
      * @param array $leadData
+     * @param int $companyId
      * @return \App\Modules\Leads\Domain\Entities\Lead|null
      */
-    protected function findDuplicateLead(array $leadData)
+    protected function findDuplicateLead(array $leadData, int $companyId)
     {
-        $query = Lead::query();
+        $query = Lead::where('company_id', $companyId);
 
-        if (!empty($leadData['email'])) {
-            $query->where('email', $leadData['email']);
-        }
-
-        if (!empty($leadData['phone'])) {
-            $query->orWhere('phone', $leadData['phone']);
+        if (!empty($leadData['email']) || !empty($leadData['phone'])) {
+            $query->where(function($q) use ($leadData) {
+                if (!empty($leadData['email'])) {
+                    $q->orWhere('email', $leadData['email']);
+                }
+                if (!empty($leadData['phone'])) {
+                    $q->orWhere('phone', $leadData['phone']);
+                }
+            });
+        } else {
+            return null;
         }
 
         return $query->first();

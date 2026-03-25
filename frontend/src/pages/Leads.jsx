@@ -1,10 +1,10 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { leadsAPI, leadSourcesAPI, usersAPI } from '../services/api';
+import { leadsAPI, leadSourcesAPI, usersAPI, googleSheetsAPI } from '../services/api';
 import { toast } from 'react-toastify';
 import { useAuth } from '../contexts/AuthContext';
 import Layout from '../components/Layout';
-import { X, ChevronDown, Filter, Eye, Mail, MessageSquare, Edit, MoreVertical, History, Plus, TrendingUp, BarChart3, Calendar } from 'lucide-react';
+import { X, ChevronDown, Filter, Eye, Mail, MessageSquare, Edit, MoreVertical, History, Plus, TrendingUp, BarChart3, Calendar, FileSpreadsheet } from 'lucide-react';
 import LeadCard from '../components/Quiries/LeadCard';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line 
@@ -48,6 +48,7 @@ const Leads = () => {
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [showOptionsDropdown, setShowOptionsDropdown] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
+  const [showGoogleSheetModal, setShowGoogleSheetModal] = useState(false);
   const [selectedLead, setSelectedLead] = useState(null);
   const [importFile, setImportFile] = useState(null);
   const [activeFilter, setActiveFilter] = useState('total'); // 'total', 'new', 'proposal', etc.
@@ -736,16 +737,35 @@ const Leads = () => {
                     Import Leads (CSV)
                   </button>
                   <button
-                    onClick={handleDownloadCSVTemplate}
-                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors border-b border-gray-100"
+                    onClick={() => { setShowGoogleSheetModal(true); setShowOptionsDropdown(false); }}
+                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-green-50 hover:text-green-600 transition-colors"
                   >
-                    Download CSV Template
+                    Import from Google Sheet
+                  </button>
+                  <button
+                    onClick={handleDownloadCSVTemplate}
+                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors border-b border-gray-100 font-medium"
+                  >
+                    - Download CSV Template
                   </button>
                   <button
                     onClick={handleExportData}
                     className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors"
                   >
                     Export Data (CSV)
+                  </button>
+                  <button
+                    onClick={() => { setShowGoogleSheetModal(true); setShowOptionsDropdown(false); }}
+                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-green-50 hover:text-green-600 transition-colors border-b border-gray-100"
+                  >
+                    Export to Google Sheet
+                  </button>
+                  <button
+                    onClick={() => { setShowGoogleSheetModal(true); setShowOptionsDropdown(false); }}
+                    className="w-full text-left px-4 py-2 text-sm font-bold text-gray-800 hover:bg-gray-50 flex items-center gap-2 bg-gray-50/30"
+                  >
+                    <FileSpreadsheet size={16} className="text-green-600" />
+                    Google Sheet Settings
                   </button>
                 </div>
               </div>
@@ -797,7 +817,7 @@ const Leads = () => {
                 className="w-full sm:w-48 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="total">All Queries ({stats.total})</option>
-                {stats.assignedToMe > 0 && <option value="assignedToMe">Assigned to Me ({stats.assignedToMe})</option>}
+                {stats.assignedToMe > 0 && <option value="assignedToMe">{currentUser?.name || 'Assigned to Me'} ({stats.assignedToMe})</option>}
                 <option value="today">Today ({stats.today})</option>
                 {canAssign && <option value="unassigned" className="font-semibold text-orange-600">Unassigned ({stats.unassigned})</option>}
                 <option value="new">New ({stats.new})</option>
@@ -1513,11 +1533,11 @@ const Leads = () => {
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                       >
                         <option value={currentUser?.id || ''}>
-                          Assign to me {currentUser ? `(${currentUser.id})` : ''}
+                          {currentUser?.name || 'Assign to me'}
                         </option>
                         {users.filter(u => u.id !== currentUser?.id).map((user) => (
                           <option key={user.id} value={user.id}>
-                            {user.name} ({user.id})
+                            {user.name}
                           </option>
                         ))}
                       </select>
@@ -1655,6 +1675,14 @@ const Leads = () => {
           </div>
         )}
 
+        {/* Google Sheet Integration Modal */}
+        {showGoogleSheetModal && (
+          <GoogleSheetModal 
+            onClose={() => setShowGoogleSheetModal(false)} 
+            onSyncComplete={() => fetchLeads()} 
+          />
+        )}
+
         {/* Import CSV Modal */}
         {showImportModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -1711,6 +1739,191 @@ const Leads = () => {
         )}
       </div>
     </Layout>
+  );
+};
+
+// Google Sheet Integration Modal Component
+const GoogleSheetModal = ({ onClose, onSyncComplete }) => {
+  const [loading, setLoading] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  const [connection, setConnection] = useState({
+    connected: false,
+    sheet_url: '',
+    is_active: true,
+    last_synced_at: null
+  });
+  const [url, setUrl] = useState('');
+
+  useEffect(() => {
+    fetchStatus();
+  }, []);
+
+  const fetchStatus = async () => {
+    try {
+      setLoading(true);
+      const res = await googleSheetsAPI.status();
+      if (res.data?.success) {
+        setConnection(res.data.data);
+        setUrl(res.data.data.sheet_url || '');
+      }
+    } catch (e) {
+      console.error("Failed to fetch Google Sheet status", e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleConnect = async (e) => {
+    e.preventDefault();
+    if (!url) {
+      toast.warning("Please enter a Google Sheet URL");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const res = await googleSheetsAPI.connect(url, true);
+      if (res.data?.success) {
+        toast.success("Google Sheet connected successfully!");
+        fetchStatus();
+      }
+    } catch (e) {
+      toast.error(e.response?.data?.message || "Failed to connect Google Sheet");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSync = async () => {
+    try {
+      setSyncing(true);
+      const res = await googleSheetsAPI.sync();
+      if (res.data?.success) {
+        toast.success("Sync completed successfully!");
+        fetchStatus();
+        if (onSyncComplete) onSyncComplete();
+      }
+    } catch (e) {
+      toast.error(e.response?.data?.message || "Sync failed. Make sure the sheet is public (anyone with link can view).");
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col animate-in fade-in zoom-in duration-200">
+        {/* Header */}
+        <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-green-50/50">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-green-100 rounded-lg text-green-600">
+              <FileSpreadsheet size={24} />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-gray-800">Google Sheet Integration</h2>
+              <p className="text-xs text-green-600 font-medium">Auto-import leads from your spreadsheet</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="p-2 hover:bg-white rounded-full transition-colors text-gray-400 hover:text-gray-600">
+            <X size={20} />
+          </button>
+        </div>
+
+        {/* Content */}
+        <div className="p-6 space-y-6 overflow-y-auto max-h-[70vh]">
+          {/* Status Badge */}
+          <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-100">
+            <div className="flex flex-col">
+              <span className="text-sm font-medium text-gray-500 uppercase tracking-wider">Connection Status</span>
+              <div className="flex items-center gap-2 mt-1">
+                <div className={`w-2 h-2 rounded-full ${connection.connected ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]' : 'bg-gray-400'}`}></div>
+                <span className={`font-bold ${connection.connected ? 'text-green-600' : 'text-gray-500'}`}>
+                  {connection.connected ? 'Connected' : 'Not Connected'}
+                </span>
+              </div>
+            </div>
+            {connection.last_synced_at && (
+              <div className="text-right">
+                <span className="text-[10px] text-gray-400 uppercase font-bold block">Last Synced</span>
+                <span className="text-xs font-semibold text-gray-700">
+                  {new Date(connection.last_synced_at).toLocaleString()}
+                </span>
+              </div>
+            )}
+          </div>
+
+          {/* Form */}
+          <form onSubmit={handleConnect} className="space-y-4">
+            <div>
+              <label className="block text-sm font-bold text-gray-700 mb-2 ml-1">Spreadsheet Link (Published as CSV)</label>
+              <div className="flex gap-2">
+                <input
+                  type="url"
+                  value={url}
+                  onChange={(e) => setUrl(e.target.value)}
+                  placeholder="https://docs.google.com/spreadsheets/d/..."
+                  className="flex-1 px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
+                  required
+                />
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className={`px-6 py-3 rounded-xl font-bold text-sm transition-all flex items-center gap-2 ${
+                    loading ? 'bg-gray-100 text-gray-400' : 'bg-green-600 text-white hover:bg-green-700 shadow-sm hover:shadow-md'
+                  }`}
+                >
+                  {loading ? 'Saving...' : connection.connected ? 'Update' : 'Connect'}
+                </button>
+              </div>
+              <p className="mt-3 text-xs text-gray-500 leading-relaxed bg-blue-50/50 p-3 rounded-lg border border-blue-100">
+                <span className="font-bold text-blue-600 block mb-1">To connect:</span>
+                1. Open your sheet &gt; File &gt; Share &gt; <strong>Publish to web</strong>.
+                <br />
+                2. Select <strong>"Whole Document"</strong> and <strong>"CSV"</strong> then copy the link here.
+              </p>
+            </div>
+          </form>
+
+          {/* Actions */}
+          {connection.connected && (
+            <div className="pt-4 border-t border-gray-100">
+              <button
+                onClick={handleSync}
+                disabled={syncing}
+                className={`w-full py-4 rounded-xl font-bold transition-all flex items-center justify-center gap-3 ${
+                  syncing ? 'bg-gray-50 text-gray-400' : 'bg-blue-50 text-blue-600 hover:bg-blue-100'
+                }`}
+              >
+                {syncing ? (
+                  <>
+                    <div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                    Executing Smart Sync...
+                  </>
+                ) : (
+                  <>
+                    <TrendingUp size={20} />
+                    Import Now (Smart Sync)
+                  </>
+                )}
+              </button>
+              <p className="text-center text-[10px] text-gray-400 mt-2 italic">
+                * Sync will only add new leads. Existing phone/email combos will be skipped.
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="p-6 bg-gray-50 flex justify-end">
+          <button
+            onClick={onClose}
+            className="px-6 py-2.5 bg-white border border-gray-200 text-gray-700 rounded-lg font-bold hover:bg-gray-50 transition-colors shadow-sm"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
   );
 };
 
