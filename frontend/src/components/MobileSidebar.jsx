@@ -26,9 +26,29 @@ const MobileSidebar = ({
                 onClick={(e) => e.stopPropagation()}
             >
                 <div className="flex flex-col h-full text-white">
-                    <div className="p-4 border-b border-blue-800/50 flex justify-between items-center">
-                        <span className="font-bold text-xl">{settings?.company_name || 'TravelFusion CRM'}</span>
-                        <button onClick={onClose} className="p-2"><ChevronLeft /></button>
+                    <div className="p-4 border-b border-blue-800/50 flex justify-between items-center bg-black/5">
+                        <Link to="/dashboard" onClick={onClose} className="flex items-center gap-3">
+                            {settings?.company_logo ? (
+                                <img
+                                    src={settings.company_logo && window.location.protocol === 'https:' && settings.company_logo.startsWith('http://') ? settings.company_logo.replace('http://', 'https://') : settings.company_logo}
+                                    alt="Logo"
+                                    className="h-9 object-contain max-w-[160px]"
+                                    onError={(e) => {
+                                        e.target.style.display = 'none';
+                                        const parent = e.target.parentElement;
+                                        if (parent && !parent.querySelector('.fallback-text')) {
+                                            const span = document.createElement('span');
+                                            span.className = 'fallback-text font-bold text-lg text-white truncate max-w-[150px]';
+                                            span.innerText = settings?.company_name || 'TravelFusion CRM';
+                                            parent.appendChild(span);
+                                        }
+                                    }}
+                                />
+                            ) : (
+                                <span className="font-bold text-xl">{settings?.company_name || 'TravelFusion CRM'}</span>
+                            )}
+                        </Link>
+                        <button onClick={onClose} className="p-2 text-white hover:bg-white/10 rounded-full transition-colors"><ChevronLeft /></button>
                     </div>
                     <nav className="flex-1 p-2 space-y-1 overflow-y-auto">
                         {menuItems.filter(item => !item.adminOnly || isAdmin).map((item) => {

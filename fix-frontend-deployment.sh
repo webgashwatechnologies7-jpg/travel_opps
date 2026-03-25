@@ -29,6 +29,18 @@ server {
         add_header Cache-Control "no-cache";
     }
 
+    # Serve backend storage files
+    location /storage {
+        alias /var/www/html/crm_project/backend/public/storage;
+        try_files $uri $uri/ =404;
+    }
+
+    # Serve backend assets (default logos, etc.)
+    location /assets {
+        alias /var/www/html/crm_project/backend/public/assets;
+        try_files $uri $uri/ =404;
+    }
+
     # API routes to backend
     location /api {
         proxy_pass http://127.0.0.1:8000;

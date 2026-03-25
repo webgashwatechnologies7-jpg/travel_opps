@@ -35,9 +35,25 @@ const Sidebar = ({
                                         src={settings.company_logo && window.location.protocol === 'https:' && settings.company_logo.startsWith('http://') ? settings.company_logo.replace('http://', 'https://') : settings.company_logo}
                                         alt="Logo"
                                         className={`h-8 object-contain transition-all duration-300 ${isSidebarOpen ? 'opacity-100 max-w-[180px]' : 'opacity-100 w-8'}`}
+                                        onError={(e) => {
+                                            // Safe fallback to text if image fails
+                                            e.target.style.display = 'none';
+                                            const parent = e.target.parentElement;
+                                            if (parent && !parent.querySelector('.fallback-text')) {
+                                                const span = document.createElement('span');
+                                                span.className = 'fallback-text text-xl font-bold text-white whitespace-nowrap overflow-hidden transition-all duration-300';
+                                                span.innerText = settings?.company_name || 'TravelFusion CRM';
+                                                if (!isSidebarOpen) {
+                                                    span.innerText = span.innerText.charAt(0);
+                                                }
+                                                parent.appendChild(span);
+                                            }
+                                        }}
                                     />
                                 ) : (
-                                    <h1 className="text-xl font-bold text-white">T <span className={`ml-2 ${isSidebarOpen ? 'opacity-100' : 'opacity-0 w-0'}`}>TravelFusion CRM</span></h1>
+                                    <h1 className="text-xl font-bold text-white">
+                                        {isSidebarOpen ? (settings?.company_name || 'TravelFusion CRM') : (settings?.company_name?.[0] || 'T')}
+                                    </h1>
                                 )}
                             </Link>
                         </div>

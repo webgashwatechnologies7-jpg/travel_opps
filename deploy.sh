@@ -68,6 +68,18 @@ server {
         try_files $uri $uri/ /index.html;
     }
 
+    # Serve backend storage files
+    location /storage {
+        alias /var/www/html/crm_project/backend/public/storage;
+        try_files $uri $uri/ =404;
+    }
+
+    # Serve backend assets (default logos, etc.)
+    location /assets {
+        alias /var/www/html/crm_project/backend/public/assets;
+        try_files $uri $uri/ =404;
+    }
+
     location /api {
         proxy_pass http://127.0.0.1:8000;
         proxy_set_header Host $host;
