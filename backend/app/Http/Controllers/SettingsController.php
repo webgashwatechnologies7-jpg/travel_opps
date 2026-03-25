@@ -408,8 +408,10 @@ class SettingsController extends Controller
             $logoPath = $file->store('logos', 'public');
             $logoUrl = url('storage/' . $logoPath);
 
-            // Save logo URL to settings
-            Setting::setValue('company_logo', $logoUrl, 'string', 'Company logo URL');
+            // ONLY Save logo URL to global settings if user is super admin
+            if (auth()->user()?->is_super_admin) {
+                Setting::setValue('company_logo', $logoUrl, 'string', 'Company logo URL');
+            }
 
             return response()->json([
                 'success' => true,
@@ -520,6 +522,7 @@ class SettingsController extends Controller
                 'address' => 'nullable|string|max:500',
                 'logo' => 'nullable|string|max:500',
                 'favicon' => 'nullable|string|max:500',
+                'website' => 'nullable|string|max:255',
             ]);
 
             // Update company details (including null values for logo removal)
@@ -541,6 +544,7 @@ class SettingsController extends Controller
                     'phone' => $company->phone,
                     'address' => $company->address,
                     'logo' => $company->logo,
+                    'favicon' => $company->favicon,
                 ],
             ], 200);
         } catch (\Illuminate\Validation\ValidationException $e) {

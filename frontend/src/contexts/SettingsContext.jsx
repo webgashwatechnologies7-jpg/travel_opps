@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import { useAuth } from './AuthContext';
-import { settingsAPI, menuAPI, currenciesAPI } from '../services/api';
+import { settingsAPI, menuAPI, currenciesAPI, ASSET_URL } from '../services/api';
 
 const SettingsContext = createContext(null);
 
@@ -23,8 +23,15 @@ export const SettingsProvider = ({ children }) => {
       sidebar_color2: '#629DE5',
       dashboard_background_color: '#D8DEF5',
       header_background_color: '#D8DEF5',
+      company_logo: '/assets/defaults/logo.jpg',
+      company_favicon: '/assets/defaults/fav.jpg',
     };
-    const initialSettings = saved ? { ...defaultSettings, ...JSON.parse(saved) } : defaultSettings;
+    const parsedSaved = saved ? JSON.parse(saved) : {};
+    const initialSettings = { ...defaultSettings, ...parsedSaved };
+
+    // Ensure default branding still holds if user has old empty values in localStorage
+    if (!initialSettings.company_logo) initialSettings.company_logo = defaultSettings.company_logo;
+    if (!initialSettings.company_favicon) initialSettings.company_favicon = defaultSettings.company_favicon;
 
     // Instantly apply saved title and favicon on load
     if (initialSettings.company_name) {
@@ -360,40 +367,58 @@ export const SettingsProvider = ({ children }) => {
       // Fetch settings from settings table
       const response = await settingsAPI.getAll();
 
+      // Fetch dashboard color settings (admin only)
+      const colorsResponse = await settingsAPI.get();
+
       // Fetch company details for logo/favicon from companies table (only for company users)
       const companyResponse = !user.is_super_admin ? await settingsAPI.getCompany() : { data: { success: false } };
 
+      let obj = {};
+
       if (response.data?.success && response.data?.data) {
         const raw = response.data.data;
-        const obj = Array.isArray(raw)
+        obj = Array.isArray(raw)
           ? raw.reduce((acc, s) => ({ ...acc, [s.key]: s.value }), {})
           : raw;
+      }
 
-        // Merge company logo and favicon from companies table
-        if (!user.is_super_admin && companyResponse.data?.success && companyResponse.data?.data) {
-          const company = companyResponse.data.data;
-          obj.company_logo = company.logo; // Override with companies table logo
-          obj.company_name = company.name;
-          obj.company_favicon = company.favicon;
+      // Merge dashboard colors if successful
+      if (colorsResponse.data?.success && colorsResponse.data?.data) {
+        obj = { ...obj, ...colorsResponse.data.data };
+      }
 
-          // Apply favicon to browser tab
-          if (company.favicon) {
-            const faviconEl = document.getElementById('favicon');
-            if (faviconEl) {
-              let faviconUrl = company.favicon;
-              if (window.location.protocol === 'https:' && faviconUrl.startsWith('http://')) {
-                faviconUrl = faviconUrl.replace('http://', 'https://');
-              }
-              faviconEl.href = faviconUrl;
-            }
+      // Merge company logo and favicon from companies table
+      if (!user.is_super_admin && companyResponse.data?.success && companyResponse.data?.data) {
+        const company = companyResponse.data.data;
+        const defaultLogo = '/assets/defaults/logo.jpg';
+        const defaultFavIcon = '/assets/defaults/fav.jpg';
+
+        if (company.logo) obj.company_logo = company.logo;
+        obj.company_name = company.name;
+        if (company.favicon) obj.company_favicon = company.favicon;
+
+        // Apply fallback if still missing (e.g. if company.logo was null despite accessor)
+        if (!obj.company_logo) obj.company_logo = defaultLogo;
+        if (!obj.company_favicon) obj.company_favicon = defaultFavIcon;
+
+        // Apply favicon to browser tab
+        const faviconUrl = obj.company_favicon;
+        const faviconEl = document.getElementById('favicon');
+        if (faviconEl) {
+          let finalFaviconUrl = faviconUrl;
+          if (window.location.protocol === 'https:' && finalFaviconUrl.startsWith('http://')) {
+            finalFaviconUrl = finalFaviconUrl.replace('http://', 'https://');
           }
-
-          // Apply company name to browser title
-          if (company.name) {
-            document.title = company.name;
-          }
+          faviconEl.href = finalFaviconUrl;
         }
 
+        // Apply company name to browser title
+        if (company.name) {
+          document.title = company.name;
+        }
+      }
+
+      if (Object.keys(obj).length > 0) {
         setSettings(prev => {
           const newSettings = { ...prev, ...obj };
           localStorage.setItem('appSettings', JSON.stringify(newSettings));

@@ -106,12 +106,28 @@ class CompanySettingsController extends Controller
     public function reset(): JsonResponse
     {
         try {
-            $settings = CompanySettings::getSettings();
+            $user = auth()->user();
+            $companyId = $user->company_id;
             
+            // 1. Reset Company Model Brandings (Logo, Favicon, Name)
+            if ($companyId) {
+                // Use DB to clear to avoid model-level issues if any (though Company model exists)
+                \App\Models\Company::where('id', $companyId)->update([
+                    'logo' => null,
+                    'favicon' => null,
+                    'name' => null
+                ]);
+            }
+
+            // 2. Reset Theme Settings (Colors)
+            $settings = CompanySettings::getSettings($companyId);
             $settings->sidebar_color = '#2765B0';
             $settings->dashboard_background_color = '#D8DEF5';
             $settings->header_background_color = '#D8DEF5';
             $settings->save();
+
+            // Refresh company object for the response
+            $company = \App\Models\Company::find($companyId);
 
             return response()->json([
                 'success' => true,
@@ -120,6 +136,9 @@ class CompanySettingsController extends Controller
                     'sidebar_color' => $settings->sidebar_color,
                     'dashboard_background_color' => $settings->dashboard_background_color,
                     'header_background_color' => $settings->header_background_color,
+                    'company_logo' => $company?->logo,
+                    'company_favicon' => $company?->favicon,
+                    'company_name' => $company?->name,
                 ],
             ]);
         } catch (\Exception $e) {

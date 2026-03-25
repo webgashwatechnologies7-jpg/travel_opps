@@ -49,6 +49,7 @@ class Company extends Model
         'email',
         'phone',
         'address',
+        'website',
         'logo',
         'favicon',
         'status',
@@ -256,6 +257,39 @@ class Company extends Model
         }
         // For localhost or default domain (subdomain only)
         return 'https://c.' . $this->subdomain . '.' . config('app.domain', 'localhost');
+    }
+
+    /**
+     * Get logo with fallback to default.
+     */
+    public function getLogoAttribute($value)
+    {
+        if (empty($value)) {
+            return '/assets/defaults/logo.jpg';
+        }
+        return $value;
+    }
+
+    /**
+     * Get favicon with fallback to default.
+     */
+    public function getFaviconAttribute($value)
+    {
+        if (empty($value)) {
+            return '/assets/defaults/fav.jpg';
+        }
+        return $value;
+    }
+
+    /**
+     * Get company name with fallback to default.
+     */
+    public function getNameAttribute($value)
+    {
+        if (empty($value)) {
+            return config('app.name', 'TravelFusion CRM');
+        }
+        return $value;
     }
 }
 

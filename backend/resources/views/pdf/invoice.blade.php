@@ -36,14 +36,14 @@
             top: 0;
             left: 0;
             border-width: 80px 80px 0 0;
-            border-color: #a11d1d transparent transparent transparent;
+            border-color: #2D3192 transparent transparent transparent;
         }
 
         .bottom-right {
             bottom: 0;
             right: 0;
             border-width: 0 0 80px 80px;
-            border-color: transparent transparent #a11d1d transparent;
+            border-color: transparent transparent #2D3192 transparent;
         }
 
         .container {
@@ -227,7 +227,7 @@
             display: inline-block;
             width: 16px;
             height: 16px;
-            background-color: #a11d1d;
+            background-color: #2D3192;
             color: #fff;
             border-radius: 50%;
             text-align: center;
@@ -367,7 +367,7 @@
 
     $company = $invoice->lead->company;
     $companyLogo = $company ? $company->logo : \App\Models\Setting::getValue('company_logo');
-    $companyName = $company ? $company->name : \App\Models\Setting::getValue('company_name', 'TravelOps');
+    $companyName = $company ? $company->name : \App\Models\Setting::getValue('company_name', 'TravelFusion CRM');
     $companyAddress = $company ? $company->address : \App\Models\Setting::getValue('company_address');
     $companyPhone = $company ? $company->phone : \App\Models\Setting::getValue('company_phone');
     $companyEmail = $company ? $company->email : \App\Models\Setting::getValue('company_email');

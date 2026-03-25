@@ -114,7 +114,7 @@
         /* SECTIONS */
         .section-header {
             background-color: #d1d5db;
-            color: #b91c1c;
+            color: #2D3192;
             padding: 4px 10px;
             font-weight: bold;
             font-size: 11px;
@@ -151,7 +151,7 @@
         }
 
         .notes-title {
-            color: #b91c1c;
+            color: #2D3192;
             font-weight: bold;
             font-size: 11px;
             margin-bottom: 8px;
@@ -172,7 +172,7 @@
         /* WISH MESSAGE */
         .wish-message {
             text-align: center;
-            color: #b91c1c;
+            color: #C42771;
             font-weight: bold;
             font-size: 11px;
             margin: 30px 0;
@@ -240,7 +240,7 @@
 
     $company = $lead->company;
     $companyLogo = $company ? $company->logo : \App\Models\Setting::getValue('company_logo');
-    $companyName = $company ? $company->name : \App\Models\Setting::getValue('company_name', 'TravelOps');
+    $companyName = $company ? $company->name : \App\Models\Setting::getValue('company_name', 'TravelFusion CRM');
     $companyEmail = $company ? $company->email : \App\Models\Setting::getValue('company_email');
     $companyPhone = $company ? $company->phone : \App\Models\Setting::getValue('company_phone');
     $companyAddress = $company ? $company->address : \App\Models\Setting::getValue('company_address');

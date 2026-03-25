@@ -15,7 +15,7 @@ const Login = () => {
   const reason = queryParams.get('reason');
 
   const appSettings = JSON.parse(localStorage.getItem('appSettings') || '{}');
-  const companyName = appSettings.company_name || 'CRM';
+  const companyName = appSettings.company_name || 'TravelFusion CRM';
   const companyLogo = appSettings.company_logo || null;
 
   const handleSubmit = async (e) => {
@@ -46,7 +46,7 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#D8DEF5] flex items-center justify-center p-4 sm:p-8">
+    <div className="min-h-screen bg-[#F0F2F9] flex items-center justify-center p-4 sm:p-8">
       <div className="flex w-full max-w-6xl bg-white shadow-xl rounded-2xl overflow-hidden min-h-[600px]">
 
         {/* Left Side - Illustration */}
@@ -79,7 +79,7 @@ const Login = () => {
               />
             )}
             {/* Fallback Blue T Icon if logo.png is also not found */}
-            <div className={`${companyLogo ? 'hidden' : 'hidden'} bg-[#2765B0] p-1.5 rounded-lg items-center justify-center`}>
+            <div className={`${companyLogo ? 'hidden' : 'hidden'} bg-[#2D3192] p-1.5 rounded-lg items-center justify-center`}>
               <span className="text-white font-bold text-xl">TF</span>
             </div>
           </div>
@@ -110,7 +110,7 @@ const Login = () => {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
-                  className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#2765B0] focus:border-transparent focus:outline-none transition-all text-sm placeholder:text-gray-400"
+                  className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#2D3192] focus:border-transparent focus:outline-none transition-all text-sm placeholder:text-gray-400"
                   placeholder="Email"
                 />
               </div>
@@ -122,7 +122,7 @@ const Login = () => {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
-                  className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#2765B0] focus:border-transparent focus:outline-none transition-all text-sm placeholder:text-gray-400"
+                  className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-[#2D3192] focus:border-transparent focus:outline-none transition-all text-sm placeholder:text-gray-400"
                   placeholder="Password"
                 />
                 <button
@@ -137,13 +137,13 @@ const Login = () => {
               {/* Remember Me & Forgot Password */}
               <div className="flex items-center justify-between mt-2">
                 <label className="flex items-center gap-2 cursor-pointer">
-                  <input type="checkbox" className="w-4 h-4 rounded border-gray-300 text-[#2765B0] focus:ring-[#2765B0]" />
+                  <input type="checkbox" className="w-4 h-4 rounded border-gray-300 text-[#2D3192] focus:ring-[#2D3192]" />
                   <span className="text-sm text-gray-600">Remember Me</span>
                 </label>
                 <button
                   type="button"
                   onClick={() => navigate('/forgot-password')}
-                  className="text-sm text-[#2765B0] hover:text-[#1e4b85] font-medium"
+                  className="text-sm text-[#2D3192] hover:text-[#1E216B] font-medium"
                 >
                   Forgot Password?
                 </button>
@@ -153,7 +153,7 @@ const Login = () => {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-[#2765B0] text-white py-3 px-4 rounded-lg hover:bg-[#1e4b85] transition-colors focus:outline-none focus:ring-2 focus:ring-[#2765B0] focus:ring-offset-2 disabled:opacity-60 disabled:cursor-not-allowed font-medium shadow-md shadow-[#2765B0]/30 mt-6"
+                className="w-full bg-[#2D3192] text-white py-3 px-4 rounded-lg hover:bg-[#1E216B] transition-colors focus:outline-none focus:ring-2 focus:ring-[#2D3192] focus:ring-offset-2 disabled:opacity-60 disabled:cursor-not-allowed font-medium shadow-md shadow-[#2D3192]/30 mt-6"
               >
                 {loading ? 'LOGGING IN...' : 'LOGIN'}
               </button>

@@ -21,13 +21,13 @@ const MobileSidebar = ({
             <div
                 className="absolute inset-y-0 left-0 w-64 shadow-2xl transform transition-transform"
                 style={{
-                    background: settings?.sidebar_color || `linear-gradient(${settings?.sidebar_color1 || '#1e3a8a'} 20% , ${settings?.sidebar_color2 || '#172554'})`
+                    background: settings?.sidebar_color || `linear-gradient(180deg, #2D3192 0%, #1a1c4b 100%)`
                 }}
                 onClick={(e) => e.stopPropagation()}
             >
                 <div className="flex flex-col h-full text-white">
                     <div className="p-4 border-b border-blue-800/50 flex justify-between items-center">
-                        <span className="font-bold text-xl">{settings?.company_name || 'TravelOps'}</span>
+                        <span className="font-bold text-xl">{settings?.company_name || 'TravelFusion CRM'}</span>
                         <button onClick={onClose} className="p-2"><ChevronLeft /></button>
                     </div>
                     <nav className="flex-1 p-2 space-y-1 overflow-y-auto">
@@ -53,7 +53,7 @@ const MobileSidebar = ({
                                                         key={sub.path}
                                                         to={sub.path}
                                                         onClick={() => onClose()}
-                                                        className={`block p-2 text-sm rounded ${isActive(sub.path) ? 'bg-blue-600' : 'hover:bg-white/5'}`}
+                                                        className={`block p-2 text-sm rounded-lg transition-colors ${isActive(sub.path) ? 'bg-[#C42771] shadow-lg shadow-[#C42771]/20' : 'hover:bg-white/5'}`}
                                                     >
                                                         {sub.label}
                                                     </Link>
@@ -68,7 +68,7 @@ const MobileSidebar = ({
                                     key={item.path}
                                     to={item.path}
                                     onClick={() => onClose()}
-                                    className={`flex items-center px-3 py-3 rounded-lg ${isActive(item.path) ? 'bg-blue-600' : 'hover:bg-white/10'}`}
+                                    className={`flex items-center px-3 py-3 rounded-xl transition-all duration-300 ${isActive(item.path) ? 'bg-[#C42771] text-white shadow-lg shadow-[#C42771]/25' : 'hover:bg-white/10'}`}
                                 >
                                     <Icon className="h-6 w-6" />
                                     <span className="ml-3">{item.label}</span>

@@ -11,9 +11,9 @@ const Settings = () => {
   const { t } = useContent();
   const { settings, updateSettings, resetSettings, loadSettings, loading: settingsLoading } = useSettings();
   const [formData, setFormData] = useState({
-    sidebar_color: '#2765B0',
-    dashboard_background_color: '#D8DEF5',
-    header_background_color: '#D8DEF5',
+    sidebar_color: '#2D3192',
+    dashboard_background_color: '#F0F2F9',
+    header_background_color: '#F0F2F9',
   });
 
   // Company Info State
@@ -41,9 +41,9 @@ const Settings = () => {
   useEffect(() => {
     if (settings) {
       setFormData({
-        sidebar_color: settings.sidebar_color || settings.sidebar_color1 || '#2765B0',
-        dashboard_background_color: settings.dashboard_background_color || '#D8DEF5',
-        header_background_color: settings.header_background_color || '#D8DEF5',
+        sidebar_color: settings.sidebar_color || settings.sidebar_color1 || '#2D3192',
+        dashboard_background_color: settings.dashboard_background_color || '#F0F2F9',
+        header_background_color: settings.header_background_color || '#F0F2F9',
       });
       // Company details are now loaded from companies table via fetchCompanyDetails()
       // setCompanyForm({
@@ -81,7 +81,7 @@ const Settings = () => {
           company_address: company.address || '',
           company_phone: company.phone || '',
           company_email: company.email || '',
-          company_website: ''
+          company_website: company.website || ''
         });
         if (company.logo) {
           setLogoPreview(company.logo);
@@ -268,11 +268,12 @@ const Settings = () => {
 
       // Save company details to companies table
       const companyData = {
-        name: companyForm.company_name,
-        address: companyForm.company_address,
-        phone: companyForm.company_phone,
-        email: companyForm.company_email,
-        logo: logoPreview === null ? null : (logoUrl || logoPreview)
+        name: companyForm.company_name || null,
+        address: companyForm.company_address || null,
+        phone: companyForm.company_phone || null,
+        email: companyForm.company_email || null,
+        website: companyForm.company_website || null,
+        logo: (logoPreview === null || logoPreview === '/assets/defaults/logo.jpg') ? null : (logoUrl || logoPreview)
       };
 
       // Handle Favicon
@@ -287,7 +288,7 @@ const Settings = () => {
           faviconUrl = uploadResponse.data.data.logo_url;
         }
       }
-      companyData.favicon = faviconPreview === null ? null : (faviconUrl || faviconPreview);
+      companyData.favicon = (faviconPreview === null || faviconPreview === '/assets/defaults/fav.jpg') ? null : (faviconUrl || faviconPreview);
 
       const companyResult = await settingsAPI.updateCompany(companyData);
 
@@ -334,15 +335,33 @@ const Settings = () => {
       const result = await resetSettings();
       if (result.success) {
         setFormData({
-          sidebar_color: '#2765B0',
-          dashboard_background_color: '#D8DEF5',
-          header_background_color: '#D8DEF5',
+          sidebar_color: '#2D3192',
+          dashboard_background_color: '#F0F2F9',
+          header_background_color: '#F0F2F9',
         });
+        
+        // Re-fetch company details to update form state
+        await fetchCompanyDetails();
+        
+        // Reset logo/favicon files
+        setLogo(null);
+        setFavicon(null);
+
+        // Reset browser tab favicon to default
+        const faviconEl = document.getElementById('favicon');
+        if (faviconEl) {
+          faviconEl.href = '/assets/defaults/fav.jpg';
+        }
+        
+        // Refresh global settings context
+        await loadSettings();
+        
         setMessage({ type: 'success', text: t('settings.settings_reset') });
       } else {
         setMessage({ type: 'error', text: result.message || 'Failed to reset settings' });
       }
     } catch (error) {
+      console.error('Reset error:', error);
       setMessage({ type: 'error', text: 'An error occurred while resetting settings' });
     } finally {
       setSaving(false);
@@ -606,7 +625,7 @@ const Settings = () => {
                   style={{ backgroundColor: formData.sidebar_color }}
                 ></div>
               </div>
-              <p className="mt-1 text-xs text-gray-500">Default: #2765B0</p>
+              <p className="mt-1 text-xs text-gray-500">Default: #2D3192</p>
             </div>
 
             {/* Dashboard Background Color */}

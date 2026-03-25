@@ -23,7 +23,7 @@ const Sidebar = ({
             <div className="w-full h-full shadow-lg" style={{
                 background: settings?.sidebar_color
                     ? settings.sidebar_color
-                    : `linear-gradient(${settings?.sidebar_color1 || '#2765B0'} 20% , ${settings?.sidebar_color2 || '#629DE5'})`
+                    : `linear-gradient(180deg, #2D3192 0%, #1a1c4b 100%)`
             }}>
                 <div className="flex flex-col h-full">
                     {/* Logo and Toggle Button */}
@@ -37,7 +37,7 @@ const Sidebar = ({
                                         className={`h-8 object-contain transition-all duration-300 ${isSidebarOpen ? 'opacity-100 max-w-[180px]' : 'opacity-100 w-8'}`}
                                     />
                                 ) : (
-                                    <h1 className="text-xl font-bold text-white">T <span className={`ml-2 ${isSidebarOpen ? 'opacity-100' : 'opacity-0 w-0'}`}>TravelFusion</span></h1>
+                                    <h1 className="text-xl font-bold text-white">T <span className={`ml-2 ${isSidebarOpen ? 'opacity-100' : 'opacity-0 w-0'}`}>TravelFusion CRM</span></h1>
                                 )}
                             </Link>
                         </div>
@@ -58,7 +58,7 @@ const Sidebar = ({
                                     <div key={item.label} className="relative">
                                         <button
                                             onClick={() => { if (checkFeatureAccess(item.feature)) toggleSubmenu(submenuKey); }}
-                                            className={`w-full flex items-center px-3 py-3 rounded-lg transition-colors ${hasActiveSubmenu ? 'bg-[#3b82f6] text-white' : 'text-blue-100 hover:bg-blue-800/50'}`}
+                                        className={`w-full flex items-center px-3 py-3 rounded-xl transition-all duration-300 ${hasActiveSubmenu ? 'bg-[#C42771] text-white shadow-lg shadow-[#C42771]/20' : 'text-blue-100/80 hover:bg-white/10 hover:text-white'}`}
                                         >
                                             <Icon className="h-6 w-6 flex-shrink-0 text-white" />
                                             <span className={`ml-3 text-sm font-medium whitespace-nowrap text-white transition-opacity duration-300 ${isSidebarOpen ? 'opacity-100' : 'opacity-0 w-0 overflow-hidden'}`}>
@@ -73,7 +73,7 @@ const Sidebar = ({
                                                         key={subItem.path}
                                                         to={subItem.path}
                                                         onClick={(e) => { if (!checkFeatureAccess(subItem.feature)) e.preventDefault(); }}
-                                                        className={`flex items-center px-2 py-2 rounded-lg transition-colors ${isActive(subItem.path) ? 'bg-[#3b82f6] text-white' : 'text-blue-200 hover:bg-blue-800/50'}`}
+                                                        className={`flex items-center px-2 py-2 rounded-lg transition-colors ${isActive(subItem.path) ? 'bg-[#C42771]/80 text-white font-semibold' : 'text-blue-200 hover:bg-white/10'}`}
                                                     >
                                                         <span className="text-xs mr-2">•</span> <span className="text-sm">{subItem.label}</span>
                                                     </Link>
@@ -89,7 +89,7 @@ const Sidebar = ({
                                         key={item.path}
                                         to={item.path}
                                         onClick={(e) => { if (!checkFeatureAccess(item.feature)) e.preventDefault(); }}
-                                        className={`flex items-center px-3 py-3 rounded-lg transition-colors ${isActive(item.path) ? 'bg-[#3b82f6] text-white' : 'text-blue-100 hover:bg-blue-800/50'}`}
+                                        className={`flex items-center px-3 py-3 rounded-xl transition-all duration-300 ${isActive(item.path) ? 'bg-[#C42771] text-white shadow-lg shadow-[#C42771]/25' : 'text-blue-100/80 hover:bg-white/10 hover:text-white'}`}
                                     >
                                         <Icon className="h-6 w-6 flex-shrink-0 text-white" />
                                         <span className={`ml-3 text-sm font-medium whitespace-nowrap text-white transition-opacity duration-300 ${isSidebarOpen ? 'opacity-100' : 'opacity-0 w-0 overflow-hidden'}`}>

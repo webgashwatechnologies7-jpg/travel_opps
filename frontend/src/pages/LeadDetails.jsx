@@ -848,7 +848,7 @@ const LeadDetails = () => {
     });
     whatsappMsg += `\n*Total Package: ₹${totalPrice.toLocaleString('en-IN')}*`;
     whatsappMsg += paymentText;
-    whatsappMsg += `\n\nThis is your confirmed itinerary. Best regards,\nTravelOps Team`;
+    whatsappMsg += `\n\nThis is your confirmed itinerary. Best regards,\nTravelFusion CRM Team`;
 
     // Email body (plain text for API)
     let emailBody = `CONFIRMED TRAVEL ITINERARY\n\n`;
@@ -863,7 +863,7 @@ const LeadDetails = () => {
     });
     emailBody += `\nTotal Package: ₹${totalPrice.toLocaleString('en-IN')}`;
     emailBody += paymentText.replace(/\n\n/g, '\n');
-    emailBody += `\n\nThis is your confirmed itinerary. Best regards, TravelOps Team`;
+    emailBody += `\n\nThis is your confirmed itinerary. Best regards, TravelFusion CRM Team`;
 
     const subject = `Confirmed Travel Itinerary - ${itinerary.itinerary_name || 'Itinerary'} - ${formatLeadId(lead.id)}`;
     const toEmail = lead.email;
@@ -2537,7 +2537,7 @@ const LeadDetails = () => {
     let html = `
       <div style="font-family: 'Arial', sans-serif; max-width: 800px; margin: 0 auto; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 40px 20px;">
         <div style="background: white; padding: 40px; border-radius: 20px; margin-bottom: 30px; box-shadow: 0 20px 60px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.1);">
-          <h1 style="margin: 0; font-size: 48px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; text-align: center; font-weight: bold;">TravelOps</h1>
+          <h1 style="margin: 0; font-size: 48px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; text-align: center; font-weight: bold;">TravelFusion CRM</h1>
           <p style="text-align: center; color: #666; margin-top: 10px;">Delhi, India | Email: info@travelops.com | Mobile: +91-9871023004</p>
         </div>
         <div style="background: white; padding: 30px; border-radius: 20px; margin-bottom: 30px; box-shadow: 0 15px 35px rgba(0,0,0,0.2), inset 0 -5px 15px rgba(0,0,0,0.1);">
@@ -2585,7 +2585,7 @@ const LeadDetails = () => {
 
     html += `
         <div style="background: rgba(255,255,255,0.95); padding: 30px; border-radius: 20px; text-align: center; box-shadow: 0 15px 35px rgba(0,0,0,0.2);">
-          <p style="margin: 5px 0; font-size: 18px; font-weight: bold; color: #667eea;">Thank you for choosing TravelOps!</p>
+          <p style="margin: 5px 0; font-size: 18px; font-weight: bold; color: #667eea;">Thank you for choosing TravelFusion CRM!</p>
           <p style="margin: 10px 0 5px 0; color: #666;">📞 +91-9871023004 | 🌐 www.travelops.com</p>
         </div>
       </div>
@@ -2599,7 +2599,7 @@ const LeadDetails = () => {
     let html = `
       <div style="font-family: 'Arial', sans-serif; max-width: 800px; margin: 0 auto; background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%); padding: 40px 20px;">
         <div style="background: white; padding: 40px; border-radius: 15px; margin-bottom: 40px; box-shadow: 0 30px 60px rgba(0,0,0,0.4), 0 0 0 3px rgba(255,255,255,0.2);">
-          <h1 style="margin: 0; font-size: 48px; background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; text-align: center; font-weight: bold;">TravelOps</h1>
+          <h1 style="margin: 0; font-size: 48px; background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; text-align: center; font-weight: bold;">TravelFusion CRM</h1>
           <p style="text-align: center; color: #666; margin-top: 10px;">Delhi, India | Email: info@travelops.com | Mobile: +91-9871023004</p>
         </div>
         <div style="background: white; padding: 30px; border-radius: 15px; margin-bottom: 40px; box-shadow: 0 20px 50px rgba(0,0,0,0.3), 0 0 0 2px rgba(255,255,255,0.1);">
@@ -2665,7 +2665,7 @@ const LeadDetails = () => {
         </div>
         ` : ''}
         <div style="background: rgba(255,255,255,0.95); padding: 30px; border-radius: 15px; text-align: center; box-shadow: 0 20px 50px rgba(0,0,0,0.3); margin-top: 30px;">
-          <p style="margin: 5px 0; font-size: 18px; font-weight: bold; color: #1e3c72;">Thank you for choosing TravelOps!</p>
+          <p style="margin: 5px 0; font-size: 18px; font-weight: bold; color: #1e3c72;">Thank you for choosing TravelFusion CRM!</p>
           <p style="margin: 10px 0 5px 0; color: #666;">📞 +91-9871023004 | 🌐 www.travelops.com</p>
         </div>
       </div>
@@ -2682,7 +2682,7 @@ const LeadDetails = () => {
           <div style="background: rgba(255,255,255,0.1); padding: 50px; border-radius: 20px; box-shadow: 0 20px 60px rgba(0,0,0,0.5); position: relative; z-index: 3;">
             <div style="background: rgba(255,255,255,0.15); padding: 40px; border-radius: 15px; box-shadow: 0 15px 40px rgba(0,0,0,0.4); position: relative; z-index: 2;">
               <div style="background: white; padding: 30px; border-radius: 10px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); position: relative; z-index: 1;">
-                <h1 style="margin: 0; font-size: 48px; background: linear-gradient(135deg, #0f2027 0%, #2c5364 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; text-align: center; font-weight: bold;">TravelOps</h1>
+                <h1 style="margin: 0; font-size: 48px; background: linear-gradient(135deg, #0f2027 0%, #2c5364 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; text-align: center; font-weight: bold;">TravelFusion CRM</h1>
                 <p style="text-align: center; color: #666; margin-top: 10px;">Delhi, India | Email: info@travelops.com | Mobile: +91-9871023004</p>
               </div>
             </div>
@@ -2756,7 +2756,7 @@ const LeadDetails = () => {
         ` : ''}
         <div style="position: relative;">
           <div style="background: rgba(255,255,255,0.95); padding: 30px; border-radius: 20px; text-align: center; box-shadow: 0 25px 60px rgba(0,0,0,0.4); position: relative; z-index: 2; margin-top: 30px;">
-            <p style="margin: 5px 0; font-size: 18px; font-weight: bold; color: #0f2027;">Thank you for choosing TravelOps!</p>
+            <p style="margin: 5px 0; font-size: 18px; font-weight: bold; color: #0f2027;">Thank you for choosing TravelFusion CRM!</p>
             <p style="margin: 8px 0 0 0;font-size:14px;opacity:0.9;">Delhi, India | 📞 +91-9871023004 | ✉ info@travelops.com</p>
           </div>
         </div>
@@ -2935,7 +2935,7 @@ const LeadDetails = () => {
         </div>
         ` : ''}
         <div style="background: #164e63; color: white; padding: 25px; text-align: center; margin-top: 30px;">
-          <p style="margin: 5px 0; font-size: 18px; font-weight: bold;">Thank you for choosing TravelOps!</p>
+          <p style="margin: 5px 0; font-size: 18px; font-weight: bold;">Thank you for choosing TravelFusion CRM!</p>
           <p style="margin: 10px 0 5px 0;">📞 +91-9871023004 | 🌐 www.travelops.com</p>
         </div>
       </div>
@@ -3054,7 +3054,7 @@ const LeadDetails = () => {
     const allOptionsRaw = Object.keys(qData.hotelOptions || {}).sort((a, b) => parseInt(a) - parseInt(b));
     const assignedUser = lead.assigned_user || users.find(u => u.id === lead.assigned_to);
     const logoUrl = pdfCompanySettings?.company_logo ? getDisplayImageUrl(pdfCompanySettings.company_logo) : null;
-    const companyName = pdfCompanySettings?.company_name || 'TravelOps';
+    const companyName = pdfCompanySettings?.company_name || 'TravelFusion CRM';
     const companyAddress = pdfCompanySettings?.company_address || 'Delhi, India';
     const companyPhone = pdfCompanySettings?.company_phone || '+91-9871023004';
     const companyEmail = pdfCompanySettings?.company_email || 'info@travelops.com';
@@ -3283,7 +3283,7 @@ const LeadDetails = () => {
     let htmlContent = `
       <div style="font-family:Arial,sans-serif;line-height:1.6;color:#333;margin:0;padding:0;">
           <div style="${headerStyle}">
-            <h1 style="margin:0;font-size:32px;">TravelOps</h1>
+            <h1 style="margin:0;font-size:32px;">TravelFusion CRM</h1>
             <p style="margin:8px 0 0 0;">Delhi, India | Email: info@travelops.com | Mobile: +91-9871023004</p>
           </div>
           
@@ -3365,7 +3365,7 @@ const LeadDetails = () => {
           ` : ''}
           
           <div style="${footerStyle}">
-            <p style="margin:0;">Thank you for choosing TravelOps!</p>
+            <p style="margin:0;">Thank you for choosing TravelFusion CRM!</p>
             <p style="margin:8px 0 0 0;">For any queries, please contact us at info@travelops.com or +91-9871023004</p>
           </div>
       </div>
@@ -3666,7 +3666,7 @@ const LeadDetails = () => {
       });
       message += `Total Price: ₹${totalPrice.toLocaleString('en-IN')}\n\n`;
     });
-    message += `Best regards,\nTravelOps Team`;
+    message += `Best regards,\nTravelFusion CRM Team`;
 
     // Check WhatsApp Connection
     if (waStatus !== 'Connected') {
@@ -3854,7 +3854,7 @@ const LeadDetails = () => {
     });
 
     message += `For detailed quotation with images, please check your email or contact us.\n\n`;
-    message += `Best regards,\nTravelOps Team`;
+    message += `Best regards,\nTravelFusion CRM Team`;
 
     const phone = lead.phone?.replace(/[^0-9]/g, '') || '';
     if (phone) {
@@ -3927,7 +3927,7 @@ const LeadDetails = () => {
         </head>
         <body>
           <div class="header">
-            <h1>TravelOps</h1>
+            <h1>TravelFusion CRM</h1>
             <p>Delhi, India | Email: info@travelops.com | Mobile: +91-9871023004</p>
           </div>
           
@@ -3991,7 +3991,7 @@ const LeadDetails = () => {
     })}
           
           <div class="footer">
-            <p>Thank you for choosing TravelOps!</p>
+            <p>Thank you for choosing TravelFusion CRM!</p>
             <p>For any queries, please contact us at info@travelops.com or +91-9871023004</p>
           </div>
         </body>
@@ -4080,7 +4080,7 @@ const LeadDetails = () => {
 
     message += `\n*Total Package Price: ₹${totalPrice.toLocaleString('en-IN')}*\n\n`;
     message += `This is your confirmed itinerary. For detailed quotation with images, please check your email.\n\n`;
-    message += `Best regards,\nTravelOps Team`;
+    message += `Best regards,\nTravelFusion CRM Team`;
 
     // Check WhatsApp Connection
     if (waStatus !== 'Connected') {
@@ -5733,7 +5733,7 @@ const LeadDetails = () => {
                       <div className="quotation-content">
                         {/* Company Header */}
                         <div className="text-center mb-6">
-                          <h1 className="text-3xl font-bold text-blue-600 mb-2">TravelOps</h1>
+                          <h1 className="text-3xl font-bold text-blue-600 mb-2">TravelFusion CRM</h1>
                           <div className="text-sm text-gray-600">
                             <p>Delhi India</p>
                             <p>Email: info@travelops.com</p>

@@ -76,13 +76,15 @@ const Header = ({ user, settings, isAdmin, handleLogout }) => {
                     <div className="hidden sm:flex items-center gap-2">
                         <button 
                             onClick={() => navigate('/flight-search')}
-                            className="px-3 py-2 bg-blue-700 text-white rounded-lg text-sm hover:bg-blue-800 flex items-center gap-2 font-medium transition-all hover:shadow-md active:scale-95 cursor-pointer"
+                            style={{ backgroundColor: '#2D3192' }}
+                            className="px-3 py-2 text-white rounded-lg text-sm flex items-center gap-2 font-medium transition-all hover:shadow-md active:scale-95 cursor-pointer hover:brightness-110"
                         >
                             <Plane className="h-4 w-4" /> <span>Flight Search</span>
                         </button>
                         <button 
                             onClick={() => navigate('/hotel-search')}
-                            className="px-3 py-2 bg-orange-500 text-white rounded-lg text-sm hover:bg-orange-600 flex items-center gap-2 font-medium transition-all hover:shadow-md active:scale-95 cursor-pointer"
+                            style={{ backgroundColor: '#C42771' }}
+                            className="px-3 py-2 text-white rounded-lg text-sm flex items-center gap-2 font-medium transition-all hover:shadow-md active:scale-95 cursor-pointer hover:brightness-110"
                         >
                             <Hotel className="h-4 w-4" /> <span>Hotel Search</span>
                         </button>

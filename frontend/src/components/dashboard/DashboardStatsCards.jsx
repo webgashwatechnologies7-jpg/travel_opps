@@ -14,64 +14,64 @@ const cardConfigs = [
   {
     name: "Total Queries",
     dataKey: "totalQueries",
-    color: "#1E4ED8",
-    bg: "#E9EDFB",
+    color: "#2D3192", // Logo Blue
+    bg: "#EEF0F9",
     link: "/leads",
     icon: FileText,
   },
   {
     name: "New Query",
     dataKey: "newQueries",
-    color: "#F97316",
-    bg: "#FFF3E6",
+    color: "#0891B2", // Cyan-600
+    bg: "#ECFEFF",
     link: "/leads?status=new",
     icon: Sparkles,
   },
   {
     name: "Pending Queries",
     dataKey: "pendingQueries",
-    color: "#D97706",
-    bg: "#FDF1E6",
+    color: "#D97706", // Amber-600
+    bg: "#FFFBEB",
     link: "/leads?status=proposal",
     icon: Clock,
   },
   {
     name: "Closed Queries",
     dataKey: "closedQueries",
-    color: "#7C3AED",
-    bg: "#F3EAFE",
+    color: "#475569", // Slate-600
+    bg: "#F8FAFC",
     link: "/leads?status=cancelled",
     icon: XCircle,
   },
   {
     name: "Today Queries",
     dataKey: "todayQueries",
-    color: "#1E40AF",
-    bg: "#E6ECF9",
+    color: "#2563EB", // Blue-600
+    bg: "#EFF6FF",
     link: "/leads?today=1",
     icon: Clock,
   },
   {
     name: "Weekly Queries",
     dataKey: "weeklyQueries",
-    color: "#6D28D9",
-    bg: "#F1EAFE",
+    color: "#7C3AED", // Violet-600
+    bg: "#F5F3FF",
     link: "/leads?range=week",
     icon: CalendarRange,
   },
   {
     name: "Monthly Queries",
     dataKey: "monthlyQueries",
-    color: "#D97706",
-    bg: "#FDF1E6",
+    color: "#1E3A8A", // Deep Blue
+    bg: "#EFF6FF",
     link: "/leads?range=month",
     icon: CalendarDays,
   },
   {
     name: "Hot Queries",
     dataKey: "hotQueries",
-    color: "#EF4444",
-    bg: "#FEECEB",
+    color: "#C42771", // Brand Magenta
+    bg: "#FDF2F8",
     link: "/leads?priority=hot",
     icon: Flame,
   },
