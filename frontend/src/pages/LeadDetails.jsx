@@ -158,6 +158,21 @@ const LeadDetails = () => {
   });
   const [savingLead, setSavingLead] = useState(false);
 
+  const [showEditQueryModal, setShowEditQueryModal] = useState(false);
+  const [editQueryFormData, setEditQueryFormData] = useState({
+    destination: '',
+    travel_start_date: '',
+    travel_end_date: '',
+    source: '',
+    service: '',
+    adult: 1,
+    child: 0,
+    infant: 0,
+    assigned_to: '',
+    remark: ''
+  });
+  const [savingQuery, setSavingQuery] = useState(false);
+
   // UI helper: when one option is confirmed, show only that option in Proposals tab
   const visibleProposals = useMemo(() => {
     if (!proposals || proposals.length === 0) return [];
@@ -1679,6 +1694,22 @@ const LeadDetails = () => {
       showToastNotification('error', 'Error', 'Failed to update lead details');
     } finally {
       setSavingLead(false);
+    }
+  };
+
+  const handleSaveQuery = async (e) => {
+    e.preventDefault();
+    setSavingQuery(true);
+    try {
+      await leadsAPI.update(id, editQueryFormData);
+      showToastNotification('success', 'Saved', 'Query information updated successfully');
+      setShowEditQueryModal(false);
+      fetchLeadDetails();
+    } catch (err) {
+      console.error('Failed to save query details:', err);
+      showToastNotification('error', 'Error', 'Failed to update query information');
+    } finally {
+      setSavingQuery(false);
     }
   };
 
@@ -4174,7 +4205,30 @@ const LeadDetails = () => {
           <div className="lg:col-span-4 space-y-6">
             {/* Query Information */}
             <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
-              <h2 className="text-xl font-bold text-gray-900 mb-5">Query Information</h2>
+              <div className="flex justify-between items-center mb-5">
+                <h2 className="text-xl font-bold text-gray-900">Query Information</h2>
+                <button
+                  onClick={() => {
+                    setEditQueryFormData({
+                      destination: lead.destination || '',
+                      travel_start_date: lead.travel_start_date ? lead.travel_start_date.split('T')[0] : '',
+                      travel_end_date: lead.travel_end_date ? lead.travel_end_date.split('T')[0] : '',
+                      source: lead.source || '',
+                      service: lead.service || '',
+                      adult: lead.adult || 1,
+                      child: lead.child || 0,
+                      infant: lead.infant || 0,
+                      assigned_to: lead.assigned_to || '',
+                      remark: lead.remark || ''
+                    });
+                    setShowEditQueryModal(true);
+                  }}
+                  className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                  title="Edit Query"
+                >
+                  <Pencil className="w-4 h-4" />
+                </button>
+              </div>
               <div
                 className="rounded-2xl border border-gray-200 p-4 space-y-4 text-sm"
                 style={{
@@ -6357,6 +6411,157 @@ const LeadDetails = () => {
                     className="px-8 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold shadow-lg shadow-blue-200 disabled:opacity-50 transition-all active:scale-95"
                   >
                     {savingLead ? 'Saving...' : 'Update Information'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Query Modal */}
+      {showEditQueryModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100] p-4 animate-fadeIn">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden animate-slideUp">
+            <div className="p-6 border-b flex justify-between items-center bg-gray-50">
+              <h3 className="text-xl font-bold text-gray-800">Edit Query Information</h3>
+              <button onClick={() => setShowEditQueryModal(false)} className="text-gray-400 hover:text-gray-600 transition-colors">
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            <div className="p-6 max-h-[70vh] overflow-y-auto">
+              <form onSubmit={handleSaveQuery} className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Destination</label>
+                    <input
+                      type="text"
+                      value={editQueryFormData.destination}
+                      onChange={(e) => setEditQueryFormData({ ...editQueryFormData, destination: e.target.value })}
+                      className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                      placeholder="Enter destination"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Lead Source</label>
+                    <select
+                      value={editQueryFormData.source}
+                      onChange={(e) => setEditQueryFormData({ ...editQueryFormData, source: e.target.value })}
+                      className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                    >
+                      <option value="">Select Source</option>
+                      <option value="Google Sheet">Google Sheet</option>
+                      <option value="Website">Website</option>
+                      <option value="Facebook">Facebook</option>
+                      <option value="Instagram">Instagram</option>
+                      <option value="WhatsApp">WhatsApp</option>
+                      <option value="Direct Call">Direct Call</option>
+                      <option value="Reference">Reference</option>
+                      <option value="Other">Other</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">From Date</label>
+                    <input
+                      type="date"
+                      value={editQueryFormData.travel_start_date}
+                      onChange={(e) => setEditQueryFormData({ ...editQueryFormData, travel_start_date: e.target.value })}
+                      className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">To Date</label>
+                    <input
+                      type="date"
+                      value={editQueryFormData.travel_end_date}
+                      onChange={(e) => setEditQueryFormData({ ...editQueryFormData, travel_end_date: e.target.value })}
+                      className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Services</label>
+                    <input
+                      type="text"
+                      value={editQueryFormData.service}
+                      onChange={(e) => setEditQueryFormData({ ...editQueryFormData, service: e.target.value })}
+                      className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                      placeholder="e.g. Flight + Hotel"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Assign To</label>
+                    <select
+                      value={editQueryFormData.assigned_to}
+                      onChange={(e) => setEditQueryFormData({ ...editQueryFormData, assigned_to: e.target.value })}
+                      className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                    >
+                      <option value="">Unassigned</option>
+                      {users.map(u => (
+                        <option key={u.id} value={u.id}>{u.name}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="md:col-span-2 grid grid-cols-3 gap-3">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Adult</label>
+                      <input
+                        type="number"
+                        min="1"
+                        value={editQueryFormData.adult}
+                        onChange={(e) => setEditQueryFormData({ ...editQueryFormData, adult: parseInt(e.target.value) || 1 })}
+                        className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Child</label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={editQueryFormData.child}
+                        onChange={(e) => setEditQueryFormData({ ...editQueryFormData, child: parseInt(e.target.value) || 0 })}
+                        className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Infant</label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={editQueryFormData.infant}
+                        onChange={(e) => setEditQueryFormData({ ...editQueryFormData, infant: parseInt(e.target.value) || 0 })}
+                        className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Remark / Description</label>
+                    <textarea
+                      rows={3}
+                      value={editQueryFormData.remark}
+                      onChange={(e) => setEditQueryFormData({ ...editQueryFormData, remark: e.target.value })}
+                      className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none resize-none"
+                      placeholder="Enter any additional details or requirements"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-3 pt-4 border-t mt-4">
+                  <button
+                    type="button"
+                    onClick={() => setShowEditQueryModal(false)}
+                    className="px-6 py-2.5 text-gray-700 hover:bg-gray-100 rounded-xl transition-colors font-semibold"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={savingQuery}
+                    className="px-8 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors font-bold shadow-lg shadow-blue-200 disabled:opacity-50"
+                  >
+                    {savingQuery ? 'Saving...' : 'Save Changes'}
                   </button>
                 </div>
               </form>
