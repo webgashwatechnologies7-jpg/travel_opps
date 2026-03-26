@@ -86,26 +86,26 @@ function LeadCard({
   return (
     <div
       onClick={handleCardClick}
-      className="group relative w-full rounded-[1.5rem] border border-slate-200/60 bg-white p-1 shadow-sm transition-all duration-500 hover:shadow-2xl hover:translate-y-[-8px] flex flex-col h-full animate-in-scale"
+      className="group relative w-full rounded-xl border border-slate-200/60 bg-white shadow-sm transition-all duration-300 hover:shadow-xl hover:translate-y-[-4px] flex flex-col h-full animate-in-scale"
     >
-      {/* Glow Effect on Hover */}
-      <div className={`absolute inset-0 rounded-[1.5rem] opacity-0 group-hover:opacity-10 transition-opacity duration-500 pointer-events-none ${currentStatus.glow}`}></div>
+      {/* Background Subtle Accent */}
+      <div className={`absolute top-0 left-0 w-1 h-full rounded-l-xl ${currentStatus.color}`}></div>
 
-      <div className="bg-white rounded-[1.25rem] p-5 h-full flex flex-col relative z-10">
+      <div className="bg-white rounded-xl p-5 h-full flex flex-col relative z-10">
         {/* Top Header */}
         <div className="flex justify-between items-start mb-4">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
-               <h3 className="font-black text-xl text-slate-900 truncate leading-tight group-hover:text-blue-600 transition-colors tracking-tight text-gradient">
+               <h3 className="font-bold text-lg text-slate-900 truncate leading-tight group-hover:text-blue-600 transition-colors tracking-tight">
                 {name}
               </h3>
               {tag && (
-                <span className="shrink-0 text-[9px] font-black uppercase tracking-widest bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full border border-blue-100">
+                <span className="shrink-0 text-[10px] font-bold uppercase tracking-wider bg-blue-50 text-blue-600 px-2 py-0.5 rounded-md border border-blue-100">
                   {tag}
                 </span>
               )}
             </div>
-            <div className="flex items-center gap-1.5 text-slate-500 font-bold text-xs">
+            <div className="flex items-center gap-1.5 text-slate-500 font-semibold text-xs">
                <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
                {phone}
             </div>
@@ -132,26 +132,25 @@ function LeadCard({
           </div>
         </div>
 
-        {/* Middle Content - Destination & Status */}
         <div className="space-y-4 flex-1">
           <div className="flex flex-col gap-3">
-            <div className="flex items-center gap-2.5 text-sm text-slate-600 font-bold bg-slate-50/80 p-3 rounded-2xl border border-slate-100 group-hover:bg-blue-50/50 group-hover:border-blue-100/50 transition-colors">
+            <div className="flex items-center gap-2.5 text-sm text-slate-600 font-semibold bg-slate-50/80 p-3 rounded-xl border border-slate-100 group-hover:bg-blue-50/50 group-hover:border-blue-100/50 transition-colors">
               <div className="bg-white p-1.5 rounded-lg shadow-sm border border-slate-100 group-hover:border-blue-100">
                 <MapPin size={14} className="text-blue-500 shrink-0" />
               </div>
-              <span className="truncate flex-1" title={location}>{location || "Destination Not Set"}</span>
+              <span className="truncate flex-1 text-slate-700 font-bold" title={location}>{location || "Destination Not Set"}</span>
               <div className={`shrink-0 h-2 w-2 rounded-full ${currentStatus.color}`}></div>
             </div>
 
             <div className="flex items-center justify-between gap-3">
-               <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 rounded-xl border border-slate-100 group-hover:bg-white transition-colors">
+               <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 rounded-lg border border-slate-100 group-hover:bg-white transition-colors">
                   <Calendar size={13} className="text-slate-400" />
-                  <span className="text-[11px] font-black text-slate-500 tracking-tight whitespace-nowrap">{date}</span>
+                  <span className="text-[11px] font-bold text-slate-500 tracking-tight whitespace-nowrap">{date}</span>
                </div>
                
                <button
                   onClick={(e) => { e.stopPropagation(); onStatusChange?.(id); }}
-                  className={`px-4 py-1.5 rounded-xl text-white text-[10px] font-black uppercase tracking-widest shadow-lg ${currentStatus.color} hover:scale-105 active:scale-95 transition-all duration-300`}
+                  className={`px-4 py-1.5 rounded-lg text-white text-[10px] font-bold uppercase tracking-wider shadow-md ${currentStatus.color} hover:brightness-110 active:scale-95 transition-all duration-300`}
                 >
                   {currentStatus.label}
                 </button>
@@ -159,25 +158,25 @@ function LeadCard({
           </div>
 
           {/* Quick Actions */}
-          <div className="flex items-center justify-between pt-2">
+           <div className="flex items-center justify-between pt-2">
              <div className="flex gap-2">
                 <button 
                   onClick={handleWhatsAppClick} 
-                  className="bg-emerald-50 text-emerald-600 p-2.5 rounded-xl hover:bg-emerald-600 hover:text-white transition-all shadow-sm border border-emerald-100 active:scale-90"
+                  className="bg-emerald-50 text-emerald-600 p-2 rounded-lg hover:bg-emerald-600 hover:text-white transition-all shadow-sm border border-emerald-100 active:scale-90"
                   title="WhatsApp"
                 >
                   <MessageCircle className="h-4 w-4" />
                 </button>
                 <button 
                   onClick={handleEmailClick} 
-                  className="bg-indigo-50 text-indigo-600 p-2.5 rounded-xl hover:bg-indigo-600 hover:text-white transition-all shadow-sm border border-indigo-100 active:scale-90"
+                  className="bg-indigo-50 text-indigo-600 p-2 rounded-lg hover:bg-indigo-600 hover:text-white transition-all shadow-sm border border-indigo-100 active:scale-90"
                   title="Email"
                 >
                   <Mail className="h-4 w-4" />
                 </button>
              </div>
              
-              <div className="text-[10px] font-black text-slate-300 bg-slate-50 border border-slate-100 px-3 py-1 rounded-lg tracking-widest">
+              <div className="text-[10px] font-bold text-slate-400 bg-slate-50 border border-slate-100 px-3 py-1 rounded-md tracking-wider">
                 #{id}
               </div>
           </div>
@@ -189,10 +188,10 @@ function LeadCard({
             {onAssign ? (
               <button
                 onClick={(e) => { e.stopPropagation(); onAssign?.(id); }}
-                className={`flex-1 flex items-center justify-between gap-2 px-4 py-2.5 rounded-[1rem] text-[11px] font-black border transition-all duration-300 ${
+                className={`flex-1 flex items-center justify-between gap-2 px-4 py-2 rounded-lg text-xs font-semibold border transition-all duration-300 ${
                   isAssigned
                     ? 'bg-slate-50 text-slate-700 border-slate-200/60 hover:border-blue-300 hover:bg-white hover:text-blue-600 shadow-sm'
-                    : 'bg-orange-50 text-orange-700 border-orange-200/60 animate-pulse'
+                    : 'bg-orange-50 text-orange-700 border-orange-200/60'
                 }`}
               >
                 <div className="flex items-center gap-2 truncate">
@@ -204,7 +203,7 @@ function LeadCard({
                 <ChevronDown size={14} className="opacity-40" />
               </button>
             ) : (
-              <div className="flex-1 flex items-center gap-2.5 px-4 py-2.5 bg-slate-50/50 border border-slate-100 rounded-[1rem] text-[11px] text-slate-500 font-bold truncate">
+              <div className="flex-1 flex items-center gap-2.5 px-4 py-2 bg-slate-50/50 border border-slate-100 rounded-lg text-xs text-slate-500 font-semibold truncate">
                   <div className="p-1 bg-slate-100 rounded-md">
                     <UserIcon size={12} className="text-slate-400" />
                   </div>

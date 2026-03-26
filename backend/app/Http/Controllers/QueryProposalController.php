@@ -57,30 +57,26 @@ class QueryProposalController extends Controller
             }
 
             $proposalsData = $request->input('proposals');
-            $currentProposalIds = [];
+            
+            // Start transaction for atomicity
+            \Illuminate\Support\Facades\DB::beginTransaction();
+            
+            // Delete existing proposals for this lead to start fresh
+            QueryProposal::where('lead_id', $leadId)->delete();
 
             foreach ($proposalsData as $item) {
-                $proposal = QueryProposal::updateOrCreate(
-                    [
-                        'lead_id' => $leadId,
-                        'metadata->id' => $item['id'] ?? null, // Use the frontend-generated ID to match
-                    ],
-                    [
-                        'lead_id' => $leadId,
-                        'title' => $item['itinerary_name'] ?? 'Proposal',
-                        'total_amount' => $item['price'] ?? 0,
-                        'is_confirmed' => $item['confirmed'] ?? false,
-                        'created_by' => $request->user()->id,
-                        'metadata' => $item, // Store the full object in metadata for compatibility
-                    ]
-                );
-                $currentProposalIds[] = $proposal->id;
+                QueryProposal::create([
+                    'lead_id' => $leadId,
+                    'title' => $item['itinerary_name'] ?? 'Proposal',
+                    'total_amount' => $item['price'] ?? 0,
+                    'is_confirmed' => $item['confirmed'] ?? false,
+                    'created_by' => $request->user()->id,
+                    'metadata' => $item, 
+                    'status' => ($item['confirmed'] ?? false) ? 'approved' : 'draft',
+                ]);
             }
-
-            // Remove proposals that were not in the sync list
-            QueryProposal::where('lead_id', $leadId)
-                ->whereNotIn('id', $currentProposalIds)
-                ->delete();
+            
+            \Illuminate\Support\Facades\DB::commit();
 
             return response()->json([
                 'success' => true,

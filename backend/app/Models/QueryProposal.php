@@ -7,12 +7,14 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use App\Modules\Leads\Domain\Entities\Lead;
+use App\Traits\HasCompany;
 
 class QueryProposal extends Model
 {
-    use HasFactory;
+    use HasFactory, HasCompany;
 
     protected $fillable = [
+        'company_id',
         'lead_id',
         'title',
         'description',

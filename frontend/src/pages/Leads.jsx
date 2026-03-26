@@ -4,7 +4,7 @@ import { leadsAPI, leadSourcesAPI, usersAPI, googleSheetsAPI } from '../services
 import { toast } from 'react-toastify';
 import { useAuth } from '../contexts/AuthContext';
 import Layout from '../components/Layout';
-import { X, Search, Upload, Download, RefreshCw, ChevronDown, Filter, Eye, Mail, MessageSquare, Edit, MoreVertical, History, Plus, TrendingUp, BarChart3, Calendar, FileSpreadsheet } from 'lucide-react';
+import { X, Search, Upload, Download, RefreshCw, ChevronDown, Filter, Eye, Mail, MessageSquare, Edit, MoreVertical, History, Plus, TrendingUp, BarChart3, Calendar, FileSpreadsheet, LayoutGrid, List } from 'lucide-react';
 import LeadCard from '../components/Quiries/LeadCard';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line 
@@ -79,6 +79,7 @@ const Leads = () => {
     total: 0,
   });
   const [currentPage, setCurrentPage] = useState(1);
+  const [viewType, setViewType] = useState(() => localStorage.getItem('leads_view_type') || 'grid');
 
   const userRoles = currentUser?.roles?.map(r => typeof r === 'string' ? r : r.name) || [];
   const canAssign = userRoles.some(r => ['Admin', 'Company Admin', 'Super Admin', 'Manager', 'Team Leader'].includes(r));
@@ -246,6 +247,10 @@ const Leads = () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, [showOptionsDropdown, openActionMenu]);
+
+  useEffect(() => {
+    localStorage.setItem('leads_view_type', viewType);
+  }, [viewType]);
 
   const fetchLeads = useCallback(async (filters = {}, page = 1) => {
     try {
@@ -719,9 +724,9 @@ const Leads = () => {
         {/* Header Section */}
         <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
           <div className="animate-in-scale">
-            <h1 className="text-4xl font-black text-slate-900 tracking-tight text-gradient">Queries</h1>
-            <p className="text-slate-500 font-bold text-sm mt-1 uppercase tracking-widest flex items-center gap-2">
-               <span className="w-8 h-[2px] bg-blue-600 rounded-full"></span>
+            <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Queries</h1>
+            <p className="text-slate-500 font-semibold text-xs mt-1 uppercase tracking-wider flex items-center gap-2">
+               <span className="w-6 h-[2px] bg-blue-600 rounded-full"></span>
                {stats.total} total opportunities
             </p>
           </div>
@@ -730,9 +735,9 @@ const Leads = () => {
             <div className="relative group">
               <button
                 onClick={() => setShowOptionsDropdown(!showOptionsDropdown)}
-                className="flex items-center gap-2.5 bg-white border border-slate-200 text-slate-700 hover:border-blue-400 hover:text-blue-600 px-5 py-3 rounded-2xl text-sm font-black shadow-sm transition-all active:scale-95"
+                className="flex items-center gap-2.5 bg-white border border-slate-200 text-slate-700 hover:border-blue-400 hover:text-blue-600 px-4 py-2 rounded-xl text-sm font-semibold shadow-sm transition-all active:scale-95"
               >
-                <MoreVertical size={18} />
+                <MoreVertical size={16} />
                 <span>Options</span>
               </button>
               
@@ -770,28 +775,44 @@ const Leads = () => {
             <button
               type="button"
               onClick={() => { setFormData(getDefaultFormData()); setShowModal(true); }}
-              className="flex items-center gap-2 btn-primary text-white p-1 rounded-2xl animate-float"
+              className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-xl font-bold text-sm hover:bg-blue-700 transition-all shadow-md shadow-blue-100"
             >
-              <div className="bg-white/20 p-2 rounded-xl">
-                <Plus size={20} strokeWidth={3} />
-              </div>
-              <span className="pr-4 font-black uppercase tracking-wider text-sm">Add Query</span>
+              <Plus size={18} strokeWidth={2.5} />
+              <span>Add Query</span>
             </button>
+
+            {/* View Toggle */}
+            <div className="flex items-center bg-white border border-slate-200 p-1 rounded-2xl shadow-sm">
+                <button
+                    onClick={() => setViewType('grid')}
+                    className={`p-2 rounded-xl transition-all ${viewType === 'grid' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50'}`}
+                    title="Grid View"
+                >
+                    <LayoutGrid size={20} />
+                </button>
+                <button
+                    onClick={() => setViewType('list')}
+                    className={`p-2 rounded-xl transition-all ${viewType === 'list' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50'}`}
+                    title="List View"
+                >
+                    <List size={20} />
+                </button>
+            </div>
           </div>
         </div>
 
         {/* Action/Filter Bar */}
-        <div className="mb-0 bg-white/60 backdrop-blur-md p-1.5 rounded-[2rem] border border-white shadow-premium flex flex-col lg:flex-row gap-2 transition-all duration-500 sticky top-4 z-40 mb-8 mx-[-0.5rem] lg:mx-0">
+        <div className="bg-white p-2 rounded-2xl border border-slate-200 shadow-sm flex flex-col lg:flex-row gap-3 transition-all duration-300 sticky top-4 z-40 mb-8">
           <div className="flex-1 flex flex-col md:flex-row gap-2">
-             <div className="relative flex-1 group">
+              <div className="relative flex-1 group">
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-hover:text-blue-500 transition-colors" size={18} />
                 <input
                   type="text"
                   value={destinationFilter}
                   onChange={(e) => setDestinationFilter(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && fetchLeads()}
-                  placeholder="Search by destination or staff name..."
-                  className="w-full pl-12 pr-4 py-3.5 bg-white border border-slate-100 rounded-[1.5rem] text-sm font-bold text-slate-700 focus:outline-none focus:ring-4 focus:ring-blue-500/5 focus:border-blue-400 transition-all placeholder:text-slate-400 shadow-sm"
+                  placeholder="Search destination or staff..."
+                  className="w-full pl-12 pr-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm font-semibold text-slate-700 focus:outline-none focus:ring-4 focus:ring-blue-500/5 focus:border-blue-400 transition-all placeholder:text-slate-400"
                 />
               </div>
 
@@ -812,7 +833,7 @@ const Leads = () => {
                     else if (val === 'unassigned') fetchLeads({ unassigned: 1 });
                     else if (val === 'today') fetchLeads({ today: 1 });
                   }}
-                  className="w-full pl-4 pr-10 py-3.5 bg-white border border-slate-100 rounded-[1.5rem] text-sm font-black text-slate-700 focus:outline-none focus:ring-4 focus:ring-blue-500/5 appearance-none shadow-sm"
+                  className="w-full pl-4 pr-10 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm font-semibold text-slate-700 focus:outline-none focus:ring-4 focus:ring-blue-500/5 appearance-none cursor-pointer mt-1 lg:mt-0"
                 >
                   <option value="total">ALL QUERIES ({stats.total})</option>
                   {stats.assignedToMe > 0 && <option value="assignedToMe">{currentUser?.name || 'ASSIGNED TO ME'} ({stats.assignedToMe})</option>}
@@ -1145,47 +1166,134 @@ const Leads = () => {
             </div>
           ) : (
             <>
-              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-6 mt-4">
-                {filteredLeads.map((lead) => {
-                  // Get assigned user name from various possible fields
-                  // Backend returns assignedUser relationship or assigned_user object
-                  const assignedUserName =
-                    lead.assigned_name ||
-                    lead.assigned_user?.name ||
-                    lead.assignedUser?.name ||
-                    lead.assigned_to?.name ||
-                    lead.assigned_to_name ||
-                    lead.assigned_user_name ||
-                    (typeof lead.assigned_to === 'object' && lead.assigned_to !== null ? lead.assigned_to.name : null) ||
-                    null;
+              {viewType === 'grid' ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-6 mt-4">
+                  {filteredLeads.map((lead) => {
+                    const assignedUserName =
+                      lead.assigned_name ||
+                      lead.assigned_user?.name ||
+                      lead.assignedUser?.name ||
+                      lead.assigned_to?.name ||
+                      lead.assigned_to_name ||
+                      lead.assigned_user_name ||
+                      (typeof lead.assigned_to === 'object' && lead.assigned_to !== null ? lead.assigned_to.name : null) ||
+                      null;
 
-                  return (
-                    <LeadCard
-                      id={lead.id}
-                      key={lead.id}
-                      name={lead.client_name}
-                      phone={lead.phone || "N/A"}
-                      email={lead.email}
-                      tag={
-                        lead.status === "confirmed"
-                          ? "Confirmed"
-                          : lead.status === "new"
-                            ? "New"
-                            : ""
-                      }
-                      location={lead.destination || "N/A"}
-                      date={formatDate(lead.created_at)}
-                      amount={lead.amount || 0}
-                      status={lead.status}
-                      assignedTo={lead.assignedUser || lead.assigned_user || lead.assigned_to}
-                      assignedUserName={assignedUserName}
-                      onAssign={canAssign ? handleOpenAssignModal : null}
-                      onStatusChange={handleOpenStatusModal}
-                      onDelete={handleDelete}
-                    />
-                  );
-                })}
-              </div>
+                    return (
+                      <LeadCard
+                        id={lead.id}
+                        key={lead.id}
+                        name={lead.client_name}
+                        phone={lead.phone || "N/A"}
+                        email={lead.email}
+                        tag={
+                          lead.status === "confirmed"
+                            ? "Confirmed"
+                            : lead.status === "new"
+                              ? "New"
+                              : ""
+                        }
+                        location={lead.destination || "N/A"}
+                        date={formatDate(lead.created_at)}
+                        amount={lead.amount || 0}
+                        status={lead.status}
+                        assignedTo={lead.assignedUser || lead.assigned_user || lead.assigned_to}
+                        assignedUserName={assignedUserName}
+                        onAssign={canAssign ? handleOpenAssignModal : null}
+                        onStatusChange={handleOpenStatusModal}
+                        onDelete={handleDelete}
+                      />
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="mt-4 bg-white rounded-[2rem] border border-slate-200/60 overflow-hidden shadow-sm animate-in-fade">
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse">
+                            <thead>
+                                <tr className="bg-slate-50/80 border-b border-slate-100">
+                                    <th className="px-6 py-5 text-[11px] font-black text-slate-400 uppercase tracking-widest">Client Name</th>
+                                    <th className="px-6 py-5 text-[11px] font-black text-slate-400 uppercase tracking-widest">Mobile</th>
+                                    <th className="px-6 py-5 text-[11px] font-black text-slate-400 uppercase tracking-widest">Email</th>
+                                    <th className="px-6 py-5 text-[11px] font-black text-slate-400 uppercase tracking-widest">Destination</th>
+                                    <th className="px-6 py-5 text-[11px] font-black text-slate-400 uppercase tracking-widest">Source</th>
+                                    <th className="px-6 py-5 text-[11px] font-black text-slate-400 uppercase tracking-widest">Assigned To</th>
+                                    <th className="px-6 py-5 text-[11px] font-black text-slate-400 uppercase tracking-widest">Status</th>
+                                    <th className="px-6 py-5 text-[11px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-50">
+                                {filteredLeads.map((lead) => {
+                                    const assignedUserName =
+                                        lead.assigned_name ||
+                                        lead.assigned_user?.name ||
+                                        lead.assignedUser?.name ||
+                                        lead.assigned_to?.name ||
+                                        lead.assigned_to_name ||
+                                        lead.assigned_user_name ||
+                                        (typeof lead.assigned_to === 'object' && lead.assigned_to !== null ? lead.assigned_to.name : null) ||
+                                        "Unassigned";
+
+                                    return (
+                                        <tr 
+                                            key={lead.id} 
+                                            className="hover:bg-blue-50/30 transition-colors cursor-pointer group"
+                                            onClick={() => navigate(`/leads/${lead.id}`)}
+                                        >
+                                            <td className="px-6 py-4">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-8 h-8 rounded-xl bg-blue-100 flex items-center justify-center text-blue-600 font-black text-[10px]">
+                                                        {lead.client_name?.substring(0, 2).toUpperCase()}
+                                                    </div>
+                                                    <span className="font-bold text-slate-700">{lead.client_name}</span>
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4 text-sm font-bold text-slate-500">{lead.phone || "N/A"}</td>
+                                            <td className="px-6 py-4 text-sm font-bold text-slate-500">{lead.email || "N/A"}</td>
+                                            <td className="px-6 py-4 text-sm font-bold text-slate-500">{lead.destination || "N/A"}</td>
+                                            <td className="px-6 py-4">
+                                                <span className="px-3 py-1 bg-slate-100 text-slate-600 rounded-lg text-[10px] font-black uppercase tracking-wider border border-slate-200">
+                                                    {lead.source || "Direct"}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4 text-sm font-bold text-slate-600 italic">
+                                                {assignedUserName}
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <span className={`px-4 py-1.5 rounded-xl text-white text-[9px] font-black uppercase tracking-widest shadow-sm ${
+                                                    lead.status === 'confirmed' ? 'bg-emerald-600' :
+                                                    lead.status === 'new' ? 'bg-blue-600' :
+                                                    lead.status === 'proposal' ? 'bg-amber-500' :
+                                                    lead.status === 'followup' ? 'bg-orange-600' :
+                                                    'bg-slate-500'
+                                                }`}>
+                                                    {lead.status}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                    <button 
+                                                        onClick={(e) => { e.stopPropagation(); navigate(`/leads/${lead.id}?tab=whatsapp`); }}
+                                                        className="p-2 bg-emerald-50 text-emerald-600 rounded-lg hover:bg-emerald-600 hover:text-white transition-all shadow-sm border border-emerald-100"
+                                                    >
+                                                        <MessageSquare size={14} />
+                                                    </button>
+                                                    <button 
+                                                        onClick={(e) => { e.stopPropagation(); navigate(`/leads/${lead.id}?tab=mails`); }}
+                                                        className="p-2 bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-600 hover:text-white transition-all shadow-sm border border-indigo-100"
+                                                    >
+                                                        <Mail size={14} />
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+              )}
 
               {/* Pagination Controls */}
               {pagination.last_page > 1 && (
@@ -1241,82 +1349,36 @@ const Leads = () => {
 
         {/* ADD QUERY Modal */}
         {showModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 overflow-y-auto py-8">
-            <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl mx-4 my-auto">
+          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 overflow-y-auto py-8 transition-all p-4">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl mx-auto my-auto animate-in-scale">
               {/* Modal Header */}
-              <div className="flex justify-between items-center p-6 border-b border-gray-200">
-                <h2 className="text-xl font-bold text-gray-800">ADD QUERY</h2>
+              <div className="flex justify-between items-center p-6 border-b border-slate-100">
+                <div>
+                  <h2 className="text-xl font-bold text-slate-800">New Query</h2>
+                  <p className="text-slate-400 text-xs mt-1">Fill in the details to create a new opportunity</p>
+                </div>
                 <button
                   onClick={() => setShowModal(false)}
-                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                  className="p-2 bg-slate-50 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-all"
                 >
-                  <X className="h-6 w-6" />
+                  <X size={20} />
                 </button>
               </div>
 
               {/* Modal Body */}
               <form onSubmit={handleCreate}>
-                <div className="p-6 grid grid-cols-2 gap-4 max-h-[70vh] overflow-y-auto">
-                  {/* TYPE */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      TYPE
-                    </label>
-                    <select
-                      value={formData.type}
-                      onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="Client">Client</option>
-                      <option value="Agent">Agent</option>
-                      <option value="Corporate">Corporate</option>
-                    </select>
-                  </div>
-
-                  {/* MOBILE * */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      MOBILE *
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="Phone / Mobile"
-                      value={formData.phone}
-                      onChange={(e) => {
-                        const val = e.target.value.replace(/\D/g, '').slice(0, 10);
-                        setFormData({ ...formData, phone: val });
-                      }}
-                      required
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-
-                  {/* EMAIL */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      EMAIL
-                    </label>
-                    <input
-                      type="email"
-                      placeholder="Email"
-                      value={formData.email}
-                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-
+                <div className="p-8 grid grid-cols-1 md:grid-cols-2 gap-6 max-h-[60vh] overflow-y-auto">
                   {/* CLIENT NAME * */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      CLIENT NAME *
+                  <div className="md:col-span-2">
+                    <label className="block text-xs font-bold text-slate-500 mb-2 uppercase tracking-wider">
+                      Client Name & Title *
                     </label>
                     <div className="flex gap-2">
                       <select
                         value={formData.client_title}
                         onChange={(e) => setFormData({ ...formData, client_title: e.target.value })}
-                        className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-24 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-semibold outline-none"
                       >
-                        <option value="">Title</option>
                         <option value="Mr.">Mr.</option>
                         <option value="Mrs.">Mrs.</option>
                         <option value="Ms.">Ms.</option>
@@ -1324,196 +1386,219 @@ const Leads = () => {
                       </select>
                       <input
                         type="text"
-                        placeholder="Name"
+                        placeholder="Required Name"
                         value={formData.client_name}
                         onChange={(e) => setFormData({ ...formData, client_name: e.target.value })}
                         required
-                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="flex-1 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-semibold outline-none"
                       />
                     </div>
                   </div>
 
-                  {/* DOB */}
+                  {/* MOBILE * */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      DATE OF BIRTH
+                    <label className="block text-xs font-bold text-slate-500 mb-2 uppercase tracking-wider">
+                      Mobile Number *
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. 9876543210"
+                      value={formData.phone}
+                      onChange={(e) => {
+                        const val = e.target.value.replace(/\D/g, '').slice(0, 10);
+                        setFormData({ ...formData, phone: val });
+                      }}
+                      required
+                      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-semibold outline-none"
+                    />
+                  </div>
+
+                  {/* MAIL ID * */}
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 mb-2 uppercase tracking-wider">
+                      Mail ID (Email) *
+                    </label>
+                    <input
+                      type="email"
+                      placeholder="customer@email.com"
+                      value={formData.email}
+                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                      required
+                      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-semibold outline-none"
+                    />
+                  </div>
+
+                  {/* LEAD SOURCE * */}
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 mb-2 uppercase tracking-wider">
+                      Lead Source *
+                    </label>
+                    <select
+                      value={formData.source}
+                      onChange={(e) => setFormData({ ...formData, source: e.target.value })}
+                      required
+                      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-semibold outline-none appearance-none cursor-pointer"
+                    >
+                      <option value="">Select Source</option>
+                      {leadSources.map((source) => (
+                        <option key={source.id} value={source.name}>{source.name}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* ASSIGN TO * */}
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 mb-2 uppercase tracking-wider">
+                      Assign To *
+                    </label>
+                    <select
+                      value={formData.assigned_to}
+                      onChange={(e) => setFormData({ ...formData, assigned_to: e.target.value })}
+                      required
+                      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-semibold outline-none appearance-none cursor-pointer"
+                    >
+                      <option value="">Select Staff</option>
+                      {users.map((user) => (
+                        <option key={user.id} value={user.id}>{user.name}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Section Divider */}
+                  <div className="md:col-span-2 mt-4 pt-6 border-t border-slate-100">
+                    <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+                      <div className="w-1.5 h-4 bg-slate-300 rounded-full"></div>
+                      Additional Details (Optional)
+                    </h3>
+                  </div>
+
+                  {/* DESTINATION */}
+                  <div>
+                    <label className="block text-xs font-bold text-slate-400 mb-2 uppercase tracking-wider">
+                      Destination
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Maldives"
+                      value={formData.destination}
+                      onChange={(e) => setFormData({ ...formData, destination: e.target.value })}
+                      className="w-full px-4 py-3 bg-slate-50/50 border border-slate-100 rounded-xl focus:ring-2 focus:ring-blue-500/10 focus:border-blue-400 transition-all font-semibold outline-none"
+                    />
+                  </div>
+
+                  {/* TYPE */}
+                  <div>
+                    <label className="block text-xs font-bold text-slate-400 mb-2 uppercase tracking-wider">
+                      Type
+                    </label>
+                    <select
+                      value={formData.type}
+                      onChange={(e) => setFormData({ ...formData, type: e.target.value })}
+                      className="w-full px-4 py-3 bg-slate-50/50 border border-slate-100 rounded-xl focus:ring-2 focus:ring-blue-500/10 focus:border-blue-400 transition-all font-semibold outline-none"
+                    >
+                      <option value="Client">Client</option>
+                      <option value="Agent">Agent</option>
+                      <option value="Corporate">Corporate</option>
+                    </select>
+                  </div>
+
+                  {/* DATE OF BIRTH */}
+                  <div>
+                    <label className="block text-xs font-bold text-slate-400 mb-2 uppercase tracking-wider">
+                      Date of Birth
                     </label>
                     <input
                       type="date"
                       value={formData.date_of_birth}
                       onChange={(e) => setFormData({ ...formData, date_of_birth: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-4 py-3 bg-slate-50/50 border border-slate-100 rounded-xl focus:ring-2 focus:ring-blue-500/10 focus:border-blue-400 transition-all font-semibold outline-none"
                     />
                   </div>
 
                   {/* ANNIVERSARY */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      MARRIAGE ANNIVERSARY
+                    <label className="block text-xs font-bold text-slate-400 mb-2 uppercase tracking-wider">
+                      Anniversary
                     </label>
                     <input
                       type="date"
                       value={formData.marriage_anniversary}
                       onChange={(e) => setFormData({ ...formData, marriage_anniversary: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-4 py-3 bg-slate-50/50 border border-slate-100 rounded-xl focus:ring-2 focus:ring-blue-500/10 focus:border-blue-400 transition-all font-semibold outline-none"
                     />
                   </div>
 
-                  {/* DESTINATION * */}
+                  {/* FROM DATE */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      DESTINATION *
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="Destination"
-                      value={formData.destination}
-                      onChange={(e) => setFormData({ ...formData, destination: e.target.value })}
-                      required
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-
-                  {/* TRAVEL MONTH */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      TRAVEL MONTH
-                    </label>
-                    <select
-                      value={formData.travel_month}
-                      onChange={(e) => setFormData({ ...formData, travel_month: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="January">January</option>
-                      <option value="February">February</option>
-                      <option value="March">March</option>
-                      <option value="April">April</option>
-                      <option value="May">May</option>
-                      <option value="June">June</option>
-                      <option value="July">July</option>
-                      <option value="August">August</option>
-                      <option value="September">September</option>
-                      <option value="October">October</option>
-                      <option value="November">November</option>
-                      <option value="December">December</option>
-                    </select>
-                  </div>
-
-                  {/* FROM DATE * - only current date and future */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      FROM DATE *
+                    <label className="block text-xs font-bold text-slate-400 mb-2 uppercase tracking-wider">
+                      Travel From
                     </label>
                     <input
                       type="date"
                       value={formData.from_date}
                       onChange={(e) => setFormData({ ...formData, from_date: e.target.value })}
                       min={new Date().toISOString().split('T')[0]}
-                      required
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-4 py-3 bg-slate-50/50 border border-slate-100 rounded-xl focus:ring-2 focus:ring-blue-500/10 focus:border-blue-400 transition-all font-semibold outline-none"
                     />
                   </div>
 
-                  {/* TO DATE * - only current date and future, and not before FROM DATE */}
+                  {/* TO DATE */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      TO DATE *
+                    <label className="block text-xs font-bold text-slate-400 mb-2 uppercase tracking-wider">
+                      Travel To
                     </label>
                     <input
                       type="date"
                       value={formData.to_date}
                       onChange={(e) => setFormData({ ...formData, to_date: e.target.value })}
                       min={formData.from_date || new Date().toISOString().split('T')[0]}
-                      required
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-4 py-3 bg-slate-50/50 border border-slate-100 rounded-xl focus:ring-2 focus:ring-blue-500/10 focus:border-blue-400 transition-all font-semibold outline-none"
                     />
                   </div>
 
-                  {/* ADULT * */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      ADULT *
-                    </label>
-                    <select
-                      value={formData.adult}
-                      onChange={(e) => setFormData({ ...formData, adult: e.target.value })}
-                      required
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      {[...Array(20)].map((_, i) => (
-                        <option key={i + 1} value={String(i + 1)}>
-                          {i + 1}
-                        </option>
-                      ))}
-                    </select>
+                  {/* ADULTS / CHILDREN */}
+                  <div className="md:col-span-2 grid grid-cols-3 gap-3">
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-400 mb-1 uppercase">Adults</label>
+                      <select 
+                        value={formData.adult}
+                        onChange={(e) => setFormData({ ...formData, adult: e.target.value })}
+                        className="w-full px-4 py-2.5 bg-slate-50/50 border border-slate-100 rounded-xl text-sm"
+                      >
+                        {[...Array(20)].map((_, i) => <option key={i+1} value={String(i+1)}>{i+1}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-400 mb-1 uppercase">Child</label>
+                      <select 
+                        value={formData.child}
+                        onChange={(e) => setFormData({ ...formData, child: e.target.value })}
+                        className="w-full px-4 py-2.5 bg-slate-50/50 border border-slate-100 rounded-xl text-sm"
+                      >
+                        {[...Array(11)].map((_, i) => <option key={i} value={String(i)}>{i}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-400 mb-1 uppercase">Infant</label>
+                      <select 
+                        value={formData.infant}
+                        onChange={(e) => setFormData({ ...formData, infant: e.target.value })}
+                        className="w-full px-4 py-2.5 bg-slate-50/50 border border-slate-100 rounded-xl text-sm"
+                      >
+                        {[...Array(11)].map((_, i) => <option key={i} value={String(i)}>{i}</option>)}
+                      </select>
+                    </div>
                   </div>
 
-                  {/* CHILD */}
+                  {/* PRIORITY */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      CHILD
-                    </label>
-                    <select
-                      value={formData.child}
-                      onChange={(e) => setFormData({ ...formData, child: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      {[...Array(11)].map((_, i) => (
-                        <option key={i} value={String(i)}>
-                          {i}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {/* INFANT */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      INFANT
-                    </label>
-                    <select
-                      value={formData.infant}
-                      onChange={(e) => setFormData({ ...formData, infant: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      {[...Array(11)].map((_, i) => (
-                        <option key={i} value={String(i)}>
-                          {i}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {/* LEAD SOURCE * */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      LEAD SOURCE *
-                    </label>
-                    <select
-                      value={formData.source}
-                      onChange={(e) => setFormData({ ...formData, source: e.target.value })}
-                      required
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="">Select Lead Source</option>
-                      {leadSources.map((source) => (
-                        <option key={source.id} value={source.name}>
-                          {source.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {/* PRIORITY * */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      PRIORITY *
+                    <label className="block text-xs font-bold text-slate-400 mb-2 uppercase tracking-wider">
+                      Priority
                     </label>
                     <select
                       value={formData.priority}
                       onChange={(e) => setFormData({ ...formData, priority: e.target.value })}
-                      required
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-4 py-3 bg-slate-50/50 border border-slate-100 rounded-xl focus:ring-2 focus:ring-blue-500/10 focus:border-blue-400 transition-all font-semibold outline-none"
                     >
                       <option value="General Query">General Query</option>
                       <option value="Hot">Hot</option>
@@ -1522,77 +1607,54 @@ const Leads = () => {
                     </select>
                   </div>
 
-                  {/* ASSIGN TO * */}
-                  {!userRoles.some(r => ['Employee', 'Sales Rep'].includes(r)) && (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        ASSIGN TO *
-                      </label>
-                      <select
-                        value={formData.assigned_to || (currentUser?.id || '')}
-                        onChange={(e) => setFormData({ ...formData, assigned_to: e.target.value })}
-                        required
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      >
-                        <option value={currentUser?.id || ''}>
-                          {currentUser?.name || 'Assign to me'}
-                        </option>
-                        {users.filter(u => u.id !== currentUser?.id).map((user) => (
-                          <option key={user.id} value={user.id}>
-                            {user.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
-
                   {/* SERVICE */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      SERVICE
+                    <label className="block text-xs font-bold text-slate-400 mb-2 uppercase tracking-wider">
+                      Service
                     </label>
                     <select
                       value={formData.service}
                       onChange={(e) => setFormData({ ...formData, service: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-4 py-3 bg-slate-50/50 border border-slate-100 rounded-xl focus:ring-2 focus:ring-blue-500/10 focus:border-blue-400 transition-all font-semibold outline-none"
                     >
                       <option value="">Select Service</option>
                       <option value="Full Package">Full Package</option>
                       <option value="Hotel Only">Hotel Only</option>
+                      <option value="Cab Only">Cab Only</option>
+                      <option value="Activities only">Activities only</option>
                       <option value="Visa Only">Visa Only</option>
                       <option value="Flight Only">Flight Only</option>
                     </select>
                   </div>
 
-                  {/* REMARK - Full Width */}
-                  <div className="col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      REMARK
+                  {/* REMARK */}
+                  <div className="md:col-span-2">
+                    <label className="block text-xs font-bold text-slate-400 mb-2 uppercase tracking-wider">
+                      Remarks
                     </label>
                     <textarea
                       value={formData.remark}
                       onChange={(e) => setFormData({ ...formData, remark: e.target.value })}
-                      rows={4}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-                      placeholder="Enter remarks..."
+                      className="w-full px-4 py-3 bg-slate-50/50 border border-slate-100 rounded-xl focus:ring-2 focus:ring-blue-500/10 focus:border-blue-400 transition-all font-semibold outline-none h-24 resize-none"
+                      placeholder="Enter any additional notes..."
                     />
                   </div>
                 </div>
 
                 {/* Modal Footer */}
-                <div className="flex justify-end gap-3 p-6 border-t border-gray-200">
+                <div className="flex justify-end gap-3 p-6 border-t border-slate-100 bg-slate-50/50 rounded-b-2xl">
                   <button
                     type="button"
                     onClick={() => setShowModal(false)}
-                    className="px-6 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                    className="px-6 py-2.5 bg-white border border-slate-200 text-slate-600 rounded-xl hover:bg-slate-100 transition-all font-bold text-sm"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                    className="px-8 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-500/20 font-bold text-sm"
                   >
-                    Save
+                    Create Query
                   </button>
                 </div>
               </form>

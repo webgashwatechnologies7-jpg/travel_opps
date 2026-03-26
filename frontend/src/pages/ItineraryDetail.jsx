@@ -689,8 +689,10 @@ const ItineraryDetail = () => {
         days: dayList
       });
       console.log('Itinerary content synced to server');
+      // showToastNotification('success', 'Saved', 'Content synced to server');
     } catch (err) {
       console.error('Failed to sync itinerary content to server:', err);
+      // toast.error('Sync failed');
     }
   };
 

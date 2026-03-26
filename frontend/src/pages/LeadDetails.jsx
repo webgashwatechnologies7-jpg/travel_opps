@@ -536,7 +536,14 @@ const LeadDetails = () => {
           list = storedProposals ? JSON.parse(storedProposals) : [];
           // If we have local data, sync it to server once
           if (list.length > 0 && !cancelled) {
-            queryProposalsAPI.sync(id, list).catch(() => {});
+            console.log("Found local proposals, syncing to server...", list);
+            queryProposalsAPI.sync(id, list).then(() => {
+              console.log("Proposals synced successfully to server");
+              showToastNotification('success', 'Sync Complete', 'Itineraries and proposals have been synced and are now available on all systems.');
+            }).catch((e) => {
+              console.error("Proposals sync failed", e);
+              showToastNotification('error', 'Sync Failed', 'Could not sync proposals to server. Please refresh or try again.');
+            });
           }
         }
 

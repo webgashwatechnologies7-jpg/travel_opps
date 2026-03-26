@@ -71,8 +71,8 @@ class IdentifyTenant
         // Fallback: Extract subdomain from host
         $subdomain = $this->extractSubdomain($host);
 
-        // If no subdomain or subdomain is 'www' or 'admin', skip tenant identification
-        if (!$subdomain || in_array($subdomain, ['www', 'admin', 'api'])) {
+        // If no subdomain or subdomain is 'www' or 'admin' or 'crm' or 'crmopp', skip tenant identification
+        if (!$subdomain || in_array($subdomain, ['www', 'admin', 'api', 'crm', 'crmopp'])) {
             // CHECK: Is Single Domain/IP Login allowed? (Super Admin Toggle)
             $allowSingleDomainLogin = \App\Models\Setting::getValue('allow_single_domain_login', true);
 
@@ -150,9 +150,9 @@ class IdentifyTenant
         }
 
         // Handle CRM URL format: crmopp.gashwa.com -> extract "gashwa"
-        // If first part is "crmopp", skip it and use the second part
-        if (count($parts) > 2 && $parts[0] === 'crmopp') {
-            return $parts[1]; // Return the actual subdomain after "crmopp"
+        // If first part is "crmopp" or "crm", skip it and use the second part
+        if (count($parts) > 2 && ($parts[0] === 'crmopp' || $parts[0] === 'crm')) {
+            return $parts[1]; // Return the actual subdomain after "crm"
         }
 
         // If we have more than 2 parts, first part is subdomain
