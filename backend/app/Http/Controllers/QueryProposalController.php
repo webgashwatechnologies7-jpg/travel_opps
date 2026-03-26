@@ -48,7 +48,7 @@ class QueryProposalController extends Controller
 
             $validator = Validator::make($request->all(), [
                 'proposals' => 'required|array',
-                'proposals.*.optionNumber' => 'required',
+                'proposals.*.optionNumber' => 'nullable', // Allow base itineraries without specific option numbers
                 'proposals.*.itinerary_id' => 'required|integer',
             ]);
 

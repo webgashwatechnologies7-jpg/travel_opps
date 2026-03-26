@@ -139,13 +139,22 @@ const Dashboard = () => {
         startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
         const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
         const startOfYear = new Date(now.getFullYear(), 0, 1);
-        const toDate = (value) => (value ? new Date(value) : null);
+        const toDate = (value) => {
+          if (!value) return null;
+          let str = value;
+          // If it looks like a MySQL timestamp without timezone (e.g. 2026-03-26 14:44:53), append Z to treat as UTC
+          if (typeof str === 'string' && !str.includes('Z') && !str.includes('+')) {
+            str = str.replace(' ', 'T') + 'Z';
+          }
+          return new Date(str);
+        };
         const isSameDay = (value) => {
           const d = toDate(value);
-          return d
-            && d.getFullYear() === now.getFullYear()
-            && d.getMonth() === now.getMonth()
-            && d.getDate() === now.getDate();
+          if (!d || isNaN(d.getTime())) return false;
+          const today = new Date();
+          return d.getFullYear() === today.getFullYear() &&
+                 d.getMonth() === today.getMonth() &&
+                 d.getDate() === today.getDate();
         };
 
         const todayLeads = leads.filter(lead => lead.created_at && isSameDay(lead.created_at));

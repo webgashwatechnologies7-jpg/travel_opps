@@ -514,6 +514,65 @@ const LeadDetails = () => {
   };
 
   // Load proposals from server (with localStorage fallback for existing data)
+  // Helper to reconstruct proposals from server data (used when localstorage is empty)
+  const reconstructOptionsFromServerData = (itinerary, pricingData, existingBaseProposal) => {
+    if (!itinerary || !itinerary.day_events) return [];
+    
+    const dayEvents = itinerary.day_events;
+    const finalPrices = pricingData?.final_client_prices || {};
+    const optionNumbersFromEvents = new Set();
+    
+    Object.keys(dayEvents || {}).forEach(day => {
+      (dayEvents[day] || []).forEach(event => {
+        if (event.eventType === 'accommodation' && event.hotelOptions) {
+          event.hotelOptions.forEach((option) => {
+            const optNum = option.optionNumber ?? 1;
+            optionNumbersFromEvents.add(parseInt(optNum, 10));
+          });
+        }
+      });
+    });
+
+    const sortedOptionNumbers = Array.from(optionNumbersFromEvents).sort((a, b) => a - b);
+    if (sortedOptionNumbers.length === 0) {
+      // Just return the base proposal if no options found
+      return [existingBaseProposal];
+    }
+
+    return sortedOptionNumbers.map((optNum, idx) => {
+      const optNumStr = String(optNum);
+      const apiPrice = getPriceFromFinalPrices(finalPrices, optNum);
+      const price = apiPrice !== null ? apiPrice : (existingBaseProposal.price || itinerary.price || 0);
+
+      // Collect hotel options for this specific option number
+      const hotelOptions = [];
+      Object.keys(dayEvents || {}).forEach(day => {
+        (dayEvents[day] || []).forEach(event => {
+          if (event.eventType === 'accommodation' && event.hotelOptions) {
+            event.hotelOptions.forEach(opt => {
+              if (opt.optionNumber === optNum) {
+                hotelOptions.push({ ...opt, day: parseInt(day) });
+              }
+            });
+          }
+        });
+      });
+
+      return {
+        ...existingBaseProposal,
+        id: Date.now() + idx + optNum,
+        optionNumber: optNum,
+        price,
+        pricing: { ...(existingBaseProposal.pricing || {}), finalClientPrice: price },
+        hotels: hotelOptions, // helpful for rendering
+        itinerary_name: itinerary.itinerary_name || existingBaseProposal.itinerary_name,
+        destination: itinerary.destinations || existingBaseProposal.destination,
+        duration: itinerary.duration || existingBaseProposal.duration,
+        image: itinerary.image || existingBaseProposal.image
+      };
+    });
+  };
+
   useEffect(() => {
     if (!id) return;
     let cancelled = false;
@@ -539,10 +598,8 @@ const LeadDetails = () => {
             console.log("Found local proposals, syncing to server...", list);
             queryProposalsAPI.sync(id, list).then(() => {
               console.log("Proposals synced successfully to server");
-              showToastNotification('success', 'Sync Complete', 'Itineraries and proposals have been synced and are now available on all systems.');
             }).catch((e) => {
               console.error("Proposals sync failed", e);
-              showToastNotification('error', 'Sync Failed', 'Could not sync proposals to server. Please refresh or try again.');
             });
           }
         }
@@ -561,8 +618,25 @@ const LeadDetails = () => {
           }
         });
 
+        // 2. Fetch Packages and Pricing for server-side reconstruction
+        const uniqueItineraryIds = [...new Set(list.map(p => p.itinerary_id).filter(Boolean))];
+        const packageMap = {};
+        const pricingMap = {};
+
+        await Promise.all(uniqueItineraryIds.map(async (tid) => {
+          try {
+            const [pkgRes, prRes] = await Promise.all([
+              packagesAPI.get(tid),
+              itineraryPricingAPI.get(tid)
+            ]);
+            if (pkgRes.data.data) packageMap[tid] = pkgRes.data.data;
+            if (prRes.data.data) pricingMap[tid] = prRes.data.data;
+          } catch (_) { }
+        }));
+
         const result = [];
         const processedItineraryIds = new Set();
+        
         list.forEach((p) => {
           const tid = p.itinerary_id;
           if (!tid) {
@@ -572,54 +646,42 @@ const LeadDetails = () => {
           if (processedItineraryIds.has(tid)) return;
           processedItineraryIds.add(tid);
           
-          // Still use localStorage for local edits to itineraries that haven't been saved to server yet
+          // Primary source: LocalStorage (for in-progress edits on SAME device)
           const fromStorage = localStorage.getItem(`itinerary_${tid}_proposals`);
-          const latestOptions = fromStorage ? JSON.parse(fromStorage) : [];
+          let latestOptions = fromStorage ? JSON.parse(fromStorage) : [];
           
+          // Re-Sync/Reconstruct from Server if LocalStorage is empty
+          // Special Rule: If server-side list for this ITINERARY only has 1 item and it's 'base' (no option number),
+          // AND we found actual options in the package data, then we expand it.
+          const existingOfThisTid = byItineraryId[tid] || [];
+          const isBaseOnly = existingOfThisTid.length === 1 && (existingOfThisTid[0].optionNumber == null);
+
+          if ((!latestOptions || latestOptions.length === 0) && packageMap[tid] && isBaseOnly) {
+            console.log(`Reconstructing options for Itinerary ${tid} from server data...`);
+            latestOptions = reconstructOptionsFromServerData(packageMap[tid], pricingMap[tid], existingOfThisTid[0]);
+          }
+
           if (Array.isArray(latestOptions) && latestOptions.length > 0) {
-            const existing = byItineraryId[tid] || [];
-            const confirmedOptionNum = existing.find((x) => x.confirmed)?.optionNumber;
+            const confirmedOptionNum = existingOfThisTid.find((x) => x.confirmed)?.optionNumber;
             latestOptions.forEach((opt, i) => {
+              const optNum = opt.optionNumber != null ? opt.optionNumber : i + 1;
+              const serverPrice = getPriceFromFinalPrices(pricingMap[tid]?.final_client_prices, optNum);
+              const price = serverPrice !== null ? serverPrice : (opt.price ?? 0);
+
               result.push({
                 ...opt,
                 id: opt.id || Date.now() + i + tid,
-                price: opt.price ?? opt.pricing?.finalClientPrice ?? 0,
-                pricing: { ...(opt.pricing || {}), finalClientPrice: opt.price ?? opt.pricing?.finalClientPrice ?? 0 },
+                price: price,
+                pricing: { ...(opt.pricing || {}), finalClientPrice: price },
                 confirmed: confirmedOptionNum != null && opt.optionNumber === confirmedOptionNum
               });
             });
           } else {
-            (byItineraryId[tid] || []).forEach((x) => result.push(x));
+            existingOfThisTid.forEach((x) => result.push(x));
           }
         });
         
         if (!cancelled) setProposals(result);
-
-        // Overlay final client prices from API (primary source of truth for pricing)
-        const itineraryIds = [...new Set(result.map((r) => r.itinerary_id).filter(Boolean))];
-        const priceMapByItinerary = {};
-        await Promise.all(
-          itineraryIds.map(async (tid) => {
-            try {
-              const res = await itineraryPricingAPI.get(tid);
-              if (cancelled) return;
-              const data = res?.data?.data;
-              const fp = data?.final_client_prices;
-              if (fp && typeof fp === 'object' && !Array.isArray(fp)) priceMapByItinerary[tid] = fp;
-            } catch (_) { }
-          })
-        );
-
-        if (cancelled) return;
-        const updated = result.map((opt) => {
-          const tid = opt.itinerary_id;
-          const fp = priceMapByItinerary[tid];
-          const optNum = opt.optionNumber != null ? opt.optionNumber : 1;
-          const apiPrice = getPriceFromFinalPrices(fp, optNum);
-          const price = apiPrice !== null ? apiPrice : (opt.price ?? 0);
-          return { ...opt, price, pricing: { ...(opt.pricing || {}), finalClientPrice: price } };
-        });
-        setProposals(updated);
       } catch (err) {
         if (!cancelled) {
           console.error('Failed to load proposals:', err);
@@ -960,13 +1022,9 @@ const LeadDetails = () => {
         return;
       }
 
-      // FIX: If this is a completely 'new' lead, it should NOT have existing proposals in local storage.
-      // This protects against ID collisions when the database is wiped but local storage still has old data.
-      if (leadData.status === 'new') {
-        localStorage.removeItem(`lead_${id}_proposals`);
-        setProposals([]); // ensure state is clean
-      }
-
+      // Wiping proposals for 'new' leads was causing data loss when users added itineraries 
+      // but the page reloaded before the server-side status update or sync was complete.
+      // We now rely on queryProposalsAPI.sync and server-side truth.
       setLead(leadData);
 
       // Split followups vs notes:
@@ -2078,7 +2136,7 @@ const LeadDetails = () => {
     }
   };
 
-  const handleSelectItinerary = (itinerary) => {
+  const handleSelectItinerary = async (itinerary) => {
     const itineraryName = itinerary.title || itinerary.itinerary_name || 'Untitled Itinerary';
     const baseInfo = {
       itinerary_id: itinerary.id,
@@ -2092,11 +2150,13 @@ const LeadDetails = () => {
     };
 
     // Check if this itinerary has options (Option 1, 2, 3) saved from Itinerary Detail / Final tab
-    const storedOptionsKey = `itinerary_${itinerary.id}_proposals`;
-    const finalPricesKey = `itinerary_${itinerary.id}_finalClientPrices`;
+    const tid = itinerary.id;
+    const storedOptionsKey = `itinerary_${tid}_proposals`;
+    const finalPricesKey = `itinerary_${tid}_finalClientPrices`;
     let optionsToAdd = [];
     try {
       const stored = localStorage.getItem(storedOptionsKey);
+      
       // Use latest prices from Itinerary Detail (finalClientPrices) so Query shows same as Itinerary page
       let finalClientPricesMap = {};
       try {
@@ -2107,29 +2167,47 @@ const LeadDetails = () => {
       if (stored) {
         const parsed = JSON.parse(stored);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          // Add all options from itinerary (no limit) so query shows same options and prices as itinerary
-          const filtered = parsed;
-          optionsToAdd = filtered.map((opt, idx) => {
-            const optNum = opt.optionNumber != null ? opt.optionNumber : idx + 1;
-            const latestPrice = finalClientPricesMap[String(optNum)] ?? finalClientPricesMap[optNum];
-            const price = latestPrice !== undefined && latestPrice !== null && latestPrice !== ''
-              ? Number(latestPrice)
-              : (opt.price ?? opt.pricing?.finalClientPrice ?? 0);
-            return {
-              ...opt,
-              id: Date.now() + idx,
-              itinerary_id: itinerary.id,
-              itinerary_name: opt.itinerary_name || itineraryName,
-              destination: opt.destination || baseInfo.destination,
-              duration: opt.duration ?? baseInfo.duration,
-              image: opt.image || baseInfo.image,
-              price,
-              pricing: { ...(opt.pricing || {}), finalClientPrice: price },
-              created_at: baseInfo.created_at,
-              inserted_at: baseInfo.inserted_at
-            };
-          });
+          optionsToAdd = parsed; // Use localstorage data if present
         }
+      }
+
+      // If no local storage data found, try to fetch/reconstruct from server
+      if (optionsToAdd.length === 0) {
+        try {
+          const [pkgRes, prRes] = await Promise.all([
+            packagesAPI.get(tid),
+            itineraryPricingAPI.get(tid)
+          ]);
+          if (pkgRes.data.data) {
+            optionsToAdd = reconstructOptionsFromServerData(pkgRes.data.data, prRes.data.data, baseInfo);
+          }
+        } catch (serverErr) {
+          console.warn('Could not fetch itinerary options from server, using base:', serverErr);
+        }
+      }
+
+      // Map and format options for proposals list
+      if (optionsToAdd.length > 0) {
+        optionsToAdd = optionsToAdd.map((opt, idx) => {
+          const optNum = opt.optionNumber != null ? opt.optionNumber : idx + 1;
+          const latestPrice = finalClientPricesMap[String(optNum)] ?? finalClientPricesMap[optNum];
+          const price = latestPrice !== undefined && latestPrice !== null && latestPrice !== ''
+            ? Number(latestPrice)
+            : (opt.price ?? opt.pricing?.finalClientPrice ?? 0);
+          return {
+            ...opt,
+            id: Date.now() + idx + (tid * 100),
+            itinerary_id: tid,
+            itinerary_name: opt.itinerary_name || itineraryName,
+            destination: opt.destination || baseInfo.destination,
+            duration: opt.duration ?? baseInfo.duration,
+            image: opt.image || baseInfo.image,
+            price,
+            pricing: { ...(opt.pricing || {}), finalClientPrice: price },
+            created_at: baseInfo.created_at,
+            inserted_at: baseInfo.inserted_at
+          };
+        });
       }
     } catch (e) {
       console.error('Error loading itinerary options:', e);
