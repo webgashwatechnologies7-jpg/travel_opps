@@ -1,15 +1,30 @@
-@import url('https://fonts.googleapis.com/css2?family=Nunito+Sans:ital,opsz,wght@0,6..12,200..1000;1,6..12,200..1000&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@100..900&family=Inter:wght@100..900&display=swap');
 @import "tailwindcss/base";
 @import "tailwindcss/components";
 @import "tailwindcss/utilities";
 
 body {
   margin: 0;
-  font-family: "Nunito Sans", -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto',
-    'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans',
-    'Helvetica Neue', sans-serif;
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  background-color: #F8FAFC;
+  text-rendering: optimizeLegibility;
+  color: #1E293B;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: "Outfit", sans-serif;
+}
+
+:root {
+  --brand-primary: #2563EB;
+  --brand-secondary: #4F46E5;
+  --brand-accent: #EC4899;
+  --bg-main: #F8FAFC;
+  --card-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.04), 0 4px 6px -2px rgba(0, 0, 0, 0.02);
+  --glass-bg: rgba(255, 255, 255, 0.7);
+  --glass-border: rgba(255, 255, 255, 0.4);
 }
 
 #root {
@@ -78,15 +93,41 @@ body {
 
 .premium-card {
   background: white;
-  border-radius: 1rem;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
-  border: 1px solid rgba(226, 232, 240, 0.8);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  border-radius: 1.25rem;
+  box-shadow: var(--card-shadow);
+  border: 1px solid rgba(226, 232, 240, 0.6);
+  transition: all 0.4s cubic-bezier(0.23, 1, 0.32, 1);
 }
 
 .premium-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -2px rgba(0, 0, 0, 0.04);
+  transform: translateY(-5px);
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  border-color: rgba(37, 99, 235, 0.2);
+}
+
+.glass-panel {
+  background: var(--glass-bg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--glass-border);
+}
+
+.text-gradient {
+  background: linear-gradient(135deg, #1E293B 0%, #334155 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%);
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
+  transition: all 0.3s ease;
+}
+
+.btn-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(37, 99, 235, 0.3);
 }
 
 .custom-scroll {
@@ -96,88 +137,53 @@ body {
 
 /* WebKit */
 .custom-scroll::-webkit-scrollbar {
-  width: 10px;
+  width: 6px;
 }
 
 .custom-scroll::-webkit-scrollbar-track {
-  background: #ffffff;
-  border-radius: 20px;
+  background: transparent;
 }
 
 .custom-scroll::-webkit-scrollbar-thumb {
-  background: #9DC7F1;
+  background: #CBD5E1;
   border-radius: 20px;
-  border: 2px solid #ffffff;
 }
+
+.custom-scroll::-webkit-scrollbar-thumb:hover {
+  background: #94A3B8;
+}
+
+/* Status Glow Effects */
+.status-glow-new { box-shadow: 0 0 15px rgba(59, 130, 246, 0.3); border: 1px solid rgba(59, 130, 246, 0.2); }
+.status-glow-proposal { box-shadow: 0 0 15px rgba(245, 158, 11, 0.3); border: 1px solid rgba(245, 158, 11, 0.2); }
+.status-glow-followup { box-shadow: 0 0 15px rgba(249, 115, 22, 0.3); border: 1px solid rgba(249, 115, 22, 0.2); }
+.status-glow-confirmed { box-shadow: 0 0 15px rgba(34, 197, 94, 0.3); border: 1px solid rgba(34, 197, 94, 0.2); }
+.status-glow-cancelled { box-shadow: 0 0 15px rgba(239, 68, 68, 0.3); border: 1px solid rgba(239, 68, 68, 0.2); }
 
 /* Custom Toastify Styles for Premium Look */
 .Toastify__toast {
-  border-radius: 12px !important;
-  box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.15) !important;
+  border-radius: 16px !important;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1) !important;
   font-family: inherit !important;
-  padding: 14px 20px !important;
-  min-height: 70px !important;
+  padding: 16px !important;
+  backdrop-filter: blur(8px);
 }
 
-.Toastify__toast--light {
-  background: #ffffff !important;
-  color: #1e293b !important;
-  border: 1px solid #f1f5f9 !important;
+@keyframes float {
+  0% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+  100% { transform: translateY(0px); }
 }
 
-.Toastify__toast--success {
-  border-left: 6px solid #22c55e !important;
+.animate-float {
+  animation: float 3s ease-in-out infinite;
 }
 
-.Toastify__toast--error {
-  border-left: 6px solid #ef4444 !important;
+@keyframes fadeInScale {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
 }
 
-.Toastify__toast--warning {
-  border-left: 6px solid #f59e0b !important;
-}
-
-.Toastify__toast--info {
-  border-left: 6px solid #3b82f6 !important;
-}
-
-.Toastify__toast-body {
-  padding: 0 !important;
-  margin: 0 !important;
-  display: flex !important;
-  align-items: center !important;
-}
-
-.Toastify__toast-icon {
-  width: 24px !important;
-  margin-right: 12px !important;
-}
-
-.Toastify__progress-bar--success {
-  background: #22c55e !important;
-}
-
-.Toastify__progress-bar--error {
-  background: #ef4444 !important;
-}
-
-.Toastify__close-button {
-  align-self: flex-start !important;
-  margin-top: -2px !important;
-  color: #64748b !important;
-  opacity: 0.5 !important;
-}
-
-.Toastify__close-button:hover {
-  opacity: 1 !important;
-}
-
-@keyframes highlight-blink {
-  0% { background-color: rgba(255, 235, 59, 0.4); }
-  50% { background-color: rgba(255, 235, 59, 0.2); }
-  100% { background-color: transparent; }
-}
-
-.highlight-blink {
-  animation: highlight-blink 2s ease-in-out forwards;
+.animate-in-scale {
+  animation: fadeInScale 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }

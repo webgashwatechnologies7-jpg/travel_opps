@@ -4,7 +4,7 @@ import { leadsAPI, leadSourcesAPI, usersAPI, googleSheetsAPI } from '../services
 import { toast } from 'react-toastify';
 import { useAuth } from '../contexts/AuthContext';
 import Layout from '../components/Layout';
-import { X, ChevronDown, Filter, Eye, Mail, MessageSquare, Edit, MoreVertical, History, Plus, TrendingUp, BarChart3, Calendar, FileSpreadsheet } from 'lucide-react';
+import { X, Search, Upload, Download, RefreshCw, ChevronDown, Filter, Eye, Mail, MessageSquare, Edit, MoreVertical, History, Plus, TrendingUp, BarChart3, Calendar, FileSpreadsheet } from 'lucide-react';
 import LeadCard from '../components/Quiries/LeadCard';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line 
@@ -75,7 +75,7 @@ const Leads = () => {
   const [pagination, setPagination] = useState({
     current_page: 1,
     last_page: 1,
-    per_page: 20,
+    per_page: 8,
     total: 0,
   });
   const [currentPage, setCurrentPage] = useState(1);
@@ -263,7 +263,7 @@ const Leads = () => {
       else if (activeFilter === 'today') activeFilterParams = { today: 1 };
 
       const params = { 
-        per_page: 20, 
+        per_page: 8, 
         page,
         destination: destinationFilter,
         assigned_to: assignedToFilter,
@@ -459,7 +459,7 @@ const Leads = () => {
       return d >= start;
     };
     const stats = {
-      total: leads.length,
+      total: pagination.total,
       new: leads.filter(l => l.status === 'new').length,
       proposalSent: leads.filter(l => l.status === 'proposal').length,
       noConnect: 0, // Not in current data model
@@ -512,7 +512,8 @@ const Leads = () => {
       if (!target) return leads;
       return leads.filter((lead) => {
         const value = (lead.destination || '').toLowerCase().trim();
-        return value === target || value.includes(target);
+        const assignedName = (lead.assigned_to?.name || lead.assigned_user?.name || '').toLowerCase().trim();
+        return value.includes(target) || assignedName.includes(target);
       });
     }
     if (activeFilter === 'total') {
@@ -714,166 +715,165 @@ const Leads = () => {
   }
   return (
     <Layout>
-      <div className="p-6">
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-3xl font-bold text-gray-800">Queries</h1>
-          <div className="flex items-center gap-3 relative">
-            <button
-              onClick={() => setShowOptionsDropdown(!showOptionsDropdown)}
-              className="flex items-center gap-2 bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 px-4 py-2 rounded-lg text-sm font-medium shadow-sm transition-colors"
-              title="Options"
-            >
-              <MoreVertical size={18} />
-              Options
-            </button>
-            
-            {showOptionsDropdown && (
-              <div className="absolute top-full right-[130px] mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-100 z-50 overflow-hidden">
-                <div className="py-1">
+      <div className="p-6 bg-[#F8FAFC] min-h-screen">
+        {/* Header Section */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
+          <div className="animate-in-scale">
+            <h1 className="text-4xl font-black text-slate-900 tracking-tight text-gradient">Queries</h1>
+            <p className="text-slate-500 font-bold text-sm mt-1 uppercase tracking-widest flex items-center gap-2">
+               <span className="w-8 h-[2px] bg-blue-600 rounded-full"></span>
+               {stats.total} total opportunities
+            </p>
+          </div>
+
+          <div className="flex items-center gap-3 relative animate-in-scale" style={{ animationDelay: '100ms' }}>
+            <div className="relative group">
+              <button
+                onClick={() => setShowOptionsDropdown(!showOptionsDropdown)}
+                className="flex items-center gap-2.5 bg-white border border-slate-200 text-slate-700 hover:border-blue-400 hover:text-blue-600 px-5 py-3 rounded-2xl text-sm font-black shadow-sm transition-all active:scale-95"
+              >
+                <MoreVertical size={18} />
+                <span>Options</span>
+              </button>
+              
+              {showOptionsDropdown && (
+                <div className="absolute top-full right-0 mt-3 w-64 bg-white/90 backdrop-blur-xl rounded-2xl shadow-2xl border border-slate-100 z-[100] py-2 animate-in-scale overflow-hidden">
+                  <div className="px-4 py-2 border-b border-slate-50 mb-1">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-[.2em]">Data Management</p>
+                  </div>
                   <button
                     onClick={() => { setShowImportModal(true); setShowOptionsDropdown(false); }}
-                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors"
+                    className="w-full text-left px-4 py-2.5 text-sm text-slate-700 hover:bg-blue-50 hover:text-blue-600 transition-colors flex items-center gap-3 font-bold"
                   >
-                    Import Leads (CSV)
+                    <Upload size={16} />
+                    Import (CSV)
                   </button>
                   <button
                     onClick={() => { setShowGoogleSheetModal(true); setShowOptionsDropdown(false); }}
-                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-green-50 hover:text-green-600 transition-colors"
+                    className="w-full text-left px-4 py-2.5 text-sm text-slate-700 hover:bg-emerald-50 hover:text-emerald-600 transition-colors flex items-center gap-3 font-bold"
                   >
-                    Import from Google Sheet
+                    <FileSpreadsheet size={16} className="text-emerald-500" />
+                    Google Sheets
                   </button>
-                  <button
-                    onClick={handleDownloadCSVTemplate}
-                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors border-b border-gray-100 font-medium"
-                  >
-                    - Download CSV Template
-                  </button>
+                  <div className="h-px bg-slate-100 my-1 mx-4"></div>
                   <button
                     onClick={handleExportData}
-                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors"
+                    className="w-full text-left px-4 py-2.5 text-sm text-slate-700 hover:bg-blue-50 hover:text-blue-600 transition-colors flex items-center gap-3 font-bold"
                   >
-                    Export Data (CSV)
-                  </button>
-                  <button
-                    onClick={() => { setShowGoogleSheetModal(true); setShowOptionsDropdown(false); }}
-                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-green-50 hover:text-green-600 transition-colors border-b border-gray-100"
-                  >
-                    Export to Google Sheet
-                  </button>
-                  <button
-                    onClick={() => { setShowGoogleSheetModal(true); setShowOptionsDropdown(false); }}
-                    className="w-full text-left px-4 py-2 text-sm font-bold text-gray-800 hover:bg-gray-50 flex items-center gap-2 bg-gray-50/30"
-                  >
-                    <FileSpreadsheet size={16} className="text-green-600" />
-                    Google Sheet Settings
+                    <Download size={16} />
+                    Export All
                   </button>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
 
             <button
               type="button"
               onClick={() => { setFormData(getDefaultFormData()); setShowModal(true); }}
-              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium shadow-sm"
+              className="flex items-center gap-2 btn-primary text-white p-1 rounded-2xl animate-float"
             >
-              <Plus size={18} />
-              Add Query
+              <div className="bg-white/20 p-2 rounded-xl">
+                <Plus size={20} strokeWidth={3} />
+              </div>
+              <span className="pr-4 font-black uppercase tracking-wider text-sm">Add Query</span>
             </button>
           </div>
         </div>
 
-        {/* Filters */}
-        <div className="mb-6 bg-white p-4 rounded-xl shadow-sm border border-gray-100">
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-            <div className="flex flex-wrap gap-3 flex-1">
-              <div className="relative flex-1 min-w-[200px]">
+        {/* Action/Filter Bar */}
+        <div className="mb-0 bg-white/60 backdrop-blur-md p-1.5 rounded-[2rem] border border-white shadow-premium flex flex-col lg:flex-row gap-2 transition-all duration-500 sticky top-4 z-40 mb-8 mx-[-0.5rem] lg:mx-0">
+          <div className="flex-1 flex flex-col md:flex-row gap-2">
+             <div className="relative flex-1 group">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-hover:text-blue-500 transition-colors" size={18} />
                 <input
                   type="text"
                   value={destinationFilter}
-                  onChange={(e) => {
-                    setDestinationFilter(e.target.value);
-                  }}
+                  onChange={(e) => setDestinationFilter(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && fetchLeads()}
-                  placeholder="Search by destination"
-                  className="w-full pl-3 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Search by destination or staff name..."
+                  className="w-full pl-12 pr-4 py-3.5 bg-white border border-slate-100 rounded-[1.5rem] text-sm font-bold text-slate-700 focus:outline-none focus:ring-4 focus:ring-blue-500/5 focus:border-blue-400 transition-all placeholder:text-slate-400 shadow-sm"
                 />
               </div>
-              <select
-                value={activeFilter}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  setActiveFilter(val);
-                  if (val === 'total') fetchLeads({});
-                  else if (val === 'new') fetchLeads({ status: 'new' });
-                  else if (val === 'proposalSent') fetchLeads({ status: 'proposal' });
-                  else if (val === 'followUp') fetchLeads({ status: 'followup' });
-                  else if (val === 'confirmed') fetchLeads({ status: 'confirmed' });
-                  else if (val === 'cancel') fetchLeads({ status: 'cancelled' });
-                  else if (val === 'hotLead') fetchLeads({ priority: 'hot' });
-                  else if (val === 'assignedToMe') fetchLeads({ assigned_to: currentUser?.id });
-                  else if (val === 'unassigned') fetchLeads({ unassigned: 1 });
-                  else if (val === 'today') fetchLeads({ today: 1 });
-                }}
-                className="w-full sm:w-48 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+
+              <div className="relative min-w-[200px]">
+                <select
+                  value={activeFilter}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setActiveFilter(val);
+                    if (val === 'total') fetchLeads({});
+                    else if (val === 'new') fetchLeads({ status: 'new' });
+                    else if (val === 'proposalSent') fetchLeads({ status: 'proposal' });
+                    else if (val === 'followUp') fetchLeads({ status: 'followup' });
+                    else if (val === 'confirmed') fetchLeads({ status: 'confirmed' });
+                    else if (val === 'cancel') fetchLeads({ status: 'cancelled' });
+                    else if (val === 'hotLead') fetchLeads({ priority: 'hot' });
+                    else if (val === 'assignedToMe') fetchLeads({ assigned_to: currentUser?.id });
+                    else if (val === 'unassigned') fetchLeads({ unassigned: 1 });
+                    else if (val === 'today') fetchLeads({ today: 1 });
+                  }}
+                  className="w-full pl-4 pr-10 py-3.5 bg-white border border-slate-100 rounded-[1.5rem] text-sm font-black text-slate-700 focus:outline-none focus:ring-4 focus:ring-blue-500/5 appearance-none shadow-sm"
+                >
+                  <option value="total">ALL QUERIES ({stats.total})</option>
+                  {stats.assignedToMe > 0 && <option value="assignedToMe">{currentUser?.name || 'ASSIGNED TO ME'} ({stats.assignedToMe})</option>}
+                  <option value="today">CREATED TODAY ({stats.today})</option>
+                  {canAssign && <option value="unassigned">UNASSIGNED ({stats.unassigned})</option>}
+                  <option value="new">NEW INCOMING ({stats.new})</option>
+                  <option value="proposalSent">PROPOSAL SENT ({stats.proposalSent})</option>
+                  <option value="hotLead">HOT LEADS ({stats.hotLead})</option>
+                  <option value="cancel">CANCELLED ({stats.cancel})</option>
+                  <option value="followUp">FOLLOW UPS ({stats.followUp})</option>
+                  <option value="confirmed">CONFIRMED ({stats.confirmed})</option>
+                </select>
+                <ChevronDown size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+              </div>
+          </div>
+          
+          <div className="flex gap-2 p-1 lg:p-0">
+             <button
+                type="button"
+                onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+                className={`flex items-center gap-2 px-6 py-3.5 rounded-[1.5rem] text-sm font-black transition-all border ${
+                  showAdvancedFilters 
+                    ? 'bg-blue-600 text-white border-blue-600 shadow-lg shadow-blue-200' 
+                    : 'bg-white text-slate-600 border-slate-100 hover:bg-slate-50'
+                }`}
               >
-                <option value="total">All Queries ({stats.total})</option>
-                {stats.assignedToMe > 0 && <option value="assignedToMe">{currentUser?.name || 'Assigned to Me'} ({stats.assignedToMe})</option>}
-                <option value="today">Today ({stats.today})</option>
-                {canAssign && <option value="unassigned" className="font-semibold text-orange-600">Unassigned ({stats.unassigned})</option>}
-                <option value="new">New ({stats.new})</option>
-                <option value="proposalSent">Proposal Sent ({stats.proposalSent})</option>
-                <option value="hotLead">Hot Lead ({stats.hotLead})</option>
-                <option value="cancel">Cancel ({stats.cancel})</option>
-                <option value="followUp">Follow ups ({stats.followUp})</option>
-                <option value="confirmed">Confirmed ({stats.confirmed})</option>
-              </select>
+                <Filter size={18} />
+                <span>Filters</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setShowAnalytics(!showAnalytics)}
+                className={`flex items-center gap-2.5 px-6 py-3.5 rounded-[1.5rem] text-sm font-black shadow-lg transition-all border ${
+                  showAnalytics 
+                    ? 'bg-emerald-600 border-emerald-600 text-white shadow-emerald-200' 
+                    : 'bg-white border-slate-100 text-emerald-600 hover:bg-emerald-50'
+                }`}
+              >
+                <TrendingUp size={18} />
+                <span>{showAnalytics ? 'Close Stats' : 'Stats'}</span>
+              </button>
               
               <button
                 type="button"
-                onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
-                className={`flex items-center gap-2 px-4 py-2 text-sm border rounded-lg font-bold transition-all shadow-sm ${
-                  showAdvancedFilters 
-                    ? 'bg-blue-50 border-blue-400 text-blue-700' 
-                    : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
-                }`}
+                onClick={handleRefresh}
+                className="flex items-center justify-center w-12 h-12 border border-slate-200 rounded-2xl text-slate-500 hover:bg-slate-50 transition-all active:rotate-180 duration-500 shadow-sm"
+                title="Reset Filters"
               >
-                <Filter size={16} />
-                Advanced Filters
+                <RefreshCw size={18} />
               </button>
 
               <button
                 type="button"
                 onClick={() => fetchLeads()}
-                className="bg-blue-600 text-white px-6 py-2 rounded-lg text-sm font-bold hover:bg-blue-700 transition-all shadow-md active:scale-95"
+                className="btn-primary text-white px-8 py-3.5 rounded-[1.5rem] text-sm font-black active:scale-95 transition-all"
               >
-                Apply Filters
+                Go!
               </button>
-            </div>
-            
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={handleRefresh}
-                className="flex items-center gap-2 px-4 py-2 text-sm border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
-              >
-                <History size={16} />
-                Reset
-              </button>
-              
-              <button
-                type="button"
-                onClick={() => setShowAnalytics(!showAnalytics)}
-                className={`flex items-center gap-2 px-4 py-2 text-sm border rounded-lg font-bold shadow-sm transition-all ${
-                  showAnalytics 
-                    ? 'bg-blue-600 border-blue-600 text-white hover:bg-blue-700' 
-                    : 'bg-white border-blue-200 text-blue-600 hover:bg-blue-50'
-                }`}
-              >
-                <TrendingUp size={16} />
-                {showAnalytics ? 'Hide Graph' : 'Show Lead Graph'}
-              </button>
-            </div>
           </div>
+        </div>
 
           {/* Advanced Filters Expandable Area */}
           {showAdvancedFilters && (
@@ -1135,7 +1135,7 @@ const Leads = () => {
               </div>
             </div>
           )}
-        </div>
+        {/* End of Analytics if open */}
 
         {!showAnalytics && (
           filteredLeads.length === 0 ? (
@@ -1145,16 +1145,18 @@ const Leads = () => {
             </div>
           ) : (
             <>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-6 mt-4">
                 {filteredLeads.map((lead) => {
                   // Get assigned user name from various possible fields
                   // Backend returns assignedUser relationship or assigned_user object
                   const assignedUserName =
-                    lead.assignedUser?.name ||
+                    lead.assigned_name ||
                     lead.assigned_user?.name ||
+                    lead.assignedUser?.name ||
                     lead.assigned_to?.name ||
                     lead.assigned_to_name ||
                     lead.assigned_user_name ||
+                    (typeof lead.assigned_to === 'object' && lead.assigned_to !== null ? lead.assigned_to.name : null) ||
                     null;
 
                   return (

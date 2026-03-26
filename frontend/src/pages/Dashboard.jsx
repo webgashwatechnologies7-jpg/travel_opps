@@ -39,6 +39,7 @@ const Dashboard = () => {
     yearly: 0,
     hot: 0,
     unassigned: 0,
+    today: 0,
   });
   const [presenceStats, setPresenceStats] = useState({
     formatted_time: '0h 0m',
@@ -170,6 +171,7 @@ const Dashboard = () => {
           yearly: leads.filter(lead => inRange(lead.created_at, startOfYear)).length,
           hot: leads.filter(lead => lead.priority === 'hot').length,
           unassigned: leads.filter(lead => !lead.assigned_to && !lead.assigned_to_id).length,
+          today: leads.filter(lead => lead.created_at && isSameDay(lead.created_at)).length,
         });
       } else {
         setTodayQueries([]);
@@ -183,6 +185,7 @@ const Dashboard = () => {
           yearly: 0,
           hot: 0,
           unassigned: 0,
+          today: 0,
         });
       }
     } catch (err) {
@@ -342,6 +345,7 @@ const Dashboard = () => {
                     monthlyQueries: leadStats.monthly,
                     yearlyQueries: leadStats.yearly,
                     hotQueries: leadStats.hot,
+                    todayQueries: leadStats.today,
                   }}
                 />
               </div>

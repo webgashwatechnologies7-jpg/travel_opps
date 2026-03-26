@@ -16,7 +16,7 @@ class LeadRepository implements LeadRepositoryInterface
      * @param int $perPage
      * @return LengthAwarePaginator
      */
-    public function getPaginated(array $filters = [], int $perPage = 15): LengthAwarePaginator
+    public function getPaginated(array $filters = [], int $perPage = 8): LengthAwarePaginator
     {
         $query = Lead::query();
         $this->applyFilters($query, $filters);
@@ -97,7 +97,13 @@ class LeadRepository implements LeadRepositoryInterface
         }
 
         if (isset($filters['destination']) && $filters['destination']) {
-            $query->where('destination', 'like', '%' . $filters['destination'] . '%');
+            $dest = $filters['destination'];
+            $query->where(function($q) use ($dest) {
+                $q->where('destination', 'like', '%' . $dest . '%')
+                  ->orWhereHas('assignedUser', function($sq) use ($dest) {
+                      $sq->where('name', 'like', '%' . $dest . '%');
+                  });
+            });
         }
 
         if (isset($filters['priority']) && $filters['priority']) {

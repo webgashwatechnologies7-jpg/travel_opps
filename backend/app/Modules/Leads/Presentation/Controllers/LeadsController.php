@@ -39,7 +39,7 @@ class LeadsController extends Controller
             $filters = $request->only(['status', 'assigned_to', 'created_by', 'source', 'destination', 'priority', 'birth_month', 'anniversary_month', 'from_date', 'to_date', 'travel_month', 'service', 'adult', 'description', 'today', 'unassigned', 'created_from', 'created_to', 'search']);
             $filters['company_id'] = function_exists('tenant') ? tenant('id') : $request->user()?->company_id;
 
-            $perPage = $request->get('per_page', 15);
+            $perPage = $request->get('per_page', 8);
             $leads = $this->leadRepository->getPaginated($filters, $perPage);
 
             return response()->json([
@@ -157,6 +157,15 @@ class LeadsController extends Controller
                 'date_of_birth' => 'nullable|date',
                 'marriage_anniversary' => 'nullable|date',
                 'remark' => 'nullable|string',
+                'destination' => 'nullable|string|max:255',
+                'travel_start_date' => 'nullable|date',
+                'travel_end_date' => 'nullable|date|after_or_equal:travel_start_date',
+                'source' => 'nullable|string|max:50',
+                'service' => 'nullable|string|max:100',
+                'adult' => 'nullable|integer|min:0',
+                'child' => 'nullable|integer|min:0',
+                'infant' => 'nullable|integer|min:0',
+                'pax_details' => 'nullable|array',
             ]);
 
             if ($validator->fails())
@@ -277,6 +286,8 @@ class LeadsController extends Controller
             'status' => $lead->status,
             'priority' => $lead->priority,
             'assigned_to' => $lead->assigned_to,
+            'assigned_name' => $lead->assignedUser?->name,
+            'assigned_user' => $lead->assignedUser ? ['id' => $lead->assignedUser->id, 'name' => $lead->assignedUser->name] : null,
             'client_title' => $lead->client_title,
             'travel_start_date' => optional($lead->travel_start_date)->format('Y-m-d'),
             'travel_end_date' => optional($lead->travel_end_date)->format('Y-m-d'),
@@ -287,6 +298,7 @@ class LeadsController extends Controller
             'remark' => $lead->remark,
             'date_of_birth' => optional($lead->date_of_birth)->format('Y-m-d'),
             'marriage_anniversary' => optional($lead->marriage_anniversary)->format('Y-m-d'),
+            'created_at' => $lead->created_at,
             'updated_at' => $lead->updated_at,
         ];
     }

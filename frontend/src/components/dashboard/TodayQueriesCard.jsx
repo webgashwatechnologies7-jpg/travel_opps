@@ -39,28 +39,32 @@ const TodayQueriesCard = ({ queries = [], totalCount, loading, onViewAll, onQuer
       </div>
 
       {/* List */}
-      <div className="mt-1 p-4 bg-white flex-1 space-y-3 min-h-[140px] overflow-y-auto custom-scroll pr-2 -mr-2">
+      <div className="mt-1 p-4 bg-white flex-1 space-y-3 min-h-[140px] overflow-y-auto custom-scroll">
         {loading ? (
-          <div className="text-center text-xs text-gray-400">Loading...</div>
+          <div className="text-center text-xs text-gray-400 py-4">Loading...</div>
         ) : queries.length === 0 ? (
-          <div className="text-center text-xs text-gray-400">No queries today</div>
+          <div className="text-center text-xs text-gray-400 py-4">No queries today</div>
         ) : (
           queries.map((item) => (
             <div
               key={item.id || `${item.title}-${item.date}`}
               onClick={() => onQueryClick?.(item)}
-              className="border-b border-gray-300 pb-3 last:border-b-0 last:pb-0 cursor-pointer hover:bg-gray-50 rounded-md px-2 -mx-2 transition-colors"
+              className="border-b border-gray-100 pb-3 last:border-b-0 last:pb-0 cursor-pointer hover:bg-blue-50/50 rounded-lg p-2 transition-all duration-200"
             >
-              <h4 className="text-sm font-semibold text-gray-800 truncate" title={item.title}>
+              <h4 className="text-sm font-bold text-gray-900 truncate mb-1" title={item.title}>
                 {item.title}
               </h4>
 
-              <div className="mt-1 flex items-center justify-between text-xs text-gray-600">
-                <span className="flex items-center gap-1 truncate max-w-[60%]">
-                  <img src="/icons/user.svg" className="w-3 h-3" alt="" />
-                  <span className="truncate">{item.name}</span>
+              <div className="flex items-center justify-between text-[11px] text-gray-500">
+                <div className="flex items-center gap-1.5 min-w-0 pr-2">
+                  <div className="w-5 h-5 rounded-full bg-gray-100 flex items-center justify-center shrink-0">
+                    <img src="/icons/user.svg" className="w-3 h-3 opacity-60" alt="" />
+                  </div>
+                  <span className="truncate font-medium">{item.name}</span>
+                </div>
+                <span className="text-blue-600 font-bold bg-blue-50 px-2 py-0.5 rounded-full whitespace-nowrap shadow-sm border border-blue-100/50">
+                  {item.date}
                 </span>
-                <span className="text-blue-600 whitespace-nowrap">{item.date}</span>
               </div>
             </div>
           ))
