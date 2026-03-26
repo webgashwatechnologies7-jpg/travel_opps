@@ -468,6 +468,48 @@ const ItineraryDetail = () => {
     }
   };
 
+  // Save base settings (GST, markups) to database
+  useEffect(() => {
+    if (!id) return;
+    const settings = {
+      base_markup: baseMarkup,
+      extra_markup: extraMarkup,
+      cgst, sgst, igst, tcs, discount
+    };
+    
+    const timer = setTimeout(() => {
+      itineraryPricingAPI.save(id, settings).catch(() => {});
+    }, 2000);
+    
+    return () => clearTimeout(timer);
+  }, [baseMarkup, extraMarkup, cgst, sgst, igst, tcs, discount, id]);
+
+  // Save pricing data and final client prices to database
+  useEffect(() => {
+    if (!id || (Object.keys(pricingData).length === 0 && Object.keys(finalClientPrices).length === 0)) return;
+    
+    const timer = setTimeout(() => {
+      itineraryPricingAPI.save(id, {
+        pricing_data: pricingData,
+        final_client_prices: finalClientPrices,
+        option_gst_settings: optionGstSettings
+      }).catch(() => {});
+    }, 3000);
+    
+    return () => clearTimeout(timer);
+  }, [pricingData, finalClientPrices, optionGstSettings, id]);
+
+  // Save days and events to database whenever they change
+  useEffect(() => {
+    if (!id || (days.length === 0 && Object.keys(dayEvents).length === 0)) return;
+    
+    const timer = setTimeout(() => {
+      syncItineraryToServer();
+    }, 2500);
+    
+    return () => clearTimeout(timer);
+  }, [dayEvents, days, id]);
+
   // Save days to localStorage whenever they change
   useEffect(() => {
     if (id && days.length > 0) {

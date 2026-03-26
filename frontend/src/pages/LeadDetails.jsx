@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useCallback, memo } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { useAuth } from '../contexts/AuthContext';
-import { leadsAPI, usersAPI, followupsAPI, dayItinerariesAPI, packagesAPI, settingsAPI, suppliersAPI, hotelsAPI, paymentsAPI, googleMailAPI, whatsappAPI, whatsappWebAPI, queryDetailAPI, vouchersAPI, itineraryPricingAPI, leadInvoicesAPI, quotationsAPI } from '../services/api';
+import { leadsAPI, usersAPI, followupsAPI, dayItinerariesAPI, packagesAPI, settingsAPI, suppliersAPI, hotelsAPI, paymentsAPI, googleMailAPI, whatsappAPI, whatsappWebAPI, queryDetailAPI, vouchersAPI, itineraryPricingAPI, leadInvoicesAPI, quotationsAPI, queryProposalsAPI } from '../services/api';
 import { searchPexelsPhotos } from '../services/pexels';
 import { getDisplayImageUrl, rewriteHtmlImageUrls, sanitizeEmailHtmlForDisplay } from '../utils/imageUrl';
 import Layout from '../components/Layout';
@@ -361,14 +361,23 @@ const LeadDetails = () => {
   useEffect(() => {
     const loadHotelsFromAllProposals = async () => {
       const rawHotelsList = [];
-      proposals.forEach((proposal) => {
+      await Promise.all(proposals.map(async (proposal) => {
         const itineraryId = proposal.itinerary_id;
         const optionNum = proposal.optionNumber ?? 1;
         if (!itineraryId) return;
         try {
+          let dayEvents = null;
           const stored = localStorage.getItem(`itinerary_${itineraryId}_events`);
-          if (!stored) return;
-          const dayEvents = JSON.parse(stored);
+          if (stored) {
+            dayEvents = JSON.parse(stored);
+          } else {
+            // Fetch from server if not in localStorage (new system/session)
+            const response = await packagesAPI.get(itineraryId);
+            dayEvents = response?.data?.data?.day_events;
+          }
+
+          if (!dayEvents) return;
+          
           Object.keys(dayEvents).sort((a, b) => parseInt(a) - parseInt(b)).forEach((day) => {
             const events = dayEvents[day] || [];
             events.forEach((event) => {
@@ -388,7 +397,7 @@ const LeadDetails = () => {
             });
           });
         } catch (_) { }
-      });
+      }));
 
       const seen = new Set();
       const uniqueRaw = rawHotelsList.filter((h) => {
@@ -504,18 +513,38 @@ const LeadDetails = () => {
     return Number.isNaN(num) || num < 0 ? null : num;
   };
 
-  // Load proposals from localStorage, then overlay prices from API (server) so Query always shows saved final client prices
+  // Load proposals from server (with localStorage fallback for existing data)
   useEffect(() => {
     if (!id) return;
     let cancelled = false;
     const run = async () => {
       try {
-        const storedProposals = localStorage.getItem(`lead_${id}_proposals`);
-        let list = storedProposals ? JSON.parse(storedProposals) : [];
+        // 1. Try to fetch from server first
+        const serverRes = await queryProposalsAPI.list(id);
+        const serverData = serverRes?.data?.data || [];
+        
+        let list = [];
+        if (serverData.length > 0) {
+          // metadata contains the full proposal object we use in frontend
+          list = serverData.map(p => ({
+            ...p.metadata,
+            confirmed: p.is_confirmed || p.metadata?.confirmed // Sync confirmed status from DB
+          }));
+        } else {
+          // fallback to local storage
+          const storedProposals = localStorage.getItem(`lead_${id}_proposals`);
+          list = storedProposals ? JSON.parse(storedProposals) : [];
+          // If we have local data, sync it to server once
+          if (list.length > 0 && !cancelled) {
+            queryProposalsAPI.sync(id, list).catch(() => {});
+          }
+        }
+
         if (list.length === 0) {
-          setProposals([]);
+          if (!cancelled) setProposals([]);
           return;
         }
+
         const byItineraryId = {};
         list.forEach((p) => {
           const tid = p.itinerary_id;
@@ -524,6 +553,7 @@ const LeadDetails = () => {
             byItineraryId[tid].push(p);
           }
         });
+
         const result = [];
         const processedItineraryIds = new Set();
         list.forEach((p) => {
@@ -534,13 +564,15 @@ const LeadDetails = () => {
           }
           if (processedItineraryIds.has(tid)) return;
           processedItineraryIds.add(tid);
+          
+          // Still use localStorage for local edits to itineraries that haven't been saved to server yet
           const fromStorage = localStorage.getItem(`itinerary_${tid}_proposals`);
           const latestOptions = fromStorage ? JSON.parse(fromStorage) : [];
+          
           if (Array.isArray(latestOptions) && latestOptions.length > 0) {
             const existing = byItineraryId[tid] || [];
             const confirmedOptionNum = existing.find((x) => x.confirmed)?.optionNumber;
-            const filtered = latestOptions;
-            filtered.forEach((opt, i) => {
+            latestOptions.forEach((opt, i) => {
               result.push({
                 ...opt,
                 id: opt.id || Date.now() + i + tid,
@@ -553,9 +585,10 @@ const LeadDetails = () => {
             (byItineraryId[tid] || []).forEach((x) => result.push(x));
           }
         });
-        setProposals(result);
+        
+        if (!cancelled) setProposals(result);
 
-        // Overlay final client prices from API so Query always shows server-saved prices (no localStorage dependency)
+        // Overlay final client prices from API (primary source of truth for pricing)
         const itineraryIds = [...new Set(result.map((r) => r.itinerary_id).filter(Boolean))];
         const priceMapByItinerary = {};
         await Promise.all(
@@ -569,6 +602,7 @@ const LeadDetails = () => {
             } catch (_) { }
           })
         );
+
         if (cancelled) return;
         const updated = result.map((opt) => {
           const tid = opt.itinerary_id;
@@ -580,21 +614,25 @@ const LeadDetails = () => {
         });
         setProposals(updated);
       } catch (err) {
-        console.error('Failed to load proposals:', err);
-        setProposals([]);
+        if (!cancelled) {
+          console.error('Failed to load proposals:', err);
+          setProposals([]);
+        }
       }
     };
     run();
     return () => { cancelled = true; };
   }, [id, maxHotelOptions, activeTab]);
 
-  // Save proposals to localStorage
-  const saveProposals = (newProposals) => {
+  // Save proposals to server and localStorage
+  const saveProposals = async (newProposals) => {
     try {
-      localStorage.setItem(`lead_${id}_proposals`, JSON.stringify(newProposals));
       setProposals(newProposals);
+      localStorage.setItem(`lead_${id}_proposals`, JSON.stringify(newProposals));
+      await queryProposalsAPI.sync(id, newProposals);
     } catch (err) {
       console.error('Failed to save proposals:', err);
+      // Even if sync fails, we keep local state for UX
     }
   };
 
@@ -2332,23 +2370,56 @@ const LeadDetails = () => {
     let hotelOptions = {};
 
     try {
-      // Load itinerary data from localStorage if available
-      const storedEvents = localStorage.getItem(`itinerary_${proposal.itinerary_id}_events`);
-      const storedPricing = localStorage.getItem(`itinerary_${proposal.itinerary_id}_pricing`);
-      const storedSettings = localStorage.getItem(`itinerary_${proposal.itinerary_id}_settings`);
-
+      // Load itinerary data from API (primary) or localStorage (fallback)
       let dayEvents = {};
       let pricingData = {};
       let settings = {};
 
-      if (storedEvents) {
-        dayEvents = JSON.parse(storedEvents);
-      }
-      if (storedPricing) {
-        pricingData = JSON.parse(storedPricing);
-      }
-      if (storedSettings) {
-        settings = JSON.parse(storedSettings);
+      const tid = proposal.itinerary_id;
+      if (tid) {
+        try {
+          // Fetch from server
+          const [pkgRes, pricingRes] = await Promise.all([
+            packagesAPI.get(tid),
+            itineraryPricingAPI.get(tid)
+          ]);
+
+          const pkgData = pkgRes?.data?.data;
+          const prData = pricingRes?.data?.data;
+
+          if (pkgData?.day_events) {
+            dayEvents = pkgData.day_events;
+          } else {
+            const storedEvents = localStorage.getItem(`itinerary_${tid}_events`);
+            if (storedEvents) dayEvents = JSON.parse(storedEvents);
+          }
+
+          if (prData) {
+            pricingData = prData.pricing_data || {};
+            settings = {
+              baseMarkup: prData.base_markup,
+              extraMarkup: prData.extra_markup,
+              cgst: prData.cgst,
+              sgst: prData.sgst,
+              igst: prData.igst,
+              tcs: prData.tcs,
+              discount: prData.discount
+            };
+          } else {
+            const storedPricing = localStorage.getItem(`itinerary_${tid}_pricing`);
+            const storedSettings = localStorage.getItem(`itinerary_${tid}_settings`);
+            if (storedPricing) pricingData = JSON.parse(storedPricing);
+            if (storedSettings) settings = JSON.parse(storedSettings);
+          }
+        } catch (err) {
+          console.warn('API fetch failed in handleViewQuotation, falling back to localStorage', err);
+          const storedEvents = localStorage.getItem(`itinerary_${tid}_events`);
+          const storedPricing = localStorage.getItem(`itinerary_${tid}_pricing`);
+          const storedSettings = localStorage.getItem(`itinerary_${tid}_settings`);
+          if (storedEvents) dayEvents = JSON.parse(storedEvents);
+          if (storedPricing) pricingData = JSON.parse(storedPricing);
+          if (storedSettings) settings = JSON.parse(storedSettings);
+        }
       }
 
       // Group hotel options by optionNumber

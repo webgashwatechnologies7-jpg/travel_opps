@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use App\Modules\Leads\Domain\Entities\Lead;
 
 class QueryProposal extends Model
 {
@@ -54,18 +55,22 @@ class QueryProposal extends Model
     /**
      * Get the proposal items
      */
+    /*
     public function items(): HasMany
     {
         return $this->hasMany(ProposalItem::class, 'proposal_id');
     }
+    */
 
     /**
      * Get the proposal attachments
      */
+    /*
     public function attachments(): HasMany
     {
         return $this->hasMany(ProposalAttachment::class, 'proposal_id');
     }
+    */
 
     /**
      * Scope for confirmed proposals

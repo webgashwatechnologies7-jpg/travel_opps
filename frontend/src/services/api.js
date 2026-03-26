@@ -189,6 +189,12 @@ export const leadsAPI = {
   getEmail: (leadId, emailId) => api.get(`/leads/${leadId}/emails/${emailId}`),
 };
 
+// Query Proposals APIs
+export const queryProposalsAPI = {
+  list: (leadId) => api.get(`/leads/${leadId}/proposals`),
+  sync: (leadId, proposals) => api.post(`/leads/${leadId}/proposals/sync`, { proposals }),
+};
+
 // Calls APIs
 export const callsAPI = {
   list: (filters = {}) => api.get('/calls', { params: filters }),

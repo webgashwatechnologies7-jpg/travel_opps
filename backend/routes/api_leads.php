@@ -41,6 +41,10 @@ Route::middleware('auth:sanctum')->prefix('leads')->group(function () {
     Route::get('/{leadId}/emails', [LeadEmailController::class, 'index']);
     Route::post('/{leadId}/emails', [LeadEmailController::class, 'send']);
     Route::get('/{leadId}/emails/{emailId}', [LeadEmailController::class, 'show']);
+
+    // Lead proposals/itineraries routes
+    Route::get('/{leadId}/proposals', [\App\Http\Controllers\QueryProposalController::class, 'index']);
+    Route::post('/{leadId}/proposals/sync', [\App\Http\Controllers\QueryProposalController::class, 'sync']);
 });
 
 // Followup routes - require authentication
