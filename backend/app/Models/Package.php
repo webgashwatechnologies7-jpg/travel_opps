@@ -41,6 +41,8 @@ class Package extends Model
         'website_cost',
         'show_on_website',
         'image',
+        'day_events',
+        'days',
         'created_by',
     ];
 
@@ -58,6 +60,8 @@ class Package extends Model
         'price' => 'decimal:2',
         'website_cost' => 'decimal:2',
         'show_on_website' => 'boolean',
+        'day_events' => 'array',
+        'days' => 'array',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
     ];

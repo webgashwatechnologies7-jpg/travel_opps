@@ -570,6 +570,34 @@ const ItineraryDetail = () => {
       }
 
       setItinerary(data);
+      
+      // Load events and days from server if they exist
+      if (data.day_events) {
+        setDayEvents(data.day_events);
+      } else {
+        loadEventsFromStorage();
+      }
+
+      if (data.days && Array.isArray(data.days) && data.days.length > 0) {
+        setDays(data.days);
+      } else {
+        // Fallback to local storage or defaults
+        const storedDays = localStorage.getItem(`itinerary_${id}_days`);
+        if (storedDays) {
+          try {
+            const parsedDays = JSON.parse(storedDays);
+            if (Array.isArray(parsedDays) && parsedDays.length === (data.duration || 0)) {
+              setDays(parsedDays);
+            } else {
+              initializeDefaultDays(data);
+            }
+          } catch (e) {
+            initializeDefaultDays(data);
+          }
+        } else {
+          initializeDefaultDays(data);
+        }
+      }
 
       // Load terms and policies
       setPackageTerms({
@@ -581,52 +609,6 @@ const ItineraryDetail = () => {
       // Set first day as selected if available
       if (data.duration && data.duration > 0) {
         setSelectedDay(1);
-        // Initialize days - check localStorage first, otherwise use defaults
-        const storedDays = localStorage.getItem(`itinerary_${id}_days`);
-        if (storedDays) {
-          try {
-            const parsedDays = JSON.parse(storedDays);
-            if (Array.isArray(parsedDays) && parsedDays.length === data.duration) {
-              setDays(parsedDays);
-            } else {
-              // Duration changed, need to update days
-              const initialDays = [];
-              for (let i = 1; i <= data.duration; i++) {
-                const existingDay = parsedDays.find(d => d.day === i);
-                initialDays.push({
-                  day: i,
-                  destination: existingDay?.destination || data.destinations?.split(',')[0]?.trim() || '',
-                  details: existingDay?.details || ''
-                });
-              }
-              setDays(initialDays);
-              localStorage.setItem(`itinerary_${id}_days`, JSON.stringify(initialDays));
-            }
-          } catch (e) {
-            // If parsing fails, use defaults
-            const initialDays = [];
-            for (let i = 1; i <= data.duration; i++) {
-              initialDays.push({
-                day: i,
-                destination: data.destinations?.split(',')[0]?.trim() || '',
-                details: ''
-              });
-            }
-            setDays(initialDays);
-          }
-        } else {
-          // No stored days, initialize with defaults
-          const initialDays = [];
-          for (let i = 1; i <= data.duration; i++) {
-            initialDays.push({
-              day: i,
-              destination: data.destinations?.split(',')[0]?.trim() || '',
-              details: ''
-            });
-          }
-          setDays(initialDays);
-          localStorage.setItem(`itinerary_${id}_days`, JSON.stringify(initialDays));
-        }
       }
     } catch (err) {
       console.error('Failed to fetch itinerary:', err);
@@ -634,6 +616,39 @@ const ItineraryDetail = () => {
       navigate('/itineraries');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const initializeDefaultDays = (data) => {
+    const initialDays = [];
+    for (let i = 1; i <= (data.duration || 0); i++) {
+      initialDays.push({
+        day: i,
+        destination: data.destinations?.split(',')[0]?.trim() || '',
+        details: ''
+      });
+    }
+    setDays(initialDays);
+    if (id) localStorage.setItem(`itinerary_${id}_days`, JSON.stringify(initialDays));
+  };
+
+  const syncItineraryToServer = async (updatedDayEvents, updatedDays) => {
+    if (!id) return;
+    try {
+      // Use the provided values or fallback to current state
+      const events = updatedDayEvents || dayEvents;
+      const dayList = updatedDays || days;
+      
+      // Only sync if we have something to sync
+      if (Object.keys(events).length === 0 && dayList.length === 0) return;
+
+      await packagesAPI.update(id, {
+        day_events: events,
+        days: dayList
+      });
+      console.log('Itinerary content synced to server');
+    } catch (err) {
+      console.error('Failed to sync itinerary content to server:', err);
     }
   };
 
@@ -1118,20 +1133,25 @@ const ItineraryDetail = () => {
     const currentDayEvents = dayEvents[selectedDay] || [];
 
     if (eventData.id && currentDayEvents.some(e => e.id === eventData.id)) {
-      // Update existing event
-      const updatedEvents = currentDayEvents.map(e =>
+      const updatedDayEventsList = currentDayEvents.map(e =>
         e.id === eventData.id ? eventData : e
       );
-      setDayEvents({
+      const updatedEvents = {
         ...dayEvents,
-        [selectedDay]: updatedEvents
-      });
+        [selectedDay]: updatedDayEventsList
+      };
+      setDayEvents(updatedEvents);
+      // Sync to server
+      syncItineraryToServer(updatedEvents, days);
     } else {
       // Add new event
-      setDayEvents({
+      const updatedEvents = {
         ...dayEvents,
         [selectedDay]: [...currentDayEvents, eventData]
-      });
+      };
+      setDayEvents(updatedEvents);
+      // Sync to server
+      syncItineraryToServer(updatedEvents, days);
     }
 
     // Reset form with all fields
@@ -1473,6 +1493,9 @@ const ItineraryDetail = () => {
     );
 
     setDays(updatedDays);
+    
+    // Sync to server
+    syncItineraryToServer(dayEvents, updatedDays);
 
     // Save to localStorage for persistence
     try {
@@ -1965,11 +1988,14 @@ const ItineraryDetail = () => {
                                         onClick={() => {
                                           const allEvents = dayEvents[selectedDay];
                                           const eventIndex = allEvents.findIndex(e => (e.id && e.id === event.id) || allEvents.indexOf(e) === index);
-                                          const updatedEvents = allEvents.filter((_, i) => i !== eventIndex);
-                                          setDayEvents({
+                                          const updatedDayEventsList = allEvents.filter((_, i) => i !== eventIndex);
+                                          const updatedEvents = {
                                             ...dayEvents,
-                                            [selectedDay]: updatedEvents
-                                          });
+                                            [selectedDay]: updatedDayEventsList
+                                          };
+                                          setDayEvents(updatedEvents);
+                                          // Sync to server
+                                          syncItineraryToServer(updatedEvents, days);
                                         }}
                                       >
                                         <X className="h-5 w-5" />
