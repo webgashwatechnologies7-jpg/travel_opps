@@ -5,6 +5,8 @@ import { Building2, Star, Calendar, Hash, X, Eye, MapPin, Users, Clock, Image as
 
 const POLICY_KEYS = [
   { key: 'itinerary', label: 'Day-by-Day Itinerary' },
+  { key: 'inclusions', label: 'Inclusions' },
+  { key: 'exclusions', label: 'Exclusions' },
   { key: 'remarks', label: 'Remarks' },
   { key: 'terms_conditions', label: 'Terms & Conditions' },
   { key: 'confirmation_policy', label: 'Confirmation Policy' },
@@ -22,6 +24,7 @@ const FinalTab = ({
   pricingData,
   finalClientPrices,
   packageTerms,
+  setPackageTerms,
   baseMarkup,
   extraMarkup,
   cgst,
@@ -30,7 +33,8 @@ const FinalTab = ({
   tcs,
   discount,
   maxHotelOptions = 4,
-  optionGstSettings = {}
+  optionGstSettings = {},
+  readOnly = false
 }) => {
   const [selectedOption, setSelectedOption] = useState(null);
   const [showFullPlanModal, setShowFullPlanModal] = useState(false);
@@ -39,6 +43,8 @@ const FinalTab = ({
   const [rightView, setRightView] = useState('itinerary'); // 'itinerary' | policy keys
   const rightContentRef = useRef(null);
   const [policyContent, setPolicyContent] = useState({
+    inclusions: [],
+    exclusions: [],
     remarks: '',
     terms_conditions: '',
     confirmation_policy: '',
@@ -60,9 +66,19 @@ const FinalTab = ({
     // Helper for Settings API (Legacy fallback for thank you message)
     const getSettingVal = (res) => (res?.data?.success && res?.data?.data?.value != null ? res.data.data.value : (res?.data?.data?.content ?? '')) || '';
 
+    // Helper to get all points content from Master API response
+    const getMasterList = (res) => {
+      if (res?.data && Array.isArray(res.data)) {
+        return res.data.map(item => item.content);
+      }
+      return [];
+    };
+
     const loadPolicies = async () => {
       try {
         const [
+          incRes,
+          excRes,
           remarksRes,
           termsRes,
           confirmRes,
@@ -71,6 +87,8 @@ const FinalTab = ({
           paymentRes,
           thankYouRes
         ] = await Promise.all([
+          masterPointsAPI.list('inclusion'),
+          masterPointsAPI.list('exclusion'),
           masterPointsAPI.list('remarks'),
           masterPointsAPI.list('terms'),
           masterPointsAPI.list('confirmation'),
@@ -80,7 +98,9 @@ const FinalTab = ({
           masterPointsAPI.list('thank_you')
         ]);
 
-        setPolicyContent({
+        const masters = {
+          inclusions: getMasterList(incRes),
+          exclusions: getMasterList(excRes),
           remarks: getMasterVal(remarksRes),
           terms_conditions: getMasterVal(termsRes),
           confirmation_policy: getMasterVal(confirmRes),
@@ -88,7 +108,20 @@ const FinalTab = ({
           amendment_policy: getMasterVal(amendRes),
           payment_policy: getMasterVal(paymentRes),
           thank_you_message: getMasterVal(thankYouRes)
-        });
+        };
+
+        setPolicyContent(masters);
+
+        // If packageTerms is empty for inclusions/exclusions, initialize them from masters if we have setter
+        if (setPackageTerms && packageTerms) {
+          setPackageTerms(prev => ({
+            ...prev,
+            inclusions: (prev.inclusions && prev.inclusions.length > 0) ? prev.inclusions : masters.inclusions,
+            exclusions: (prev.exclusions && prev.exclusions.length > 0) ? prev.exclusions : masters.exclusions,
+            terms_conditions: prev.terms_conditions || masters.terms_conditions,
+            refund_policy: prev.refund_policy || masters.cancellation_policy
+          }));
+        }
       } catch (error) {
         console.error("Failed to load policies", error);
       }
@@ -586,44 +619,134 @@ const FinalTab = ({
               </>
             ) : (
               <>
-                <h2 className="text-2xl font-bold text-gray-900 mb-6">
-                  {POLICY_KEYS.find(p => p.key === rightView)?.label || rightView}
-                </h2>
-                <div className="prose max-w-none text-gray-700 leading-relaxed bg-gray-50 p-6 rounded-lg min-h-[200px]">
-                  {policyContent[rightView] ? (
-                    <div dangerouslySetInnerHTML={{ __html: policyContent[rightView] }} />
-                  ) : (
-                    <p className="text-gray-500 italic">No content added for this section yet. Add it from Settings → Terms & Conditions.</p>
+                <div className="flex justify-between items-center mb-6">
+                  <h2 className="text-2xl font-bold text-gray-900">
+                    {POLICY_KEYS.find(p => p.key === rightView)?.label || rightView}
+                  </h2>
+                  {(rightView === 'inclusions' || rightView === 'exclusions') && !readOnly && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const current = packageTerms[rightView] || [];
+                        setPackageTerms(prev => ({
+                          ...prev,
+                          [rightView]: [...current, 'New Point...']
+                        }));
+                      }}
+                      className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-bold rounded-lg hover:bg-blue-700 transition-all shadow-md active:scale-95"
+                    >
+                      <Plus className="h-4 w-4 mr-2" /> Add {rightView === 'inclusions' ? 'Inclusion' : 'Exclusion'}
+                    </button>
                   )}
                 </div>
+
+                {/* List-based editor for Inclusions/Exclusions */}
+                {(rightView === 'inclusions' || rightView === 'exclusions') ? (
+                  <div className="space-y-3">
+                    {(packageTerms[rightView] || []).length === 0 ? (
+                      <div className="text-center py-12 bg-gray-50 rounded-xl border-2 border-dashed border-gray-200">
+                        <p className="text-gray-500">No {rightView} found for this itinerary.</p>
+                        {!readOnly && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setPackageTerms(prev => ({
+                                ...prev,
+                                [rightView]: [...(policyContent[rightView] || [])]
+                              }));
+                            }}
+                            className="mt-3 text-blue-600 font-semibold hover:underline"
+                          >
+                            Reset to Default from Masters
+                          </button>
+                        )}
+                      </div>
+                    ) : (
+                      (packageTerms[rightView] || []).map((point, idx) => (
+                        <div key={idx} className="flex gap-4 group">
+                          <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm ${rightView === 'inclusions' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                            {rightView === 'inclusions' ? '✓' : '✕'}
+                          </div>
+                          {readOnly ? (
+                            <div className="flex-1 text-gray-700 py-1">{point}</div>
+                          ) : (
+                            <div className="flex-1 flex gap-2">
+                              <input
+                                type="text"
+                                value={point}
+                                onChange={(e) => {
+                                  const newList = [...packageTerms[rightView]];
+                                  newList[idx] = e.target.value;
+                                  setPackageTerms(prev => ({ ...prev, [rightView]: newList }));
+                                }}
+                                className="flex-1 px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const newList = (packageTerms[rightView] || []).filter((_, i) => i !== idx);
+                                  setPackageTerms(prev => ({ ...prev, [rightView]: newList }));
+                                }}
+                                className="p-2 text-gray-400 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
+                              >
+                                <X className="h-4 w-4" />
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      ))
+                    )}
+                  </div>
+                ) : (
+                  /* Standard HTML content (Masters) */
+                  <div className="prose max-w-none text-gray-700 leading-relaxed bg-gray-50 p-6 rounded-lg min-h-[200px]">
+                    {policyContent[rightView] ? (
+                      <div dangerouslySetInnerHTML={{ __html: policyContent[rightView] }} />
+                    ) : (
+                      <p className="text-gray-500 italic">No content added for this section yet. Add it from Settings → Terms & Conditions.</p>
+                    )}
+                  </div>
+                )}
               </>
             )}
           </div>
 
-          {/* Terms & Conditions (legacy package terms - kept if needed) */}
-          {(packageTerms?.terms_conditions || packageTerms?.refund_policy) && (
-            <div className="bg-white rounded-xl shadow-lg p-8 mb-8">
-              <h2 className="text-3xl font-bold text-gray-900 mb-6">Terms & Policies</h2>
-              <div className="space-y-6">
-                {packageTerms?.terms_conditions && (
-                  <div>
-                    <h3 className="text-xl font-semibold text-gray-800 mb-3">Terms & Conditions</h3>
-                    <div className="prose max-w-none text-gray-700 whitespace-pre-wrap leading-relaxed bg-gray-50 p-4 rounded-lg">
-                      {packageTerms.terms_conditions}
-                    </div>
+          {/* Terms & Conditions (Per-Itinerary Overrides) */}
+          <div className="bg-white rounded-xl shadow-lg p-8 mb-8">
+            <h2 className="text-3xl font-bold text-gray-900 mb-6">Terms & Policies</h2>
+            <div className="space-y-6">
+              <div>
+                <h3 className="text-xl font-semibold text-gray-800 mb-3">Terms & Conditions</h3>
+                {readOnly ? (
+                  <div className="prose max-w-none text-gray-700 whitespace-pre-wrap leading-relaxed bg-gray-50 p-4 rounded-lg">
+                    {packageTerms.terms_conditions || 'No terms specified.'}
                   </div>
+                ) : (
+                  <textarea
+                    value={packageTerms.terms_conditions || ''}
+                    onChange={(e) => setPackageTerms(prev => ({ ...prev, terms_conditions: e.target.value }))}
+                    className="w-full h-40 px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all resize-none font-sans text-gray-700"
+                    placeholder="Enter terms and conditions for this itinerary..."
+                  />
                 )}
-                {packageTerms?.refund_policy && (
-                  <div>
-                    <h3 className="text-xl font-semibold text-gray-800 mb-3">Refund Policy</h3>
-                    <div className="prose max-w-none text-gray-700 whitespace-pre-wrap leading-relaxed bg-gray-50 p-4 rounded-lg">
-                      {packageTerms.refund_policy}
-                    </div>
+              </div>
+              <div>
+                <h3 className="text-xl font-semibold text-gray-800 mb-3">Refund Policy</h3>
+                {readOnly ? (
+                  <div className="prose max-w-none text-gray-700 whitespace-pre-wrap leading-relaxed bg-gray-50 p-4 rounded-lg">
+                    {packageTerms.refund_policy || 'No refund policy specified.'}
                   </div>
+                ) : (
+                  <textarea
+                    value={packageTerms.refund_policy || ''}
+                    onChange={(e) => setPackageTerms(prev => ({ ...prev, refund_policy: e.target.value }))}
+                    className="w-full h-40 px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all resize-none font-sans text-gray-700"
+                    placeholder="Enter refund policy for this itinerary..."
+                  />
                 )}
               </div>
             </div>
-          )}
+          </div>
 
         </div>
       </div>

@@ -61,18 +61,49 @@ class QueryProposalController extends Controller
             // Start transaction for atomicity
             \Illuminate\Support\Facades\DB::beginTransaction();
             
+            // Fetch old state for logging comparison
+            $oldProposals = QueryProposal::where('lead_id', $leadId)->get();
+            $oldConfirmed = $oldProposals->contains('is_confirmed', true);
+            
             // Delete existing proposals for this lead to start fresh
             QueryProposal::where('lead_id', $leadId)->delete();
 
+            $hasNewlyConfirmed = false;
             foreach ($proposalsData as $item) {
+                $confirmed = $item['confirmed'] ?? false;
+                if ($confirmed) $hasNewlyConfirmed = true;
+
                 QueryProposal::create([
                     'lead_id' => $leadId,
                     'title' => $item['itinerary_name'] ?? 'Proposal',
                     'total_amount' => $item['price'] ?? 0,
-                    'is_confirmed' => $item['confirmed'] ?? false,
+                    'is_confirmed' => $confirmed,
                     'created_by' => $request->user()->id,
                     'metadata' => $item, 
-                    'status' => ($item['confirmed'] ?? false) ? 'approved' : 'draft',
+                    'status' => $confirmed ? 'approved' : 'draft',
+                    'company_id' => $lead->company_id, // Ensure company_id is populated
+                ]);
+            }
+
+            // Log activity: Proposal Synced
+            \App\Models\QueryHistoryLog::logActivity([
+                'lead_id' => $leadId,
+                'activity_type' => 'proposal_synced',
+                'activity_description' => "Itinerary proposals synced (Count: " . count($proposalsData) . ")",
+                'module' => 'proposals',
+                'metadata' => [
+                    'count' => count($proposalsData),
+                    'has_confirmed' => $hasNewlyConfirmed
+                ]
+            ]);
+
+            // Specific log for Confirmation Change
+            if ($hasNewlyConfirmed && !$oldConfirmed) {
+                \App\Models\QueryHistoryLog::logActivity([
+                    'lead_id' => $leadId,
+                    'activity_type' => 'itinerary_confirmed',
+                    'activity_description' => "A proposal option has been confirmed.",
+                    'module' => 'proposals'
                 ]);
             }
             

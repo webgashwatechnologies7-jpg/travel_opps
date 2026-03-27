@@ -127,7 +127,8 @@ class WhatsAppWebhookController extends Controller
 
         $jid = $data['chat_id'];
         $cleanNumber = explode('@', $jid)[0];
-        $jidType = strpos($jid, '@lid') !== false ? 'lid' : 'phone';
+        // Detect jid type so groups are not treated like phone numbers.
+        $jidType = strpos($jid, '@lid') !== false ? 'lid' : (strpos($jid, '@g.us') !== false ? 'group' : 'phone');
         $lead = null;
 
         if ($jidType === 'phone') {
@@ -140,7 +141,7 @@ class WhatsAppWebhookController extends Controller
                         ->orWhere('phone_secondary', 'LIKE', '%' . substr($phoneNumber, -10));
                 })
                 ->first();
-        } else {
+        } else if ($jidType === 'lid') {
             // @lid JID — Try to link via remote_jid_alt (Linked Phone) if available
             $remoteJidAlt = $data['remote_jid_alt'] ?? null;
             if ($remoteJidAlt) {
@@ -180,7 +181,7 @@ class WhatsAppWebhookController extends Controller
             }
 
             // Name Matching Fix for @lid (If not linked yet)
-            if (!$lead && !empty($data['chat_name'])) {
+            if ($jidType === 'lid' && !$lead && !empty($data['chat_name'])) {
                 // Try matching Lead Name exactly
                 $lead = DB::table('leads')
                     ->where('company_id', $session->company_id)
@@ -207,6 +208,7 @@ class WhatsAppWebhookController extends Controller
         $chat = DB::table('whatsapp_chats')
             ->where('chat_id', $jid)
             ->where('company_id', $session->company_id)
+            ->where('user_id', $session->user_id)
             ->first();
 
         $currentTime = now();
@@ -389,6 +391,7 @@ class WhatsAppWebhookController extends Controller
         DB::table('whatsapp_chats')
             ->where('chat_id', $data['chat_id'])
             ->where('company_id', $session->company_id)
+            ->where('user_id', $session->user_id)
             ->update([
                 'chat_name' => $data['chat_name'],
                 'updated_at' => now()

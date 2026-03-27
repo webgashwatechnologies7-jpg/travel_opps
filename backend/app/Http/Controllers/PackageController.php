@@ -32,6 +32,7 @@ class PackageController extends Controller
                         'end_date' => $package->end_date ? $package->end_date->format('Y-m-d') : null,
                         'adult' => $package->adult,
                         'child' => $package->child,
+                        'infant' => $package->infant,
                         'destinations' => $package->destinations,
                         'notes' => $package->notes,
                         'terms_conditions' => $package->terms_conditions,
@@ -44,6 +45,7 @@ class PackageController extends Controller
                         'image' => $package->image ? url('storage/' . $package->image) : null,
                         'day_events' => $package->day_events,
                         'days' => $package->days,
+                        'options_data' => $package->options_data,
                         'destination' => $package->destinations, // Alias for compatibility
                         'created_by' => $package->created_by,
                         'created_by_name' => $package->creator ? $package->creator->name : 'Travbizz Travel IT Solutions',
@@ -97,6 +99,7 @@ class PackageController extends Controller
                 'duration' => 'nullable|integer|min:1',
                 'adult' => 'nullable|integer|min:0',
                 'child' => 'nullable|integer|min:0',
+                'infant' => 'nullable|integer|min:0',
                 'destinations' => 'nullable|string',
                 'notes' => 'nullable|string',
                 'terms_conditions' => 'nullable|string',
@@ -109,6 +112,9 @@ class PackageController extends Controller
                 'image_path' => 'nullable|string|max:500',
                 'day_events' => 'nullable|array',
                 'days' => 'nullable|array',
+                'options_data' => 'nullable|array',
+                'inclusions' => 'nullable|array',
+                'exclusions' => 'nullable|array',
             ], [
                 'itinerary_name.required' => 'The itinerary name field is required.',
                 'end_date.after_or_equal' => 'The end date must be after or equal to start date.',
@@ -135,6 +141,7 @@ class PackageController extends Controller
             $data['image'] = $imagePath;
             $data['adult'] = $data['adult'] ?? 1;
             $data['child'] = $data['child'] ?? 0;
+            $data['infant'] = $data['infant'] ?? 0;
             $data['price'] = $data['price'] ?? 0;
             $data['website_cost'] = $data['website_cost'] ?? 0;
             $data['show_on_website'] = $data['show_on_website'] ?? false;
@@ -157,10 +164,11 @@ class PackageController extends Controller
                     'id' => $package->id,
                     'title' => $package->itinerary_name,
                     'itinerary_name' => $package->itinerary_name,
-                    'start_date' => $package->start_date ? $package->start_date->format('Y-m-d') : null,
-                    'end_date' => $package->end_date ? $package->end_date->format('Y-m-d') : null,
+                    'start_date' => $package->start_date ? \Carbon\Carbon::parse($package->start_date)->format('Y-m-d') : null,
+                    'end_date' => $package->end_date ? \Carbon\Carbon::parse($package->end_date)->format('Y-m-d') : null,
                     'adult' => $package->adult,
                     'child' => $package->child,
+                    'infant' => $package->infant,
                     'destinations' => $package->destinations,
                     'notes' => $package->notes,
                     'terms_conditions' => $package->terms_conditions,
@@ -173,6 +181,7 @@ class PackageController extends Controller
                     'image' => $package->image ? url('storage/' . $package->image) : null,
                     'day_events' => $package->day_events,
                     'days' => $package->days,
+                    'options_data' => $package->options_data,
                     'created_by_name' => $package->creator ? $package->creator->name : 'Travbizz Travel IT Solutions',
                     'last_updated' => $package->updated_at ? $package->updated_at->format('d-m-Y') : null,
                     'updated_at' => $package->updated_at,
@@ -219,10 +228,11 @@ class PackageController extends Controller
                     'id' => $package->id,
                     'title' => $package->itinerary_name,
                     'itinerary_name' => $package->itinerary_name,
-                    'start_date' => $package->start_date ? $package->start_date->format('Y-m-d') : null,
-                    'end_date' => $package->end_date ? $package->end_date->format('Y-m-d') : null,
+                    'start_date' => $package->start_date ? \Carbon\Carbon::parse($package->start_date)->format('Y-m-d') : null,
+                    'end_date' => $package->end_date ? \Carbon\Carbon::parse($package->end_date)->format('Y-m-d') : null,
                     'adult' => $package->adult,
                     'child' => $package->child,
+                    'infant' => $package->infant,
                     'destinations' => $package->destinations,
                     'notes' => $package->notes,
                     'terms_conditions' => $package->terms_conditions,
@@ -235,6 +245,7 @@ class PackageController extends Controller
                     'image' => $package->image ? url('storage/' . $package->image) : null,
                     'day_events' => $package->day_events,
                     'days' => $package->days,
+                    'options_data' => $package->options_data,
                     'created_by_name' => $package->creator ? $package->creator->name : 'Travbizz Travel IT Solutions',
                     'last_updated' => $package->updated_at ? $package->updated_at->format('d-m-Y') : null,
                     'updated_at' => $package->updated_at,
@@ -293,6 +304,7 @@ class PackageController extends Controller
                 'duration' => 'nullable|integer|min:1',
                 'adult' => 'nullable|integer|min:0',
                 'child' => 'nullable|integer|min:0',
+                'infant' => 'nullable|integer|min:0',
                 'destinations' => 'nullable|string',
                 'notes' => 'nullable|string',
                 'terms_conditions' => 'nullable|string',
@@ -305,6 +317,9 @@ class PackageController extends Controller
                 'image_path' => 'nullable|string|max:500',
                 'day_events' => 'nullable|array',
                 'days' => 'nullable|array',
+                'options_data' => 'nullable|array',
+                'inclusions' => 'nullable|array',
+                'exclusions' => 'nullable|array',
             ], [
                 'itinerary_name.required' => 'The itinerary name field is required.',
                 'end_date.after_or_equal' => 'The end date must be after or equal to start date.',
@@ -343,6 +358,19 @@ class PackageController extends Controller
             }
 
             $package->update($data);
+
+            // Audit Logging: Phase 3
+            if ($request->has('lead_id') && !empty($request->lead_id)) {
+                \App\Models\QueryHistoryLog::logActivity([
+                    'lead_id' => $request->lead_id,
+                    'activity_type' => 'itinerary_updated',
+                    'activity_description' => "Itinerary content updated for '{$package->itinerary_name}'",
+                    'module' => 'itinerary',
+                    'record_id' => $package->id,
+                    'metadata' => array_intersect_key($data, array_flip(['destinations', 'duration', 'itinerary_name']))
+                ]);
+            }
+            
             
             // Recalculate duration from dates only if duration not provided
             if ($package->start_date && $package->end_date && !isset($data['duration'])) {
@@ -359,10 +387,11 @@ class PackageController extends Controller
                     'id' => $package->id,
                     'title' => $package->itinerary_name,
                     'itinerary_name' => $package->itinerary_name,
-                    'start_date' => $package->start_date ? $package->start_date->format('Y-m-d') : null,
-                    'end_date' => $package->end_date ? $package->end_date->format('Y-m-d') : null,
+                    'start_date' => $package->start_date ? \Carbon\Carbon::parse($package->start_date)->format('Y-m-d') : null,
+                    'end_date' => $package->end_date ? \Carbon\Carbon::parse($package->end_date)->format('Y-m-d') : null,
                     'adult' => $package->adult,
                     'child' => $package->child,
+                    'infant' => $package->infant,
                     'destinations' => $package->destinations,
                     'notes' => $package->notes,
                     'terms_conditions' => $package->terms_conditions,
@@ -375,6 +404,7 @@ class PackageController extends Controller
                     'image' => $package->image ? url('storage/' . $package->image) : null,
                     'day_events' => $package->day_events,
                     'days' => $package->days,
+                    'options_data' => $package->options_data,
                     'created_by_name' => $package->creator ? $package->creator->name : 'Travbizz Travel IT Solutions',
                     'last_updated' => $package->updated_at ? $package->updated_at->format('d-m-Y') : null,
                     'updated_at' => $package->updated_at,

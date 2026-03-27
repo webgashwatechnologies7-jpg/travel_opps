@@ -279,9 +279,27 @@ const WhatsAppWebLayout = () => {
                         toast.info(`New message from ${data.sender_name || 'WhatsApp'}`);
                     }
                 } else if (type === 'whatsapp.receipt') {
-                    setMessages(prev => prev.map(m =>
-                        m.whatsapp_message_id === data.message_id ? { ...m, status: data.status } : m
-                    ));
+                    const target = data.message_id;
+                    setMessages(prev => prev.map(m => {
+                        const match =
+                            m.whatsapp_message_id === target ||
+                            m.id === target ||
+                            String(m.id) === String(target);
+
+                        if (!match) return m;
+
+                        return {
+                            ...m,
+                            status: data.status,
+                            delivered_at: data.delivered_at ?? m.delivered_at,
+                            read_at: data.read_at ?? m.read_at
+                        };
+                    }));
+
+                    // Fallback: re-sync active chat to ensure status UI stays correct.
+                    if (activeChatRef.current?.chat_id) {
+                        fetchMessages(activeChatRef.current.chat_id, true);
+                    }
                 } else if (type === 'whatsapp.presence') {
                     if (data.presence === 'composing') {
                         setTypingStatus(prev => ({ ...prev, [data.chat_id]: true }));

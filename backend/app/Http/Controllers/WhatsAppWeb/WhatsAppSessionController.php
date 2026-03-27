@@ -64,35 +64,13 @@ class WhatsAppSessionController extends Controller
         $companyId = $user->company_id;
         $userId = $user->id;
 
-        // If Super Admin has no company_id fixed, try to get the first company's session or the only session
-        if (!$companyId && $user->isSuperAdmin()) {
-            $firstSession = DB::table('whatsapp_sessions')->orderBy('updated_at', 'desc')->first();
-            $companyId = $firstSession->company_id ?? null;
-        }
-
-        // 1. Try exact match (user + company)
+        // Strictly fetch ONLY the session for this specific User and Company
         $session = DB::table('whatsapp_sessions')
             ->where('user_id', $userId)
             ->where('company_id', $companyId)
             ->first();
 
-        // 2. Fallback: Any session for this company that is active
-        if (!$session && $companyId) {
-            $session = DB::table('whatsapp_sessions')
-                ->where('company_id', $companyId)
-                ->whereIn('status', ['Scanning', 'Connected'])
-                ->orderBy('updated_at', 'desc')
-                ->first();
-        }
-
-        // 3. Last Resort: Any session for this company
-        if (!$session && $companyId) {
-            $session = DB::table('whatsapp_sessions')
-                ->where('company_id', $companyId)
-                ->orderBy('id', 'desc')
-                ->first();
-        }
-
+        // No fallback to other user's sessions allowed (prevents security/privacy leaks)
         return response()->json([
             'success' => true,
             'status' => $session->status ?? 'Disconnected',
@@ -102,7 +80,6 @@ class WhatsAppSessionController extends Controller
                 'current_user_id' => $userId,
                 'current_company_id' => $companyId,
                 'found_session' => (bool)$session,
-                'is_super_admin' => $user->isSuperAdmin()
             ]
         ]);
     }

@@ -366,15 +366,9 @@ const LeadDetails = () => {
         const optionNum = proposal.optionNumber ?? 1;
         if (!itineraryId) return;
         try {
-          let dayEvents = null;
-          const stored = localStorage.getItem(`itinerary_${itineraryId}_events`);
-          if (stored) {
-            dayEvents = JSON.parse(stored);
-          } else {
-            // Fetch from server if not in localStorage (new system/session)
-            const response = await packagesAPI.get(itineraryId);
-            dayEvents = response?.data?.data?.day_events;
-          }
+          // Fetch directly from server (DATABASE)
+          const response = await packagesAPI.get(itineraryId);
+          dayEvents = response?.data?.data?.day_events;
 
           if (!dayEvents) return;
           
@@ -590,17 +584,24 @@ const LeadDetails = () => {
             confirmed: p.is_confirmed || p.metadata?.confirmed // Sync confirmed status from DB
           }));
         } else {
-          // fallback to local storage
-          const storedProposals = localStorage.getItem(`lead_${id}_proposals`);
-          list = storedProposals ? JSON.parse(storedProposals) : [];
-          // If we have local data, sync it to server once
-          if (list.length > 0 && !cancelled) {
-            console.log("Found local proposals, syncing to server...", list);
-            queryProposalsAPI.sync(id, list).then(() => {
-              console.log("Proposals synced successfully to server");
-            }).catch((e) => {
-              console.error("Proposals sync failed", e);
-            });
+          // One-time legacy migration: move old browser-only proposals to DB
+          const legacyKey = `lead_${id}_proposals`;
+          const migrationFlag = `lead_${id}_legacy_migrated_v1`;
+          const legacyRaw = localStorage.getItem(legacyKey);
+          const alreadyMigrated = localStorage.getItem(migrationFlag) === '1';
+
+          if (!alreadyMigrated && legacyRaw) {
+            try {
+              const legacyList = JSON.parse(legacyRaw);
+              if (Array.isArray(legacyList) && legacyList.length > 0) {
+                await queryProposalsAPI.sync(id, legacyList);
+                list = legacyList;
+                localStorage.setItem(migrationFlag, '1');
+                toast.success('Legacy proposal data migrated to server.');
+              }
+            } catch (migrationErr) {
+              console.warn('Legacy proposal migration failed:', migrationErr);
+            }
           }
         }
 
@@ -646,9 +647,10 @@ const LeadDetails = () => {
           if (processedItineraryIds.has(tid)) return;
           processedItineraryIds.add(tid);
           
-          // Primary source: LocalStorage (for in-progress edits on SAME device)
-          const fromStorage = localStorage.getItem(`itinerary_${tid}_proposals`);
-          let latestOptions = fromStorage ? JSON.parse(fromStorage) : [];
+          // Primary source: Server Data (Packages options_data field) - ELIMINATING LOCAL STORAGE RELIANCE
+          const pkgData = packageMap[tid];
+          // Always use Database data
+          let latestOptions = (pkgData && Array.isArray(pkgData.options_data) && pkgData.options_data.length > 0) ? pkgData.options_data : [];
           
           // Re-Sync/Reconstruct from Server if LocalStorage is empty
           // Special Rule: If server-side list for this ITINERARY only has 1 item and it's 'base' (no option number),
@@ -693,15 +695,14 @@ const LeadDetails = () => {
     return () => { cancelled = true; };
   }, [id, maxHotelOptions, activeTab]);
 
-  // Save proposals to server and localStorage
+  // Save proposals to server (DATABASE ONLY)
   const saveProposals = async (newProposals) => {
     try {
       setProposals(newProposals);
-      localStorage.setItem(`lead_${id}_proposals`, JSON.stringify(newProposals));
+      // Removed localStorage sync - using Database only
       await queryProposalsAPI.sync(id, newProposals);
     } catch (err) {
       console.error('Failed to save proposals:', err);
-      // Even if sync fails, we keep local state for UX
     }
   };
 
@@ -2137,52 +2138,51 @@ const LeadDetails = () => {
   };
 
   const handleSelectItinerary = async (itinerary) => {
+    const tid = itinerary.id;
     const itineraryName = itinerary.title || itinerary.itinerary_name || 'Untitled Itinerary';
+    
+    setLoadingItineraries(true);
+    let fullPackage = null;
+    let pricingDataFromServer = null;
+    
+    try {
+      // Fetch FULL package details to ensure day_events and days are cloned
+      const [pkgRes, prRes] = await Promise.all([
+        packagesAPI.get(tid),
+        itineraryPricingAPI.get(tid)
+      ]);
+      fullPackage = pkgRes.data.data;
+      pricingDataFromServer = prRes.data.data;
+    } catch (err) {
+      console.warn('Failed to fetch full itinerary details from server, using basic info:', err);
+    }
+
+    const pkg = fullPackage || itinerary;
     const baseInfo = {
-      itinerary_id: itinerary.id,
+      itinerary_id: pkg.id,
       itinerary_name: itineraryName,
-      destination: itinerary.destination || itinerary.destinations || '',
-      duration: itinerary.duration || 0,
-      image: itinerary.image || null,
-      notes: itinerary.notes || '',
+      destination: pkg.destinations || pkg.destination || '',
+      duration: pkg.duration || 0,
+      image: pkg.image || null,
+      notes: pkg.notes || '',
+      day_events: pkg.day_events || {},
+      days: pkg.days || [],
       created_at: new Date().toISOString(),
       inserted_at: new Date().toISOString()
     };
 
-    // Check if this itinerary has options (Option 1, 2, 3) saved from Itinerary Detail / Final tab
-    const tid = itinerary.id;
-    const storedOptionsKey = `itinerary_${tid}_proposals`;
-    const finalPricesKey = `itinerary_${tid}_finalClientPrices`;
+    // Use server-synced options/prices so any device sees the same data
     let optionsToAdd = [];
     try {
-      const stored = localStorage.getItem(storedOptionsKey);
-      
-      // Use latest prices from Itinerary Detail (finalClientPrices) so Query shows same as Itinerary page
-      let finalClientPricesMap = {};
-      try {
-        const fp = localStorage.getItem(finalPricesKey);
-        if (fp) finalClientPricesMap = JSON.parse(fp);
-      } catch (_) { }
-
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          optionsToAdd = parsed; // Use localstorage data if present
-        }
+      let finalClientPricesMap = pricingDataFromServer?.final_client_prices || {};
+      if (Array.isArray(pkg.options_data) && pkg.options_data.length > 0) {
+        optionsToAdd = pkg.options_data;
       }
 
-      // If no local storage data found, try to fetch/reconstruct from server
+      // If no saved options found, reconstruct from server events/pricing
       if (optionsToAdd.length === 0) {
-        try {
-          const [pkgRes, prRes] = await Promise.all([
-            packagesAPI.get(tid),
-            itineraryPricingAPI.get(tid)
-          ]);
-          if (pkgRes.data.data) {
-            optionsToAdd = reconstructOptionsFromServerData(pkgRes.data.data, prRes.data.data, baseInfo);
-          }
-        } catch (serverErr) {
-          console.warn('Could not fetch itinerary options from server, using base:', serverErr);
+        if (fullPackage) {
+          optionsToAdd = reconstructOptionsFromServerData(fullPackage, pricingDataFromServer, baseInfo);
         }
       }
 
@@ -2204,6 +2204,8 @@ const LeadDetails = () => {
             image: opt.image || baseInfo.image,
             price,
             pricing: { ...(opt.pricing || {}), finalClientPrice: price },
+            day_events: opt.day_events || baseInfo.day_events,
+            days: opt.days || baseInfo.days,
             created_at: baseInfo.created_at,
             inserted_at: baseInfo.inserted_at
           };
@@ -2211,6 +2213,8 @@ const LeadDetails = () => {
       }
     } catch (e) {
       console.error('Error loading itinerary options:', e);
+    } finally {
+      setLoadingItineraries(false);
     }
 
     let updatedProposals;
@@ -2227,8 +2231,8 @@ const LeadDetails = () => {
     const newProposal = {
       id: Date.now(),
       ...baseInfo,
-      price: itinerary.price || 0,
-      website_cost: itinerary.website_cost || 0
+      price: pkg.price || 0,
+      website_cost: pkg.website_cost || 0
     };
     updatedProposals = [...proposals, newProposal];
     saveProposals(updatedProposals);
@@ -2236,6 +2240,21 @@ const LeadDetails = () => {
     setShowInsertItineraryModal(false);
     setItinerarySearchTerm('');
     showToastNotification('success', 'Itinerary Added', `Itinerary "${itineraryName}" has been added to proposals.`);
+  };
+
+  const handleDuplicateProposal = (proposal) => {
+    const newProposal = {
+      ...JSON.parse(JSON.stringify(proposal)), // Deep clone
+      id: Date.now(),
+      optionNumber: (proposal.optionNumber || 0) + 10, // Distinguish it
+      itinerary_name: `${proposal.itinerary_name} (Copy)`,
+      created_at: new Date().toISOString(),
+      inserted_at: new Date().toISOString(),
+      confirmed: false // Reset confirmation for the copy
+    };
+    const updated = [...proposals, newProposal];
+    saveProposals(updated);
+    showToastNotification('success', 'Proposal Duplicated', 'A copy of the proposal has been created.');
   };
 
   // Trip days from From Date & To Date (inclusive) – e.g. 30 Jan to 1 Feb = 3 days / 2 nights
@@ -2368,10 +2387,8 @@ const LeadDetails = () => {
   // Get package details for an option
   const getPackageDetails = (proposal) => {
     try {
-      const storedEvents = localStorage.getItem(`itinerary_${proposal.itinerary_id}_events`);
-      if (!storedEvents) return null;
-
-      const dayEvents = JSON.parse(storedEvents);
+      const dayEvents = proposal?.day_events;
+      if (!dayEvents || typeof dayEvents !== 'object') return null;
       const optionNum = proposal.optionNumber || 1;
 
       const details = {
@@ -2455,7 +2472,7 @@ const LeadDetails = () => {
     let hotelOptions = {};
 
     try {
-      // Load itinerary data from API (primary) or localStorage (fallback)
+      // Load itinerary data from API (database source-of-truth)
       let dayEvents = {};
       let pricingData = {};
       let settings = {};
@@ -2472,12 +2489,7 @@ const LeadDetails = () => {
           const pkgData = pkgRes?.data?.data;
           const prData = pricingRes?.data?.data;
 
-          if (pkgData?.day_events) {
-            dayEvents = pkgData.day_events;
-          } else {
-            const storedEvents = localStorage.getItem(`itinerary_${tid}_events`);
-            if (storedEvents) dayEvents = JSON.parse(storedEvents);
-          }
+          dayEvents = pkgData?.day_events || {};
 
           if (prData) {
             pricingData = prData.pricing_data || {};
@@ -2490,20 +2502,9 @@ const LeadDetails = () => {
               tcs: prData.tcs,
               discount: prData.discount
             };
-          } else {
-            const storedPricing = localStorage.getItem(`itinerary_${tid}_pricing`);
-            const storedSettings = localStorage.getItem(`itinerary_${tid}_settings`);
-            if (storedPricing) pricingData = JSON.parse(storedPricing);
-            if (storedSettings) settings = JSON.parse(storedSettings);
           }
         } catch (err) {
-          console.warn('API fetch failed in handleViewQuotation, falling back to localStorage', err);
-          const storedEvents = localStorage.getItem(`itinerary_${tid}_events`);
-          const storedPricing = localStorage.getItem(`itinerary_${tid}_pricing`);
-          const storedSettings = localStorage.getItem(`itinerary_${tid}_settings`);
-          if (storedEvents) dayEvents = JSON.parse(storedEvents);
-          if (storedPricing) pricingData = JSON.parse(storedPricing);
-          if (storedSettings) settings = JSON.parse(storedSettings);
+          console.warn('API fetch failed in handleViewQuotation', err);
         }
       }
 
@@ -2566,11 +2567,22 @@ const LeadDetails = () => {
       const builtQuotation = {
         itinerary: {
           ...itinerary,
+          itinerary_name: itinerary.itinerary_name || proposal.itinerary_name || 'Travel Proposal',
           duration: proposal.duration || itinerary.duration,
           destinations: proposal.destination || itinerary.destinations,
           day_events: dayEvents, // Include full day-by-day details
+          // Force sync pax counts from the actual lead source of truth
+          adult: lead.adult || 1,
+          child: lead.child || 0,
+          infant: lead.infant || 0
         },
         hotelOptions: hotelOptions,
+        policies: {
+          inclusions: itinerary.inclusions || [],
+          exclusions: itinerary.exclusions || [],
+          terms_conditions: itinerary.terms_conditions || '',
+          refund_policy: itinerary.refund_policy || ''
+        }
       };
       setQuotationData(builtQuotation);
 
@@ -4980,6 +4992,7 @@ const LeadDetails = () => {
                                               Edit
                                             </button>
                                           )}
+                                          {/* Duplicate Option button removed for now */}
                                         </div>
                                       </div>
                                     </div>

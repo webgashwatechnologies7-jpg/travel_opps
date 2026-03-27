@@ -28,7 +28,16 @@ class WhatsAppChatController extends Controller
 
         $chats = DB::table('whatsapp_chats')
             ->where('whatsapp_chats.company_id', $effectiveCompanyId)
-            ->whereIn('whatsapp_chats.user_id', $subordinateIds)
+            ->where(function ($query) use ($user, $subordinateIds) {
+                // Rules for chat list visibility:
+                // 1. Always show your own chats (whether linked to a lead or not)
+                // 2. Show subordinate chats ONLY if they are linked to a lead
+                $query->where('whatsapp_chats.user_id', $user->id)
+                    ->orWhere(function ($q) use ($subordinateIds) {
+                        $q->whereIn('whatsapp_chats.user_id', $subordinateIds)
+                            ->whereNotNull('whatsapp_chats.lead_id');
+                    });
+            })
             ->leftJoin('leads', function ($join) {
                 $join->on('whatsapp_chats.lead_id', '=', 'leads.id')
                     ->whereNull('leads.deleted_at');
@@ -37,6 +46,13 @@ class WhatsAppChatController extends Controller
                 'whatsapp_chats.*',
                 DB::raw('COALESCE(leads.client_name, whatsapp_chats.chat_name) as chat_name')
             )
+            ->where(function ($q) {
+                // HIDE orphaned groups (stale ones from previous testing/phones)
+                // Filter: If it's a group, has no lead, and hasn't had a message in 14 days, hide it.
+                $q->whereNull('whatsapp_chats.lead_id')
+                  ->where('whatsapp_chats.chat_id', 'LIKE', '%@g.us')
+                  ->where('whatsapp_chats.last_message_at', '<', now()->subDays(14));
+            }, null, null, 'and not')
             ->orderBy('whatsapp_chats.last_message_at', 'desc')
             ->get();
 
@@ -100,6 +116,7 @@ class WhatsAppChatController extends Controller
         $chat = DB::table('whatsapp_chats')
             ->where('chat_id', $chatId)
             ->where('company_id', $effectiveCompanyId)
+            ->where('user_id', $user->id)
             ->first();
 
         if (!$chat) {
@@ -210,6 +227,7 @@ class WhatsAppChatController extends Controller
         $primaryChat = DB::table('whatsapp_chats')
             ->where('chat_id', $chatId)
             ->where('company_id', $effectiveCompanyId)
+            ->where('user_id', $user->id)
             ->first();
 
         if ($primaryChat) {
@@ -353,12 +371,17 @@ class WhatsAppChatController extends Controller
         $chat = DB::table('whatsapp_chats')
             ->where('chat_id', $chatId)
             ->where('company_id', $user->company_id)
+            ->where('user_id', $user->id)
             ->first();
 
         if (!$chat) {
             // Find lead: first use lead_id from request, else search by phone
             $resolvedLeadId = $requestedLeadId;
             if (!$resolvedLeadId) {
+                // Group chats (@g.us) don't map to a phone number -> don't attach to leads
+                if (str_contains($chatId, '@g.us')) {
+                    $resolvedLeadId = null;
+                } else {
                 $phone = explode('@', $chatId)[0];
                 if (strlen($phone) > 10 && str_starts_with($phone, '91')) {
                     $phone = substr($phone, 2);
@@ -371,6 +394,7 @@ class WhatsAppChatController extends Controller
                             ->orWhere('phone_secondary', 'like', "%{$phone}%");
                     })->first();
                 $resolvedLeadId = $lead ? $lead->id : null;
+                }
             }
 
             $chatId_inserted = DB::table('whatsapp_chats')->insertGetId([
@@ -385,7 +409,7 @@ class WhatsAppChatController extends Controller
             $whatsapp_chat_id = $chatId_inserted;
         } else {
             // Update lead_id if chat exists but lead_id is null
-            if ($requestedLeadId && !$chat->lead_id) {
+            if ($requestedLeadId && !$chat->lead_id && !str_contains($chatId, '@g.us')) {
                 DB::table('whatsapp_chats')->where('id', $chat->id)->update(['lead_id' => $requestedLeadId]);
             }
             $whatsapp_chat_id = $chat->id;
@@ -509,21 +533,26 @@ class WhatsAppChatController extends Controller
         $chat = DB::table('whatsapp_chats')
             ->where('chat_id', $chatId)
             ->where('company_id', $user->company_id)
+            ->where('user_id', $user->id)
             ->first();
 
         if (!$chat) {
             // Find lead by phone
-            $phone = explode('@', $chatId)[0];
-            if (strlen($phone) > 10 && str_starts_with($phone, '91')) {
-                $phone = substr($phone, 2);
+            if (str_contains($chatId, '@g.us')) {
+                $lead = null;
+            } else {
+                $phone = explode('@', $chatId)[0];
+                if (strlen($phone) > 10 && str_starts_with($phone, '91')) {
+                    $phone = substr($phone, 2);
+                }
+                $lead = DB::table('leads')
+                    ->where('company_id', $user->company_id)
+                    ->whereNull('deleted_at')
+                    ->where(function ($q) use ($phone) {
+                        $q->where('phone', 'like', "%{$phone}%")
+                            ->orWhere('phone_secondary', 'like', "%{$phone}%");
+                    })->first();
             }
-            $lead = DB::table('leads')
-                ->where('company_id', $user->company_id)
-                ->whereNull('deleted_at')
-                ->where(function ($q) use ($phone) {
-                    $q->where('phone', 'like', "%{$phone}%")
-                        ->orWhere('phone_secondary', 'like', "%{$phone}%");
-                })->first();
 
             $whatsapp_chat_id = DB::table('whatsapp_chats')->insertGetId([
                 'company_id' => $effectiveCompanyId,
@@ -599,6 +628,7 @@ class WhatsAppChatController extends Controller
         $chat = DB::table('whatsapp_chats')
             ->where('chat_id', $chatId)
             ->where('company_id', $effectiveCompanyId)
+            ->where('user_id', $user->id)
             ->first();
 
         if ($chat) {

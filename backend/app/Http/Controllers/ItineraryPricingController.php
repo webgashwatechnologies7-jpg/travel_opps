@@ -109,6 +109,23 @@ class ItineraryPricingController extends Controller
                 )
             );
 
+            // Audit Logging: Phase 3
+            if ($request->has('lead_id') && !empty($request->lead_id)) {
+                $leadId = $request->input('lead_id');
+                \App\Models\QueryHistoryLog::logActivity([
+                    'lead_id' => $leadId,
+                    'activity_type' => 'itinerary_pricing_updated',
+                    'activity_description' => "Itinerary pricing updated for package #{$packageId}",
+                    'module' => 'itinerary_pricing',
+                    'record_id' => $pricing->id,
+                    'metadata' => [
+                        'base_markup' => $data['base_markup'] ?? null,
+                        'extra_markup' => $data['extra_markup'] ?? null,
+                        'package_id' => $packageId
+                    ]
+                ]);
+            }
+
             return response()->json([
                 'success' => true,
                 'message' => 'Pricing saved successfully',

@@ -182,8 +182,15 @@ const WhatsAppWeb = () => {
                         </div>
 
                         {status === 'Unauthorized_Phone' && (
-                            <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded-xl mb-6 text-sm font-bold flex items-center justify-center gap-2">
-                                <X size={20} /> Connection Failed: Phone number mismatch.
+                            <div className="bg-red-50 border border-red-200 text-red-700 p-6 rounded-xl mb-6 text-sm font-bold flex flex-col items-center gap-3">
+                                <div className="flex items-center gap-2 text-lg">
+                                    <X size={24} className="text-red-600" /> 
+                                    <span>Account Mismatch!</span>
+                                </div>
+                                <p className="text-center font-normal text-red-600 uppercase tracking-tighter text-xs">
+                                    Aap jis WhatsApp se login kar rahe hain wo aapke naam (CRM) ke sath register nahi hai. 
+                                    Please sirf wahi phone scan karein jiska number <span className="underline font-black">{userPhone}</span> hai.
+                                </p>
                             </div>
                         )}
 

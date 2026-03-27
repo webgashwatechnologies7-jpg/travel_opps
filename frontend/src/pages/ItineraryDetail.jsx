@@ -4,7 +4,7 @@ import { toast } from 'react-toastify';
 import Layout from '../components/Layout';
 import { useAuth } from '../contexts/AuthContext';
 import { getDisplayImageUrl } from '../utils/imageUrl';
-import { packagesAPI, dayItinerariesAPI, hotelsAPI, activitiesAPI, settingsAPI, destinationsAPI, itineraryPricingAPI, transfersAPI, mealPlansAPI, queryProposalsAPI } from '../services/api';
+import { packagesAPI, dayItinerariesAPI, hotelsAPI, activitiesAPI, settingsAPI, destinationsAPI, itineraryPricingAPI, transfersAPI, mealPlansAPI, queryProposalsAPI, leadsAPI } from '../services/api';
 import { searchPexelsPhotos } from '../services/pexels';
 import { ArrowLeft, Camera, Edit, Plus, ChevronRight, FileText, Search, X, Bed, Image as ImageIcon, Car, FileText as PassportIcon, UtensilsCrossed, Plane, User, Ship, Star, Calendar, Hash, Building2, Upload } from 'lucide-react';
 import PricingTab from '../components/PricingTab';
@@ -29,6 +29,81 @@ const ItineraryDetail = () => {
   const [searchParams] = useSearchParams();
   const fromLeadId = location.state?.fromLeadId || searchParams.get('fromLead');
   const [itinerary, setItinerary] = useState(null);
+  const [syncedWithLead, setSyncedWithLead] = useState(false);
+  const legacyMigrationAttemptedRef = useRef(false);
+
+  useEffect(() => {
+    if (fromLeadId && itinerary?.id && !syncedWithLead) {
+      const syncPaxWithLead = async () => {
+        try {
+          const res = await leadsAPI.get(fromLeadId);
+          const leadData = res.data.data.lead || res.data.data;
+          
+          if (leadData) {
+            const currentAdult = parseInt(itinerary.adult || 1);
+            const currentChild = parseInt(itinerary.child || 0);
+            const currentInfant = parseInt(itinerary.infant || 0);
+            const currentDuration = parseInt(itinerary.duration || 0);
+            
+            const leadAdult = parseInt(leadData.adult || 1);
+            const leadChild = parseInt(leadData.child || 0);
+            const leadInfant = parseInt(leadData.infant || 0);
+
+            // Calculate duration (days) from lead dates: (end - start) + 1
+            let leadDuration = currentDuration;
+            if (leadData.travel_start_date && leadData.travel_end_date) {
+              const start = new Date(leadData.travel_start_date);
+              const end = new Date(leadData.travel_end_date);
+              const diffTime = Math.abs(end - start);
+              const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+              leadDuration = diffDays;
+            }
+
+            if (currentAdult !== leadAdult || currentChild !== leadChild || currentInfant !== leadInfant || currentDuration !== leadDuration) {
+              console.log('Syncing pax and duration from lead:', leadData.adult, leadData.child, leadData.infant, leadDuration);
+              
+              // Prepare update data
+              const updateData = {
+                adult: leadAdult,
+                child: leadChild,
+                infant: leadInfant
+              };
+              
+              // Update duration if it changed
+              if (currentDuration !== leadDuration) {
+                updateData.duration = leadDuration;
+              }
+
+              // Only update on server if values changed
+              await packagesAPI.update(id, updateData);
+
+              setItinerary(prev => ({
+                ...prev,
+                adult: leadAdult,
+                child: leadChild,
+                infant: leadInfant,
+                duration: leadDuration
+              }));
+              
+              // If duration changed, we need to refresh days
+              if (currentDuration !== leadDuration) {
+                toast.info(`Duration updated from lead: ${leadDuration} Days`);
+                // Trigger itinerary refresh to rebuild days array
+                fetchItinerary();
+              } else {
+                toast.info(`Pax updated from lead: ${leadAdult} Adult${leadAdult > 1 ? 's' : ''}`);
+              }
+            }
+            setSyncedWithLead(true);
+          }
+        } catch (err) {
+          console.error('Failed to sync pax from lead:', err);
+          setSyncedWithLead(true); // Don't keep retrying if it fails
+        }
+      };
+      syncPaxWithLead();
+    }
+  }, [fromLeadId, itinerary, id, syncedWithLead]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('build');
   const [dayItineraries, setDayItineraries] = useState([]);
@@ -145,7 +220,9 @@ const ItineraryDetail = () => {
   const [packageTerms, setPackageTerms] = useState({
     terms_conditions: '',
     refund_policy: '',
-    package_description: ''
+    package_description: '',
+    inclusions: [],
+    exclusions: []
   });
   const [pricingData, setPricingData] = useState({}); // Store pricing for each option
   const [finalClientPrices, setFinalClientPrices] = useState({}); // Final client prices for each option
@@ -164,9 +241,95 @@ const ItineraryDetail = () => {
     fetchItinerary();
     fetchDayItineraries();
     fetchDestinations();
-    loadEventsFromStorage();
     fetchMaxHotelOptions();
     loadPricingFromServer();
+  }, [id]);
+
+  // One-time legacy migration: move old browser-only itinerary data to DB
+  useEffect(() => {
+    if (!id || legacyMigrationAttemptedRef.current) return;
+    legacyMigrationAttemptedRef.current = true;
+
+    const runLegacyMigration = async () => {
+      const migrationFlag = `itinerary_${id}_legacy_migrated_v1`;
+      if (localStorage.getItem(migrationFlag) === '1') return;
+
+      let migratedAnything = false;
+
+      const parseLegacyJson = (key, fallback) => {
+        try {
+          const raw = localStorage.getItem(key);
+          if (!raw) return fallback;
+          const parsed = JSON.parse(raw);
+          return parsed ?? fallback;
+        } catch (_) {
+          return fallback;
+        }
+      };
+
+      try {
+        const [pkgRes, pricingRes] = await Promise.all([
+          packagesAPI.get(id),
+          itineraryPricingAPI.get(id)
+        ]);
+
+        const pkgData = pkgRes?.data?.data || {};
+        const pricingServerData = pricingRes?.data?.data || {};
+
+        const legacyEvents = parseLegacyJson(`itinerary_${id}_events`, {});
+        const legacyDays = parseLegacyJson(`itinerary_${id}_days`, []);
+        const legacyOptions = parseLegacyJson(`itinerary_${id}_proposals`, []);
+
+        const packageUpdate = {};
+        if ((!pkgData.day_events || Object.keys(pkgData.day_events || {}).length === 0) && Object.keys(legacyEvents || {}).length > 0) {
+          packageUpdate.day_events = legacyEvents;
+        }
+        if ((!Array.isArray(pkgData.days) || pkgData.days.length === 0) && Array.isArray(legacyDays) && legacyDays.length > 0) {
+          packageUpdate.days = legacyDays;
+        }
+        if ((!Array.isArray(pkgData.options_data) || pkgData.options_data.length === 0) && Array.isArray(legacyOptions) && legacyOptions.length > 0) {
+          packageUpdate.options_data = legacyOptions;
+        }
+
+        if (Object.keys(packageUpdate).length > 0) {
+          await packagesAPI.update(id, packageUpdate);
+          migratedAnything = true;
+        }
+
+        const legacyPricing = parseLegacyJson(`itinerary_${id}_pricing`, {});
+        const legacyFinalClientPrices = parseLegacyJson(`itinerary_${id}_finalClientPrices`, {});
+        const legacySettings = parseLegacyJson(`itinerary_${id}_settings`, {});
+        const shouldSavePricing =
+          (!pricingServerData.pricing_data || Object.keys(pricingServerData.pricing_data || {}).length === 0) &&
+          (Object.keys(legacyPricing || {}).length > 0 || Object.keys(legacyFinalClientPrices || {}).length > 0 || Object.keys(legacySettings || {}).length > 0);
+
+        if (shouldSavePricing) {
+          await itineraryPricingAPI.save(id, {
+            pricing_data: legacyPricing,
+            final_client_prices: legacyFinalClientPrices,
+            base_markup: Number(legacySettings.baseMarkup || 0),
+            extra_markup: Number(legacySettings.extraMarkup || 0),
+            cgst: Number(legacySettings.cgst || 0),
+            sgst: Number(legacySettings.sgst || 0),
+            igst: Number(legacySettings.igst || 0),
+            tcs: Number(legacySettings.tcs || 0),
+            discount: Number(legacySettings.discount || 0)
+          });
+          migratedAnything = true;
+        }
+
+        localStorage.setItem(migrationFlag, '1');
+        if (migratedAnything) {
+          toast.success('Legacy itinerary data migrated to server.');
+          fetchItinerary();
+          loadPricingFromServer();
+        }
+      } catch (migrationErr) {
+        console.warn('Legacy itinerary migration failed:', migrationErr);
+      }
+    };
+
+    runLegacyMigration();
   }, [id]);
 
   const loadPricingFromServer = async () => {
@@ -314,11 +477,11 @@ const ItineraryDetail = () => {
       };
     });
 
-    localStorage.setItem(`itinerary_${id}_proposals`, JSON.stringify(proposals));
+    syncItineraryToServer(dayEvents, days, proposals);
     toast.success(`Successfully saved ${proposals.length} option(s).`);
   };
 
-  // Auto-save options to itinerary_*_proposals – only options that exist in dayEvents (same as Final tab), so Query shows same count and prices as itinerary
+  // Auto-save options to server options_data using dayEvents-derived options
   const syncOptionsToProposalsStorage = () => {
     if (!id || !itinerary) return;
     // Collect distinct option numbers from dayEvents (accommodation hotelOptions), same as FinalTab – not from pricingData
@@ -400,11 +563,7 @@ const ItineraryDetail = () => {
         created_at: new Date().toISOString()
       };
     });
-    try {
-      localStorage.setItem(`itinerary_${id}_proposals`, JSON.stringify(proposals));
-    } catch (e) {
-      console.error('Failed to sync options to proposals storage', e);
-    }
+    syncItineraryToServer(dayEvents, days, proposals);
   };
 
   useEffect(() => {
@@ -418,56 +577,6 @@ const ItineraryDetail = () => {
     }
   }, [showCoverPhotoModal, coverPhotoSource]);
 
-  // Load events from localStorage on mount
-  const loadEventsFromStorage = () => {
-    try {
-      const storedEvents = localStorage.getItem(`itinerary_${id}_events`);
-      if (storedEvents) {
-        setDayEvents(JSON.parse(storedEvents));
-      }
-
-      // Load days data (destinations per day)
-      const storedDays = localStorage.getItem(`itinerary_${id}_days`);
-      if (storedDays) {
-        try {
-          const parsedDays = JSON.parse(storedDays);
-          if (Array.isArray(parsedDays) && parsedDays.length > 0) {
-            setDays(parsedDays);
-          }
-        } catch (e) {
-          console.error('Failed to parse stored days:', e);
-        }
-      }
-
-      // Load pricing data
-      const storedPricing = localStorage.getItem(`itinerary_${id}_pricing`);
-      if (storedPricing) {
-        setPricingData(JSON.parse(storedPricing));
-      }
-
-      // Load final client prices
-      const storedFinalPrices = localStorage.getItem(`itinerary_${id}_finalClientPrices`);
-      if (storedFinalPrices) {
-        setFinalClientPrices(JSON.parse(storedFinalPrices));
-      }
-
-      // Load GST settings
-      const storedSettings = localStorage.getItem(`itinerary_${id}_settings`);
-      if (storedSettings) {
-        const settings = JSON.parse(storedSettings);
-        setBaseMarkup(settings.baseMarkup || 0);
-        setExtraMarkup(settings.extraMarkup || 0);
-        setCgst(settings.cgst || 0);
-        setSgst(settings.sgst || 0);
-        setIgst(settings.igst || 0);
-        setTcs(settings.tcs || 0);
-        setDiscount(settings.discount || 0);
-      }
-    } catch (err) {
-      console.error('Failed to load data from storage:', err);
-    }
-  };
-
   // Save base settings (GST, markups) to database
   useEffect(() => {
     if (!id) return;
@@ -478,11 +587,11 @@ const ItineraryDetail = () => {
     };
     
     const timer = setTimeout(() => {
-      itineraryPricingAPI.save(id, settings).catch(() => {});
-    }, 2000);
+      itineraryPricingAPI.save(id, { ...settings, lead_id: fromLeadId }).catch(() => {});
+    }, 1000);
     
     return () => clearTimeout(timer);
-  }, [baseMarkup, extraMarkup, cgst, sgst, igst, tcs, discount, id]);
+  }, [baseMarkup, extraMarkup, cgst, sgst, igst, tcs, discount, id, fromLeadId]);
 
   // Save pricing data and final client prices to database
   useEffect(() => {
@@ -492,12 +601,13 @@ const ItineraryDetail = () => {
       itineraryPricingAPI.save(id, {
         pricing_data: pricingData,
         final_client_prices: finalClientPrices,
-        option_gst_settings: optionGstSettings
+        option_gst_settings: optionGstSettings,
+        lead_id: fromLeadId
       }).catch(() => {});
-    }, 3000);
+    }, 1000);
     
     return () => clearTimeout(timer);
-  }, [pricingData, finalClientPrices, optionGstSettings, id]);
+  }, [pricingData, finalClientPrices, optionGstSettings, id, fromLeadId]);
 
   // Save days and events to database whenever they change
   useEffect(() => {
@@ -505,75 +615,30 @@ const ItineraryDetail = () => {
     
     const timer = setTimeout(() => {
       syncItineraryToServer();
-    }, 2500);
+    }, 1000);
     
     return () => clearTimeout(timer);
   }, [dayEvents, days, id]);
 
-  // Save days to localStorage whenever they change
+  // Sync packageTerms (inclusions, exclusions, terms) to server
   useEffect(() => {
-    if (id && days.length > 0) {
-      try {
-        localStorage.setItem(`itinerary_${id}_days`, JSON.stringify(days));
-      } catch (err) {
-        console.error('Failed to save days to storage:', err);
-      }
+    if (id && packageTerms) {
+      const syncTerms = async () => {
+        try {
+          await packagesAPI.update(id, {
+            terms_conditions: packageTerms.terms_conditions,
+            refund_policy: packageTerms.refund_policy,
+            package_description: packageTerms.package_description,
+            inclusions: packageTerms.inclusions,
+            exclusions: packageTerms.exclusions
+          });
+        } catch (err) {
+          console.error('Failed to sync package terms to server:', err);
+        }
+      };
+      syncTerms();
     }
-  }, [days, id]);
-
-  // Save events to localStorage whenever they change
-  useEffect(() => {
-    if (id && Object.keys(dayEvents).length > 0) {
-      try {
-        localStorage.setItem(`itinerary_${id}_events`, JSON.stringify(dayEvents));
-      } catch (err) {
-        console.error('Failed to save events to storage:', err);
-      }
-    }
-  }, [dayEvents, id]);
-
-  // Save pricing data to localStorage whenever it changes
-  useEffect(() => {
-    if (id && Object.keys(pricingData).length > 0) {
-      try {
-        localStorage.setItem(`itinerary_${id}_pricing`, JSON.stringify(pricingData));
-      } catch (err) {
-        console.error('Failed to save pricing data to storage:', err);
-      }
-    }
-  }, [pricingData, id]);
-
-  // Save final client prices to localStorage whenever they change
-  useEffect(() => {
-    if (id) {
-      try {
-        // Save even if empty to clear previous data
-        localStorage.setItem(`itinerary_${id}_finalClientPrices`, JSON.stringify(finalClientPrices));
-      } catch (err) {
-        console.error('Failed to save final client prices to storage:', err);
-      }
-    }
-  }, [finalClientPrices, id]);
-
-  // Save GST settings to localStorage whenever they change
-  useEffect(() => {
-    if (id) {
-      try {
-        const settings = {
-          baseMarkup,
-          extraMarkup,
-          cgst,
-          sgst,
-          igst,
-          tcs,
-          discount
-        };
-        localStorage.setItem(`itinerary_${id}_settings`, JSON.stringify(settings));
-      } catch (err) {
-        console.error('Failed to save settings to storage:', err);
-      }
-    }
-  }, [baseMarkup, extraMarkup, cgst, sgst, igst, tcs, discount, id]);
+  }, [packageTerms, id]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -613,39 +678,31 @@ const ItineraryDetail = () => {
 
       setItinerary(data);
       
-      // Load events and days from server if they exist
-      if (data.day_events) {
+      // Load events and days from server; keep database as source-of-truth
+      if (data.day_events && Object.keys(data.day_events).length > 0) {
         setDayEvents(data.day_events);
       } else {
-        loadEventsFromStorage();
+        setDayEvents({});
       }
 
       if (data.days && Array.isArray(data.days) && data.days.length > 0) {
         setDays(data.days);
       } else {
-        // Fallback to local storage or defaults
-        const storedDays = localStorage.getItem(`itinerary_${id}_days`);
-        if (storedDays) {
-          try {
-            const parsedDays = JSON.parse(storedDays);
-            if (Array.isArray(parsedDays) && parsedDays.length === (data.duration || 0)) {
-              setDays(parsedDays);
-            } else {
-              initializeDefaultDays(data);
-            }
-          } catch (e) {
-            initializeDefaultDays(data);
-          }
-        } else {
-          initializeDefaultDays(data);
-        }
+        initializeDefaultDays(data);
       }
 
+      if (data.options_data && Array.isArray(data.options_data) && data.options_data.length > 0) {
+        // We don't have a state for proposals in this component as they are reconstructed,
+        // but we might want to store them if we used them.
+      }
+      
       // Load terms and policies
       setPackageTerms({
         terms_conditions: data.terms_conditions || '',
         refund_policy: data.refund_policy || '',
-        package_description: data.package_description || ''
+        package_description: data.package_description || '',
+        inclusions: Array.isArray(data.inclusions) ? data.inclusions : [],
+        exclusions: Array.isArray(data.exclusions) ? data.exclusions : []
       });
 
       // Set first day as selected if available
@@ -662,19 +719,24 @@ const ItineraryDetail = () => {
   };
 
   const initializeDefaultDays = (data) => {
-    const initialDays = [];
+    const existingDays = days || [];
+    const newDays = [];
     for (let i = 1; i <= (data.duration || 0); i++) {
-      initialDays.push({
-        day: i,
-        destination: data.destinations?.split(',')[0]?.trim() || '',
-        details: ''
-      });
+      const existing = existingDays.find(d => d.day === i);
+      if (existing) {
+        newDays.push(existing);
+      } else {
+        newDays.push({
+          day: i,
+          destination: data.destinations?.split(',')[0]?.trim() || '',
+          details: ''
+        });
+      }
     }
-    setDays(initialDays);
-    if (id) localStorage.setItem(`itinerary_${id}_days`, JSON.stringify(initialDays));
+    setDays(newDays);
   };
 
-  const syncItineraryToServer = async (updatedDayEvents, updatedDays) => {
+  const syncItineraryToServer = async (updatedDayEvents, updatedDays, updatedOptions_data) => {
     if (!id) return;
     try {
       // Use the provided values or fallback to current state
@@ -686,7 +748,9 @@ const ItineraryDetail = () => {
 
       await packagesAPI.update(id, {
         day_events: events,
-        days: dayList
+        days: dayList,
+        options_data: updatedOptions_data || itinerary?.options_data,
+        lead_id: fromLeadId // Pass lead_id for audit logging
       });
       console.log('Itinerary content synced to server');
       // showToastNotification('success', 'Saved', 'Content synced to server');
@@ -1141,6 +1205,7 @@ const ItineraryDetail = () => {
         // Upload file
         const formData = new FormData();
         formData.append('image', coverPhotoFile);
+        formData.append('lead_id', fromLeadId || '');
         formData.append('_method', 'PUT');
 
         await packagesAPI.update(id, formData);
@@ -1152,6 +1217,7 @@ const ItineraryDetail = () => {
 
         const formData = new FormData();
         formData.append('image', file);
+        formData.append('lead_id', fromLeadId || '');
         formData.append('_method', 'PUT');
 
         await packagesAPI.update(id, formData);
@@ -1175,6 +1241,52 @@ const ItineraryDetail = () => {
     if (!selectedDay) return;
 
     const currentDayEvents = dayEvents[selectedDay] || [];
+    const normalizedType = (eventData.eventType || '').toLowerCase();
+    const isEditingExisting = !!(eventData.id && currentDayEvents.some(e => e.id === eventData.id));
+    const isNewEvent = !isEditingExisting;
+    const compareEvents = isEditingExisting
+      ? currentDayEvents.filter(e => e.id !== eventData.id)
+      : currentDayEvents;
+
+    // NOTE:
+    // We intentionally do NOT block "one event type per day" here.
+    // The UI already supports multi-option building (e.g. hotels up to maxHotelOptions)
+    // and has dedicated duplicate checks (hotel duplicate by hotelId/name,
+    // transportation/activity/meal duplicate by name/subject) elsewhere.
+
+    // For day-itinerary: block only exact duplicate item in the same day.
+    if (isNewEvent && normalizedType === 'day-itinerary') {
+      const normalizeText = (v) => (v || '').toString().trim().toLowerCase();
+      const incomingMasterId = eventData.master_id ?? null;
+      const incomingSubject = normalizeText(eventData.subject || eventData.name);
+
+      const duplicateDayItinerary = compareEvents.find((e) => {
+        if ((e.eventType || '').toLowerCase() !== 'day-itinerary') return false;
+        const existingMasterId = e.master_id ?? null;
+        if (incomingMasterId && existingMasterId && Number(incomingMasterId) === Number(existingMasterId)) return true;
+        return incomingSubject && normalizeText(e.subject || e.name) === incomingSubject;
+      });
+
+      if (duplicateDayItinerary) {
+        toast.warning(`This Day Itinerary is already added to Day ${selectedDay}.`);
+        return;
+      }
+    }
+
+    // Check for duplicate names/subjects in the same category (Transportation, Activity, Meal) 
+    // to avoid adding the same vehicle or activity multiple times on the same day.
+    if (isNewEvent && ['transportation', 'activity', 'meal', 'transfer'].includes(normalizedType)) {
+      const duplicate = compareEvents.find(e => 
+        (e.eventType || '').toLowerCase() === normalizedType && 
+        ((e.name && eventData.name && e.name.toLowerCase() === eventData.name.toLowerCase()) || 
+         (e.subject && eventData.subject && e.subject.toLowerCase() === eventData.subject.toLowerCase()))
+      );
+
+      if (duplicate) {
+        toast.warning(`This ${eventData.eventType} item is already added to Day ${selectedDay}.`);
+        return;
+      }
+    }
 
     if (eventData.id && currentDayEvents.some(e => e.id === eventData.id)) {
       const updatedDayEventsList = currentDayEvents.map(e =>
@@ -1282,6 +1394,7 @@ const ItineraryDetail = () => {
     // Create event from day itinerary
     const eventData = {
       id: Date.now(), // Temporary ID
+      master_id: selectedItinerary.id,
       subject: selectedItinerary.title || selectedItinerary.destination || 'Day Itinerary',
       details: selectedItinerary.details || '',
       destination: selectedItinerary.destination || '',
@@ -1541,12 +1654,6 @@ const ItineraryDetail = () => {
     // Sync to server
     syncItineraryToServer(dayEvents, updatedDays);
 
-    // Save to localStorage for persistence
-    try {
-      localStorage.setItem(`itinerary_${id}_days`, JSON.stringify(updatedDays));
-    } catch (err) {
-      console.error('Failed to save days to localStorage:', err);
-    }
   };
 
   if (loading) {
@@ -1792,7 +1899,7 @@ const ItineraryDetail = () => {
                                     className="w-full px-4 py-2 text-left hover:bg-gray-50 flex items-center gap-3 text-sm text-gray-700"
                                   >
                                     <Bed className="h-4 w-4 text-gray-500" />
-                                    <span>Accommodation</span>
+                                    <span>Hotels</span>
                                   </button>
                                   <button
                                     onClick={() => {
@@ -2093,7 +2200,7 @@ const ItineraryDetail = () => {
                           className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white"
                         >
                           <option value="day-itinerary">Day Itinerary</option>
-                          <option value="accommodation">Accommodation</option>
+                          <option value="accommodation">Hotels</option>
                           <option value="activity">Activity</option>
                           <option value="transportation">Transportation</option>
                           <option value="meal">Meal</option>
@@ -2336,7 +2443,7 @@ const ItineraryDetail = () => {
                                 ) : (
                                   <>
                                     <div className="text-sm text-gray-600 mb-2">
-                                      Suggested Accommodation in {days[selectedDay - 1]?.destination || 'null'}
+                                      Suggested Hotels in {days[selectedDay - 1]?.destination || 'null'}
                                     </div>
                                     {storedHotels.length > 0 ? (
                                       storedHotels
@@ -2802,6 +2909,7 @@ const ItineraryDetail = () => {
               pricingData={pricingData}
               finalClientPrices={finalClientPrices}
               packageTerms={packageTerms}
+              setPackageTerms={setPackageTerms}
               baseMarkup={baseMarkup}
               extraMarkup={extraMarkup}
               cgst={cgst}
@@ -3944,7 +4052,7 @@ const ItineraryDetail = () => {
                           return;
                         }
                         subject = hasHotelOptions
-                          ? dayDetailsForm.hotelOptions[0]?.hotelName || dayDetailsForm.destination || 'Accommodation'
+                          ? dayDetailsForm.hotelOptions[0]?.hotelName || dayDetailsForm.destination || 'Hotel'
                           : dayDetailsForm.hotelName;
                       } else if (dayDetailsForm.eventType === 'day-itinerary') {
                         subject = dayDetailsForm.subject || dayDetailsForm.name || '';
@@ -4656,7 +4764,7 @@ const ItineraryDetail = () => {
           <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between p-6 border-b border-gray-200">
               <h2 className="text-xl font-semibold text-gray-900">
-                Accommodation in day {selectedDay}
+                Hotels in day {selectedDay}
               </h2>
               <button
                 onClick={() => {
@@ -4682,7 +4790,7 @@ const ItineraryDetail = () => {
                 }}
                 className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg hover:bg-blue-700 transition-colors font-medium"
               >
-                Open Accommodation Form
+                Open Hotels Form
               </button>
             </div>
           </div>
@@ -4695,7 +4803,7 @@ const ItineraryDetail = () => {
           <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
             <div className="flex items-center justify-between p-6 border-b border-gray-200">
               <h2 className="text-xl font-semibold text-gray-900">
-                Accommodation in day {selectedDay}
+                Hotels in day {selectedDay}
               </h2>
               <button
                 onClick={() => {

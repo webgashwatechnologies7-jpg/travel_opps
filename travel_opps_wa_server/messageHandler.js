@@ -12,7 +12,18 @@ module.exports = (sock, sessionName, pool) => {
     sock.ev.on('messages.upsert', async (m) => {
         if (m.type === 'notify') {
             for (const msg of m.messages) {
-                if (!msg.key.fromMe && !msg.key.remoteJid.includes('status@broadcast')) {
+                if (!msg.key.remoteJid.includes('status@broadcast')) {
+                    // Sync chat name from sender's pushName or known contact
+                    if (msg.pushName) {
+                        try {
+                            await axios.post(process.env.LARAVEL_WEBHOOK_URL, {
+                                type: 'chat_update',
+                                session_name: sessionName,
+                                chat_id: msg.key.remoteJid,
+                                chat_name: msg.pushName
+                            }, { headers: { 'x-api-key': process.env.WA_GATEWAY_API_KEY || 'travelops_secure_gateway_key_99' } });
+                        } catch (err) { /* silent sync error */ }
+                    }
 
                     let messageBody = '';
                     let mediaUrl = null;
@@ -105,15 +116,25 @@ module.exports = (sock, sessionName, pool) => {
                                 : messageType === 'videoMessage' ? '.mp4' : '.pdf';
                             try {
                                 const buffer = await downloadMediaMessage({ message: inner, key: msg.key }, 'buffer', {}, { logger: console, reuploadRequest: sock.updateMediaMessage });
-                                const fileName = `${msg.key.id}${ext}`;
+                                // For Documents, use the REAL filename from the message
+                                let realName = mediaMsg.fileName || `${msg.key.id}${ext}`;
+                                const fileName = `${Date.now()}-${realName.replace(/[^a-zA-Z0-9.\-_]/g, '_')}`;
+                                
                                 const mediaDir = path.join(__dirname, 'media');
                                 if (!fs.existsSync(mediaDir)) fs.mkdirSync(mediaDir, { recursive: true });
                                 const filePath = path.join(mediaDir, fileName);
                                 await writeFile(filePath, buffer);
+
                                 mediaUrl = `${process.env.NODE_SERVER_URL || 'http://localhost:3001'}/media/${fileName}`;
                                 mediaType = messageType.replace('Message', '');
                                 mediaCaption = mediaMsg.caption || '';
-                                if (!messageBody) messageBody = mediaCaption || `Media: ${mediaType}`;
+                                
+                                // Set the message body to the REAL filename
+                                if (messageType === 'documentMessage') {
+                                    messageBody = realName;
+                                } else if (!messageBody) {
+                                    messageBody = mediaCaption || `Media: ${mediaType}`;
+                                }
                             } catch (err) {
                                 console.error('Error downloading media:', err.message);
                                 messageBody = mediaMsg.caption || `Media: ${messageType.replace('Message', '')}`;

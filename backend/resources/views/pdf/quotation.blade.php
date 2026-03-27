@@ -387,7 +387,7 @@
 
     <!-- PROPOSAL TITLE -->
     <div class="proposal-title">
-        {!! html_entity_decode(html_entity_decode($quotation->itinerary['itinerary_name'] ?? 'Customized Travel Proposal')) !!}
+        {!! html_entity_decode(html_entity_decode($quotation->title ?? $quotation->itinerary['itinerary_name'] ?? 'Customized Travel Proposal')) !!}
     </div>
 
     <!-- HERO IMAGE -->
@@ -441,18 +441,43 @@
         @php
             $evts = $dayEvents[$day] ?? [];
             $dayTitle = "Day $day";
+            // Pass 1: Find the Best Title for the Day
+            foreach ($evts as $e) {
+                $t = $e['eventType'] ?? '';
+                // The 'day-itinerary' type with a custom subject is the top priority
+                if ($t === 'day-itinerary' && $e['subject'] !== 'Day Itinerary') {
+                    $dayTitle = $e['subject'];
+                    break;
+                }
+                // Fallback: The first meaningful non-accommodation event
+                if ($dayTitle === "Day $day" && $t !== 'accommodation' && $e['subject'] !== 'Day Itinerary') {
+                    $dayTitle = $e['subject'];
+                }
+            }
+
             $desc = "";
             $svcs = [];
+
+            // Pass 2: Process All Events for Body Content
             foreach ($evts as $e) {
-                if ($e['subject'] != 'Day Itinerary')
-                    $dayTitle = $e['subject'];
                 $t = $e['eventType'] ?? '';
-                if ($t == 'accommodation')
-                    continue;
-                elseif ($t == 'meal' || str_contains($t, 'transport') || $t == 'activity')
+                if ($t == 'accommodation') {
+                     continue;
+                } elseif ($t == 'meal' || str_contains($t, 'transport') || $t == 'activity') {
                     $svcs[] = ($t == 'activity' ? 'Activity' : ($t == 'meal' ? 'Meal' : 'Transfer')) . ': ' . $e['subject'];
-                else
-                    $desc .= $e['details'] . "\n";
+                    // If this meal/activity has specific details, add them to description
+                    if (!empty($e['details'])) {
+                        $desc .= ($dayTitle !== $e['subject'] ? "<strong>{$e['subject']}</strong>: " : "") . $e['details'] . "\n";
+                    }
+                } else {
+                    // For day-itinerary (summary) or other manual items
+                    if ($dayTitle !== $e['subject'] && $e['subject'] !== 'Day Itinerary') {
+                         $desc .= "<strong>" . $e['subject'] . "</strong>\n";
+                    }
+                    if (!empty($e['details'])) {
+                        $desc .= $e['details'] . "\n";
+                    }
+                }
             }
         @endphp
         <div class="day-card">

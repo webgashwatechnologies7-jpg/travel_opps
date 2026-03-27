@@ -722,7 +722,7 @@ const Leads = () => {
     <Layout>
       <div className="p-6 bg-[#F8FAFC] min-h-screen">
         {/* Header Section */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
+        <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4 relative z-[60]">
           <div className="animate-in-scale">
             <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Queries</h1>
             <p className="text-slate-500 font-semibold text-xs mt-1 uppercase tracking-wider flex items-center gap-2">
@@ -742,7 +742,7 @@ const Leads = () => {
               </button>
               
               {showOptionsDropdown && (
-                <div className="absolute top-full right-0 mt-3 w-64 bg-white/90 backdrop-blur-xl rounded-2xl shadow-2xl border border-slate-100 z-[100] py-2 animate-in-scale overflow-hidden">
+                <div className="absolute top-full right-0 mt-3 w-64 bg-white rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.15)] border border-slate-100 z-[1000] py-2 animate-in-scale overflow-hidden">
                   <div className="px-4 py-2 border-b border-slate-50 mb-1">
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-[.2em]">Data Management</p>
                   </div>
