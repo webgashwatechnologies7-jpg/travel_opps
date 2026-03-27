@@ -101,6 +101,7 @@ class CompanyController extends Controller
             'name' => $request->admin_name,
             'email' => $request->admin_email,
             'password' => Hash::make($request->admin_password),
+            'phone' => $request->phone, // Sync company phone to admin user
             'company_id' => $company->id,
             'is_active' => true,
         ]);
