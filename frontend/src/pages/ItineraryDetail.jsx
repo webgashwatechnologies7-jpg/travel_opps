@@ -4435,14 +4435,15 @@ const ItineraryDetail = () => {
                       if (dayDetailsForm.eventType === 'activity') {
                         if (dayDetailsForm.master_id) {
                           saveEvent({
-                            id: Date.now(),
+                            id: dayDetailsForm.id || Date.now(),
                             subject: subject,
                             details: dayDetailsForm.activity_details,
                             destination: dayDetailsForm.destination,
                             eventType: 'activity',
                             image: eventImagePreview || dayDetailsForm.activity_photo,
                             type: 'Manual',
-                            name: dayDetailsForm.name
+                            name: dayDetailsForm.name,
+                            price: dayDetailsForm.price || ''
                           });
                           return;
                         }
@@ -4505,14 +4506,16 @@ const ItineraryDetail = () => {
                       if (dayDetailsForm.eventType === 'transportation') {
                         if (dayDetailsForm.master_id) {
                           saveEvent({
-                            id: Date.now(),
+                            id: dayDetailsForm.id || Date.now(),
                             subject: subject,
                             details: dayDetailsForm.transfer_details,
                             destination: dayDetailsForm.destination,
                             eventType: 'transportation',
                             image: eventImagePreview || dayDetailsForm.transfer_photo,
                             type: 'Manual',
-                            name: dayDetailsForm.name
+                            name: dayDetailsForm.name,
+                            price: dayDetailsForm.price || '',
+                            transferType: dayDetailsForm.transferType || 'Private'
                           });
                           return;
                         }
