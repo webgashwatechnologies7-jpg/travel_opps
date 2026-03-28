@@ -2119,6 +2119,15 @@ const ItineraryDetail = () => {
                                             </div>
                                           ))}
                                         </div>
+                                      ) : event.eventType === 'transportation' ? (
+                                        <div className="mt-2 text-sm text-gray-600 px-1">
+                                          <div className="flex items-center gap-2 mb-2 font-medium">
+                                            <Car className="h-4 w-4 text-gray-500" />
+                                            <span>{event.transferType || 'Private'} Vehicle</span>
+                                            {event.price && <span className="ml-auto inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-green-100 text-green-700">₹{event.price}</span>}
+                                          </div>
+                                          <p className="text-[13px] text-gray-500 italic border-l-2 border-gray-100 pl-2">{event.details || 'No details provided'}</p>
+                                        </div>
                                       ) : (
                                         <p className="text-sm text-gray-600">{event.details || 'No details provided'}</p>
                                       )}
@@ -2159,7 +2168,8 @@ const ItineraryDetail = () => {
                                             checkOut: event.hotelOptions?.[0]?.checkOut || '',
                                             checkOutTime: event.hotelOptions?.[0]?.checkOutTime || '11:00',
                                             transferType: event.transferType || 'Private',
-                                            mealType: event.mealType || 'Breakfast'
+                                            mealType: event.mealType || 'Breakfast',
+                                            price: event.price || ''
                                           });
                                           setEventImagePreview(event.image || null);
                                           setShowDayDetailsModal(true);
@@ -3200,6 +3210,8 @@ const ItineraryDetail = () => {
                                   <span className="text-gray-600">Check-in:</span>
                                   <input
                                     type="date"
+                                    min={itinerary?.start_date ? itinerary.start_date.slice(0, 10) : ''}
+                                    max={itinerary?.end_date ? itinerary.end_date.slice(0, 10) : ''}
                                     value={option.checkIn ? (option.checkIn.includes('T') ? option.checkIn.split('T')[0] : option.checkIn) : ''}
                                     onChange={(e) => {
                                       const updatedOptions = [...dayDetailsForm.hotelOptions];
@@ -3214,6 +3226,8 @@ const ItineraryDetail = () => {
                                   <span className="text-gray-600">Check-out:</span>
                                   <input
                                     type="date"
+                                    min={itinerary?.start_date ? itinerary.start_date.slice(0, 10) : ''}
+                                    max={itinerary?.end_date ? itinerary.end_date.slice(0, 10) : ''}
                                     value={option.checkOut ? (option.checkOut.includes('T') ? option.checkOut.split('T')[0] : option.checkOut) : ''}
                                     onChange={(e) => {
                                       const updatedOptions = [...dayDetailsForm.hotelOptions];
@@ -3313,6 +3327,8 @@ const ItineraryDetail = () => {
                               <label className="block text-sm font-medium text-gray-700 mb-1">Check-in</label>
                               <input
                                 type="date"
+                                min={itinerary?.start_date ? itinerary.start_date.slice(0, 10) : ''}
+                                max={itinerary?.end_date ? itinerary.end_date.slice(0, 10) : ''}
                                 value={dayDetailsForm.checkIn || ''}
                                 onChange={(e) => setDayDetailsForm({ ...dayDetailsForm, checkIn: e.target.value })}
                                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -3322,6 +3338,8 @@ const ItineraryDetail = () => {
                               <label className="block text-sm font-medium text-gray-700 mb-1">Check-out</label>
                               <input
                                 type="date"
+                                min={itinerary?.start_date ? itinerary.start_date.slice(0, 10) : ''}
+                                max={itinerary?.end_date ? itinerary.end_date.slice(0, 10) : ''}
                                 value={dayDetailsForm.checkOut || ''}
                                 onChange={(e) => setDayDetailsForm({ ...dayDetailsForm, checkOut: e.target.value })}
                                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -3556,7 +3574,7 @@ const ItineraryDetail = () => {
                           {(eventImagePreview || dayDetailsForm.activity_photo) && (
                             <div className="mt-3 relative inline-block">
                               <img
-                                src={eventImagePreview || (typeof dayDetailsForm.activity_photo === 'string' ? dayDetailsForm.activity_photo : '')}
+                                src={getDisplayImageUrl(eventImagePreview || (typeof dayDetailsForm.activity_photo === 'string' ? dayDetailsForm.activity_photo : ''))}
                                 alt="Activity Preview"
                                 className="w-full h-48 object-cover rounded-lg border border-gray-300"
                               />
@@ -3664,6 +3682,16 @@ const ItineraryDetail = () => {
                           />
                         </div>
                         <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Price (₹)</label>
+                          <input
+                            type="number"
+                            value={dayDetailsForm.price || ''}
+                            onChange={(e) => setDayDetailsForm({ ...dayDetailsForm, price: e.target.value })}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            placeholder="Enter price"
+                          />
+                        </div>
+                        <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">Transfer Photo</label>
                           <div className="flex gap-2">
                             <label className="flex-1 cursor-pointer">
@@ -3698,7 +3726,7 @@ const ItineraryDetail = () => {
                           {(eventImagePreview || dayDetailsForm.transfer_photo) && (
                             <div className="mt-3 relative inline-block">
                               <img
-                                src={eventImagePreview || (typeof dayDetailsForm.transfer_photo === 'string' ? dayDetailsForm.transfer_photo : '')}
+                                src={getDisplayImageUrl(eventImagePreview || (typeof dayDetailsForm.transfer_photo === 'string' ? dayDetailsForm.transfer_photo : ''))}
                                 alt="Transfer Preview"
                                 className="w-full h-48 object-cover rounded-lg border border-gray-300"
                               />
@@ -3781,6 +3809,8 @@ const ItineraryDetail = () => {
                         </label>
                         <input
                           type="date"
+                          min={itinerary?.start_date ? itinerary.start_date.slice(0, 10) : ''}
+                          max={itinerary?.end_date ? itinerary.end_date.slice(0, 10) : ''}
                           value={dayDetailsForm.date}
                           onChange={(e) => setDayDetailsForm({ ...dayDetailsForm, date: e.target.value })}
                           className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -3973,6 +4003,8 @@ const ItineraryDetail = () => {
                         </label>
                         <input
                           type="date"
+                          min={itinerary?.start_date ? itinerary.start_date.slice(0, 10) : ''}
+                          max={itinerary?.end_date ? itinerary.end_date.slice(0, 10) : ''}
                           value={dayDetailsForm.date}
                           onChange={(e) => setDayDetailsForm({ ...dayDetailsForm, date: e.target.value })}
                           className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -4054,37 +4086,39 @@ const ItineraryDetail = () => {
                     </>
                   )}
 
-                  {/* Image Upload */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Image
-                    </label>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={(e) => {
-                        const file = e.target.files[0];
-                        if (file) {
-                          setDayDetailsForm({ ...dayDetailsForm, image: file });
-                          const reader = new FileReader();
-                          reader.onloadend = () => {
-                            setEventImagePreview(reader.result);
-                          };
-                          reader.readAsDataURL(file);
-                        }
-                      }}
-                      className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                    {eventImagePreview && (
-                      <div className="mt-3">
-                        <img
-                          src={eventImagePreview}
-                          alt="Preview"
-                          className="w-32 h-32 object-cover rounded-lg border border-gray-300"
-                        />
-                      </div>
-                    )}
-                  </div>
+                  {/* Image Upload - Only for simple event types that don't have their own specialized photo field */}
+                  {!['day-itinerary', 'accommodation', 'activity', 'transportation'].includes((dayDetailsForm.eventType || '').toLowerCase()) && (
+                    <div className="mt-4">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Image
+                      </label>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => {
+                          const file = e.target.files[0];
+                          if (file) {
+                            setDayDetailsForm({ ...dayDetailsForm, image: file });
+                            const reader = new FileReader();
+                            reader.onloadend = () => {
+                              setEventImagePreview(reader.result);
+                            };
+                            reader.readAsDataURL(file);
+                          }
+                        }}
+                        className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 font-noto"
+                      />
+                      {eventImagePreview && (
+                        <div className="mt-3">
+                          <img
+                            src={getDisplayImageUrl(eventImagePreview)}
+                            alt="Preview"
+                            className="w-32 h-32 object-cover rounded-lg border border-gray-300"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 {/* Modal Footer */}
@@ -4133,7 +4167,8 @@ const ItineraryDetail = () => {
                         transfer_details: '',
                         transfer_photo: null,
                         transferType: 'Private',
-                        mealType: 'Breakfast'
+                        mealType: 'Breakfast',
+                        price: ''
                       });
                       setEventImagePreview(null);
                       setHotelPhotoPreview(null);
@@ -4277,6 +4312,7 @@ const ItineraryDetail = () => {
                         // Add transportation specific fields
                         if (dayDetailsForm.eventType === 'transportation') {
                           baseData.transferType = dayDetailsForm.transferType;
+                          baseData.price = dayDetailsForm.price;
                         }
 
                         // Add meal specific fields
