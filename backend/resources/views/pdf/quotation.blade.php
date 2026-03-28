@@ -154,7 +154,6 @@
             border-left: 2px solid #1e3a8a;
             padding-left: 18px;
             position: relative;
-            page-break-inside: avoid;
         }
 
         .day-marker {
@@ -199,6 +198,7 @@
             padding-bottom: 8px;
             border-bottom: 1px dashed #e2e8f0;
             display: block;
+            page-break-inside: avoid;
         }
 
         .event-item:last-child {
@@ -310,7 +310,6 @@
             border-radius: 12px;
             margin-bottom: 20px;
             overflow: hidden;
-            page-break-inside: avoid;
         }
 
         .option-header {
@@ -331,6 +330,7 @@
             margin-bottom: 15px;
             border-bottom: 1px solid #e2e8f0;
             padding-bottom: 15px;
+            page-break-inside: avoid;
         }
 
         .hotel-item:last-child {
@@ -636,7 +636,7 @@
 
     @foreach($policyItems as $title => $content)
         @if(!empty($content))
-            <div style="margin-top: 10px; page-break-inside: avoid;">
+            <div style="margin-top: 10px;">
                 <div
                     style="font-weight: bold; color: #1e3a8a; border-bottom: 2px solid #cbd5e1; margin-bottom: 8px; font-size: 11px; text-transform: uppercase; letter-spacing: 1px;">
                     {{ $title }}
