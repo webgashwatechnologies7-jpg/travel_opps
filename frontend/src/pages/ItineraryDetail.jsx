@@ -1615,7 +1615,7 @@ const ItineraryDetail = () => {
       });
       setShowHotelSearch(false);
     } else if (existingAccommodationEvent) {
-      // If modal is not open but an accommodation event exists, open modal with its data and add the new option
+      // Fast Add: Update existing event and save instantly
       const currentOptions = existingAccommodationEvent.hotelOptions || [];
       const nextOptNum = currentOptions.length + 1;
       
@@ -1631,29 +1631,23 @@ const ItineraryDetail = () => {
         optionNumber: nextOptNum
       };
 
-      setDayDetailsForm({
-        ...dayDetailsForm, // preserve some base fields
+      saveEvent({
         ...existingAccommodationEvent,
-        id: existingAccommodationEvent.id, // Ensure ID is preserved for update
         hotelOptions: [...currentOptions, newOption]
       });
-      setShowDayDetailsModal(true);
+      toast.success(`Added ${hotel.hotelName || hotel.name} as Option ${nextOptNum}`);
       setShowHotelSearch(false);
     } else {
       // Modal is closed and no existing accommodation event: Create a new event with this hotel as first option
-      setDayDetailsForm({
-        ...dayDetailsForm,
-        eventType: 'accommodation',
-        id: null,
+      const newEvent = {
+        id: Date.now(),
         subject: hotel.hotelName || hotel.name || 'Hotel',
-        name: hotel.hotelName || hotel.name || 'Hotel',
-        hotelName: hotel.hotelName || hotel.name,
-        hotel_id: hotelId,
-        category: hotel.rating ? hotel.rating.toString() : '3',
+        details: '',
         destination: selectedDestination || hotel.address || days[selectedDay - 1]?.destination || '',
+        eventType: 'accommodation',
         image: hotel.image || null,
-        roomName: '',
-        mealPlan: '',
+        type: 'Manual',
+        name: hotel.hotelName || hotel.name || 'Hotel',
         hotelOptions: [{
           hotelName: hotel.hotelName || hotel.name,
           hotel_id: hotelId,
@@ -1663,8 +1657,9 @@ const ItineraryDetail = () => {
           mealPlan: '',
           optionNumber: 1
         }]
-      });
-      setShowDayDetailsModal(true);
+      };
+      saveEvent(newEvent);
+      toast.success(`Added ${hotel.hotelName || hotel.name} as accommodation`);
       setShowHotelSearch(false);
     }
 
@@ -2092,33 +2087,34 @@ const ItineraryDetail = () => {
                                                   </div>
                                                 </div>
                                               </div>
-                                              <div className="grid grid-cols-3 gap-2 text-xs text-gray-600">
-                                                <div className="flex items-center gap-1">
-                                                  <Calendar className="h-3 w-3" />
-                                                  <span>Check-in: {option.checkIn ? new Date(option.checkIn).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : 'N/A'}</span>
-                                                </div>
-                                                <div className="flex items-center gap-1">
-                                                  <Calendar className="h-3 w-3" />
-                                                  <span>Check-out: {option.checkOut ? new Date(option.checkOut).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : 'N/A'}</span>
-                                                </div>
-                                                <div className="flex items-center gap-1">
-                                                  <Hash className="h-3 w-3" />
-                                                  <span>Room: #{option.roomName || 'N/A'}</span>
-                                                </div>
-                                              </div>
-                                              <div className="mt-2 space-y-0.5">
-                                                {[
-                                                  { label: 'Single', value: option.single },
-                                                  { label: 'Double', value: option.double },
-                                                  { label: 'Triple', value: option.triple },
-                                                  { label: 'Quad', value: option.quad },
-                                                  { label: 'Child With Bed', value: option.cwb },
-                                                  { label: 'Child No Bed', value: option.cnb }
-                                                ].filter(room => room.value && parseInt(room.value) > 0).map((room, idx) => (
-                                                  <div key={idx} className="text-xs text-gray-600">
-                                                    Room: {room.value} {room.label} | Meal: {option.mealPlan || 'N/A'}
+                                              <div className="flex items-center justify-between mt-3 pt-2 border-t border-gray-100">
+                                                <div className="grid grid-cols-3 gap-2 text-[10px] text-gray-500 flex-1">
+                                                  <div className="flex items-center gap-1">
+                                                    <Calendar className="h-2.5 w-2.5" />
+                                                    <span>In: {option.checkIn ? new Date(option.checkIn).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : 'N/A'}</span>
                                                   </div>
-                                                ))}
+                                                  <div className="flex items-center gap-1">
+                                                    <Calendar className="h-2.5 w-2.5" />
+                                                    <span>Out: {option.checkOut ? new Date(option.checkOut).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : 'N/A'}</span>
+                                                  </div>
+                                                  <div className="flex items-center gap-1">
+                                                    <Hash className="h-2.5 w-2.5" />
+                                                    <span>{option.roomName || 'Set Room'}</span>
+                                                  </div>
+                                                </div>
+                                                <button
+                                                  onClick={() => {
+                                                    setDayDetailsForm({
+                                                      ...event,
+                                                      id: event.id || index,
+                                                      editingOptionIndex: optIndex
+                                                    });
+                                                    setShowDayDetailsModal(true);
+                                                  }}
+                                                  className="ml-2 px-2 py-1 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded text-[10px] font-medium transition-colors"
+                                                >
+                                                  Select Room Type
+                                                </button>
                                               </div>
                                             </div>
                                           ))}
