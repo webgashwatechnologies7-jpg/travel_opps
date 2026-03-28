@@ -2337,7 +2337,7 @@ const ItineraryDetail = () => {
                                 .filter(activity => {
                                   if (!searchQuery) return true;
                                   const query = searchQuery.toLowerCase();
-                                  return (activity.activity_name || '').toLowerCase().includes(query) ||
+                                  return (activity.name || '').toLowerCase().includes(query) ||
                                     (activity.destination || '').toLowerCase().includes(query) ||
                                     (activity.activity_details || '').toLowerCase().includes(query);
                                 })
@@ -2350,13 +2350,13 @@ const ItineraryDetail = () => {
                                       if (selectedDay) {
                                         const eventData = {
                                           id: Date.now(),
-                                          subject: activity.activity_name || 'Activity',
+                                          subject: activity.name || 'Activity',
                                           details: activity.activity_details || '',
                                           destination: activity.destination || '',
                                           eventType: 'activity',
                                           image: activity.activity_photo || null,
                                           type: 'Manual',
-                                          name: activity.activity_name || '',
+                                          name: activity.name || '',
                                           date: '',
                                           startTime: '1:00 PM',
                                           endTime: '2:00 PM',
@@ -2374,7 +2374,7 @@ const ItineraryDetail = () => {
                                       {activity.activity_photo ? (
                                         <img
                                           src={getDisplayImageUrl(activity.activity_photo) || activity.activity_photo}
-                                          alt={activity.activity_name || 'Activity'}
+                                          alt={activity.name || 'Activity'}
                                           className="w-full h-full object-cover"
                                           onError={(e) => {
                                             e.target.style.display = 'none';
@@ -2392,7 +2392,7 @@ const ItineraryDetail = () => {
                                       )}
                                     </div>
                                     <div className="flex-1 min-w-0">
-                                      <h4 className="font-semibold text-gray-900 text-sm mb-1">{activity.activity_name || 'Activity'}</h4>
+                                      <h4 className="font-semibold text-gray-900 text-sm mb-1">{activity.name || 'Activity'}</h4>
                                       <p className="text-xs text-gray-600 line-clamp-2">{activity.activity_details || activity.destination || 'No description'}</p>
                                     </div>
                                     {hasPermission(user, 'itineraries.edit') && (
@@ -2402,13 +2402,13 @@ const ItineraryDetail = () => {
                                           if (selectedDay) {
                                             const eventData = {
                                               id: Date.now(),
-                                              subject: activity.activity_name || 'Activity',
+                                              subject: activity.name || 'Activity',
                                               details: activity.activity_details || '',
                                               destination: activity.destination || '',
                                               eventType: 'activity',
                                               image: activity.activity_photo || null,
                                               type: 'Manual',
-                                              name: activity.activity_name || '',
+                                              name: activity.name || '',
                                               date: '',
                                               startTime: '1:00 PM',
                                               endTime: '2:00 PM',

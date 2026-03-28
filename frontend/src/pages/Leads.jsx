@@ -774,7 +774,7 @@ const Leads = () => {
 
             <button
               type="button"
-              onClick={() => { setFormData(getDefaultFormData()); setShowModal(true); }}
+              onClick={() => { setFormData({ ...getDefaultFormData(), assigned_to: currentUser?.id || '' }); setShowModal(true); }}
               className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-xl font-bold text-sm hover:bg-blue-700 transition-all shadow-md shadow-blue-100"
             >
               <Plus size={18} strokeWidth={2.5} />
@@ -1447,22 +1447,24 @@ const Leads = () => {
                   </div>
 
                   {/* ASSIGN TO * */}
-                  <div>
-                    <label className="block text-xs font-bold text-slate-500 mb-2 uppercase tracking-wider">
-                      Assign To *
-                    </label>
-                    <select
-                      value={formData.assigned_to}
-                      onChange={(e) => setFormData({ ...formData, assigned_to: e.target.value })}
-                      required
-                      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-semibold outline-none appearance-none cursor-pointer"
-                    >
-                      <option value="">Select Staff</option>
-                      {users.map((user) => (
-                        <option key={user.id} value={user.id}>{user.name}</option>
-                      ))}
-                    </select>
-                  </div>
+                  {canAssign && (
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 mb-2 uppercase tracking-wider">
+                        Assign To *
+                      </label>
+                      <select
+                        value={formData.assigned_to}
+                        onChange={(e) => setFormData({ ...formData, assigned_to: e.target.value })}
+                        required
+                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-semibold outline-none appearance-none cursor-pointer"
+                      >
+                        <option value="">Select Staff</option>
+                        {users.map((user) => (
+                          <option key={user.id} value={user.id}>{user.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
 
                   {/* Section Divider */}
                   <div className="md:col-span-2 mt-4 pt-6 border-t border-slate-100">

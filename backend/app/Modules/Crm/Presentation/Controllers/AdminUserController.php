@@ -136,27 +136,26 @@ class AdminUserController extends Controller
 
             $query = User::with('roles')
                 ->where('company_id', $companyId)
-                ->where('is_super_admin', false)
-                ->whereDoesntHave('roles', function ($q) {
-                    $q->whereIn('name', ['Super Admin', 'Admin', 'Company Admin']);
-                });
+                ->where('is_super_admin', false);
 
-            // Manager/TL Restriction: Only see subordinates
-            if ($currentUser->hasRole(['Manager', 'Team Leader'])) {
-                $subordinateIds = $currentUser->getAllSubordinateIds();
-                $query->whereIn('id', $subordinateIds);
+            // Filter logic:
+            // 1. Always allow finding the current user (so they can assign to themselves)
+            // 2. Otherwise, filter based on role/hierarchy
+            $query->where(function ($q) use ($currentUser) {
+                $q->where('id', $currentUser->id) // Always include self
+                  ->orWhere(function ($subQ) use ($currentUser) {
+                      // Original filtering logic for other users
+                      $subQ->whereDoesntHave('roles', function ($roleQ) {
+                          $roleQ->whereIn('name', ['Super Admin', 'Admin', 'Company Admin']);
+                      });
 
-                // Exclude higher roles just in case
-                if ($currentUser->hasRole('Team Leader')) {
-                    $query->whereDoesntHave('roles', function ($q) {
-                        $q->whereIn('name', ['Super Admin', 'Admin', 'Company Admin', 'Manager']);
-                    });
-                } else if ($currentUser->hasRole('Manager')) {
-                    $query->whereDoesntHave('roles', function ($q) {
-                        $q->whereIn('name', ['Super Admin', 'Admin', 'Company Admin']);
-                    });
-                }
-            }
+                      // Manager/TL Restriction: Only see subordinates
+                      if ($currentUser->hasRole(['Manager', 'Team Leader'])) {
+                          $subordinateIds = $currentUser->getAllSubordinateIds();
+                          $subQ->whereIn('id', $subordinateIds);
+                      }
+                  });
+            });
 
             $users = $query->select('id', 'name', 'email', 'phone', 'is_active', 'reports_to', 'created_at', 'updated_at')
                 ->get()

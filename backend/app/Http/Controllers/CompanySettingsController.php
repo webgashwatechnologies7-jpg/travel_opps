@@ -269,7 +269,7 @@ class CompanySettingsController extends Controller
             // Combined list of IDs
             $teamIds = $directReports->merge($grandReports)->push($user->id)->unique();
 
-            $query->whereIn('id', $teamIds)->where('id', '!=', $user->id); // Exclude self
+            $query->whereIn('id', $teamIds); // Include self and team members
 
         } elseif ($user->hasRole('Team Leader')) {
             // Team Leader: See direct reports
@@ -319,7 +319,6 @@ class CompanySettingsController extends Controller
         }
         $query = User::with(['branch', 'roles'])
             ->where('company_id', $companyId)
-            ->where('id', '!=', Auth::id())
             ->where('is_super_admin', false);
 
         // Filter by branch if provided
