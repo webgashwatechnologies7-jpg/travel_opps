@@ -2395,23 +2395,55 @@ const ItineraryDetail = () => {
                                     onClick={() => {
                                       if (!hasPermission(user, 'itineraries.edit')) return;
                                       if (selectedDay) {
-                                        const eventData = {
-                                          id: Date.now(),
-                                          subject: activity.name || 'Activity',
-                                          details: activity.activity_details || '',
-                                          destination: activity.destination || '',
-                                          eventType: 'activity',
-                                          image: activity.activity_photo || null,
-                                          type: 'Manual',
-                                          name: activity.name || '',
-                                          date: '',
-                                          startTime: '1:00 PM',
-                                          endTime: '2:00 PM',
-                                          showTime: false,
-                                          hotelOptions: [],
-                                          editingOptionIndex: null,
-                                        };
-                                        saveEvent(eventData);
+                                        const currentDayEvents = dayEvents[selectedDay] || [];
+                                        const existing = currentDayEvents.find(e => 
+                                          e.eventType === 'activity' && 
+                                          (e.master_id === activity.id || (e.name && activity.name && e.name.toLowerCase() === activity.name.toLowerCase()))
+                                        );
+
+                                        if (existing) {
+                                          setDayDetailsForm({
+                                            subject: existing.subject || '',
+                                            details: existing.details || '',
+                                            image: existing.image || null,
+                                            eventType: existing.eventType || '',
+                                            id: existing.id,
+                                            destination: existing.destination || '',
+                                            type: existing.type || 'Manual',
+                                            name: existing.name || '',
+                                            date: existing.date || '',
+                                            startTime: existing.startTime || '1:00 PM',
+                                            endTime: existing.endTime || '2:00 PM',
+                                            showTime: existing.showTime || false,
+                                            hotelOptions: existing.hotelOptions || [],
+                                            price: existing.price || '',
+                                            master_id: existing.master_id || activity.id,
+                                            activity_details: existing.details || activity.activity_details || '',
+                                            activity_photo: existing.image || activity.activity_photo || null
+                                          });
+                                          setEventImagePreview(existing.image || activity.activity_photo || null);
+                                          setShowDayDetailsModal(true);
+                                        } else {
+                                          const eventData = {
+                                            id: Date.now(),
+                                            master_id: activity.id,
+                                            subject: activity.name || 'Activity',
+                                            details: activity.activity_details || '',
+                                            destination: activity.destination || '',
+                                            eventType: 'activity',
+                                            image: activity.activity_photo || null,
+                                            type: 'Manual',
+                                            name: activity.name || '',
+                                            date: '',
+                                            startTime: '1:00 PM',
+                                            endTime: '2:00 PM',
+                                            showTime: false,
+                                            hotelOptions: [],
+                                            editingOptionIndex: null,
+                                            price: ''
+                                          };
+                                          saveEvent(eventData);
+                                        }
                                       } else {
                                         toast.warning('Please select a day from the left (e.g. DAY 1, DAY 2) first, then add this item.');
                                       }
@@ -2446,27 +2478,9 @@ const ItineraryDetail = () => {
                                       <button
                                         onClick={(e) => {
                                           e.stopPropagation();
-                                          if (selectedDay) {
-                                            const eventData = {
-                                              id: Date.now(),
-                                              subject: activity.name || 'Activity',
-                                              details: activity.activity_details || '',
-                                              destination: activity.destination || '',
-                                              eventType: 'activity',
-                                              image: activity.activity_photo || null,
-                                              type: 'Manual',
-                                              name: activity.name || '',
-                                              date: '',
-                                              startTime: '1:00 PM',
-                                              endTime: '2:00 PM',
-                                              showTime: false,
-                                              hotelOptions: [],
-                                              editingOptionIndex: null,
-                                            };
-                                            saveEvent(eventData);
-                                          } else {
-                                            toast.warning('Please select a day from the left (e.g. DAY 1, DAY 2) first, then add this item.');
-                                          }
+                                          // Trigger same click logic
+                                          const item = e.target.closest('.cursor-pointer');
+                                          if (item) item.click();
                                         }}
                                         className="w-8 h-8 bg-black text-white rounded-full flex items-center justify-center hover:bg-gray-800 flex-shrink-0"
                                       >
@@ -2722,23 +2736,57 @@ const ItineraryDetail = () => {
                                     onClick={() => {
                                       if (!hasPermission(user, 'itineraries.edit')) return;
                                       if (selectedDay) {
-                                        const eventData = {
-                                          id: Date.now(),
-                                          subject: transfer.name || 'Transfer',
-                                          details: transfer.transfer_details || '',
-                                          destination: transfer.destination || '',
-                                          eventType: 'transportation',
-                                          image: transfer.transfer_photo || null,
-                                          type: 'Manual',
-                                          name: transfer.name || '',
-                                          date: '',
-                                          startTime: '1:00 PM',
-                                          endTime: '2:00 PM',
-                                          showTime: false,
-                                          hotelOptions: [],
-                                          editingOptionIndex: null,
-                                        };
-                                        saveEvent(eventData);
+                                        const currentDayEvents = dayEvents[selectedDay] || [];
+                                        const existing = currentDayEvents.find(e => 
+                                          (e.eventType || '').toLowerCase() === 'transportation' && 
+                                          (e.master_id === transfer.id || (e.name && transfer.name && e.name.toLowerCase() === transfer.name.toLowerCase()))
+                                        );
+
+                                        if (existing) {
+                                          setDayDetailsForm({
+                                            subject: existing.subject || '',
+                                            details: existing.details || '',
+                                            image: existing.image || null,
+                                            eventType: existing.eventType || 'transportation',
+                                            id: existing.id,
+                                            destination: existing.destination || '',
+                                            type: existing.type || 'Manual',
+                                            name: existing.name || '',
+                                            date: existing.date || '',
+                                            startTime: existing.startTime || '1:00 PM',
+                                            endTime: existing.endTime || '2:00 PM',
+                                            showTime: existing.showTime || false,
+                                            hotelOptions: existing.hotelOptions || [],
+                                            transferType: existing.transferType || transfer.transferType || 'Private',
+                                            price: existing.price || '',
+                                            master_id: existing.master_id || transfer.id,
+                                            transfer_details: existing.details || transfer.transfer_details || '',
+                                            transfer_photo: existing.image || transfer.transfer_photo || null
+                                          });
+                                          setEventImagePreview(existing.image || transfer.transfer_photo || null);
+                                          setShowDayDetailsModal(true);
+                                        } else {
+                                          const eventData = {
+                                            id: Date.now(),
+                                            master_id: transfer.id,
+                                            subject: transfer.name || 'Transfer',
+                                            details: transfer.transfer_details || '',
+                                            destination: transfer.destination || '',
+                                            eventType: 'transportation',
+                                            image: transfer.transfer_photo || null,
+                                            type: 'Manual',
+                                            name: transfer.name || '',
+                                            date: '',
+                                            startTime: '1:00 PM',
+                                            endTime: '2:00 PM',
+                                            showTime: false,
+                                            hotelOptions: [],
+                                            editingOptionIndex: null,
+                                            transferType: 'Private',
+                                            price: ''
+                                          };
+                                          saveEvent(eventData);
+                                        }
                                       } else {
                                         toast.warning('Please select a day from the left (e.g. DAY 1, DAY 2) first, then add this item.');
                                       }
@@ -2775,27 +2823,8 @@ const ItineraryDetail = () => {
                                       <button
                                         onClick={(e) => {
                                           e.stopPropagation();
-                                          if (selectedDay) {
-                                            const eventData = {
-                                              id: Date.now(),
-                                              subject: transfer.name || 'Transfer',
-                                              details: transfer.transfer_details || '',
-                                              destination: transfer.destination || '',
-                                              eventType: 'transportation',
-                                              image: transfer.transfer_photo || null,
-                                              type: 'Manual',
-                                              name: transfer.name || '',
-                                              date: '',
-                                              startTime: '1:00 PM',
-                                              endTime: '2:00 PM',
-                                              showTime: false,
-                                              hotelOptions: [],
-                                              editingOptionIndex: null,
-                                            };
-                                            saveEvent(eventData);
-                                          } else {
-                                            toast.warning('Please select a day from the left (e.g. DAY 1, DAY 2) first, then add this item.');
-                                          }
+                                          const item = e.target.closest('.cursor-pointer');
+                                          if (item) item.click();
                                         }}
                                         className="w-8 h-8 bg-black text-white rounded-full flex items-center justify-center hover:bg-gray-800 flex-shrink-0"
                                       >
@@ -2832,24 +2861,55 @@ const ItineraryDetail = () => {
                                     onClick={() => {
                                       if (!hasPermission(user, 'itineraries.edit')) return;
                                       if (selectedDay) {
-                                        const eventData = {
-                                          id: Date.now(),
-                                          subject: meal.name || 'Meal',
-                                          details: '',
-                                          destination: days[selectedDay - 1]?.destination || '',
-                                          eventType: 'meal',
-                                          image: null,
-                                          type: 'Manual',
-                                          name: meal.name || '',
-                                          date: '',
-                                          startTime: '1:00 PM',
-                                          endTime: '2:00 PM',
-                                          showTime: false,
-                                          hotelOptions: [],
-                                          editingOptionIndex: null,
-                                          mealPlan: meal.name || '',
-                                        };
-                                        saveEvent(eventData);
+                                        const currentDayEvents = dayEvents[selectedDay] || [];
+                                        const existing = currentDayEvents.find(e => 
+                                          (e.eventType || '').toLowerCase() === 'meal' && 
+                                          ((e.name && meal.name && e.name.toLowerCase() === meal.name.toLowerCase()) || (e.mealPlan && meal.name && e.mealPlan.toLowerCase() === meal.name.toLowerCase()))
+                                        );
+
+                                        if (existing) {
+                                          setDayDetailsForm({
+                                            subject: existing.subject || '',
+                                            details: existing.details || '',
+                                            image: existing.image || null,
+                                            eventType: existing.eventType || 'meal',
+                                            id: existing.id,
+                                            destination: existing.destination || '',
+                                            type: existing.type || 'Manual',
+                                            name: existing.name || '',
+                                            date: existing.date || '',
+                                            startTime: existing.startTime || '1:00 PM',
+                                            endTime: existing.endTime || '2:00 PM',
+                                            showTime: existing.showTime || false,
+                                            hotelOptions: existing.hotelOptions || [],
+                                            mealType: existing.mealType || 'Breakfast',
+                                            mealPlan: existing.mealPlan || meal.name || '',
+                                            price: existing.price || ''
+                                          });
+                                          setEventImagePreview(existing.image || null);
+                                          setShowDayDetailsModal(true);
+                                        } else {
+                                          const eventData = {
+                                            id: Date.now(),
+                                            subject: meal.name || 'Meal',
+                                            details: '',
+                                            destination: days[selectedDay - 1]?.destination || '',
+                                            eventType: 'meal',
+                                            image: null,
+                                            type: 'Manual',
+                                            name: meal.name || '',
+                                            date: '',
+                                            startTime: '1:00 PM',
+                                            endTime: '2:00 PM',
+                                            showTime: false,
+                                            hotelOptions: [],
+                                            editingOptionIndex: null,
+                                            mealPlan: meal.name || '',
+                                            mealType: 'Breakfast',
+                                            price: ''
+                                          };
+                                          saveEvent(eventData);
+                                        }
                                       } else {
                                         toast.warning('Please select a day from the left (e.g. DAY 1, DAY 2) first, then add this item.');
                                       }
@@ -2858,38 +2918,15 @@ const ItineraryDetail = () => {
                                     <div className="w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center border border-gray-200 flex-shrink-0">
                                       <UtensilsCrossed className="h-6 w-6 text-gray-400" />
                                     </div>
-                                    <div className="flex-1 min-w-0">
-                                      <h4 className="font-semibold text-gray-900 text-sm mb-1">{meal.name || 'Meal'}</h4>
-                                      <p className="text-xs text-gray-600 line-clamp-2">
-                                        Meal Plan
-                                      </p>
+                                    <div className="flex-1 min-w-0 uppercase">
+                                      <h4 className="font-semibold text-gray-900 text-sm mb-1">{meal.name || 'Meal Plan'}</h4>
                                     </div>
                                     {hasPermission(user, 'itineraries.edit') && (
                                       <button
                                         onClick={(e) => {
                                           e.stopPropagation();
-                                          if (selectedDay) {
-                                            const eventData = {
-                                              id: Date.now(),
-                                              subject: meal.name || 'Meal',
-                                              details: '',
-                                              destination: days[selectedDay - 1]?.destination || '',
-                                              eventType: 'meal',
-                                              image: null,
-                                              type: 'Manual',
-                                              name: meal.name || '',
-                                              date: '',
-                                              startTime: '1:00 PM',
-                                              endTime: '2:00 PM',
-                                              showTime: false,
-                                              hotelOptions: [],
-                                              editingOptionIndex: null,
-                                              mealPlan: meal.name || '',
-                                            };
-                                            saveEvent(eventData);
-                                          } else {
-                                            toast.warning('Please select a day from the left (e.g. DAY 1, DAY 2) first, then add this item.');
-                                          }
+                                          const item = e.target.closest('.cursor-pointer');
+                                          if (item) item.click();
                                         }}
                                         className="w-8 h-8 bg-black text-white rounded-full flex items-center justify-center hover:bg-gray-800 flex-shrink-0"
                                       >
