@@ -41,9 +41,9 @@
         /* HEADER */
         .header {
             width: 100%;
-            border-bottom: 4px solid #1e3a8a;
-            padding-bottom: 16px;
-            margin-bottom: 26px;
+            border-bottom: 3px solid #1e3a8a;
+            padding-bottom: 10px;
+            margin-bottom: 12px;
         }
 
         .header-table {
@@ -52,7 +52,7 @@
         }
 
         .company-name {
-            font-size: 20px;
+            font-size: 18px;
             font-weight: bold;
             color: #1e3a8a;
             margin: 0;
@@ -63,50 +63,50 @@
         .company-info {
             font-size: 9px;
             color: #64748b;
-            margin-top: 5px;
-            line-height: 1.7;
+            margin-top: 3px;
+            line-height: 1.5;
         }
 
         /* HERO SECTION */
         .hero {
             position: relative;
-            margin-bottom: 30px;
-            border-radius: 12px;
+            margin-bottom: 15px;
+            border-radius: 10px;
             overflow: hidden;
             background: #0f172a;
         }
 
         .hero-img {
             width: 100%;
-            height: 250px;
+            height: 200px;
             object-fit: cover;
             opacity: 0.8;
         }
 
         .hero-content {
-            padding: 20px;
+            padding: 15px;
             text-align: center;
         }
 
         .proposal-title {
-            font-size: 22px;
+            font-size: 20px;
             font-weight: bold;
             color: #1e3a8a;
-            margin: 16px 0 20px;
+            margin: 10px 0 12px;
             text-transform: uppercase;
             letter-spacing: 1px;
-            padding-left: 14px;
-            border-left: 5px solid #2563eb;
+            padding-left: 12px;
+            border-left: 4px solid #2563eb;
         }
 
         /* INFO ISLAND */
         .info-island {
             background: #f0f6ff;
-            border-radius: 10px;
-            padding: 14px 18px;
-            margin-bottom: 28px;
+            border-radius: 8px;
+            padding: 10px 15px;
+            margin-bottom: 15px;
             border: 1px solid #bfdbfe;
-            border-left: 5px solid #1e3a8a;
+            border-left: 4px solid #1e3a8a;
         }
 
         .info-table {
@@ -115,22 +115,22 @@
         }
 
         .info-table td {
-            padding: 5px 10px;
+            padding: 3px 8px;
             text-align: left;
         }
 
         .label {
-            font-size: 8px;
+            font-size: 7.5px;
             color: #1d4ed8;
             text-transform: uppercase;
             display: block;
-            margin-bottom: 3px;
+            margin-bottom: 2px;
             font-weight: bold;
-            letter-spacing: 1px;
+            letter-spacing: 0.5px;
         }
 
         .value {
-            font-size: 11px;
+            font-size: 10px;
             font-weight: bold;
             color: #0f172a;
         }
@@ -139,64 +139,64 @@
         .section-header {
             background: #1e3a8a;
             color: #ffffff;
-            padding: 9px 16px;
-            border-radius: 6px;
-            font-size: 11px;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 10px;
             font-weight: bold;
-            margin: 26px 0 14px 0;
+            margin: 15px 0 10px 0;
             text-transform: uppercase;
-            letter-spacing: 2px;
+            letter-spacing: 1.5px;
         }
 
         /* ITINERARY TIMELINE */
         .day-card {
-            margin-bottom: 16px;
-            border-left: 3px solid #1e3a8a;
-            padding-left: 22px;
+            margin-bottom: 12px;
+            border-left: 2px solid #1e3a8a;
+            padding-left: 18px;
             position: relative;
             page-break-inside: avoid;
         }
 
         .day-marker {
             position: absolute;
-            left: -12px;
+            left: -11px;
             top: 0;
-            width: 22px;
-            height: 22px;
+            width: 20px;
+            height: 20px;
             background: #1e3a8a;
-            border-radius: 11px;
+            border-radius: 10px;
             z-index: 99;
             overflow: hidden;
         }
 
         .day-title {
-            font-size: 13px;
+            font-size: 12px;
             font-weight: bold;
             color: #1e3a8a;
-            margin-bottom: 8px;
+            margin-bottom: 6px;
         }
 
         .day-date {
-            font-size: 9px;
+            font-size: 8px;
             color: #475569;
             float: right;
             font-weight: normal;
             background: #e2e8f0;
-            padding: 2px 9px;
-            border-radius: 20px;
+            padding: 1px 7px;
+            border-radius: 15px;
         }
 
         .day-body {
             background: #fcfcfc;
-            padding: 8px;
-            border-radius: 8px;
+            padding: 6px;
+            border-radius: 6px;
             border: 1px solid #eef2f7;
             color: #334155;
         }
 
         .event-item {
-            margin-bottom: 12px;
-            padding-bottom: 12px;
+            margin-bottom: 8px;
+            padding-bottom: 8px;
             border-bottom: 1px dashed #e2e8f0;
             display: block;
         }
@@ -208,36 +208,36 @@
         }
 
         .event-img {
-            width: 100px;
-            height: 70px;
-            border-radius: 6px;
+            width: 90px;
+            height: 60px;
+            border-radius: 5px;
             float: right;
-            margin-left: 10px;
+            margin-left: 8px;
             object-fit: cover;
             border: 1px solid #cbd5e1;
         }
 
         .event-type-label {
-            font-size: 8px;
+            font-size: 7.5px;
             font-weight: bold;
             color: #2563eb;
             text-transform: uppercase;
             letter-spacing: 0.5px;
             display: block;
-            margin-bottom: 2px;
+            margin-bottom: 1px;
         }
 
         .event-subject {
-            font-size: 11px;
+            font-size: 10px;
             font-weight: bold;
             color: #1e293b;
-            margin-bottom: 4px;
+            margin-bottom: 2px;
         }
 
         .event-details {
-            font-size: 9.5px;
+            font-size: 9px;
             color: #475569;
-            line-height: 1.5;
+            line-height: 1.4;
             text-align: justify;
         }
 
@@ -245,11 +245,11 @@
             display: inline-block;
             background: #eff6ff;
             color: #2563eb;
-            padding: 2px 7px;
-            border-radius: 4px;
-            font-size: 8px;
-            margin-right: 4px;
-            margin-top: 4px;
+            padding: 1px 5px;
+            border-radius: 3px;
+            font-size: 7.5px;
+            margin-right: 3px;
+            margin-top: 3px;
             font-weight: bold;
             border: 1px solid #dbeafe;
         }
@@ -482,7 +482,7 @@
         $thankYou = $pols['thankYouMessage'] ?? null;
     @endphp
     @if(!empty($thankYou))
-        <div style="margin-bottom: 25px; padding: 15px; background: #fefce8; border-radius: 12px; border: 1px solid #fef08a;">
+        <div style="margin-bottom: 12px; padding: 10px; background: #fefce8; border-radius: 8px; border: 1px solid #fef08a;">
              <div style="font-size: 11px; color: #854d0e; font-style: italic; line-height: 1.6; text-align: center;">
                  @if(is_array($thankYou))
                     @foreach($thankYou as $msg) {!! strip_tags($msg, '<strong><b><i><em>') !!}<br> @endforeach
@@ -636,7 +636,7 @@
 
     @foreach($policyItems as $title => $content)
         @if(!empty($content))
-            <div style="margin-top: 15px; page-break-inside: avoid;">
+            <div style="margin-top: 10px; page-break-inside: avoid;">
                 <div
                     style="font-weight: bold; color: #1e3a8a; border-bottom: 2px solid #cbd5e1; margin-bottom: 8px; font-size: 11px; text-transform: uppercase; letter-spacing: 1px;">
                     {{ $title }}
@@ -669,7 +669,7 @@
     @endphp
 
     @if(!empty($opts))
-        <div class="section-header">Package Pricing & Hotel Options</div>
+        <div class="section-header" style="margin-top: 10px;">Package Pricing & Hotel Options</div>
         @foreach($opts as $optNum)
             @php
                 $hOpts = $hotelOptions[$optNum] ?? [];
@@ -696,11 +696,11 @@
                             @endphp
                             <tr class="hotel-item">
                                 @if($hotelImg)
-                                    <td style="width: 85px; padding: 10px 0; vertical-align: top;">
-                                        <img src="{{ $hotelImg }}" style="width: 75px; height: 55px; object-fit: cover; border-radius: 6px; border: 1px solid #cbd5e1;">
+                                    <td style="width: 80px; padding: 6px 0; vertical-align: top;">
+                                        <img src="{{ $hotelImg }}" style="width: 70px; height: 50px; object-fit: cover; border-radius: 5px; border: 1px solid #cbd5e1;">
                                     </td>
                                 @endif
-                                <td style="padding: 10px 0; vertical-align: top;">
+                                <td style="padding: 6px 0; vertical-align: top;">
                                     <div class="hotel-name">★
                                         {!! html_entity_decode(html_entity_decode($h['hotelName'] ?? 'Selected Hotel')) !!}
                                     </div>
