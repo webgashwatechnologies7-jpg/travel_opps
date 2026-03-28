@@ -4417,11 +4417,17 @@ const ItineraryDetail = () => {
                           } else {
                             const photoUrl = typeof dayDetailsForm.activity_photo === 'string' ? dayDetailsForm.activity_photo : eventImagePreview;
                             if (photoUrl && typeof photoUrl === 'string') {
-                              const url = photoUrl.startsWith('http') ? photoUrl : `${(import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api').replace('/api', '')}${photoUrl}`;
-                              const res = await fetch(url);
-                              const blob = await res.blob();
-                              const file = new File([blob], 'activity-image.jpg', { type: blob.type || 'image/jpeg' });
-                              activityData.append('activity_photo', file);
+                              try {
+                                const url = photoUrl.startsWith('http') ? photoUrl : `${(import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api').replace('/api', '')}${photoUrl}`;
+                                const res = await fetch(url);
+                                if (res.ok) {
+                                  const blob = await res.blob();
+                                  const file = new File([blob], 'activity-image.jpg', { type: blob.type || 'image/jpeg' });
+                                  activityData.append('activity_photo', file);
+                                }
+                              } catch (err) {
+                                console.warn('Failed to fetch activity image for Master saving:', err);
+                              }
                             }
                           }
                           activityData.append('status', dayDetailsForm.status || 'active');
@@ -4444,7 +4450,8 @@ const ItineraryDetail = () => {
                               eventType: 'activity',
                               image: imgUrl || eventImagePreview,
                               type: 'Manual',
-                              name: created.name || dayDetailsForm.name
+                              name: created.name || dayDetailsForm.name,
+                              price: dayDetailsForm.price || ''
                             });
                             await fetchActivities();
                           }
@@ -4480,11 +4487,17 @@ const ItineraryDetail = () => {
                           } else {
                             const photoUrl = typeof dayDetailsForm.transfer_photo === 'string' ? dayDetailsForm.transfer_photo : eventImagePreview;
                             if (photoUrl && typeof photoUrl === 'string') {
-                              const url = photoUrl.startsWith('http') ? photoUrl : `${(import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api').replace('/api', '')}${photoUrl}`;
-                              const res = await fetch(url);
-                              const blob = await res.blob();
-                              const file = new File([blob], 'transfer-image.jpg', { type: blob.type || 'image/jpeg' });
-                              transferData.append('transfer_photo', file);
+                              try {
+                                const url = photoUrl.startsWith('http') ? photoUrl : `${(import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api').replace('/api', '')}${photoUrl}`;
+                                const res = await fetch(url);
+                                if (res.ok) {
+                                  const blob = await res.blob();
+                                  const file = new File([blob], 'transfer-image.jpg', { type: blob.type || 'image/jpeg' });
+                                  transferData.append('transfer_photo', file);
+                                }
+                              } catch (err) {
+                                console.warn('Failed to fetch transfer image for Master saving:', err);
+                              }
                             }
                           }
                           transferData.append('status', dayDetailsForm.status || 'active');
@@ -4507,7 +4520,8 @@ const ItineraryDetail = () => {
                               eventType: 'transportation',
                               image: imgUrl || eventImagePreview,
                               type: 'Manual',
-                              name: created.name || dayDetailsForm.name
+                              name: created.name || dayDetailsForm.name,
+                              price: dayDetailsForm.price || ''
                             });
                             await fetchTransfers();
                           }
