@@ -187,24 +187,71 @@
         }
 
         .day-body {
-            background: #f8faff;
-            padding: 11px 13px;
+            background: #fcfcfc;
+            padding: 8px;
             border-radius: 8px;
-            border: 1px solid #dbeafe;
+            border: 1px solid #eef2f7;
             color: #334155;
-            font-size: 10.5px;
+        }
+
+        .event-item {
+            margin-bottom: 12px;
+            padding-bottom: 12px;
+            border-bottom: 1px dashed #e2e8f0;
+            display: block;
+        }
+
+        .event-item:last-child {
+            margin-bottom: 0;
+            padding-bottom: 0;
+            border-bottom: none;
+        }
+
+        .event-img {
+            width: 100px;
+            height: 70px;
+            border-radius: 6px;
+            float: right;
+            margin-left: 10px;
+            object-fit: cover;
+            border: 1px solid #cbd5e1;
+        }
+
+        .event-type-label {
+            font-size: 8px;
+            font-weight: bold;
+            color: #2563eb;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            display: block;
+            margin-bottom: 2px;
+        }
+
+        .event-subject {
+            font-size: 11px;
+            font-weight: bold;
+            color: #1e293b;
+            margin-bottom: 4px;
+        }
+
+        .event-details {
+            font-size: 9.5px;
+            color: #475569;
+            line-height: 1.5;
+            text-align: justify;
         }
 
         .svc-badge {
             display: inline-block;
-            background: #dbeafe;
-            color: #1e40af;
-            padding: 3px 9px;
-            border-radius: 20px;
-            font-size: 9px;
-            margin-right: 5px;
-            margin-top: 5px;
+            background: #eff6ff;
+            color: #2563eb;
+            padding: 2px 7px;
+            border-radius: 4px;
+            font-size: 8px;
+            margin-right: 4px;
+            margin-top: 4px;
             font-weight: bold;
+            border: 1px solid #dbeafe;
         }
 
         /* INCLUSIONS / EXCLUSIONS */
@@ -455,28 +502,32 @@
                 }
             }
 
-            $desc = "";
+            $renderEvents = [];
             $svcs = [];
 
-            // Pass 2: Process All Events for Body Content
+            // Pass 2: Process All Events for Display
             foreach ($evts as $e) {
                 $t = $e['eventType'] ?? '';
                 if ($t == 'accommodation') {
-                     continue;
-                } elseif ($t == 'meal' || str_contains($t, 'transport') || $t == 'activity') {
-                    $svcs[] = ($t == 'activity' ? 'Activity' : ($t == 'meal' ? 'Meal' : 'Transfer')) . ': ' . $e['subject'];
-                    // If this meal/activity has specific details, add them to description
-                    if (!empty($e['details'])) {
-                        $desc .= ($dayTitle !== $e['subject'] ? "<strong>{$e['subject']}</strong>: " : "") . $e['details'] . "\n";
+                    continue;
+                }
+
+                // Collect service badge if it's a specific type
+                if (in_array($t, ['meal', 'activity', 'day-itinerary']) || str_contains($t, 'transport')) {
+                    $prefix = ($t == 'activity' ? 'Activity' : ($t == 'meal' ? 'Meal' : (str_contains($t, 'transport') ? 'Transfer' : 'Item')));
+                    if ($prefix !== 'Item') {
+                        $svcs[] = "$prefix: " . ($e['subject'] ?? '');
                     }
-                } else {
-                    // For day-itinerary (summary) or other manual items
-                    if ($dayTitle !== $e['subject'] && $e['subject'] !== 'Day Itinerary') {
-                         $desc .= "<strong>" . $e['subject'] . "</strong>\n";
-                    }
-                    if (!empty($e['details'])) {
-                        $desc .= $e['details'] . "\n";
-                    }
+                }
+
+                // Add to render list if there are details or it's a key event
+                if (!empty($e['details']) || (!empty($e['subject']) && $e['subject'] !== 'Day Itinerary')) {
+                    $renderEvents[] = [
+                        'type' => $t,
+                        'subject' => $e['subject'] ?? '',
+                        'details' => $e['details'] ?? '',
+                        'image' => !empty($e['image']) ? imageToBase64($e['image']) : null
+                    ];
                 }
             }
         @endphp
@@ -497,9 +548,24 @@
                     class="day-date">{{ $quotation->travel_start_date ? $quotation->travel_start_date->copy()->addDays($day - 1)->format('l, d M') : '' }}</span>
             </div>
             <div class="day-body">
-                <div style="text-align: justify;">{!! nl2br(e(trim($desc))) !!}</div>
+                @foreach($renderEvents as $evt)
+                    <div class="event-item">
+                        @if($evt['image'])
+                            <img src="{{ $evt['image'] }}" class="event-img">
+                        @endif
+                        <div class="event-type-label">{{ $evt['type'] }}</div>
+                        <div class="event-subject">
+                             {!! $evt['subject'] !!}
+                        </div>
+                        <div class="event-details">
+                            {!! nl2br(strip_tags($evt['details'], '<strong><b><i><em>')) !!}
+                        </div>
+                        <div style="clear: both;"></div>
+                    </div>
+                @endforeach
+
                 @if(!empty($svcs))
-                    <div style="margin-top: 10px;">
+                    <div style="margin-top: 5px; border-top: 1px solid #f1f5f9; padding-top: 5px;">
                         @foreach($svcs as $s) <span class="svc-badge">{{ $s }}</span> @endforeach
                     </div>
                 @endif
