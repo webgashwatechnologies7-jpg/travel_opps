@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { getDisplayImageUrl } from '../utils/imageUrl';
 import { settingsAPI, masterPointsAPI } from '../services/api';
-import { Building2, Star, Calendar, Hash, X, Eye, MapPin, Users, Clock, Image as ImageIcon, Car, UtensilsCrossed, Plane, User, Ship, FileText, FileText as PassportIcon, File, Download, Mail, MessageCircle, Printer } from 'lucide-react';
+import { Building2, Star, Calendar, Hash, X, Eye, MapPin, Users, Clock, Image as ImageIcon, Car, UtensilsCrossed, Plane, User, Ship, FileText, FileText as PassportIcon, File, Download, Mail, MessageCircle, Printer, Plus } from 'lucide-react';
 
 const POLICY_KEYS = [
   { key: 'itinerary', label: 'Day-by-Day Itinerary' },
@@ -45,13 +45,13 @@ const FinalTab = ({
   const [policyContent, setPolicyContent] = useState({
     inclusions: [],
     exclusions: [],
-    remarks: '',
-    terms_conditions: '',
-    confirmation_policy: '',
-    cancellation_policy: '',
-    amendment_policy: '',
-    payment_policy: '',
-    thank_you_message: ''
+    remarks: [],
+    terms_conditions: [],
+    confirmation_policy: [],
+    cancellation_policy: [],
+    amendment_policy: [],
+    payment_policy: [],
+    thank_you_message: []
   });
 
   useEffect(() => {
@@ -101,26 +101,40 @@ const FinalTab = ({
         const masters = {
           inclusions: getMasterList(incRes),
           exclusions: getMasterList(excRes),
-          remarks: getMasterVal(remarksRes),
-          terms_conditions: getMasterVal(termsRes),
-          confirmation_policy: getMasterVal(confirmRes),
-          cancellation_policy: getMasterVal(cancelRes),
-          amendment_policy: getMasterVal(amendRes),
-          payment_policy: getMasterVal(paymentRes),
-          thank_you_message: getMasterVal(thankYouRes)
+          remarks: getMasterList(remarksRes),
+          terms_conditions: getMasterList(termsRes),
+          confirmation_policy: getMasterList(confirmRes),
+          cancellation_policy: getMasterList(cancelRes),
+          amendment_policy: getMasterList(amendRes),
+          payment_policy: getMasterList(paymentRes),
+          thank_you_message: getMasterList(thankYouRes)
         };
 
         setPolicyContent(masters);
 
-        // If packageTerms is empty for inclusions/exclusions, initialize them from masters if we have setter
+        // Map POLICY_KEYS back to packageTerms if they are currently null/empty
         if (setPackageTerms && packageTerms) {
-          setPackageTerms(prev => ({
-            ...prev,
-            inclusions: (prev.inclusions && prev.inclusions.length > 0) ? prev.inclusions : masters.inclusions,
-            exclusions: (prev.exclusions && prev.exclusions.length > 0) ? prev.exclusions : masters.exclusions,
-            terms_conditions: prev.terms_conditions || masters.terms_conditions,
-            refund_policy: prev.refund_policy || masters.cancellation_policy
-          }));
+          setPackageTerms(prev => {
+            const updates = {};
+            
+            // Handle inclusions/exclusions
+            if (!prev.inclusions || prev.inclusions.length === 0) updates.inclusions = masters.inclusions;
+            if (!prev.exclusions || prev.exclusions.length === 0) updates.exclusions = masters.exclusions;
+            
+            // Handle new list-based fields if they are empty
+            if (!prev.remarks || prev.remarks.length === 0) updates.remarks = masters.remarks;
+            if (!prev.terms_conditions || prev.terms_conditions.length === 0) updates.terms_conditions = masters.terms_conditions;
+            if (!prev.confirmation_policy || prev.confirmation_policy.length === 0) updates.confirmation_policy = masters.confirmation_policy;
+            if (!prev.refund_policy || prev.refund_policy.length === 0) updates.refund_policy = masters.cancellation_policy;
+            if (!prev.amendment_policy || prev.amendment_policy.length === 0) updates.amendment_policy = masters.amendment_policy;
+            if (!prev.payment_policy || prev.payment_policy.length === 0) updates.payment_policy = masters.payment_policy;
+            if (!prev.thank_you_message || prev.thank_you_message.length === 0) updates.thank_you_message = masters.thank_you_message;
+
+            if (Object.keys(updates).length > 0) {
+              return { ...prev, ...updates };
+            }
+            return prev;
+          });
         }
       } catch (error) {
         console.error("Failed to load policies", error);
@@ -620,133 +634,131 @@ const FinalTab = ({
             ) : (
               <>
                 <div className="flex justify-between items-center mb-6">
-                  <h2 className="text-2xl font-bold text-gray-900">
+                  <h2 className="text-2xl font-bold text-gray-900 border-l-4 border-blue-600 pl-4">
                     {POLICY_KEYS.find(p => p.key === rightView)?.label || rightView}
                   </h2>
-                  {(rightView === 'inclusions' || rightView === 'exclusions') && !readOnly && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const current = packageTerms[rightView] || [];
-                        setPackageTerms(prev => ({
-                          ...prev,
-                          [rightView]: [...current, 'New Point...']
-                        }));
-                      }}
-                      className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-bold rounded-lg hover:bg-blue-700 transition-all shadow-md active:scale-95"
-                    >
-                      <Plus className="h-4 w-4 mr-2" /> Add {rightView === 'inclusions' ? 'Inclusion' : 'Exclusion'}
-                    </button>
-                  )}
                 </div>
 
-                {/* List-based editor for Inclusions/Exclusions */}
-                {(rightView === 'inclusions' || rightView === 'exclusions') ? (
-                  <div className="space-y-3">
-                    {(packageTerms[rightView] || []).length === 0 ? (
-                      <div className="text-center py-12 bg-gray-50 rounded-xl border-2 border-dashed border-gray-200">
-                        <p className="text-gray-500">No {rightView} found for this itinerary.</p>
-                        {!readOnly && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setPackageTerms(prev => ({
-                                ...prev,
-                                [rightView]: [...(policyContent[rightView] || [])]
-                              }));
-                            }}
-                            className="mt-3 text-blue-600 font-semibold hover:underline"
-                          >
-                            Reset to Default from Masters
-                          </button>
-                        )}
+                {!readOnly && (
+                  <div className="mb-8 p-6 bg-blue-50/50 rounded-xl border-2 border-dashed border-blue-200">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-sm font-bold text-blue-800 uppercase tracking-wider flex items-center gap-2">
+                        <Plus className="h-4 w-4" /> Pick from Master {POLICY_KEYS.find(p => p.key === rightView)?.label}
+                      </h3>
+                      <button 
+                        type="button"
+                        onClick={() => {
+                          const key = rightView === 'cancellation_policy' ? 'refund_policy' : rightView;
+                          const current = (packageTerms[key] || []);
+                          setPackageTerms(prev => ({
+                            ...prev,
+                            [key]: [...current, 'New Point...']
+                          }));
+                        }}
+                        className="text-xs font-bold text-white bg-blue-600 px-3 py-1.5 rounded-lg hover:bg-blue-700 shadow-sm transition-all active:scale-95"
+                      >
+                        Add Manual Point
+                      </button>
+                    </div>
+                    {policyContent[rightView] && policyContent[rightView].length > 0 ? (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
+                        {policyContent[rightView].map((masterPoint, mIdx) => {
+                          const key = rightView === 'cancellation_policy' ? 'refund_policy' : rightView;
+                          const currentList = packageTerms[key] || [];
+                          const isSelected = currentList.includes(masterPoint);
+                          
+                          return (
+                            <label key={mIdx} className={`flex items-start gap-3 p-3 rounded-lg border-2 cursor-pointer transition-all ${
+                              isSelected ? 'bg-blue-600 border-blue-600 text-white shadow-md' : 'bg-white border-gray-100 hover:border-blue-300 text-gray-700'
+                            }`}>
+                              <input 
+                                type="checkbox"
+                                checked={isSelected}
+                                className="hidden"
+                                onChange={() => {
+                                  let newList;
+                                  if (isSelected) {
+                                    newList = currentList.filter(p => p !== masterPoint);
+                                  } else {
+                                    newList = [...currentList, masterPoint];
+                                  }
+                                  setPackageTerms(prev => ({ ...prev, [key]: newList }));
+                                }}
+                              />
+                              <span className={`mt-0.5 flex-shrink-0 w-4 h-4 rounded border flex items-center justify-center ${isSelected ? 'bg-white text-blue-600 border-white' : 'border-gray-300'}`}>
+                                {isSelected && <Plus className="h-3 w-3 rotate-45" />}
+                              </span>
+                              <span className="text-xs font-medium leading-tight">{masterPoint}</span>
+                            </label>
+                          );
+                        })}
                       </div>
                     ) : (
-                      (packageTerms[rightView] || []).map((point, idx) => (
-                        <div key={idx} className="flex gap-4 group">
-                          <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm ${rightView === 'inclusions' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                            {rightView === 'inclusions' ? '✓' : '✕'}
-                          </div>
-                          {readOnly ? (
-                            <div className="flex-1 text-gray-700 py-1">{point}</div>
-                          ) : (
-                            <div className="flex-1 flex gap-2">
-                              <input
-                                type="text"
-                                value={point}
-                                onChange={(e) => {
-                                  const newList = [...packageTerms[rightView]];
-                                  newList[idx] = e.target.value;
-                                  setPackageTerms(prev => ({ ...prev, [rightView]: newList }));
-                                }}
-                                className="flex-1 px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
-                              />
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  const newList = (packageTerms[rightView] || []).filter((_, i) => i !== idx);
-                                  setPackageTerms(prev => ({ ...prev, [rightView]: newList }));
-                                }}
-                                className="p-2 text-gray-400 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
-                              >
-                                <X className="h-4 w-4" />
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      ))
-                    )}
-                  </div>
-                ) : (
-                  /* Standard HTML content (Masters) */
-                  <div className="prose max-w-none text-gray-700 leading-relaxed bg-gray-50 p-6 rounded-lg min-h-[200px]">
-                    {policyContent[rightView] ? (
-                      <div dangerouslySetInnerHTML={{ __html: policyContent[rightView] }} />
-                    ) : (
-                      <p className="text-gray-500 italic">No content added for this section yet. Add it from Settings → Terms & Conditions.</p>
+                      <p className="text-xs text-center text-gray-500 italic py-4">No master points found for this category.</p>
                     )}
                   </div>
                 )}
+
+                {/* Selected Points List */}
+                <div className="space-y-4">
+                  <h3 className="text-sm font-bold text-gray-800 uppercase tracking-wider mb-2">Final {POLICY_KEYS.find(p => p.key === rightView)?.label} List</h3>
+                  {(() => {
+                    const key = rightView === 'cancellation_policy' ? 'refund_policy' : rightView;
+                    const items = packageTerms[key] || [];
+                    
+                    if (items.length === 0) {
+                      return (
+                        <div className="text-center py-12 bg-gray-50 rounded-xl border-2 border-dashed border-gray-200">
+                          <p className="text-gray-500">No {rightView} selected yet. Choose from above or add manually.</p>
+                        </div>
+                      );
+                    }
+
+                    return items.map((point, idx) => (
+                      <div key={idx} className="flex gap-4 group animate-in fade-in slide-in-from-left-2 duration-200">
+                        <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm shadow-sm transition-colors ${
+                          rightView === 'inclusions' ? 'bg-green-100 text-green-700' : 
+                          rightView === 'exclusions' ? 'bg-red-100 text-red-700' : 
+                          'bg-blue-100 text-blue-700'
+                        }`}>
+                          {rightView === 'inclusions' ? '✓' : rightView === 'exclusions' ? '✕' : idx + 1}
+                        </div>
+                        {readOnly ? (
+                          <div className="flex-1 text-gray-700 py-1 font-medium">{point}</div>
+                        ) : (
+                          <div className="flex-1 flex gap-2">
+                            <input
+                              type="text"
+                              value={point}
+                              onChange={(e) => {
+                                const newList = [...packageTerms[key]];
+                                newList[idx] = e.target.value;
+                                setPackageTerms(prev => ({ ...prev, [key]: newList }));
+                              }}
+                              className="flex-1 px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all shadow-sm hover:border-gray-300"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const newList = items.filter((_, i) => i !== idx);
+                                setPackageTerms(prev => ({ ...prev, [key]: newList }));
+                              }}
+                              className="p-2 text-gray-400 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
+                              title="Remove item"
+                            >
+                              <X className="h-5 w-5" />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    ));
+                  })()}
+                </div>
               </>
             )}
           </div>
 
-          {/* Terms & Conditions (Per-Itinerary Overrides) */}
-          <div className="bg-white rounded-xl shadow-lg p-8 mb-8">
-            <h2 className="text-3xl font-bold text-gray-900 mb-6">Terms & Policies</h2>
-            <div className="space-y-6">
-              <div>
-                <h3 className="text-xl font-semibold text-gray-800 mb-3">Terms & Conditions</h3>
-                {readOnly ? (
-                  <div className="prose max-w-none text-gray-700 whitespace-pre-wrap leading-relaxed bg-gray-50 p-4 rounded-lg">
-                    {packageTerms.terms_conditions || 'No terms specified.'}
-                  </div>
-                ) : (
-                  <textarea
-                    value={packageTerms.terms_conditions || ''}
-                    onChange={(e) => setPackageTerms(prev => ({ ...prev, terms_conditions: e.target.value }))}
-                    className="w-full h-40 px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all resize-none font-sans text-gray-700"
-                    placeholder="Enter terms and conditions for this itinerary..."
-                  />
-                )}
-              </div>
-              <div>
-                <h3 className="text-xl font-semibold text-gray-800 mb-3">Refund Policy</h3>
-                {readOnly ? (
-                  <div className="prose max-w-none text-gray-700 whitespace-pre-wrap leading-relaxed bg-gray-50 p-4 rounded-lg">
-                    {packageTerms.refund_policy || 'No refund policy specified.'}
-                  </div>
-                ) : (
-                  <textarea
-                    value={packageTerms.refund_policy || ''}
-                    onChange={(e) => setPackageTerms(prev => ({ ...prev, refund_policy: e.target.value }))}
-                    className="w-full h-40 px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all resize-none font-sans text-gray-700"
-                    placeholder="Enter refund policy for this itinerary..."
-                  />
-                )}
-              </div>
-            </div>
-          </div>
+          {/* Policies are managed via the tabbed view above */}
 
         </div>
       </div>
@@ -1304,22 +1316,34 @@ const FinalTab = ({
                 </div>
               </div>
 
-              {/* Terms & Conditions */}
-              {(packageTerms?.terms_conditions || packageTerms?.refund_policy) && (
-                <div className="bg-gray-50 rounded-lg p-6 border border-gray-200">
-                  <h2 className="text-xl font-bold text-gray-900 mb-4">Terms & Policies</h2>
-                  {packageTerms?.terms_conditions && (
-                    <div className="mb-4">
-                      <h3 className="font-semibold text-gray-800 mb-2">Terms & Conditions</h3>
-                      <div className="text-sm text-gray-700 whitespace-pre-wrap">{packageTerms.terms_conditions}</div>
-                    </div>
-                  )}
-                  {packageTerms?.refund_policy && (
-                    <div>
-                      <h3 className="font-semibold text-gray-800 mb-2">Refund Policy</h3>
-                      <div className="text-sm text-gray-700 whitespace-pre-wrap">{packageTerms.refund_policy}</div>
-                    </div>
-                  )}
+              {/* All Policies and Terms */}
+              {POLICY_KEYS_SIDEBAR.some(({ key }) => (packageTerms[key === 'cancellation_policy' ? 'refund_policy' : key] || []).length > 0) && (
+                <div className="bg-gray-50 rounded-lg p-6 border border-gray-200 mt-8">
+                  <h2 className="text-2xl font-bold text-gray-900 mb-6 border-b pb-2">Terms, Policies & Inclusion</h2>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    {POLICY_KEYS_SIDEBAR.map(({ key, label }) => {
+                      const pkgKey = key === 'cancellation_policy' ? 'refund_policy' : key;
+                      const items = packageTerms[pkgKey] || [];
+                      if (items.length === 0) return null;
+                      
+                      return (
+                        <div key={key} className="break-inside-avoid">
+                          <h3 className="font-bold text-gray-800 mb-2 flex items-center gap-2">
+                             <span className="w-1.5 h-1.5 bg-blue-600 rounded-full"></span>
+                             {label}
+                          </h3>
+                          <ul className="space-y-1.5">
+                            {items.map((item, i) => (
+                              <li key={i} className="text-sm text-gray-700 flex items-start gap-2">
+                                <span className="mt-1.5 w-1 h-1 bg-gray-400 rounded-full flex-shrink-0"></span>
+                                {item}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
             </div>

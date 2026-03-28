@@ -47,6 +47,11 @@ class Package extends Model
         'options_data',
         'inclusions',
         'exclusions',
+        'confirmation_policy',
+        'amendment_policy',
+        'payment_policy',
+        'remarks',
+        'thank_you_message',
         'created_by',
     ];
 
@@ -70,6 +75,13 @@ class Package extends Model
         'options_data' => 'array',
         'inclusions' => 'array',
         'exclusions' => 'array',
+        'terms_conditions' => 'array',
+        'refund_policy' => 'array',
+        'confirmation_policy' => 'array',
+        'amendment_policy' => 'array',
+        'payment_policy' => 'array',
+        'remarks' => 'array',
+        'thank_you_message' => 'array',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
     ];

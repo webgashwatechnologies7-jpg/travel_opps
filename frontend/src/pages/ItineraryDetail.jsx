@@ -218,11 +218,16 @@ const ItineraryDetail = () => {
   const [roomsLoading, setRoomsLoading] = useState(false);
   const [maxHotelOptions, setMaxHotelOptions] = useState(4); // Default to 4
   const [packageTerms, setPackageTerms] = useState({
-    terms_conditions: '',
-    refund_policy: '',
+    terms_conditions: [],
+    refund_policy: [],
     package_description: '',
     inclusions: [],
-    exclusions: []
+    exclusions: [],
+    remarks: [],
+    confirmation_policy: [],
+    amendment_policy: [],
+    payment_policy: [],
+    thank_you_message: []
   });
   const [pricingData, setPricingData] = useState({}); // Store pricing for each option
   const [finalClientPrices, setFinalClientPrices] = useState({}); // Final client prices for each option
@@ -630,7 +635,12 @@ const ItineraryDetail = () => {
             refund_policy: packageTerms.refund_policy,
             package_description: packageTerms.package_description,
             inclusions: packageTerms.inclusions,
-            exclusions: packageTerms.exclusions
+            exclusions: packageTerms.exclusions,
+            remarks: packageTerms.remarks,
+            confirmation_policy: packageTerms.confirmation_policy,
+            amendment_policy: packageTerms.amendment_policy,
+            payment_policy: packageTerms.payment_policy,
+            thank_you_message: packageTerms.thank_you_message
           });
         } catch (err) {
           console.error('Failed to sync package terms to server:', err);
@@ -696,13 +706,24 @@ const ItineraryDetail = () => {
         // but we might want to store them if we used them.
       }
       
-      // Load terms and policies
+      // Load terms and policies - normalize to arrays
+      const toList = (val) => {
+        if (Array.isArray(val)) return val;
+        if (typeof val === 'string' && val.trim()) return val.split('\n').map(s => s.trim()).filter(Boolean);
+        return [];
+      };
+
       setPackageTerms({
-        terms_conditions: data.terms_conditions || '',
-        refund_policy: data.refund_policy || '',
+        terms_conditions: toList(data.terms_conditions),
+        refund_policy: toList(data.refund_policy),
         package_description: data.package_description || '',
-        inclusions: Array.isArray(data.inclusions) ? data.inclusions : [],
-        exclusions: Array.isArray(data.exclusions) ? data.exclusions : []
+        inclusions: toList(data.inclusions),
+        exclusions: toList(data.exclusions),
+        remarks: toList(data.remarks),
+        confirmation_policy: toList(data.confirmation_policy),
+        amendment_policy: toList(data.amendment_policy),
+        payment_policy: toList(data.payment_policy),
+        thank_you_message: toList(data.thank_you_message)
       });
 
       // Set first day as selected if available
