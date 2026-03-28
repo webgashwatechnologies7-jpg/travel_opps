@@ -1575,43 +1575,72 @@ const ItineraryDetail = () => {
     // Count existing accommodation events in the selected day to determine option number
     const currentDayEvents = dayEvents[selectedDay] || [];
     const accommodationEvents = currentDayEvents.filter(e => e.eventType === 'accommodation');
+    const existingAccommodationEvent = accommodationEvents[0];
 
     // Check if max options limit reached
-    if (accommodationEvents.length >= maxHotelOptions) {
+    const currentOptionsCount = existingAccommodationEvent ? (existingAccommodationEvent.hotelOptions || []).length : 0;
+    if (currentOptionsCount >= maxHotelOptions) {
       toast.warning(`Maximum ${maxHotelOptions} hotel options allowed per day.`);
       return;
     }
 
-    // Check if same hotel already exists in another option
+    // Check if same hotel already exists in any option for this day
     if (isHotelAlreadyInOptions(hotel)) {
-      showToastNotification('warning', 'Hotel Already Added', 'This hotel is already added in options. You cannot add the same hotel in multiple options.');
+      showToastNotification('warning', 'Hotel Already Added', 'This hotel is already added in options.');
       return;
     }
 
-    const nextOptionNumber = accommodationEvents.length + 1;
-
-    // Extract the hotel_id for email lookup
     const hotelId = extractHotelId(hotel);
 
-    // Check if accommodation modal is open
+    // If modal is open for an accommodation, add it as a new option in the modal's state
     if (dayDetailsForm.eventType === 'accommodation' && showDayDetailsModal) {
-      // Add hotel to current hotel option in the modal (still check duplicate - could be adding new option)
-      if (isHotelAlreadyInOptions(hotel, dayDetailsForm.id)) {
-        showToastNotification('warning', 'Hotel Already Added', 'This hotel is already added in options. You cannot add the same hotel in multiple options.');
-        setHotelSearchResults([]);
-        setSearchQuery('');
-        return;
-      }
-      setDayDetailsForm({
-        ...dayDetailsForm,
+      const currentOptions = dayDetailsForm.hotelOptions || [];
+      const nextOptNum = currentOptions.length + 1;
+      
+      const newOption = {
         hotelName: hotel.hotelName || hotel.name,
         hotel_id: hotelId,
-        category: hotel.rating ? hotel.rating.toString() : dayDetailsForm.category,
-        destination: selectedDestination || dayDetailsForm.destination || hotel.address || ''
+        category: hotel.rating ? hotel.rating.toString() : '3',
+        image: hotel.image || null,
+        roomName: '',
+        mealPlan: '',
+        checkIn: currentOptions[0]?.checkIn || dayDetailsForm.checkIn || '',
+        checkOut: currentOptions[0]?.checkOut || dayDetailsForm.checkOut || '',
+        optionNumber: nextOptNum
+      };
+
+      setDayDetailsForm({
+        ...dayDetailsForm,
+        hotelOptions: [...currentOptions, newOption]
       });
       setShowHotelSearch(false);
+    } else if (existingAccommodationEvent) {
+      // If modal is not open but an accommodation event exists, open modal with its data and add the new option
+      const currentOptions = existingAccommodationEvent.hotelOptions || [];
+      const nextOptNum = currentOptions.length + 1;
+      
+      const newOption = {
+        hotelName: hotel.hotelName || hotel.name,
+        hotel_id: hotelId,
+        category: hotel.rating ? hotel.rating.toString() : '3',
+        image: hotel.image || null,
+        roomName: '',
+        mealPlan: '',
+        checkIn: currentOptions[0]?.checkIn || '',
+        checkOut: currentOptions[0]?.checkOut || '',
+        optionNumber: nextOptNum
+      };
+
+      setDayDetailsForm({
+        ...dayDetailsForm, // preserve some base fields
+        ...existingAccommodationEvent,
+        id: existingAccommodationEvent.id, // Ensure ID is preserved for update
+        hotelOptions: [...currentOptions, newOption]
+      });
+      setShowDayDetailsModal(true);
+      setShowHotelSearch(false);
     } else {
-      // Open modal to allow selection of Room Type and other details
+      // Modal is closed and no existing accommodation event: Create a new event with this hotel as first option
       setDayDetailsForm({
         ...dayDetailsForm,
         eventType: 'accommodation',
@@ -1625,21 +1654,20 @@ const ItineraryDetail = () => {
         image: hotel.image || null,
         roomName: '',
         mealPlan: '',
-        single: '',
-        double: '',
-        triple: '',
-        quad: '',
-        cwb: '',
-        cnb: '',
-        checkIn: '',
-        checkInTime: '2:00 PM',
-        checkOut: '',
-        checkOutTime: '11:00',
-        hotel_address: hotel.address || ''
+        hotelOptions: [{
+          hotelName: hotel.hotelName || hotel.name,
+          hotel_id: hotelId,
+          category: hotel.rating ? hotel.rating.toString() : '3',
+          image: hotel.image || null,
+          roomName: '',
+          mealPlan: '',
+          optionNumber: 1
+        }]
       });
       setShowDayDetailsModal(true);
       setShowHotelSearch(false);
     }
+
     setHotelSearchResults([]);
     setSearchQuery('');
   };
