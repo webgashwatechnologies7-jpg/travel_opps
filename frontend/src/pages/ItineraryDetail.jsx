@@ -204,6 +204,8 @@ const ItineraryDetail = () => {
   const [storedTransfersLoading, setStoredTransfersLoading] = useState(false);
   const [mealPlans, setMealPlans] = useState([]);
   const [mealPlansLoading, setMealPlansLoading] = useState(false);
+  const [roomTypes, setRoomTypes] = useState([]);
+  const [roomTypesLoading, setRoomTypesLoading] = useState(false);
   const [apiSearchForm, setApiSearchForm] = useState({
     city: '',
     checkIn: '',
@@ -248,6 +250,7 @@ const ItineraryDetail = () => {
     fetchDestinations();
     fetchMaxHotelOptions();
     loadPricingFromServer();
+    fetchRoomTypes();
   }, [id]);
 
   // One-time legacy migration: move old browser-only itinerary data to DB
@@ -1032,6 +1035,20 @@ const ItineraryDetail = () => {
     }
   };
 
+  const fetchRoomTypes = async () => {
+    try {
+      setRoomTypesLoading(true);
+      const response = await roomTypesAPI.list();
+      const data = response.data?.data || response.data || [];
+      setRoomTypes(data);
+    } catch (err) {
+      console.error('Failed to fetch room types:', err);
+      setRoomTypes([]);
+    } finally {
+      setRoomTypesLoading(false);
+    }
+  };
+
   const fetchMealPlans = async () => {
     try {
       setMealPlansLoading(true);
@@ -1594,42 +1611,18 @@ const ItineraryDetail = () => {
       });
       setShowHotelSearch(false);
     } else {
-      // Directly add hotel as accommodation event without opening popup
-      const eventData = {
-        id: Date.now(),
-        subject: hotel.hotelName || hotel.name || 'Hotel',
-        details: '',
-        destination: selectedDestination || hotel.address || days[selectedDay - 1]?.destination || '',
+      // Open modal to allow selection of Room Type and other details
+      setDayDetailsForm({
+        ...dayDetailsForm,
         eventType: 'accommodation',
-        image: hotel.image || null,
-        type: 'Manual',
+        id: null,
+        subject: hotel.hotelName || hotel.name || 'Hotel',
         name: hotel.hotelName || hotel.name || 'Hotel',
-        date: '',
-        startTime: '2:00 PM',
-        endTime: '11:00',
-        showTime: false,
-        hotelOptions: [{
-          hotelName: hotel.hotelName || hotel.name || 'Hotel',
-          hotel_id: hotelId,
-          category: hotel.rating ? hotel.rating.toString() : '3',
-          roomName: '',
-          mealPlan: '',
-          single: '',
-          double: '',
-          triple: '',
-          quad: '',
-          cwb: '',
-          cnb: '',
-          checkIn: '',
-          checkInTime: '2:00 PM',
-          checkOut: '',
-          checkOutTime: '11:00',
-          optionNumber: nextOptionNumber // Add option number
-        }],
-        editingOptionIndex: null,
-        hotelName: hotel.hotelName || hotel.name || 'Hotel',
+        hotelName: hotel.hotelName || hotel.name,
         hotel_id: hotelId,
         category: hotel.rating ? hotel.rating.toString() : '3',
+        destination: selectedDestination || hotel.address || days[selectedDay - 1]?.destination || '',
+        image: hotel.image || null,
         roomName: '',
         mealPlan: '',
         single: '',
@@ -1642,12 +1635,10 @@ const ItineraryDetail = () => {
         checkInTime: '2:00 PM',
         checkOut: '',
         checkOutTime: '11:00',
-        transferType: 'Private',
-        mealType: 'Breakfast'
-      };
-
-      // Directly save the event without opening popup
-      saveEvent(eventData);
+        hotel_address: hotel.address || ''
+      });
+      setShowDayDetailsModal(true);
+      setShowHotelSearch(false);
     }
     setHotelSearchResults([]);
     setSearchQuery('');
@@ -3192,8 +3183,39 @@ const ItineraryDetail = () => {
                                 </div>
                                 <div className="flex items-center gap-2">
                                   <Hash className="h-4 w-4 text-gray-500" />
-                                  <span className="text-gray-600">Room:</span>
-                                  <span className="font-medium">#{option.roomName || 'N/A'}</span>
+                                  <span className="text-gray-600">Room Type:</span>
+                                  <select
+                                    value={option.roomName || ''}
+                                    onChange={(e) => {
+                                      const updatedOptions = [...dayDetailsForm.hotelOptions];
+                                      updatedOptions[index] = { ...option, roomName: e.target.value };
+                                      setDayDetailsForm({ ...dayDetailsForm, hotelOptions: updatedOptions });
+                                    }}
+                                    className="px-2 py-1 border border-gray-300 rounded text-xs focus:ring-1 focus:ring-blue-500 outline-none"
+                                  >
+                                    <option value="">Select Room Type</option>
+                                    {roomTypes.map(rt => (
+                                      <option key={rt.id} value={rt.name}>{rt.name}</option>
+                                    ))}
+                                  </select>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <Utensils className="h-4 w-4 text-gray-500" />
+                                  <span className="text-gray-600">Meal Plan:</span>
+                                  <select
+                                    value={option.mealPlan || ''}
+                                    onChange={(e) => {
+                                      const updatedOptions = [...dayDetailsForm.hotelOptions];
+                                      updatedOptions[index] = { ...option, mealPlan: e.target.value };
+                                      setDayDetailsForm({ ...dayDetailsForm, hotelOptions: updatedOptions });
+                                    }}
+                                    className="px-2 py-1 border border-gray-300 rounded text-xs focus:ring-1 focus:ring-blue-500 outline-none"
+                                  >
+                                    <option value="">Select Meal</option>
+                                    {mealPlans.map(mp => (
+                                      <option key={mp.id} value={mp.name}>{mp.name}</option>
+                                    ))}
+                                  </select>
                                 </div>
                               </div>
                               <div className="mt-3 space-y-1">
@@ -3260,6 +3282,34 @@ const ItineraryDetail = () => {
                                 placeholder="Enter destination"
                                 required
                               />
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">Room Type</label>
+                              <select
+                                value={dayDetailsForm.roomName}
+                                onChange={(e) => setDayDetailsForm({ ...dayDetailsForm, roomName: e.target.value })}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              >
+                                <option value="">Select Room Type</option>
+                                {roomTypes.map(rt => (
+                                  <option key={rt.id} value={rt.name}>{rt.name}</option>
+                                ))}
+                              </select>
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">Meal Plan</label>
+                              <select
+                                value={dayDetailsForm.mealPlan}
+                                onChange={(e) => setDayDetailsForm({ ...dayDetailsForm, mealPlan: e.target.value })}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              >
+                                <option value="">Select Meal Plan</option>
+                                {mealPlans.map(mp => (
+                                  <option key={mp.id} value={mp.name}>{mp.name}</option>
+                                ))}
+                              </select>
                             </div>
                           </div>
                           <div>
@@ -4141,8 +4191,8 @@ const ItineraryDetail = () => {
                                   hotel_id: created.id,
                                   category: (created.category || dayDetailsForm.category || '1').toString(),
                                   image: imgUrl,
-                                  roomName: '',
-                                  mealPlan: '',
+                                  roomName: dayDetailsForm.roomName || '',
+                                  mealPlan: dayDetailsForm.mealPlan || '',
                                   single: '',
                                   double: '',
                                   triple: '',
