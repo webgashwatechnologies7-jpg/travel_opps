@@ -2169,7 +2169,8 @@ const ItineraryDetail = () => {
                                             checkOutTime: event.hotelOptions?.[0]?.checkOutTime || '11:00',
                                             transferType: event.transferType || 'Private',
                                             mealType: event.mealType || 'Breakfast',
-                                            price: event.price || ''
+                                            price: event.price || '',
+                                            master_id: event.master_id || null
                                           });
                                           setEventImagePreview(event.image || null);
                                           setShowDayDetailsModal(true);
@@ -3606,155 +3607,193 @@ const ItineraryDetail = () => {
                     </>
                   ) : dayDetailsForm.eventType === 'transportation' ? (
                     <>
-                      {/* Search and Select from Masters - Transportation */}
-                      <div className="mb-4 bg-purple-50 p-4 rounded-lg border border-purple-100">
-                        <label className="block text-sm font-semibold text-purple-800 mb-2">
-                          Quick Select from Transportation Masters
-                        </label>
-                        <div className="relative">
-                          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                          <select
-                            onChange={(e) => {
-                              const selected = storedTransfers.find(t => t.id === parseInt(e.target.value));
-                              if (selected) {
-                                setDayDetailsForm({
-                                  ...dayDetailsForm,
-                                  name: selected.name || '',
-                                  subject: selected.name || '',
-                                  destination: selected.destination || '',
-                                  transfer_details: selected.transfer_details || '',
-                                  transfer_photo: selected.transfer_photo || null,
-                                  status: selected.status || 'active',
-                                  master_id: selected.id
-                                });
-                                if (selected.transfer_photo) {
-                                  setEventImagePreview(selected.transfer_photo);
-                                }
-                              }
-                            }}
-                            className="w-full pl-10 pr-4 py-2 border border-purple-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white"
-                          >
-                            <option value="">Search & Select Transportation...</option>
-                            {storedTransfers.map(t => (
-                              <option key={t.id} value={t.id}>{t.name} ({t.destination})</option>
-                            ))}
-                          </select>
-                        </div>
-                      </div>
+                      {/* Condensed View for Editing existing events */}
+                      {dayDetailsForm.id !== null && (dayDetailsForm.master_id || dayDetailsForm.name) ? (
+                        <div className="space-y-6">
+                          <div className="bg-purple-50 p-5 rounded-xl border border-purple-100 flex items-center gap-5 shadow-sm">
+                            <div className="bg-white p-3 rounded-xl shadow-inner">
+                              <Car className="h-10 w-10 text-purple-600" />
+                            </div>
+                            <div className="flex-1">
+                              <h4 className="text-xl font-bold text-gray-800 font-noto">{dayDetailsForm.name}</h4>
+                              <p className="text-sm text-gray-500 font-medium">{dayDetailsForm.destination || 'Selected Destination'}</p>
+                              <div className="flex items-center gap-2 mt-1 text-purple-600 font-semibold text-xs uppercase tracking-wider">
+                                <span>{dayDetailsForm.transferType || 'Private'} Vehicle</span>
+                              </div>
+                            </div>
+                          </div>
 
-                      {/* Transportation form - same as Masters */}
-                      <div className="border-t border-gray-200 pt-4 space-y-4">
-                        <h3 className="text-lg font-semibold text-gray-800 mb-4">Add Transportation (same as Masters)</h3>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Name *</label>
-                          <input
-                            type="text"
-                            value={dayDetailsForm.name}
-                            onChange={(e) => setDayDetailsForm({ ...dayDetailsForm, name: e.target.value })}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            placeholder="Enter transportation name"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Destination</label>
-                          <select
-                            value={dayDetailsForm.destination}
-                            onChange={(e) => setDayDetailsForm({ ...dayDetailsForm, destination: e.target.value })}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          >
-                            <option value="">Select Destination</option>
-                            {destinations.map((dest) => (
-                              <option key={dest} value={dest}>{dest}</option>
-                            ))}
-                            {days[selectedDay - 1]?.destination && !destinations.includes(days[selectedDay - 1].destination) && (
-                              <option value={days[selectedDay - 1].destination}>{days[selectedDay - 1].destination}</option>
-                            )}
-                          </select>
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Transfer Details</label>
-                          <textarea
-                            value={dayDetailsForm.transfer_details}
-                            onChange={(e) => setDayDetailsForm({ ...dayDetailsForm, transfer_details: e.target.value })}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-                            placeholder="Enter transfer details"
-                            rows="3"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Price (₹)</label>
-                          <input
-                            type="number"
-                            value={dayDetailsForm.price || ''}
-                            onChange={(e) => setDayDetailsForm({ ...dayDetailsForm, price: e.target.value })}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            placeholder="Enter price"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Transfer Photo</label>
-                          <div className="flex gap-2">
-                            <label className="flex-1 cursor-pointer">
+                          <div className="bg-gray-50 p-6 rounded-xl border border-gray-200">
+                            <label className="block text-sm font-bold text-gray-700 mb-2 uppercase tracking-tight">Set Price (₹)</label>
+                            <div className="relative">
+                              <span className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 font-bold text-xl">₹</span>
                               <input
-                                type="file"
-                                accept="image/*"
+                                type="number"
+                                value={dayDetailsForm.price || ''}
+                                onChange={(e) => setDayDetailsForm({ ...dayDetailsForm, price: e.target.value })}
+                                className="w-full pl-10 pr-4 py-4 border border-gray-300 rounded-xl focus:outline-none focus:ring-4 focus:ring-purple-200 transition-all text-2xl font-black text-gray-800"
+                                placeholder="0.00"
+                                autoFocus
+                              />
+                            </div>
+                            <p className="mt-2 text-xs text-gray-500 italic">Enter the per-unit or total price for this vehicle service.</p>
+                          </div>
+                        </div>
+                      ) : (
+                        <>
+                          {/* Search and Select from Masters - Transportation (Only when ADDING new) */}
+                          <div className="mb-4 bg-purple-50 p-4 rounded-lg border border-purple-100">
+                            <label className="block text-sm font-semibold text-purple-800 mb-2 font-noto">
+                              Quick Select from Transportation Masters
+                            </label>
+                            <div className="relative">
+                              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                              <select
                                 onChange={(e) => {
-                                  const file = e.target.files[0];
-                                  if (file) {
-                                    setDayDetailsForm({ ...dayDetailsForm, transfer_photo: file });
-                                    const reader = new FileReader();
-                                    reader.onloadend = () => setEventImagePreview(reader.result);
-                                    reader.readAsDataURL(file);
+                                  const selected = (storedTransfers || []).find(t => t.id === parseInt(e.target.value));
+                                  if (selected) {
+                                    setDayDetailsForm({
+                                      ...dayDetailsForm,
+                                      name: selected.name || '',
+                                      subject: selected.name || '',
+                                      destination: selected.destination || '',
+                                      transfer_details: selected.transfer_details || '',
+                                      transfer_photo: selected.transfer_photo || null,
+                                      status: selected.status || 'active',
+                                      master_id: selected.id
+                                    });
+                                    if (selected.transfer_photo) {
+                                      setEventImagePreview(selected.transfer_photo);
+                                    }
                                   }
                                 }}
-                                className="hidden"
-                              />
-                              <div className="flex items-center justify-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors">
-                                <Upload className="h-4 w-4" />
-                                <span className="text-sm font-medium">Upload Image</span>
-                              </div>
-                            </label>
-                            <button
-                              type="button"
-                              onClick={() => setShowDayItineraryImageModal(true)}
-                              className="flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded-lg transition-colors"
-                            >
-                              <Camera className="h-4 w-4" />
-                              <span className="text-sm font-medium">Choose from Library</span>
-                            </button>
-                          </div>
-                          {(eventImagePreview || dayDetailsForm.transfer_photo) && (
-                            <div className="mt-3 relative inline-block">
-                              <img
-                                src={getDisplayImageUrl(eventImagePreview || (typeof dayDetailsForm.transfer_photo === 'string' ? dayDetailsForm.transfer_photo : ''))}
-                                alt="Transfer Preview"
-                                className="w-full h-48 object-cover rounded-lg border border-gray-300"
-                              />
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setDayDetailsForm({ ...dayDetailsForm, transfer_photo: null });
-                                  setEventImagePreview(null);
-                                }}
-                                className="absolute top-2 right-2 bg-red-600 text-white p-2 rounded-full hover:bg-red-700"
+                                className="w-full pl-10 pr-4 py-2 border border-purple-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white"
                               >
-                                <X className="h-4 w-4" />
-                              </button>
+                                <option value="">Search & Select Transportation...</option>
+                                {(storedTransfers || []).map(t => (
+                                  <option key={t.id} value={t.id}>{t.name} ({t.destination})</option>
+                                ))}
+                              </select>
                             </div>
-                          )}
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Status *</label>
-                          <select
-                            value={dayDetailsForm.status}
-                            onChange={(e) => setDayDetailsForm({ ...dayDetailsForm, status: e.target.value })}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          >
-                            <option value="active">Active</option>
-                            <option value="inactive">Inactive</option>
-                          </select>
-                        </div>
-                      </div>
+                          </div>
+
+                          {/* Transportation full form - same as Masters */}
+                          <div className="border-t border-gray-200 pt-4 space-y-4">
+                            <h3 className="text-lg font-semibold text-gray-800 mb-4 font-noto">Add Transportation (Manual Entry)</h3>
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">Name *</label>
+                              <input
+                                type="text"
+                                value={dayDetailsForm.name}
+                                onChange={(e) => setDayDetailsForm({ ...dayDetailsForm, name: e.target.value })}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                placeholder="Enter transportation name"
+                              />
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Destination</label>
+                                <select
+                                  value={dayDetailsForm.destination}
+                                  onChange={(e) => setDayDetailsForm({ ...dayDetailsForm, destination: e.target.value })}
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                >
+                                  <option value="">Select Destination</option>
+                                  {destinations.map((dest) => (
+                                    <option key={dest} value={dest}>{dest}</option>
+                                  ))}
+                                  {days[selectedDay - 1]?.destination && !destinations.includes(days[selectedDay - 1].destination) && (
+                                    <option value={days[selectedDay - 1].destination}>{days[selectedDay - 1].destination}</option>
+                                  )}
+                                </select>
+                              </div>
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Price (₹)</label>
+                                <input
+                                  type="number"
+                                  value={dayDetailsForm.price || ''}
+                                  onChange={(e) => setDayDetailsForm({ ...dayDetailsForm, price: e.target.value })}
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                  placeholder="Enter price"
+                                />
+                              </div>
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">Transfer Details</label>
+                              <textarea
+                                value={dayDetailsForm.transfer_details}
+                                onChange={(e) => setDayDetailsForm({ ...dayDetailsForm, transfer_details: e.target.value })}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none font-noto"
+                                placeholder="Enter transfer details (features, capacity, etc.)"
+                                rows="3"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1 font-noto">Transfer Photo</label>
+                              <div className="flex gap-2">
+                                <label className="flex-1 cursor-pointer">
+                                  <input
+                                    type="file"
+                                    accept="image/*"
+                                    onChange={(e) => {
+                                      const file = e.target.files[0];
+                                      if (file) {
+                                        setDayDetailsForm({ ...dayDetailsForm, transfer_photo: file });
+                                        const reader = new FileReader();
+                                        reader.onloadend = () => setEventImagePreview(reader.result);
+                                        reader.readAsDataURL(file);
+                                      }
+                                    }}
+                                    className="hidden"
+                                  />
+                                  <div className="flex items-center justify-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors border border-gray-200">
+                                    <Upload className="h-4 w-4" />
+                                    <span className="text-sm font-medium">Upload Image</span>
+                                  </div>
+                                </label>
+                                <button
+                                  type="button"
+                                  onClick={() => setShowDayItineraryImageModal(true)}
+                                  className="flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded-lg transition-colors shadow-sm"
+                                >
+                                  <Camera className="h-4 w-4" />
+                                  <span className="text-sm font-medium">From Library</span>
+                                </button>
+                              </div>
+                              {(eventImagePreview || dayDetailsForm.transfer_photo) && (
+                                <div className="mt-3 relative inline-block group">
+                                  <img
+                                    src={getDisplayImageUrl(eventImagePreview || (typeof dayDetailsForm.transfer_photo === 'string' ? dayDetailsForm.transfer_photo : ''))}
+                                    alt="Transfer Preview"
+                                    className="w-full h-48 object-cover rounded-xl border border-gray-300 shadow-sm transition-all group-hover:brightness-90"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setDayDetailsForm({ ...dayDetailsForm, transfer_photo: null });
+                                      setEventImagePreview(null);
+                                    }}
+                                    className="absolute top-2 right-2 bg-red-600 text-white p-2 rounded-full hover:bg-red-700 shadow-lg scale-90 opacity-0 group-hover:opacity-100 group-hover:scale-100 transition-all"
+                                  >
+                                    <X className="h-4 w-4" />
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1 font-noto">Visibility Status</label>
+                              <select
+                                value={dayDetailsForm.status}
+                                onChange={(e) => setDayDetailsForm({ ...dayDetailsForm, status: e.target.value })}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                              >
+                                <option value="active">Active (Visible)</option>
+                                <option value="inactive">Inactive (Hidden)</option>
+                              </select>
+                            </div>
+                          </div>
+                        </>
+                      )}
                     </>
                   ) : dayDetailsForm.eventType === 'flight' ? (
                     <>
