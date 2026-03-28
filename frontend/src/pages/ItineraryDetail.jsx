@@ -4,7 +4,7 @@ import { toast } from 'react-toastify';
 import Layout from '../components/Layout';
 import { useAuth } from '../contexts/AuthContext';
 import { getDisplayImageUrl } from '../utils/imageUrl';
-import { packagesAPI, dayItinerariesAPI, hotelsAPI, activitiesAPI, settingsAPI, destinationsAPI, itineraryPricingAPI, transfersAPI, mealPlansAPI, queryProposalsAPI, leadsAPI } from '../services/api';
+import { packagesAPI, dayItinerariesAPI, hotelsAPI, activitiesAPI, settingsAPI, destinationsAPI, itineraryPricingAPI, transfersAPI, mealPlansAPI, roomTypesAPI, queryProposalsAPI, leadsAPI } from '../services/api';
 import { searchPexelsPhotos } from '../services/pexels';
 import { ArrowLeft, Camera, Edit, Plus, ChevronRight, FileText, Search, X, Bed, Image as ImageIcon, Car, FileText as PassportIcon, UtensilsCrossed, Plane, User, Ship, Star, Calendar, Hash, Building2, Upload } from 'lucide-react';
 import PricingTab from '../components/PricingTab';
@@ -3199,24 +3199,6 @@ const ItineraryDetail = () => {
                                     ))}
                                   </select>
                                 </div>
-                                <div className="flex items-center gap-2">
-                                  <Utensils className="h-4 w-4 text-gray-500" />
-                                  <span className="text-gray-600">Meal Plan:</span>
-                                  <select
-                                    value={option.mealPlan || ''}
-                                    onChange={(e) => {
-                                      const updatedOptions = [...dayDetailsForm.hotelOptions];
-                                      updatedOptions[index] = { ...option, mealPlan: e.target.value };
-                                      setDayDetailsForm({ ...dayDetailsForm, hotelOptions: updatedOptions });
-                                    }}
-                                    className="px-2 py-1 border border-gray-300 rounded text-xs focus:ring-1 focus:ring-blue-500 outline-none"
-                                  >
-                                    <option value="">Select Meal</option>
-                                    {mealPlans.map(mp => (
-                                      <option key={mp.id} value={mp.name}>{mp.name}</option>
-                                    ))}
-                                  </select>
-                                </div>
                               </div>
                               <div className="mt-3 space-y-1">
                                 {[
@@ -3295,19 +3277,6 @@ const ItineraryDetail = () => {
                                 <option value="">Select Room Type</option>
                                 {roomTypes.map(rt => (
                                   <option key={rt.id} value={rt.name}>{rt.name}</option>
-                                ))}
-                              </select>
-                            </div>
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-1">Meal Plan</label>
-                              <select
-                                value={dayDetailsForm.mealPlan}
-                                onChange={(e) => setDayDetailsForm({ ...dayDetailsForm, mealPlan: e.target.value })}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                              >
-                                <option value="">Select Meal Plan</option>
-                                {mealPlans.map(mp => (
-                                  <option key={mp.id} value={mp.name}>{mp.name}</option>
                                 ))}
                               </select>
                             </div>
