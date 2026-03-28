@@ -3198,12 +3198,30 @@ const ItineraryDetail = () => {
                                 <div className="flex items-center gap-2">
                                   <Calendar className="h-4 w-4 text-gray-500" />
                                   <span className="text-gray-600">Check-in:</span>
-                                  <span className="font-medium">{option.checkIn ? new Date(option.checkIn).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : 'N/A'}</span>
+                                  <input
+                                    type="date"
+                                    value={option.checkIn ? (option.checkIn.includes('T') ? option.checkIn.split('T')[0] : option.checkIn) : ''}
+                                    onChange={(e) => {
+                                      const updatedOptions = [...dayDetailsForm.hotelOptions];
+                                      updatedOptions[index] = { ...option, checkIn: e.target.value };
+                                      setDayDetailsForm({ ...dayDetailsForm, hotelOptions: updatedOptions });
+                                    }}
+                                    className="px-2 py-1 border border-gray-300 rounded text-xs focus:ring-1 focus:ring-blue-500 outline-none w-28"
+                                  />
                                 </div>
                                 <div className="flex items-center gap-2">
                                   <Calendar className="h-4 w-4 text-gray-500" />
                                   <span className="text-gray-600">Check-out:</span>
-                                  <span className="font-medium">{option.checkOut ? new Date(option.checkOut).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : 'N/A'}</span>
+                                  <input
+                                    type="date"
+                                    value={option.checkOut ? (option.checkOut.includes('T') ? option.checkOut.split('T')[0] : option.checkOut) : ''}
+                                    onChange={(e) => {
+                                      const updatedOptions = [...dayDetailsForm.hotelOptions];
+                                      updatedOptions[index] = { ...option, checkOut: e.target.value };
+                                      setDayDetailsForm({ ...dayDetailsForm, hotelOptions: updatedOptions });
+                                    }}
+                                    className="px-2 py-1 border border-gray-300 rounded text-xs focus:ring-1 focus:ring-blue-500 outline-none w-28"
+                                  />
                                 </div>
                                 <div className="flex items-center gap-2">
                                   <Hash className="h-4 w-4 text-gray-500" />
@@ -3287,6 +3305,26 @@ const ItineraryDetail = () => {
                                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                                 placeholder="Enter destination"
                                 required
+                              />
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">Check-in</label>
+                              <input
+                                type="date"
+                                value={dayDetailsForm.checkIn || ''}
+                                onChange={(e) => setDayDetailsForm({ ...dayDetailsForm, checkIn: e.target.value })}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">Check-out</label>
+                              <input
+                                type="date"
+                                value={dayDetailsForm.checkOut || ''}
+                                onChange={(e) => setDayDetailsForm({ ...dayDetailsForm, checkOut: e.target.value })}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                               />
                             </div>
                           </div>
@@ -4192,9 +4230,9 @@ const ItineraryDetail = () => {
                                   quad: '',
                                   cwb: '',
                                   cnb: '',
-                                  checkIn: '',
+                                  checkIn: dayDetailsForm.checkIn || '',
                                   checkInTime: '2:00 PM',
-                                  checkOut: '',
+                                  checkOut: dayDetailsForm.checkOut || '',
                                   checkOutTime: '11:00',
                                   optionNumber: nextOptionNumber,
                                   destination: created.destination || dayDetailsForm.destination,
