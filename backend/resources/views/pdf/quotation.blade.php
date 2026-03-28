@@ -476,6 +476,23 @@
         </table>
     </div>
 
+    <!-- THANK YOU MESSAGE (NEW SECTION) -->
+    @php
+        $pols = $quotation->custom_fields['policies'] ?? [];
+        $thankYou = $pols['thankYouMessage'] ?? null;
+    @endphp
+    @if(!empty($thankYou))
+        <div style="margin-bottom: 25px; padding: 15px; background: #fefce8; border-radius: 12px; border: 1px solid #fef08a;">
+             <div style="font-size: 11px; color: #854d0e; font-style: italic; line-height: 1.6; text-align: center;">
+                 @if(is_array($thankYou))
+                    @foreach($thankYou as $msg) {!! strip_tags($msg, '<strong><b><i><em>') !!}<br> @endforeach
+                 @else
+                    {!! nl2br(strip_tags($thankYou, '<strong><b><i><em>')) !!}
+                 @endif
+             </div>
+        </div>
+    @endif
+
     <!-- ITINERARY -->
     <div class="section-header">Detailed Itinerary</div>
     @php
@@ -581,9 +598,9 @@
                 <span class="policy-title inc-title">✓ Inclusions</span>
                 <ul class="policy-list">
                     @if(!empty($quotation->inclusions))
-                        @foreach($quotation->inclusions as $inc) <li>{{ $inc }}</li> @endforeach
+                        @foreach($quotation->inclusions as $inc) <li>{!! strip_tags($inc, '<strong><b><i><em>') !!}</li> @endforeach
                     @elseif(isset($masterPolicies['inclusion']))
-                        @foreach($masterPolicies['inclusion'] as $mp) <li>{!! strip_tags($mp->content) !!}</li> @endforeach
+                        @foreach($masterPolicies['inclusion'] as $mp) <li>{!! strip_tags($mp->content, '<strong><b><i><em>') !!}</li> @endforeach
                     @endif
                 </ul>
             </td>
@@ -592,9 +609,9 @@
                 <span class="policy-title exc-title">✕ Exclusions</span>
                 <ul class="policy-list">
                     @if(!empty($quotation->exclusions))
-                        @foreach($quotation->exclusions as $exc) <li>{{ $exc }}</li> @endforeach
+                        @foreach($quotation->exclusions as $exc) <li>{!! strip_tags($exc, '<strong><b><i><em>') !!}</li> @endforeach
                     @elseif(isset($masterPolicies['exclusion']))
-                        @foreach($masterPolicies['exclusion'] as $mp) <li>{!! strip_tags($mp->content) !!}</li> @endforeach
+                        @foreach($masterPolicies['exclusion'] as $mp) <li>{!! strip_tags($mp->content, '<strong><b><i><em>') !!}</li> @endforeach
                     @endif
                 </ul>
             </td>
@@ -603,28 +620,36 @@
 
     <!-- IMPORTANT POLICIES -->
     @php
-        $pols = $quotation->custom_fields['policies'] ?? [];
         $getPol = function ($key) use ($masterPolicies) {
-            return isset($masterPolicies[$key]) ? $masterPolicies[$key]->first()->content : null;
+            return isset($masterPolicies[$key]) ? $masterPolicies[$key]->pluck('content')->toArray() : null;
         };
 
-        $terms = $pols['termsConditions'] ?? $getPol('terms') ?? $quotation->terms_conditions ?? null;
-        $cancel = $pols['cancellationPolicy'] ?? $getPol('cancellation') ?? null;
-
         $policyItems = [
-            'Booking Terms & Conditions' => $terms,
-            'Cancellation Policy' => $cancel,
+            'General Remarks' => $pols['remarks'] ?? $getPol('remarks') ?? [],
+            'Booking Terms & Conditions' => $pols['termsConditions'] ?? $getPol('terms') ?? $quotation->terms_conditions ?? [],
+            'Confirmation Policy' => $pols['confirmationPolicy'] ?? $getPol('confirmation') ?? [],
+            'Cancellation Policy' => $pols['cancellationPolicy'] ?? $getPol('cancellation') ?? [],
+            'Amendment Policy' => $pols['amendmentPolicy'] ?? $getPol('amendment') ?? [],
+            'Payment Policy' => $pols['paymentPolicy'] ?? $getPol('payment') ?? [],
         ];
     @endphp
 
     @foreach($policyItems as $title => $content)
         @if(!empty($content))
-            <div style="margin-top: 15px;">
+            <div style="margin-top: 15px; page-break-inside: avoid;">
                 <div
-                    style="font-weight: bold; color: #1e3a8a; border-bottom: 1px solid #e2e8f0; margin-bottom: 5px; font-size: 10px; text-transform: uppercase;">
+                    style="font-weight: bold; color: #1e3a8a; border-bottom: 2px solid #cbd5e1; margin-bottom: 8px; font-size: 11px; text-transform: uppercase; letter-spacing: 1px;">
                     {{ $title }}
                 </div>
-                <div style="font-size: 9px; color: #475569;">{!! nl2br(strip_tags($content)) !!}</div>
+                <div style="font-size: 9.5px; color: #475569; padding-left: 5px;">
+                    @if(is_array($content))
+                        @foreach($content as $item)
+                             <div style="margin-bottom: 4px;">• {!! strip_tags($item, '<strong><b><i><em>') !!}</div>
+                        @endforeach
+                    @else
+                        {!! nl2br(strip_tags($content, '<strong><b><i><em>')) !!}
+                    @endif
+                </div>
             </div>
         @endif
     @endforeach
@@ -666,14 +691,27 @@
                 <div class="option-content">
                     <table style="width: 100%; border-collapse: collapse;">
                         @foreach($hOpts as $h)
+                            @php
+                                $hotelImg = !empty($h['image']) ? imageToBase64($h['image']) : null;
+                            @endphp
                             <tr class="hotel-item">
-                                <td style="padding: 10px 0;">
+                                @if($hotelImg)
+                                    <td style="width: 85px; padding: 10px 0; vertical-align: top;">
+                                        <img src="{{ $hotelImg }}" style="width: 75px; height: 55px; object-fit: cover; border-radius: 6px; border: 1px solid #cbd5e1;">
+                                    </td>
+                                @endif
+                                <td style="padding: 10px 0; vertical-align: top;">
                                     <div class="hotel-name">★
                                         {!! html_entity_decode(html_entity_decode($h['hotelName'] ?? 'Selected Hotel')) !!}
                                     </div>
                                     <div class="hotel-meta">
                                         {{ $h['roomName'] ?? 'Standard Room' }} • {{ $h['mealPlan'] ?? 'As per Plan' }}
                                     </div>
+                                    @if(!empty($h['details']))
+                                        <div style="font-size: 8.5px; color: #64748b; margin-top: 3px; line-height: 1.4;">
+                                            {!! nl2br(e($h['details'])) !!}
+                                        </div>
+                                    @endif
                                 </td>
                             </tr>
                         @endforeach
