@@ -234,5 +234,28 @@ class LeadRepository implements LeadRepositoryInterface
 
         return $lead->delete();
     }
+
+    /**
+     * Bulk delete leads.
+     *
+     * @param array $ids
+     * @return bool
+     */
+    public function bulkDelete(array $ids): bool
+    {
+        return Lead::whereIn('id', $ids)->delete() > 0;
+    }
+
+    /**
+     * Bulk assign leads.
+     *
+     * @param array $ids
+     * @param int $userId
+     * @return bool
+     */
+    public function bulkAssign(array $ids, int $userId): bool
+    {
+        return Lead::whereIn('id', $ids)->update(['assigned_to' => $userId]) > 0;
+    }
 }
 

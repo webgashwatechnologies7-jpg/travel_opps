@@ -272,6 +272,83 @@ class LeadsController extends Controller
         }
     }
 
+    /**
+     * Bulk assign leads to a user.
+     */
+    public function bulkAssign(Request $request): JsonResponse
+    {
+        try {
+            $validator = Validator::make($request->all(), [
+                'ids' => 'required|array',
+                'ids.*' => 'exists:leads,id',
+                'assigned_to' => 'required|exists:users,id'
+            ]);
+            
+            if ($validator->fails())
+                return $this->validationErrorResponse($validator);
+
+            if (!$request->user()->hasRole(['Admin', 'Company Admin', 'Super Admin', 'Manager'])) {
+                if (!in_array((int) $request->assigned_to, $request->user()->getAllSubordinateIds())) {
+                    return $this->errorResponse('Permission denied', 403);
+                }
+            }
+
+            $userId = (int) $request->assigned_to;
+            $ids = $request->ids;
+
+            // Fetch leads to log status changes correctly
+            $leads = \App\Modules\Leads\Domain\Entities\Lead::whereIn('id', $ids)->get(['id', 'status', 'assigned_to']);
+            
+            $this->leadRepository->bulkAssign($ids, $userId);
+
+            foreach ($leads as $lead) {
+                LeadStatusLog::create([
+                    'lead_id' => $lead->id,
+                    'old_status' => $lead->status,
+                    'new_status' => 'assigned',
+                    'changed_by' => $request->user()->id,
+                ]);
+            }
+
+            PushNotificationService::sendToUsers(
+                [$userId],
+                'Multiple Leads Assigned',
+                count($ids) . ' new leads have been assigned to you by ' . $request->user()->name,
+                ['type' => 'bulk_assignment']
+            );
+
+            return $this->successResponse(null, count($ids) . ' leads assigned successfully');
+        } catch (\Exception $e) {
+            return $this->serverErrorResponse('Failed to bulk assign leads', $e);
+        }
+    }
+
+    /**
+     * Bulk delete leads.
+     */
+    public function bulkDelete(Request $request): JsonResponse
+    {
+        try {
+            $validator = Validator::make($request->all(), [
+                'ids' => 'required|array',
+                'ids.*' => 'exists:leads,id'
+            ]);
+            
+            if ($validator->fails())
+                return $this->validationErrorResponse($validator);
+
+            if (!$request->user()->hasRole(['Admin', 'Company Admin', 'Super Admin'])) {
+                return $this->errorResponse('Only administrators can perform bulk deletions', 403);
+            }
+
+            $this->leadRepository->bulkDelete($request->ids);
+
+            return $this->successResponse(null, count($request->ids) . ' leads deleted successfully');
+        } catch (\Exception $e) {
+            return $this->serverErrorResponse('Failed to bulk delete leads', $e);
+        }
+    }
+
     // ─── Helpers ──────────────────────────────────────────────────────────────────
 
     private function formatLeadBasic($lead)

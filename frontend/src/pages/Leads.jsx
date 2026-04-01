@@ -4,7 +4,7 @@ import { leadsAPI, leadSourcesAPI, usersAPI, googleSheetsAPI } from '../services
 import { toast } from 'react-toastify';
 import { useAuth } from '../contexts/AuthContext';
 import Layout from '../components/Layout';
-import { X, Search, Upload, Download, RefreshCw, ChevronDown, Filter, Eye, Mail, MessageSquare, Edit, MoreVertical, History, Plus, TrendingUp, BarChart3, Calendar, FileSpreadsheet, LayoutGrid, List } from 'lucide-react';
+import { X, Search, Upload, Download, RefreshCw, ChevronDown, Filter, Eye, Mail, MessageSquare, Edit, MoreVertical, History, Plus, TrendingUp, BarChart3, Calendar, FileSpreadsheet, LayoutGrid, List, User, Trash2, ArrowUpDown } from 'lucide-react';
 import LeadCard from '../components/Quiries/LeadCard';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line 
@@ -80,6 +80,56 @@ const Leads = () => {
   });
   const [currentPage, setCurrentPage] = useState(1);
   const [viewType, setViewType] = useState(() => localStorage.getItem('leads_view_type') || 'grid');
+
+  const [selectedLeadIds, setSelectedLeadIds] = useState([]);
+  const [isBulkAssignModalOpen, setIsBulkAssignModalOpen] = useState(false);
+  const [sortConfig, setSortConfig] = useState({ key: 'created_at', direction: 'desc' });
+
+  const handleSort = (key) => {
+    let direction = 'asc';
+    if (sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key, direction });
+  };
+
+  const toggleSelectLead = (id) => {
+    setSelectedLeadIds(prev => 
+      prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
+    );
+  };
+
+  const handleSelectAll = (checked) => {
+    if (checked) {
+      setSelectedLeadIds(filteredLeads.map(l => l.id));
+    } else {
+      setSelectedLeadIds([]);
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (!window.confirm(`Are you sure you want to delete ${selectedLeadIds.length} leads?`)) return;
+    try {
+      await leadsAPI.bulkDelete(selectedLeadIds);
+      toast.success(`${selectedLeadIds.length} leads deleted successfully`);
+      setSelectedLeadIds([]);
+      fetchLeads();
+    } catch (err) {
+      toast.error('Failed to delete leads');
+    }
+  };
+
+  const handleBulkAssign = async (userId) => {
+    try {
+      await leadsAPI.bulkAssign(selectedLeadIds, parseInt(userId));
+      toast.success(`${selectedLeadIds.length} leads assigned successfully`);
+      setSelectedLeadIds([]);
+      setIsBulkAssignModalOpen(false);
+      fetchLeads();
+    } catch (err) {
+      toast.error('Failed to assign leads');
+    }
+  };
 
   const userRoles = currentUser?.roles?.map(r => typeof r === 'string' ? r : r.name) || [];
   const canAssign = userRoles.some(r => ['Admin', 'Company Admin', 'Super Admin', 'Manager', 'Team Leader'].includes(r));
@@ -491,41 +541,51 @@ const Leads = () => {
 
   // Filter leads based on active filter — memoized so it only recalculates when leads or filter changes
   const filteredLeads = useMemo(() => {
+    let result = [];
     if (activeFilter === 'assigned_name') {
       const target = (assignedNameFilter || '').toLowerCase().trim();
-      if (!target) return leads;
-      return leads.filter((lead) => {
-        const assignedName =
-          lead.assigned_to?.name ||
-          lead.assigned_to_name ||
-          lead.assigned_user_name ||
-          '';
-        const nameValue = assignedName.toLowerCase().trim();
-        return nameValue === target || nameValue.includes(target);
-      });
+      if (!target) {
+        result = leads;
+      } else {
+        result = leads.filter((lead) => {
+          const assignedName =
+            lead.assigned_to?.name ||
+            lead.assigned_to_name ||
+            lead.assigned_user_name ||
+            '';
+          const nameValue = assignedName.toLowerCase().trim();
+          return nameValue === target || nameValue.includes(target);
+        });
+      }
     }
-    if (activeFilter === 'assigned_to') {
+    else if (activeFilter === 'assigned_to') {
       const target = Number(assignedToFilter);
-      if (!Number.isFinite(target)) return leads;
-      return leads.filter((lead) => {
-        const assigned = lead.assigned_to?.id ?? lead.assigned_to_id ?? lead.assigned_to;
-        return Number(assigned) === target;
-      });
+      if (!Number.isFinite(target)) {
+        result = leads;
+      } else {
+        result = leads.filter((lead) => {
+          const assigned = lead.assigned_to?.id ?? lead.assigned_to_id ?? lead.assigned_to;
+          return Number(assigned) === target;
+        });
+      }
     }
-    if (activeFilter === 'destination') {
+    else if (activeFilter === 'destination') {
       const target = (destinationFilter || '').toLowerCase().trim();
-      if (!target) return leads;
-      return leads.filter((lead) => {
-        const value = (lead.destination || '').toLowerCase().trim();
-        const assignedName = (lead.assigned_to?.name || lead.assigned_user?.name || '').toLowerCase().trim();
-        return value.includes(target) || assignedName.includes(target);
-      });
+      if (!target) {
+        result = leads;
+      } else {
+        result = leads.filter((lead) => {
+          const value = (lead.destination || '').toLowerCase().trim();
+          const assignedName = (lead.assigned_to?.name || lead.assigned_user?.name || '').toLowerCase().trim();
+          return value.includes(target) || assignedName.includes(target);
+        });
+      }
     }
-    if (activeFilter === 'total') {
-      return leads;
+    else if (activeFilter === 'total') {
+      result = leads;
     } else if (activeFilter === 'today') {
       const today = new Date();
-      return leads.filter(l => {
+      result = leads.filter(l => {
         if (!l.created_at) return false;
         const d = new Date(l.created_at);
         return d.getFullYear() === today.getFullYear()
@@ -536,57 +596,84 @@ const Leads = () => {
       const today = new Date();
       const startOfWeek = new Date(today.getFullYear(), today.getMonth(), today.getDate());
       startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
-      return leads.filter(l => l.created_at && new Date(l.created_at) >= startOfWeek);
+      result = leads.filter(l => l.created_at && new Date(l.created_at) >= startOfWeek);
     } else if (activeFilter === 'monthly') {
       const today = new Date();
       const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-      return leads.filter(l => l.created_at && new Date(l.created_at) >= startOfMonth);
+      result = leads.filter(l => l.created_at && new Date(l.created_at) >= startOfMonth);
     } else if (activeFilter === 'yearly') {
       const today = new Date();
       const startOfYear = new Date(today.getFullYear(), 0, 1);
-      return leads.filter(l => l.created_at && new Date(l.created_at) >= startOfYear);
+      result = leads.filter(l => l.created_at && new Date(l.created_at) >= startOfYear);
     } else if (activeFilter === 'pending') {
-      return leads.filter(l => l.status === 'proposal');
+      result = leads.filter(l => l.status === 'proposal');
     } else if (activeFilter === 'closed') {
-      return leads.filter(l => l.status === 'cancelled');
+      result = leads.filter(l => l.status === 'cancelled');
     } else if (activeFilter === 'hot') {
-      return leads.filter(l => l.priority === 'hot');
+      result = leads.filter(l => l.priority === 'hot');
     } else if (activeFilter === 'new') {
-      return leads.filter(l => l.status === 'new');
+      result = leads.filter(l => l.status === 'new');
     } else if (activeFilter === 'proposalSent') {
-      return leads.filter(l => l.status === 'proposal');
+      result = leads.filter(l => l.status === 'proposal');
     } else if (activeFilter === 'noConnect') {
-      return []; // Not implemented yet
+      result = [];
     } else if (activeFilter === 'hotLead') {
-      return leads.filter(l => l.priority === 'hot');
+      result = leads.filter(l => l.priority === 'hot');
     } else if (activeFilter === 'proposalConfirmed') {
-      return leads.filter(l => l.status === 'confirmed' && l.priority === 'hot');
+      result = leads.filter(l => l.status === 'confirmed' && l.priority === 'hot');
     } else if (activeFilter === 'cancel') {
-      return leads.filter(l => l.status === 'cancelled');
+      result = leads.filter(l => l.status === 'cancelled');
     } else if (activeFilter === 'followUp') {
-      return leads.filter(l => l.status === 'followup');
+      result = leads.filter(l => l.status === 'followup');
     } else if (activeFilter === 'confirmed') {
-      return leads.filter(l => l.status === 'confirmed');
+      result = leads.filter(l => l.status === 'confirmed');
     } else if (activeFilter === 'postponed') {
-      return []; // Not implemented yet
+      result = [];
     } else if (activeFilter === 'invalid') {
-      return []; // Not implemented yet
+      result = [];
     } else if (activeFilter === 'birthdays') {
       const today = new Date();
-      return leads.filter(l => l.date_of_birth && new Date(l.date_of_birth).getMonth() === today.getMonth());
+      result = leads.filter(l => l.date_of_birth && new Date(l.date_of_birth).getMonth() === today.getMonth());
     } else if (activeFilter === 'anniversaries') {
       const today = new Date();
-      return leads.filter(l => l.marriage_anniversary && new Date(l.marriage_anniversary).getMonth() === today.getMonth());
+      result = leads.filter(l => l.marriage_anniversary && new Date(l.marriage_anniversary).getMonth() === today.getMonth());
     } else if (activeFilter === 'unassigned') {
-      return leads.filter(l => !l.assigned_to && !l.assigned_to_id);
+      result = leads.filter(l => !l.assigned_to && !l.assigned_to_id);
     } else if (activeFilter === 'assignedToMe') {
-      return leads.filter(l => {
+      result = leads.filter(l => {
         const id = l.assigned_to?.id ?? l.assigned_to_id ?? l.assigned_to;
         return Number(id) === currentUser?.id;
       });
+    } else {
+      result = leads;
     }
-    return leads;
-  }, [leads, activeFilter, assignedNameFilter, assignedToFilter, destinationFilter]);
+
+    // Apply sorting
+    if (sortConfig.key) {
+      return [...result].sort((a, b) => {
+        let aValue = a[sortConfig.key];
+        let bValue = b[sortConfig.key];
+
+        // Custom comparisons for complex keys
+        if (sortConfig.key === 'assigned_to') {
+          aValue = a.assigned_to?.name || a.assigned_to_name || a.assignedUser?.name || '';
+          bValue = b.assigned_to?.name || b.assigned_to_name || b.assignedUser?.name || '';
+        }
+
+        if (aValue === null || aValue === undefined) aValue = '';
+        if (bValue === null || bValue === undefined) bValue = '';
+
+        if (typeof aValue === 'string') aValue = aValue.toLowerCase();
+        if (typeof bValue === 'string') bValue = bValue.toLowerCase();
+
+        if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
+        if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
+        return 0;
+      });
+    }
+
+    return result;
+  }, [leads, activeFilter, sortConfig, assignedNameFilter, assignedToFilter, destinationFilter, currentUser]);
 
   // Format date helper
   const formatDate = (dateString) => {
@@ -722,7 +809,7 @@ const Leads = () => {
     <Layout>
       <div className="p-6 bg-[#F8FAFC] min-h-screen">
         {/* Header Section */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4 relative z-[60]">
+        <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4 relative z-50">
           <div className="animate-in-scale">
             <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Queries</h1>
             <p className="text-slate-500 font-semibold text-xs mt-1 uppercase tracking-wider flex items-center gap-2">
@@ -768,9 +855,70 @@ const Leads = () => {
                     <Download size={16} />
                     Export All
                   </button>
+
+                  {selectedLeadIds.length > 0 && (
+                    <>
+                      <div className="h-px bg-slate-100 my-1 mx-4"></div>
+                      <div className="px-4 py-2">
+                        <p className="text-[10px] font-black text-blue-600 uppercase tracking-[.2em]">Bulk Actions ({selectedLeadIds.length})</p>
+                      </div>
+                      <button
+                        onClick={() => { setIsBulkAssignModalOpen(true); setShowOptionsDropdown(false); }}
+                        className="w-full text-left px-4 py-2.5 text-sm text-blue-600 hover:bg-blue-50 transition-colors flex items-center gap-3 font-bold"
+                      >
+                        <User size={16} />
+                        Bulk Assign
+                      </button>
+                      <button
+                        onClick={() => { handleBulkDelete(); setShowOptionsDropdown(false); }}
+                        className="w-full text-left px-4 py-2.5 text-sm text-rose-600 hover:bg-rose-50 transition-colors flex items-center gap-3 font-bold"
+                      >
+                        <Trash2 size={16} />
+                        Bulk Delete
+                      </button>
+                    </>
+                  )}
                 </div>
               )}
             </div>
+
+            {/* In-Header Bulk Actions Toolbar */}
+            {selectedLeadIds.length > 0 && (
+              <div className="flex items-center gap-2 bg-blue-50/80 p-1.5 rounded-2xl border border-blue-200 animate-in fade-in zoom-in-95 duration-300 shadow-sm ring-4 ring-blue-500/5">
+                <div className="px-3 py-1 flex items-center gap-2 border-r border-blue-200 mr-1">
+                   <div className="w-5 h-5 bg-blue-600 rounded-lg flex items-center justify-center text-[10px] font-black text-white shadow-sm ring-2 ring-blue-500/20">
+                      {selectedLeadIds.length}
+                   </div>
+                   <span className="text-[10px] font-black uppercase tracking-[0.15em] text-blue-700">Selected</span>
+                </div>
+                
+                <div className="flex items-center gap-1.5 px-1">
+                  <button
+                    onClick={() => setIsBulkAssignModalOpen(true)}
+                    className="flex items-center gap-2 px-4 py-2 bg-white hover:bg-blue-600 text-blue-600 hover:text-white border border-blue-200 hover:border-blue-600 rounded-xl text-[10px] font-black transition-all active:scale-95 uppercase tracking-widest shadow-sm"
+                  >
+                    <User size={14} />
+                    Bulk Assign
+                  </button>
+                  
+                  <button
+                    onClick={handleBulkDelete}
+                    className="flex items-center gap-2 px-4 py-2 bg-white hover:bg-rose-600 text-rose-600 hover:text-white border border-rose-200 hover:border-rose-600 rounded-xl text-[10px] font-black transition-all active:scale-95 uppercase tracking-widest shadow-sm"
+                  >
+                    <Trash2 size={14} />
+                    Bulk Delete
+                  </button>
+
+                  <button
+                    onClick={() => setSelectedLeadIds([])}
+                    className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+                    title="Clear Selection"
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+              </div>
+            )}
 
             <button
               type="button"
@@ -1184,6 +1332,8 @@ const Leads = () => {
                         id={lead.id}
                         key={lead.id}
                         name={lead.client_name}
+                        isSelected={selectedLeadIds.includes(lead.id)}
+                        onSelect={toggleSelectLead}
                         phone={lead.phone || "N/A"}
                         email={lead.email}
                         tag={
@@ -1211,19 +1361,84 @@ const Leads = () => {
                     <div className="overflow-x-auto">
                         <table className="w-full text-left border-collapse">
                             <thead>
-                                <tr className="bg-slate-50/80 border-b border-slate-100">
-                                    <th className="px-6 py-5 text-[11px] font-black text-slate-400 uppercase tracking-widest">Client Name</th>
-                                    <th className="px-6 py-5 text-[11px] font-black text-slate-400 uppercase tracking-widest">Mobile</th>
-                                    <th className="px-6 py-5 text-[11px] font-black text-slate-400 uppercase tracking-widest">Email</th>
-                                    <th className="px-6 py-5 text-[11px] font-black text-slate-400 uppercase tracking-widest">Destination</th>
-                                    <th className="px-6 py-5 text-[11px] font-black text-slate-400 uppercase tracking-widest">Source</th>
-                                    <th className="px-6 py-5 text-[11px] font-black text-slate-400 uppercase tracking-widest">Assigned To</th>
-                                    <th className="px-6 py-5 text-[11px] font-black text-slate-400 uppercase tracking-widest">Status</th>
-                                    <th className="px-6 py-5 text-[11px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">Actions</th>
+                                <tr className="bg-slate-50/80 border-b border-slate-100 uppercase text-[10px] font-black tracking-widest text-slate-400">
+                                    <th className="px-6 py-5 w-10">
+                                        <input
+                                            type="checkbox"
+                                            checked={filteredLeads.length > 0 && selectedLeadIds.length === filteredLeads.length}
+                                            onChange={(e) => handleSelectAll(e.target.checked)}
+                                            className="w-5 h-5 rounded border-2 border-slate-200 text-blue-600 focus:ring-blue-500/20 cursor-pointer"
+                                        />
+                                    </th>
+                                    <th 
+                                        className="px-6 py-5 cursor-pointer hover:bg-slate-100/50 transition-colors group"
+                                        onClick={() => handleSort('client_name')}
+                                    >
+                                        <div className="flex items-center gap-1.5">
+                                            Client Name
+                                            <ArrowUpDown size={12} className={`transition-all ${sortConfig.key === 'client_name' ? 'opacity-100 text-blue-600 scale-110' : 'opacity-20 group-hover:opacity-50'}`} />
+                                        </div>
+                                    </th>
+                                    <th 
+                                        className="px-6 py-5 cursor-pointer hover:bg-slate-100/50 transition-colors group"
+                                        onClick={() => handleSort('phone')}
+                                    >
+                                        <div className="flex items-center gap-1.5">
+                                            Mobile
+                                            <ArrowUpDown size={12} className={`transition-all ${sortConfig.key === 'phone' ? 'opacity-100 text-blue-600 scale-110' : 'opacity-20 group-hover:opacity-50'}`} />
+                                        </div>
+                                    </th>
+                                    <th 
+                                        className="px-6 py-5 cursor-pointer hover:bg-slate-100/50 transition-colors group"
+                                        onClick={() => handleSort('email')}
+                                    >
+                                        <div className="flex items-center gap-1.5">
+                                            Email
+                                            <ArrowUpDown size={12} className={`transition-all ${sortConfig.key === 'email' ? 'opacity-100 text-blue-600 scale-110' : 'opacity-20 group-hover:opacity-50'}`} />
+                                        </div>
+                                    </th>
+                                    <th 
+                                        className="px-6 py-5 cursor-pointer hover:bg-slate-100/50 transition-colors group"
+                                        onClick={() => handleSort('destination')}
+                                    >
+                                        <div className="flex items-center gap-1.5">
+                                            Destination
+                                            <ArrowUpDown size={12} className={`transition-all ${sortConfig.key === 'destination' ? 'opacity-100 text-blue-600 scale-110' : 'opacity-20 group-hover:opacity-50'}`} />
+                                        </div>
+                                    </th>
+                                    <th 
+                                        className="px-6 py-5 cursor-pointer hover:bg-slate-100/50 transition-colors group"
+                                        onClick={() => handleSort('source')}
+                                    >
+                                        <div className="flex items-center gap-1.5">
+                                            Source
+                                            <ArrowUpDown size={12} className={`transition-all ${sortConfig.key === 'source' ? 'opacity-100 text-blue-600 scale-110' : 'opacity-20 group-hover:opacity-50'}`} />
+                                        </div>
+                                    </th>
+                                    <th 
+                                        className="px-6 py-5 cursor-pointer hover:bg-slate-100/50 transition-colors group"
+                                        onClick={() => handleSort('assigned_to')}
+                                    >
+                                        <div className="flex items-center gap-1.5">
+                                            Assigned To
+                                            <ArrowUpDown size={12} className={`transition-all ${sortConfig.key === 'assigned_to' ? 'opacity-100 text-blue-600 scale-110' : 'opacity-20 group-hover:opacity-50'}`} />
+                                        </div>
+                                    </th>
+                                    <th 
+                                        className="px-6 py-5 cursor-pointer hover:bg-slate-100/50 transition-colors group"
+                                        onClick={() => handleSort('status')}
+                                    >
+                                        <div className="flex items-center gap-1.5">
+                                            Status
+                                            <ArrowUpDown size={12} className={`transition-all ${sortConfig.key === 'status' ? 'opacity-100 text-blue-600 scale-110' : 'opacity-20 group-hover:opacity-50'}`} />
+                                        </div>
+                                    </th>
+                                    <th className="px-2 py-5 text-right w-16 whitespace-nowrap">Actions</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-50">
                                 {filteredLeads.map((lead) => {
+                                    const isSelected = selectedLeadIds.includes(lead.id);
                                     const assignedUserName =
                                         lead.assigned_name ||
                                         lead.assigned_user?.name ||
@@ -1237,15 +1452,23 @@ const Leads = () => {
                                     return (
                                         <tr 
                                             key={lead.id} 
-                                            className="hover:bg-blue-50/30 transition-colors cursor-pointer group"
+                                            className={`${isSelected ? 'bg-blue-50/80' : 'hover:bg-slate-50'} border-b border-slate-50 transition-colors group cursor-pointer`}
                                             onClick={() => navigate(`/leads/${lead.id}`)}
                                         >
+                                            <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
+                                                <input
+                                                    type="checkbox"
+                                                    checked={isSelected}
+                                                    onChange={() => toggleSelectLead(lead.id)}
+                                                    className="w-5 h-5 rounded border-2 border-slate-200 text-blue-600 focus:ring-blue-500/20 cursor-pointer"
+                                                />
+                                            </td>
                                             <td className="px-6 py-4">
                                                 <div className="flex items-center gap-3">
-                                                    <div className="w-8 h-8 rounded-xl bg-blue-100 flex items-center justify-center text-blue-600 font-black text-[10px]">
+                                                    <div className="w-8 h-8 rounded-xl bg-blue-100 flex items-center justify-center text-blue-600 font-black text-[10px] shadow-sm transform group-hover:scale-110 transition-transform">
                                                         {lead.client_name?.substring(0, 2).toUpperCase()}
                                                     </div>
-                                                    <span className="font-bold text-slate-700">{lead.client_name}</span>
+                                                    <span className={`font-bold transition-colors ${isSelected ? 'text-blue-700' : 'text-slate-700'}`}>{lead.client_name}</span>
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4 text-sm font-bold text-slate-500">{lead.phone || "N/A"}</td>
@@ -1347,9 +1570,95 @@ const Leads = () => {
           )
         )}
 
+        {/* Bulk Action Bar - Floating */}
+        {selectedLeadIds.length > 0 && (
+          <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[100] animate-in slide-in-from-bottom-8 duration-300">
+            <div className="bg-slate-900 text-white px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-6 border border-slate-700 backdrop-blur-md bg-opacity-95">
+              <div className="flex items-center gap-3 pr-6 border-r border-slate-700">
+                <div className="w-8 h-8 bg-blue-600 rounded-xl flex items-center justify-center text-xs font-black shadow-lg shadow-blue-500/20">
+                  {selectedLeadIds.length}
+                </div>
+                <span className="text-xs font-black uppercase tracking-widest text-slate-400">Selected</span>
+              </div>
+              
+              <div className="flex items-center gap-3">
+                 <button
+                  type="button"
+                  onClick={() => setIsBulkAssignModalOpen(true)}
+                  className="flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-500 rounded-xl text-xs font-black transition-all active:scale-95 shadow-lg shadow-blue-600/20"
+                >
+                  <User size={16} />
+                  Bulk Assign
+                </button>
+                
+                <button
+                  type="button"
+                  onClick={handleBulkDelete}
+                  className="flex items-center gap-2 px-6 py-3 bg-rose-600 hover:bg-rose-500 rounded-xl text-xs font-black transition-all active:scale-95 shadow-lg shadow-rose-600/20"
+                >
+                  <Trash2 size={16} />
+                  Bulk Delete
+                </button>
+
+                <button
+                   type="button"
+                   onClick={() => setSelectedLeadIds([])}
+                   className="p-2 hover:bg-slate-800 rounded-xl transition-all text-slate-400 hover:text-white"
+                   title="Clear Selection"
+                >
+                   <X size={20} />
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Bulk Assign Modal */}
+        {isBulkAssignModalOpen && (
+          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[160] p-4 transition-all animate-in-fade">
+            <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-md animate-in-scale border border-slate-100">
+               <div className="flex justify-between items-center p-8 border-b border-slate-50">
+                <div>
+                  <h3 className="text-xl font-black text-slate-800">Bulk Assignment</h3>
+                  <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest mt-1">Select staff for {selectedLeadIds.length} leads</p>
+                </div>
+                <button 
+                  onClick={() => setIsBulkAssignModalOpen(false)} 
+                  className="p-2 bg-slate-50 text-slate-400 hover:text-slate-600 rounded-xl transition-all"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+              <div className="p-8">
+                 <label className="block text-xs font-black text-slate-500 mb-3 uppercase tracking-wider ml-1">Choose Sales Representative</label>
+                 <div className="grid grid-cols-1 gap-3 max-h-[40vh] overflow-y-auto pr-2 custom-scrollbar">
+                    {users.map(u => (
+                      <button
+                        key={u.id}
+                        onClick={() => handleBulkAssign(u.id)}
+                        className="flex items-center gap-4 p-4 rounded-2xl border border-slate-100 hover:border-blue-500 hover:bg-blue-50/50 transition-all group text-left"
+                      >
+                        <div className="w-10 h-10 rounded-xl bg-slate-100 group-hover:bg-blue-100 flex items-center justify-center text-slate-500 group-hover:text-blue-600 font-black transition-colors shadow-sm">
+                          {u.name?.substring(0, 1).toUpperCase()}
+                        </div>
+                        <div>
+                          <div className="font-bold text-slate-700 group-hover:text-blue-700">{u.name}</div>
+                          <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{u.roles?.[0]?.name || 'Staff'}</div>
+                        </div>
+                      </button>
+                    ))}
+                 </div>
+                 <p className="mt-6 text-[10px] text-slate-400 font-bold uppercase tracking-wider text-center bg-slate-50 py-3 rounded-xl border border-slate-100">
+                    💡 High-volume assignment may take a moment to sync.
+                 </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* ADD QUERY Modal */}
         {showModal && (
-          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 overflow-y-auto py-8 transition-all p-4">
+          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[150] overflow-y-auto py-8 transition-all p-4">
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl mx-auto my-auto animate-in-scale">
               {/* Modal Header */}
               <div className="flex justify-between items-center p-6 border-b border-slate-100">
@@ -1413,17 +1722,16 @@ const Leads = () => {
                     />
                   </div>
 
-                  {/* MAIL ID * */}
+                  {/* MAIL ID */}
                   <div>
                     <label className="block text-xs font-bold text-slate-500 mb-2 uppercase tracking-wider">
-                      Mail ID (Email) *
+                      Mail ID (Email)
                     </label>
                     <input
                       type="email"
-                      placeholder="customer@email.com"
+                      placeholder="customer@email.com (Optional)"
                       value={formData.email}
                       onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                      required
                       className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-semibold outline-none"
                     />
                   </div>
@@ -1666,7 +1974,7 @@ const Leads = () => {
 
         {/* Assign Modal */}
         {showAssignModal && selectedLead && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[150]">
             <div className="bg-white rounded-lg p-6 w-full max-w-md">
               <h2 className="text-xl font-bold mb-4">Assign Lead</h2>
               <p className="mb-4">Assign lead to:</p>
@@ -1714,7 +2022,7 @@ const Leads = () => {
 
         {/* Status Modal */}
         {showStatusModal && selectedLead && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[150]">
             <div className="bg-white rounded-lg p-6 w-full max-w-md">
               <h2 className="text-xl font-bold mb-4">Update Status</h2>
               <div className="space-y-2">
@@ -1751,7 +2059,7 @@ const Leads = () => {
 
         {/* Import CSV Modal */}
         {showImportModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[150]">
             <div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-4">
               <div className="flex justify-between items-center p-6 border-b border-gray-200">
                 <h2 className="text-xl font-bold text-gray-800">Import CSV</h2>
@@ -1877,7 +2185,7 @@ const GoogleSheetModal = ({ onClose, onSyncComplete }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[150] p-4">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col animate-in fade-in zoom-in duration-200">
         {/* Header */}
         <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-green-50/50">

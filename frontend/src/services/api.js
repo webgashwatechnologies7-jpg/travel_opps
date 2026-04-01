@@ -169,6 +169,8 @@ export const leadsAPI = {
       headers: { 'Content-Type': 'multipart/form-data' },
     });
   },
+  bulkAssign: (ids, assignedTo) => api.post('/leads/bulk-assign', { ids, assigned_to: assignedTo }),
+  bulkDelete: (ids) => api.post('/leads/bulk-delete', { ids }),
   // Lead emails
   getEmails: (leadId) => api.get(`/leads/${leadId}/emails`),
   sendEmail: (leadId, data) => {

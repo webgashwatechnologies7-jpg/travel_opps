@@ -35,6 +35,10 @@ Route::middleware('auth:sanctum')->prefix('leads')->group(function () {
     Route::put('/{id}/assign', [LeadsController::class, 'assign']);
     Route::put('/{id}/status', [LeadsController::class, 'updateStatus']);
     
+    // Bulk actions
+    Route::post('/bulk-assign', [LeadsController::class, 'bulkAssign']);
+    Route::post('/bulk-delete', [LeadsController::class, 'bulkDelete']);
+    
     Route::apiResource('/', LeadsController::class)->parameters(['' => 'id']);
 
     // Lead email routes

@@ -17,7 +17,7 @@ const MobileSidebar = ({
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-50 lg:hidden bg-black/50 backdrop-blur-sm" onClick={onClose}>
+        <div className="fixed inset-0 z-[200] lg:hidden bg-black/50 backdrop-blur-sm" onClick={onClose}>
             <div
                 className="absolute inset-y-0 left-0 w-64 shadow-2xl transform transition-transform"
                 style={{

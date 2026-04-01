@@ -117,6 +117,14 @@ class WhatsAppWebhookController extends Controller
 
     protected function handleIncomingMessage($data)
     {
+        // Skip technical protocol messages
+        $bodyText = $data['body'] ?? '';
+        if (strpos($bodyText, '[protocol message]') !== false || 
+            strpos($bodyText, '[messageContextInfo message]') !== false || 
+            strpos($bodyText, '[senderKeyDistributionMessage]') !== false) {
+            return;
+        }
+
         // 1. Find the session to get user/company
         $session = DB::table('whatsapp_sessions')
             ->where('session_name', $data['session_name'])

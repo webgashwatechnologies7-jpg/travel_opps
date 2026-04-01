@@ -27,7 +27,14 @@ export default function Notifications() {
         try {
             const res = await notificationsAPI.getInApp({ page: currentPage, per_page: 10 });
             if (res.data?.success) {
-                setNotifications(res.data.data.notifications);
+                // Filter out technical WhatsApp messages
+                const list = (res.data.data.notifications || []).filter(n => {
+                    const msg = (n.message || '').toLowerCase();
+                    return !msg.includes('[protocol message]') && 
+                           !msg.includes('[messagecontextinfo message]') && 
+                           !msg.includes('[senderkeydistributionmessage]');
+                });
+                setNotifications(list);
                 setPagination(res.data.data.pagination);
             }
         } catch (e) {

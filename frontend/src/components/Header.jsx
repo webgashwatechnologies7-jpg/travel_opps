@@ -69,7 +69,7 @@ const Header = ({ user, settings, isAdmin, handleLogout }) => {
 
     return (
         <div
-            className="header-bar sticky top-0 z-50 w-full px-3 sm:px-4 lg:px-6 py-2 min-h-[64px] transition-all duration-300 border-b border-gray-200/50 shadow-sm flex items-center"
+            className="header-bar sticky top-0 z-[100] w-full px-3 sm:px-4 lg:px-6 py-2 min-h-[64px] transition-all duration-300 border-b border-gray-200/50 shadow-sm flex items-center"
             style={{ backgroundColor: settings?.header_background_color || settings?.dashboard_background_color || '#D8DEF5' }}
         >
             <div className="w-full flex items-center justify-between gap-4">
@@ -104,7 +104,7 @@ const Header = ({ user, settings, isAdmin, handleLogout }) => {
                                 )}
                             </button>
                             {isNotifDropdownOpen && (
-                                <div className="absolute right-0 mt-3 w-80 bg-white rounded-xl shadow-2xl border border-gray-100 z-[60] overflow-hidden flex flex-col transform origin-top-right transition-all">
+                                <div className="absolute right-0 mt-3 w-80 bg-white rounded-xl shadow-2xl border border-gray-100 z-[110] overflow-hidden flex flex-col transform origin-top-right transition-all">
                                     <div className="flex items-center justify-between px-4 py-3 border-b bg-gray-50/50">
                                         <h3 className="font-semibold text-gray-800">Notifications</h3>
                                         {unreadCount > 0 && (
@@ -176,7 +176,7 @@ const Header = ({ user, settings, isAdmin, handleLogout }) => {
                         </button>
                         
                         {isUserDropdownOpen && (
-                            <div className="absolute right-0 mt-3 w-56 bg-white rounded-xl shadow-2xl border border-gray-100 z-[60] overflow-hidden transform origin-top-right transition-all">
+                            <div className="absolute right-0 mt-3 w-56 bg-white rounded-xl shadow-2xl border border-gray-100 z-[110] overflow-hidden transform origin-top-right transition-all">
                                 <Link 
                                     to="/profile" 
                                     onClick={() => setIsUserDropdownOpen(false)}

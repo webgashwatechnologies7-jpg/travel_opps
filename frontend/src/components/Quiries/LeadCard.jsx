@@ -18,6 +18,8 @@ function LeadCard({
   assignedUserName,
   status,
   email,
+  isSelected,
+  onSelect,
 }) {
   const navigate = useNavigate();
   const [showMenu, setShowMenu] = useState(false);
@@ -86,16 +88,33 @@ function LeadCard({
   return (
     <div
       onClick={handleCardClick}
-      className="group relative w-full rounded-xl border border-slate-200/60 bg-white shadow-sm transition-all duration-300 hover:shadow-xl hover:translate-y-[-4px] flex flex-col h-full animate-in-scale"
+      className={`group relative w-full rounded-xl border transition-all duration-300 flex flex-col h-full animate-in-scale cursor-pointer ${
+        isSelected 
+        ? 'border-blue-500 ring-4 ring-blue-500/10 shadow-xl bg-blue-50/50' 
+        : 'border-slate-200/60 bg-white shadow-sm hover:shadow-xl hover:translate-y-[-4px]'
+      }`}
     >
+      {/* Selection Checkbox */}
+      <div 
+        className={`absolute top-4 left-4 z-50 transition-opacity duration-300 opacity-100`}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <input
+          type="checkbox"
+          checked={isSelected}
+          onChange={() => onSelect?.(id)}
+          className="w-5 h-5 rounded-lg border-2 border-slate-300 text-blue-600 focus:ring-4 focus:ring-blue-500/20 cursor-pointer shadow-sm"
+        />
+      </div>
+
       {/* Background Subtle Accent */}
       <div className={`absolute top-0 left-0 w-1 h-full rounded-l-xl ${currentStatus.color}`}></div>
 
-      <div className="bg-white rounded-xl p-5 h-full flex flex-col relative z-10">
+      <div className="rounded-xl p-5 h-full flex flex-col relative z-10">
         {/* Top Header */}
         <div className="flex justify-between items-start mb-4">
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-1">
+          <div className={`flex-1 min-w-0 pl-10 transition-all duration-300`}>
+            <div className={`flex items-center gap-2 mb-1 transition-transform duration-300`}>
                <h3 className="font-bold text-lg text-slate-900 truncate leading-tight group-hover:text-blue-600 transition-colors tracking-tight">
                 {name}
               </h3>

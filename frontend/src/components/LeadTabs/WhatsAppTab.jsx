@@ -22,7 +22,7 @@ const WhatsAppTab = memo(({
 
     const chat = {
         chat_id: jid,
-        chat_name: lead?.client_name ? `${lead.client_name} (${phone})` : jid,
+        chat_name: lead?.client_name || jid,
         status: 'connected'
     };
 

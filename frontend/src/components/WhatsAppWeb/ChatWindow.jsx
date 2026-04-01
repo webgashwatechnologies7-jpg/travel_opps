@@ -100,11 +100,15 @@ const ChatWindow = ({ chat, messages, onSendMessage, onSendMedia, isTyping, isSe
             if (showMessageMenu !== null && !isClickInsideMenu && !isClickOnToggle) {
                 setShowMessageMenu(null);
             }
+
+            if (showReactionMenu !== null && !e.target.closest('.reaction-menu-container') && !e.target.closest('.smile-trigger')) {
+                setShowReactionMenu(null);
+            }
         };
 
         document.addEventListener('mousedown', handler);
         return () => document.removeEventListener('mousedown', handler);
-    }, [showMessageMenu, showEmojiPicker, showAttachmentMenu, showChatMenu]);
+    }, [showMessageMenu, showReactionMenu, showEmojiPicker, showAttachmentMenu, showChatMenu]);
 
     useEffect(() => {
         setLocalProfilePicUrl(null); // Clear previous DP when chat changes
@@ -239,8 +243,8 @@ const ChatWindow = ({ chat, messages, onSendMessage, onSendMedia, isTyping, isSe
             // Server stores UTC time - parse correctly
             // If no 'Z' or offset, treat as UTC (add Z)
             const normalized = dateStr.includes('T')
-                ? (dateStr.endsWith('Z') || dateStr.includes('+') ? dateStr : dateStr + 'Z')
-                : dateStr.replace(' ', 'T') + 'Z';
+                ? (dateStr.endsWith('Z') || dateStr.includes('+') ? dateStr : dateStr)
+                : dateStr.replace(' ', 'T');
             return new Date(normalized).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
         } catch {
             return '';
@@ -251,8 +255,8 @@ const ChatWindow = ({ chat, messages, onSendMessage, onSendMedia, isTyping, isSe
         try {
             if (!dateStr) return '';
             const normalized = dateStr.includes('T')
-                ? (dateStr.endsWith('Z') || dateStr.includes('+') ? dateStr : dateStr + 'Z')
-                : dateStr.replace(' ', 'T') + 'Z';
+                ? (dateStr.endsWith('Z') || dateStr.includes('+') ? dateStr : dateStr)
+                : dateStr.replace(' ', 'T');
             const d = new Date(normalized);
             const today = new Date();
             const yesterday = new Date(today);
@@ -267,7 +271,7 @@ const ChatWindow = ({ chat, messages, onSendMessage, onSendMedia, isTyping, isSe
 
     const isSameDay = (dateStr1, dateStr2) => {
         try {
-            const norm = (s) => s.includes('T') ? (s.endsWith('Z') || s.includes('+') ? s : s + 'Z') : s.replace(' ', 'T') + 'Z';
+            const norm = (s) => s.includes('T') ? (s.endsWith('Z') || s.includes('+') ? s : s) : s.replace(' ', 'T');
             return new Date(norm(dateStr1)).toDateString() === new Date(norm(dateStr2)).toDateString();
         } catch {
             return false;
@@ -574,20 +578,20 @@ const ChatWindow = ({ chat, messages, onSendMessage, onSendMedia, isTyping, isSe
 
                 <div
                     id={`msg-${msg.whatsapp_message_id || msg.id}`}
-                    className={`flex ${isOutbound ? 'justify-end' : 'justify-start'} mb-[2px] px-2 relative animate-in fade-in slide-in-from-bottom-1 duration-300 ${showMessageMenu === (msg.whatsapp_message_id || msg.id || index) ? 'z-50' : 'z-10'}`}
+                    className={`flex ${isOutbound ? 'justify-end' : 'justify-start'} mb-[2px] px-2 relative animate-in fade-in slide-in-from-bottom-1 duration-300 ${showMessageMenu === (msg.whatsapp_message_id || msg.id || index) || showReactionMenu === (msg.whatsapp_message_id || msg.id || index) ? 'z-[100]' : 'z-10'}`}
                 >
                     <div
                         className="relative group max-w-[85%] flex items-end"
                         onMouseEnter={() => setHoveredMsg(msg.whatsapp_message_id || msg.id || index)}
                         onMouseLeave={() => {
                             setHoveredMsg(null);
-                            setShowReactionMenu(null);
+                            // We don't close showReactionMenu here to avoid gap issues
                         }}
                     >
                         {/* Hover action removed for cleaner flow - use Chevron instead */}
 
                         {showReactionMenu === (msg.whatsapp_message_id || msg.id || index) && (
-                            <div className={`absolute ${index < messagesList.length / 2 ? 'top-full mt-2' : 'bottom-full mb-2'} ${isOutbound ? 'right-0' : 'left-0'} flex items-center gap-1 bg-[#233138] border border-[#2a3942] rounded-full px-2 py-1 shadow-2xl z-50 animate-in fade-in zoom-in-75 duration-200`}>
+                            <div className={`reaction-menu-container absolute ${index < messagesList.length / 2 ? 'top-[95%]' : 'bottom-[95%]'} ${isOutbound ? 'right-0' : 'left-0'} flex items-center gap-1 bg-[#233138] border border-[#2a3942] rounded-full px-2 py-1 shadow-2xl z-[110] animate-in fade-in zoom-in-75 duration-200`}>
                                 {QUICK_REACTIONS.slice(0, 6).map(emoji => (
                                     <button
                                         key={emoji}
@@ -624,7 +628,7 @@ const ChatWindow = ({ chat, messages, onSendMessage, onSendMedia, isTyping, isSe
                                 <div className={`absolute top-0.5 ${isOutbound ? '-left-12' : '-right-12'} flex items-center gap-0.5 z-40 transition-opacity duration-200`}>
                                     <button
                                         onClick={(e) => { e.stopPropagation(); setShowReactionMenu(msg.whatsapp_message_id || msg.id || index); }}
-                                        className="p-2 rounded-full text-[#8696a0] hover:text-[#e9edef] hover:bg-[#182229]/60 backdrop-blur-sm transition-all"
+                                        className="smile-trigger p-2 rounded-full text-[#8696a0] hover:text-[#e9edef] hover:bg-[#182229]/60 backdrop-blur-sm transition-all"
                                     >
                                         <Smile size={19} />
                                     </button>
@@ -759,22 +763,22 @@ const ChatWindow = ({ chat, messages, onSendMessage, onSendMedia, isTyping, isSe
                             {renderMedia(msg)}
 
                             {bodyText && (
-                                <p className="text-[14.2px] leading-[1.4] whitespace-pre-wrap pr-12">
+                                <p className="text-[14.2px] leading-[1.4] whitespace-pre-wrap pr-[70px]">
                                     {bodyText}
                                 </p>
                             )}
 
                             {/* Footer - Time & Status */}
-                            <div className="flex items-center gap-1 justify-end ml-auto -mt-1 opacity-60">
-                                {!!msg.is_starred && <Star size={11} className="text-[#e9edef] fill-[#e9edef] mr-1 opacity-70" />}
-                                <span className="text-[11px] tabular-nums tracking-tighter">{formatTime(msg.created_at)}</span>
+                            <div className="flex items-center gap-1.5 justify-end ml-auto mt-1 pb-0.5 pr-0.5 opacity-100">
+                                {!!msg.is_starred && <Star size={12} className="text-[#ffd700] fill-[#ffd700] mr-1" />}
+                                <span className="text-[11px] tabular-nums tracking-tighter text-[#e9edef] opacity-80">{formatTime(msg.created_at)}</span>
                                 {isOutbound && (
-                                    <span>
-                                        {msg.status === 'read' ? <CheckCheck size={14} className="text-[#53bdeb]" /> :
-                                            msg.status === 'delivered' ? <CheckCheck size={14} /> :
-                                                msg.status === 'sending' ? <Loader2 size={12} className="animate-spin" /> :
-                                                    msg.status === 'failed' ? <span title="Send failed - will sync" className="text-red-400 text-[10px] font-bold">!</span> :
-                                                        <Check size={14} />}
+                                    <span className="flex items-center">
+                                        {msg.status === 'read' || msg.status === 'viewed' ? <CheckCheck size={16} className="text-[#53bdeb]" /> :
+                                            msg.status === 'delivered' ? <CheckCheck size={16} className="text-[#8696a0]" /> :
+                                                msg.status === 'sending' ? <Loader2 size={12} className="animate-spin text-[#8696a0]" /> :
+                                                    msg.status === 'failed' ? <span title="Send failed" className="text-red-500 text-[10px] font-bold">!</span> :
+                                                        <Check size={16} className="text-[#8696a0]" />}
                                     </span>
                                 )}
                             </div>

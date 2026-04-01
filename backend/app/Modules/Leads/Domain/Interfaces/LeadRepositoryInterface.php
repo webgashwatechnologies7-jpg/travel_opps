@@ -58,5 +58,22 @@ interface LeadRepositoryInterface
      * @return array
      */
     public function getAnalytics(array $filters = [], string $timeframe = 'month'): array;
+
+    /**
+     * Bulk delete leads.
+     *
+     * @param array $ids
+     * @return bool
+     */
+    public function bulkDelete(array $ids): bool;
+
+    /**
+     * Bulk assign leads.
+     *
+     * @param array $ids
+     * @param int $userId
+     * @return bool
+     */
+    public function bulkAssign(array $ids, int $userId): bool;
 }
 
