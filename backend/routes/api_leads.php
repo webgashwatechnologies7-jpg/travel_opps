@@ -22,6 +22,7 @@ Route::post('/leads/web-to-lead', [\App\Http\Controllers\WebToLeadController::cl
 // Facebook Lead Ads Webhooks
 Route::get('/facebook/webhook', [\App\Http\Controllers\FacebookLeadController::class, 'verify']);
 Route::post('/facebook/webhook', [\App\Http\Controllers\FacebookLeadController::class, 'handleWebhook']);
+Route::get('/facebook/insights', [\App\Http\Controllers\FacebookLeadController::class, 'getAdsInsights'])->middleware('auth:sanctum');
 
 // Leads routes - require authentication
 Route::middleware('auth:sanctum')->prefix('leads')->group(function () {

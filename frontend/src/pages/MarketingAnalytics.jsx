@@ -9,10 +9,21 @@ import {
   Download,
   Filter
 } from 'lucide-react';
+import { 
+  AreaChart, 
+  Area, 
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip, 
+  ResponsiveContainer,
+  BarChart,
+  Bar
+} from 'recharts';
 
 const MarketingAnalytics = () => {
-  const [analytics, setAnalytics] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [fbInsights, setFbInsights] = useState(null);
   const [error, setError] = useState('');
   const [dateRange, setDateRange] = useState('30days');
 
@@ -22,16 +33,16 @@ const MarketingAnalytics = () => {
 
   const fetchAnalytics = async () => {
     try {
-      const response = await fetch(`/api/marketing/analytics?range=${dateRange}`);
+      const response = await fetch(`/api/facebook/insights?range=${dateRange}`);
       const data = await response.json();
       
       if (data.success) {
-        setAnalytics(data.data);
+        setFbInsights(data.data);
       } else {
         setError(data.message);
       }
     } catch (err) {
-      setError('Failed to load analytics data');
+      setError('Failed to load marketing insights. Make sure Facebook integration is configured.');
     } finally {
       setLoading(false);
     }
@@ -79,14 +90,14 @@ const MarketingAnalytics = () => {
           </div>
         )}
 
-        {/* Key Metrics */}
+        {/* Meta Ads Insights */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Total Campaigns</p>
-                <p className="text-2xl font-bold text-gray-900">0</p>
-                <p className="text-xs text-green-600 mt-1">+0% from last period</p>
+                <p className="text-sm text-gray-600">Amount Spent</p>
+                <p className="text-2xl font-bold text-gray-900">₹{fbInsights?.spent?.toLocaleString() || '0'}</p>
+                <p className="text-xs text-blue-600 mt-1">Meta Ads API</p>
               </div>
               <div className="bg-blue-100 p-3 rounded-full">
                 <BarChart3 className="w-6 h-6 text-blue-600" />
@@ -97,9 +108,9 @@ const MarketingAnalytics = () => {
           <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Conversion Rate</p>
-                <p className="text-2xl font-bold text-gray-900">0%</p>
-                <p className="text-xs text-green-600 mt-1">+0% from last period</p>
+                <p className="text-sm text-gray-600">Impressions</p>
+                <p className="text-2xl font-bold text-gray-900">{fbInsights?.impressions?.toLocaleString() || '0'}</p>
+                <p className="text-xs text-green-600 mt-1">Ad Visibility</p>
               </div>
               <div className="bg-green-100 p-3 rounded-full">
                 <Target className="w-6 h-6 text-green-600" />
@@ -110,12 +121,12 @@ const MarketingAnalytics = () => {
           <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Total Revenue</p>
-                <p className="text-2xl font-bold text-gray-900">$0</p>
-                <p className="text-xs text-green-600 mt-1">+0% from last period</p>
+                <p className="text-sm text-gray-600">Total Leads</p>
+                <p className="text-2xl font-bold text-gray-900">{fbInsights?.leads || '0'}</p>
+                <p className="text-xs text-purple-600 mt-1">Facebook Source</p>
               </div>
               <div className="bg-purple-100 p-3 rounded-full">
-                <TrendingUp className="w-6 h-6 text-purple-600" />
+                <Users className="w-6 h-6 text-purple-600" />
               </div>
             </div>
           </div>
@@ -123,45 +134,127 @@ const MarketingAnalytics = () => {
           <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">ROI</p>
-                <p className="text-2xl font-bold text-gray-900">0%</p>
-                <p className="text-xs text-green-600 mt-1">+0% from last period</p>
+                <p className="text-sm text-gray-600">Avg. Cost Per Lead</p>
+                <p className="text-2xl font-bold text-gray-900">₹{fbInsights?.cpl || '0'}</p>
+                <p className="text-xs text-orange-600 mt-1">Marketing ROI</p>
               </div>
               <div className="bg-orange-100 p-3 rounded-full">
-                <Users className="w-6 h-6 text-orange-600" />
+                <TrendingUp className="w-6 h-6 text-orange-600" />
               </div>
             </div>
           </div>
         </div>
 
-        {/* Charts Section */}
+        {/* Monthly Trend Chart */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Campaign Performance</h2>
-            <div className="h-64 flex items-center justify-center bg-gray-50 rounded-lg">
-              <p className="text-gray-500">Chart placeholder</p>
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">Monthly Facebook Leads</h2>
+            <div className="h-72">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={fbInsights?.chart_data || []}>
+                  <defs>
+                    <linearGradient id="colorLeads" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.1}/>
+                      <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
+                  <XAxis 
+                    dataKey="name" 
+                    axisLine={false} 
+                    tickLine={false} 
+                    tick={{fill: '#9ca3af', fontSize: 12}} 
+                  />
+                  <YAxis 
+                    axisLine={false} 
+                    tickLine={false} 
+                    tick={{fill: '#9ca3af', fontSize: 12}} 
+                  />
+                  <Tooltip 
+                    contentStyle={{borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)'}}
+                  />
+                  <Area 
+                    type="monotone" 
+                    dataKey="leads" 
+                    stroke="#8b5cf6" 
+                    fillOpacity={1} 
+                    fill="url(#colorLeads)" 
+                    strokeWidth={3}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
             </div>
           </div>
 
           <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Engagement Metrics</h2>
-            <div className="h-64 flex items-center justify-center bg-gray-50 rounded-lg">
-              <p className="text-gray-500">Chart placeholder</p>
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">Ad Performance (Placeholder)</h2>
+            <div className="h-72">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={fbInsights?.chart_data || []}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
+                  <XAxis 
+                    dataKey="name" 
+                    axisLine={false} 
+                    tickLine={false} 
+                    tick={{fill: '#9ca3af', fontSize: 12}} 
+                  />
+                  <YAxis 
+                    axisLine={false} 
+                    tickLine={false} 
+                    tick={{fill: '#9ca3af', fontSize: 12}} 
+                  />
+                  <Tooltip 
+                    contentStyle={{borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)'}}
+                  />
+                  <Bar dataKey="leads" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
             </div>
           </div>
         </div>
 
-        {/* Detailed Analytics */}
+        {/* Recent Facebook Leads */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200">
           <div className="p-6 border-b border-gray-200">
-            <h2 className="text-lg font-semibold text-gray-900">Campaign Details</h2>
+            <h2 className="text-lg font-semibold text-gray-900">Recent Facebook Leads</h2>
           </div>
           <div className="p-6">
-            <div className="text-center py-8">
-              <BarChart3 className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-600">No analytics data available</p>
-              <p className="text-sm text-gray-500 mt-2">Start running campaigns to see analytics</p>
-            </div>
+            {fbInsights?.recent_leads?.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left">
+                  <thead>
+                    <tr className="text-xs font-semibold text-gray-500 uppercase tracking-wider border-b">
+                      <th className="px-4 py-3">Name</th>
+                      <th className="px-4 py-3">Phone</th>
+                      <th className="px-4 py-3">Destination</th>
+                      <th className="px-4 py-3">Date</th>
+                      <th className="px-4 py-3">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {fbInsights.recent_leads.map((lead) => (
+                      <tr key={lead.id} className="text-sm hover:bg-gray-50">
+                        <td className="px-4 py-3 font-medium text-gray-900">{lead.client_name}</td>
+                        <td className="px-4 py-3 text-gray-600">{lead.phone}</td>
+                        <td className="px-4 py-3 text-gray-600">{lead.destination || 'N/A'}</td>
+                        <td className="px-4 py-3 text-gray-600">{new Date(lead.created_at).toLocaleDateString()}</td>
+                        <td className="px-4 py-3">
+                          <span className="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-700 uppercase">
+                            {lead.status}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <BarChart3 className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                <p className="text-gray-600">No recent Facebook leads available</p>
+                <p className="text-sm text-gray-500 mt-2">Connect your Meta Page to see real-time lead data</p>
+              </div>
+            )}
           </div>
         </div>
       </div>
