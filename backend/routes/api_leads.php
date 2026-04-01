@@ -19,6 +19,10 @@ use Illuminate\Support\Facades\Route;
 Route::post('/leads/web-to-lead', [\App\Http\Controllers\WebToLeadController::class, 'store'])
     ->middleware([\App\Http\Middleware\PublicCors::class, 'throttle:5,1']);
 
+// Facebook Lead Ads Webhooks
+Route::get('/facebook/webhook', [\App\Http\Controllers\FacebookLeadController::class, 'verify']);
+Route::post('/facebook/webhook', [\App\Http\Controllers\FacebookLeadController::class, 'handleWebhook']);
+
 // Leads routes - require authentication
 Route::middleware('auth:sanctum')->prefix('leads')->group(function () {
     // Import routes (must come before /{id} routes)

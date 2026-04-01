@@ -539,6 +539,8 @@ class SettingsController extends Controller
                     'domain' => $company->domain,
                     'status' => $company->status,
                     'api_key' => $company->api_key,
+                    'fb_page_id' => $company->fb_page_id,
+                    'fb_page_access_token' => $company->fb_page_access_token,
                     'sidebar_color' => $themeColors->sidebar_color ?? '#2765B0',
                     'dashboard_background_color' => $themeColors->dashboard_background_color ?? '#D8DEF5',
                     'header_background_color' => $themeColors->header_background_color ?? '#D8DEF5',
@@ -591,13 +593,15 @@ class SettingsController extends Controller
                 'logo' => 'nullable|string|max:500',
                 'favicon' => 'nullable|string|max:500',
                 'website' => 'nullable|string|max:255',
+                'fb_page_id' => 'nullable|string|max:100',
+                'fb_page_access_token' => 'nullable|string|max:2000',
                 'sidebar_color' => 'nullable|string|max:20',
                 'dashboard_background_color' => 'nullable|string|max:20',
                 'header_background_color' => 'nullable|string|max:20',
             ]);
 
             // Separate company and theme settings
-            $companyData = array_intersect_key($validated, array_flip(['name', 'email', 'phone', 'address', 'logo', 'favicon', 'website']));
+            $companyData = array_intersect_key($validated, array_flip(['name', 'email', 'phone', 'address', 'logo', 'favicon', 'website', 'fb_page_id', 'fb_page_access_token']));
             $themeData = array_intersect_key($validated, array_flip(['sidebar_color', 'dashboard_background_color', 'header_background_color']));
 
             // Update company details (including null values for logo removal)
@@ -631,6 +635,7 @@ class SettingsController extends Controller
                     'address' => $company->address,
                     'logo' => $company->logo,
                     'favicon' => $company->favicon,
+                    'fb_page_id' => $company->fb_page_id,
                     'sidebar_color' => $themeData['sidebar_color'] ?? ($companySettings->sidebar_color ?? null),
                     'dashboard_background_color' => $themeData['dashboard_background_color'] ?? ($companySettings->dashboard_background_color ?? null),
                     'header_background_color' => $themeData['header_background_color'] ?? ($companySettings->header_background_color ?? null),

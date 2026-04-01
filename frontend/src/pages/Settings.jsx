@@ -26,7 +26,9 @@ const Settings = () => {
     company_address: '',
     company_phone: '',
     company_email: '',
-    company_website: ''
+    company_website: '',
+    fb_page_id: '',
+    fb_page_access_token: ''
   });
 
   const [saving, setSaving] = useState(false);
@@ -81,7 +83,9 @@ const Settings = () => {
           company_address: company.address || '',
           company_phone: company.phone || '',
           company_email: company.email || '',
-          company_website: company.website || ''
+          company_website: company.website || '',
+          fb_page_id: company.fb_page_id || '',
+          fb_page_access_token: company.fb_page_access_token || ''
         });
         if (company.logo) {
           setLogoPreview(company.logo);
@@ -273,6 +277,8 @@ const Settings = () => {
         phone: companyForm.company_phone || null,
         email: companyForm.company_email || null,
         website: companyForm.company_website || null,
+        fb_page_id: companyForm.fb_page_id || null,
+        fb_page_access_token: companyForm.fb_page_access_token || null,
         logo: (logoPreview === null || logoPreview === '/assets/defaults/logo.jpg') ? null : (logoUrl || logoPreview)
       };
 
@@ -590,6 +596,56 @@ const Settings = () => {
                       placeholder="www.company.com"
                     />
                   </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Meta (Facebook) Lead Ads Section */}
+            <div className="pb-6 border-b border-gray-200">
+              <h2 className="text-lg font-semibold text-gray-800 mb-2 flex items-center gap-2">
+                <Globe className="h-5 w-5 text-blue-600" />
+                Meta (Facebook) Lead Ads Integration
+              </h2>
+              <p className="text-sm text-gray-600 mb-4">
+                Connect your Facebook Page to automatically pull leads from Lead Ads Forms.
+              </p>
+
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                <h3 className="text-sm font-bold text-blue-800 mb-2">Webhook Setup Instructions:</h3>
+                <ol className="text-xs text-blue-700 list-decimal pl-4 space-y-1">
+                  <li>Go to <b>Meta Developer Dashboard</b> and create/select your App.</li>
+                  <li>Add <b>Webhooks</b> product and select "Page" from dropdown.</li>
+                  <li>Click <b>Subscribe to this object</b>.</li>
+                  <li>Callback URL: <code className="bg-white px-1 border rounded">{window.location.origin}/api/facebook/webhook</code></li>
+                  <li>Verify Token: <code className="bg-white px-1 border rounded">my_crm_lead_token</code></li>
+                  <li>Subscribe to <b>leadgen</b> field.</li>
+                </ol>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Facebook Page ID</label>
+                  <input
+                    type="text"
+                    name="fb_page_id"
+                    value={companyForm.fb_page_id}
+                    onChange={handleCompanyChange}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    placeholder="Enter Facebook Page ID"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Page Access Token</label>
+                  <textarea
+                    name="fb_page_access_token"
+                    value={companyForm.fb_page_access_token}
+                    onChange={handleCompanyChange}
+                    rows="2"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    placeholder="Enter Long-lived Page Access Token"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Get this from <b>Meta Graph API Explorer</b>. Use a never-expiring token for production.</p>
                 </div>
               </div>
             </div>
