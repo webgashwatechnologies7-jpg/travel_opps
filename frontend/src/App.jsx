@@ -25,6 +25,8 @@ const Payments = lazy(() => import('./pages/Payments'));
 const Notifications = lazy(() => import('./pages/Notifications'));
 const Profile = lazy(() => import('./pages/Profile'));
 const Notes = lazy(() => import('./pages/Notes'));
+const Attendance = lazy(() => import('./pages/Attendance'));
+const StaffAttendance = lazy(() => import('./pages/StaffAttendance'));
 
 // --- MODULE PAGES ---
 const WhatsAppInbox = lazy(() => import('./pages/WhatsAppInbox'));
@@ -577,6 +579,24 @@ const AppRoutes = () => {
           element={
             <ProtectedRoute>
               <Settings />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/attendance"
+          element={
+            <ProtectedRoute>
+              <Attendance />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/staff-attendance"
+          element={
+            <ProtectedRoute>
+              <AdminRoute>
+                <StaffAttendance />
+              </AdminRoute>
             </ProtectedRoute>
           }
         />

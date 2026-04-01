@@ -2,7 +2,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useSettings } from '../contexts/SettingsContext';
 import {
-  LayoutDashboard, MessageSquare, FileText, CreditCard, MessageCircle, Mail, Link2, BarChart3, Megaphone, Receipt, Settings, Grid, Users, Phone, ClipboardList, Package, Bell, Menu
+  LayoutDashboard, MessageSquare, FileText, CreditCard, MessageCircle, Mail, Link2, BarChart3, Megaphone, Receipt, Settings, Grid, Users, Phone, ClipboardList, Package, Bell, Menu, Clock
 } from 'lucide-react';
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { toast } from 'react-toastify';
@@ -11,7 +11,7 @@ import HeaderComponent from './Header';
 import MobileSidebar from './MobileSidebar';
 
 const MENU_ICON_MAP = {
-  LayoutDashboard, MessageSquare, FileText, CreditCard, MessageCircle, Mail, Link2, BarChart3, Megaphone, Receipt, Settings, Grid, Users, Phone, ClipboardList, Package, Bell,
+  LayoutDashboard, MessageSquare, FileText, CreditCard, MessageCircle, Mail, Link2, BarChart3, Megaphone, Receipt, Settings, Grid, Users, Phone, ClipboardList, Package, Bell, Clock
 };
 
 const Layout = ({ children, Header, padding = 0 }) => {

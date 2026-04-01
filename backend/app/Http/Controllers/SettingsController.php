@@ -544,6 +544,10 @@ class SettingsController extends Controller
                     'sidebar_color' => $themeColors->sidebar_color ?? '#2765B0',
                     'dashboard_background_color' => $themeColors->dashboard_background_color ?? '#D8DEF5',
                     'header_background_color' => $themeColors->header_background_color ?? '#D8DEF5',
+                    'attendance_mode' => $themeColors->attendance_mode ?? 'flexible',
+                    'allowed_ips' => $themeColors->allowed_ips ?? [],
+                    'default_punch_in_time' => $themeColors->default_punch_in_time ?? '09:00',
+                    'default_punch_out_time' => $themeColors->default_punch_out_time ?? '18:00',
                 ],
             ], 200);
         } catch (\Exception $e) {
@@ -598,11 +602,15 @@ class SettingsController extends Controller
                 'sidebar_color' => 'nullable|string|max:20',
                 'dashboard_background_color' => 'nullable|string|max:20',
                 'header_background_color' => 'nullable|string|max:20',
+                'attendance_mode' => 'nullable|string|in:fixed_ip,flexible,location_based',
+                'allowed_ips' => 'nullable|array',
+                'default_punch_in_time' => 'nullable|string|max:10',
+                'default_punch_out_time' => 'nullable|string|max:10',
             ]);
 
             // Separate company and theme settings
             $companyData = array_intersect_key($validated, array_flip(['name', 'email', 'phone', 'address', 'logo', 'favicon', 'website', 'fb_page_id', 'fb_page_access_token']));
-            $themeData = array_intersect_key($validated, array_flip(['sidebar_color', 'dashboard_background_color', 'header_background_color']));
+            $themeData = array_intersect_key($validated, array_flip(['sidebar_color', 'dashboard_background_color', 'header_background_color', 'attendance_mode', 'allowed_ips', 'default_punch_in_time', 'default_punch_out_time']));
 
             // Update company details (including null values for logo removal)
             $company->update($companyData);

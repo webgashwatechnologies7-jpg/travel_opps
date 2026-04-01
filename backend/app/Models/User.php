@@ -43,6 +43,11 @@ class User extends Authenticatable
         'created_by',
         'reports_to',
         'last_seen_at',
+        'base_salary',
+        'salary_type',
+        'overtime_rate',
+        'working_hours_per_day',
+        'allow_remote_attendance',
     ];
 
     /**

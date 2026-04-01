@@ -71,6 +71,7 @@ export const SettingsProvider = ({ children }) => {
       { path: '/staff-management/teams', label: 'All Team' },
       { path: '/staff-management/roles', label: 'All Role' },
       { path: '/staff-management/branches', label: 'All Branch' },
+      { path: '/staff-attendance', label: 'Staff Attendance' },
     ],
   };
 
@@ -87,6 +88,7 @@ export const SettingsProvider = ({ children }) => {
     { label: 'Integrate', icon: 'Link2', submenu: [{ path: '/settings/mail', label: 'Email Integration', feature: 'gmail_integration' }] },
     { path: '/call-management', label: 'Call Management System', icon: 'Phone', feature: 'call_management' },
     { path: '/followups', label: 'Followups', icon: 'ClipboardList', feature: 'followups' },
+    { path: '/attendance', label: 'Attendance', icon: 'Clock' },
     staffManagementItem,
     { label: 'Reports', icon: 'BarChart3', feature: 'reports', submenu: [{ path: '/dashboard/employee-performance', label: 'Performance', feature: 'reports' }] },
     { label: 'Marketing', icon: 'Megaphone', feature: 'campaigns', submenu: [{ path: '/marketing', label: 'Dashboard', feature: 'campaigns' }, { path: '/client-groups', label: 'Clients Group', feature: 'campaigns' }, { path: '/marketing/templates', label: 'Email Templates', feature: 'email_templates' }, { path: '/marketing/whatsapp-templates', label: 'WhatsApp Templates', feature: 'whatsapp' }, { path: '/marketing/campaigns', label: 'Campaigns', feature: 'campaigns' }, { path: '/marketing/landing-pages', label: 'Landing Pages', feature: 'landing_pages' }] },

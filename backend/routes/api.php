@@ -61,6 +61,14 @@ Route::middleware('auth:sanctum')->prefix('employees')->group(function () {
     Route::get('/{employeeId}/performance-history', [\App\Http\Controllers\EmployeeController::class, 'getPerformanceHistory']);
 });
 
+// Attendance Routes
+Route::middleware('auth:sanctum')->prefix('attendance')->group(function () {
+    Route::post('/punch-in', [\App\Http\Controllers\AttendanceController::class, 'punchIn']);
+    Route::post('/punch-out', [\App\Http\Controllers\AttendanceController::class, 'punchOut']);
+    Route::get('/report', [\App\Http\Controllers\AttendanceController::class, 'getMonthlyReport']);
+    Route::get('/all', [\App\Http\Controllers\AttendanceController::class, 'getAllAttendance']);
+});
+
 // Dashboard routes are now in api_analytics.php
 
 // Query Detail routes - require authentication

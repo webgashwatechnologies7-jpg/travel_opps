@@ -3,7 +3,7 @@ import { useSettings } from '../contexts/SettingsContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useContent } from '../contexts/ContentContext';
 import Layout from '../components/Layout';
-import { Settings as SettingsIcon, RotateCcw, Save, Hotel, Mail, Bell, Upload, X, Building, Phone, MapPin, Globe, Image as ImageIcon, Copy } from 'lucide-react';
+import { Settings as SettingsIcon, RotateCcw, Save, Hotel, Mail, Bell, Upload, X, Building, Phone, MapPin, Globe, Image as ImageIcon, Copy, Clock } from 'lucide-react';
 import api, { settingsAPI, googleMailAPI, notificationsAPI } from '../services/api';
 
 const Settings = () => {
@@ -28,7 +28,11 @@ const Settings = () => {
     company_email: '',
     company_website: '',
     fb_page_id: '',
-    fb_page_access_token: ''
+    fb_page_access_token: '',
+    attendance_mode: 'flexible',
+    allowed_ips: [],
+    default_punch_in_time: '09:00',
+    default_punch_out_time: '18:00',
   });
 
   const [saving, setSaving] = useState(false);
@@ -85,7 +89,11 @@ const Settings = () => {
           company_email: company.email || '',
           company_website: company.website || '',
           fb_page_id: company.fb_page_id || '',
-          fb_page_access_token: company.fb_page_access_token || ''
+          fb_page_access_token: company.fb_page_access_token || '',
+          attendance_mode: company.attendance_mode || 'flexible',
+          allowed_ips: company.allowed_ips || [],
+          default_punch_in_time: company.default_punch_in_time || '09:00',
+          default_punch_out_time: company.default_punch_out_time || '18:00',
         });
         if (company.logo) {
           setLogoPreview(company.logo);
@@ -279,6 +287,10 @@ const Settings = () => {
         website: companyForm.company_website || null,
         fb_page_id: companyForm.fb_page_id || null,
         fb_page_access_token: companyForm.fb_page_access_token || null,
+        attendance_mode: companyForm.attendance_mode || 'flexible',
+        allowed_ips: companyForm.allowed_ips || [],
+        default_punch_in_time: companyForm.default_punch_in_time || '09:00',
+        default_punch_out_time: companyForm.default_punch_out_time || '18:00',
         logo: (logoPreview === null || logoPreview === '/assets/defaults/logo.jpg') ? null : (logoUrl || logoPreview)
       };
 
@@ -646,6 +658,75 @@ const Settings = () => {
                     placeholder="Enter Long-lived Page Access Token"
                   />
                   <p className="text-xs text-gray-500 mt-1">Get this from <b>Meta Graph API Explorer</b>. Use a never-expiring token for production.</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Attendance Policy Section */}
+            <div className="pb-6 border-b border-gray-200">
+              <h2 className="text-lg font-semibold text-gray-800 mb-2 flex items-center gap-2">
+                <Clock className="h-5 w-5 text-blue-600" />
+                Attendance & IP Policy
+              </h2>
+              <p className="text-sm text-gray-600 mb-4">
+                Control how employees mark their attendance and restrict access to office networks.
+              </p>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Attendance Security Mode</label>
+                  <select
+                    name="attendance_mode"
+                    value={companyForm.attendance_mode}
+                    onChange={handleCompanyChange}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="flexible">Flexible (Anywhere)</option>
+                    <option value="fixed_ip">IP Restricted (Office Only)</option>
+                    <option value="location_based">Location Based (GPS)</option>
+                  </select>
+                  <p className="text-xs text-gray-500 mt-1">
+                    "IP Restricted" will only allow punch-ins from the IPs listed below.
+                  </p>
+                </div>
+
+                {companyForm.attendance_mode === 'fixed_ip' && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Allowed Office IPs (One per line)</label>
+                    <textarea
+                      rows="3"
+                      value={Array.isArray(companyForm.allowed_ips) ? companyForm.allowed_ips.join('\n') : companyForm.allowed_ips}
+                      onChange={(e) => {
+                        const ips = e.target.value.split('\n').map(ip => ip.trim()).filter(ip => ip !== '');
+                        setCompanyForm(prev => ({ ...prev, allowed_ips: ips }));
+                      }}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      placeholder="e.g. 192.168.1.1"
+                    />
+                  </div>
+                )}
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Official Punch-in Time</label>
+                    <input
+                      type="time"
+                      name="default_punch_in_time"
+                      value={companyForm.default_punch_in_time}
+                      onChange={handleCompanyChange}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Official Punch-out Time</label>
+                    <input
+                      type="time"
+                      name="default_punch_out_time"
+                      value={companyForm.default_punch_out_time}
+                      onChange={handleCompanyChange}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
                 </div>
               </div>
             </div>

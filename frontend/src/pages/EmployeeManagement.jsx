@@ -19,8 +19,10 @@ import {
   Activity,
   Users,
   BarChart3,
-  PieChart
+  PieChart,
+  Clock
 } from 'lucide-react';
+import { attendanceAPI } from '../services/api';
 
 const EmployeeManagement = () => {
   const { id } = useParams();
@@ -36,6 +38,9 @@ const EmployeeManagement = () => {
   const [profitLoss, setProfitLoss] = useState(null);
   const [performanceHistory, setPerformanceHistory] = useState(null);
   const [historyPeriod, setHistoryPeriod] = useState('daily');
+  const [attendanceData, setAttendanceData] = useState(null);
+  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
 
   useEffect(() => {
     fetchEmployees();
@@ -164,6 +169,25 @@ const EmployeeManagement = () => {
       setLoading(false);
     }
   };
+  
+  const fetchEmployeeAttendance = async () => {
+    if (!selectedEmployee) return;
+    setLoading(true);
+    try {
+      const response = await attendanceAPI.getAll({ 
+          user_id: selectedEmployee,
+          month: selectedMonth,
+          year: selectedYear
+      });
+      if (response.data) {
+        setAttendanceData(response.data);
+      }
+    } catch (error) {
+      console.error('Error fetching employee attendance:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const downloadPDF = async () => {
     if (!selectedEmployee) return;
@@ -203,6 +227,7 @@ const EmployeeManagement = () => {
     setReports(null);
     setProfitLoss(null);
     setPerformanceHistory(null);
+    setAttendanceData(null);
   };
 
   useEffect(() => {
@@ -210,8 +235,9 @@ const EmployeeManagement = () => {
       fetchReports();
       fetchProfitLoss();
       fetchPerformanceHistory();
+      fetchEmployeeAttendance();
     }
-  }, [selectedEmployee, reportPeriod, historyPeriod, startDate, endDate]);
+  }, [selectedEmployee, reportPeriod, historyPeriod, startDate, endDate, selectedMonth, selectedYear]);
 
   const formatDate = (dateString) => {
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -345,6 +371,7 @@ const EmployeeManagement = () => {
               <TabsTrigger value="reports">Reports</TabsTrigger>
               <TabsTrigger value="profit-loss">Profit & Loss</TabsTrigger>
               <TabsTrigger value="history">Performance History</TabsTrigger>
+              <TabsTrigger value="attendance">Attendance</TabsTrigger>
             </TabsList>
 
             <TabsContent value="performance">
@@ -675,6 +702,103 @@ const EmployeeManagement = () => {
                       </div>
                     </div>
                   )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+            
+            <TabsContent value="attendance">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                       <Clock className="h-5 w-5 text-blue-600" />
+                       <span>Staff Attendance Record</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <select 
+                        value={selectedMonth} 
+                        onChange={(e) => setSelectedMonth(e.target.value)}
+                        className="px-2 py-1 border rounded text-xs"
+                      >
+                        {[...Array(12)].map((_, i) => (
+                           <option key={i+1} value={i+1}>{new Date(0, i).toLocaleString('default', { month: 'long' })}</option>
+                        ))}
+                      </select>
+                      <select 
+                        value={selectedYear} 
+                        onChange={(e) => setSelectedYear(e.target.value)}
+                        className="px-2 py-1 border rounded text-xs"
+                      >
+                        {[2024, 2025, 2026].map(y => <option key={y} value={y}>{y}</option>)}
+                      </select>
+                    </div>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                   {attendanceData && (
+                     <div className="space-y-6">
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                           <Card className="bg-blue-50 border-none">
+                              <CardContent className="p-4 flex flex-col items-center">
+                                 <p className="text-xs font-bold text-blue-600 uppercase">Working Hours</p>
+                                 <p className="text-2xl font-black">{attendanceData.summary?.total_hours?.toFixed(1) || 0}h</p>
+                              </CardContent>
+                           </Card>
+                           <Card className="bg-amber-50 border-none">
+                              <CardContent className="p-4 flex flex-col items-center">
+                                 <p className="text-xs font-bold text-amber-600 uppercase">Overtime</p>
+                                 <p className="text-2xl font-black">{attendanceData.summary?.total_overtime?.toFixed(1) || 0}h</p>
+                              </CardContent>
+                           </Card>
+                           <Card className="bg-green-50 border-none">
+                              <CardContent className="p-4 flex flex-col items-center">
+                                 <p className="text-xs font-bold text-green-600 uppercase">Days Present</p>
+                                 <p className="text-2xl font-black">{attendanceData.summary?.total_present || 0}</p>
+                              </CardContent>
+                           </Card>
+                           <Card className="bg-purple-50 border-none">
+                              <CardContent className="p-4 flex flex-col items-center">
+                                 <p className="text-xs font-bold text-purple-600 uppercase">Estimated Payable</p>
+                                 <p className="text-xl font-black text-purple-900">{formatCurrency(attendanceData.summary?.estimated_salary || 0)}</p>
+                              </CardContent>
+                           </Card>
+                        </div>
+
+                        <div className="border rounded-xl shadow-sm overflow-hidden bg-white">
+                           <table className="w-full text-left">
+                              <thead className="bg-gray-50 border-b">
+                                 <tr>
+                                    <th className="px-6 py-4 text-xs font-bold text-gray-500">Date</th>
+                                    <th className="px-6 py-4 text-xs font-bold text-gray-500">Punch In</th>
+                                    <th className="px-6 py-4 text-xs font-bold text-gray-500">Punch Out</th>
+                                    <th className="px-6 py-4 text-xs font-bold text-gray-500 text-center">Hours</th>
+                                    <th className="px-6 py-4 text-xs font-bold text-gray-500 text-center">Status</th>
+                                 </tr>
+                              </thead>
+                              <tbody className="divide-y">
+                                 {attendanceData.records?.map((record) => (
+                                   <tr key={record.id} className="hover:bg-gray-50">
+                                      <td className="px-6 py-4 text-sm font-medium">{formatDate(record.date)}</td>
+                                      <td className="px-6 py-4 text-sm text-gray-600">{record.punch_in || '-'}</td>
+                                      <td className="px-6 py-4 text-sm text-gray-600">{record.punch_out || '-'}</td>
+                                      <td className="px-6 py-4 text-sm font-bold text-center">{record.total_hours}h</td>
+                                      <td className="px-6 py-4 text-center">
+                                         <Badge className={record.status === 'present' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}>
+                                            {record.status}
+                                         </Badge>
+                                      </td>
+                                   </tr>
+                                 ))}
+                                 {attendanceData.records?.length === 0 && (
+                                   <tr>
+                                      <td colSpan="5" className="px-6 py-12 text-center text-gray-400 italic">No attendance records found for this period.</td>
+                                   </tr>
+                                 )}
+                              </tbody>
+                           </table>
+                        </div>
+                     </div>
+                   )}
                 </CardContent>
               </Card>
             </TabsContent>

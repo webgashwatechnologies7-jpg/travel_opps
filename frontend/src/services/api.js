@@ -796,6 +796,14 @@ export const supportAPI = {
   },
 };
 
+// Attendance APIs
+export const attendanceAPI = {
+  punchIn: () => api.post('/attendance/punch-in'),
+  punchOut: () => api.post('/attendance/punch-out'),
+  getReport: (params = {}) => api.get('/attendance/report', { params }),
+  getAll: (params = {}) => api.get('/attendance/all', { params }),
+};
+
 // Services APIs
 export const servicesAPI = {
   list: (filters = {}) => api.get('/services', { params: filters }),
