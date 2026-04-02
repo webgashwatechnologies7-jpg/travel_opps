@@ -134,9 +134,8 @@ const ChatWindow = ({ chat, messages, onSendMessage, onSendMedia, isTyping, isSe
 
     const handleSend = () => {
         const text = inputValue.trim();
-        if (!text) return;
+        if (!text || sending) return;
 
-        let finalMsg = text;
         let quotedId = null;
         let quotedPreview = null;
         if (replyingTo) {
@@ -144,11 +143,16 @@ const ChatWindow = ({ chat, messages, onSendMessage, onSendMedia, isTyping, isSe
             quotedPreview = replyingTo.message?.substring(0, 60).replace(/\n/g, ' ') || '[media]';
         }
 
-        setSending(true);
-        onSendMessage(finalMsg, quotedId, quotedPreview).finally(() => setSending(false));
+        // Clear UI state IMMEDIATELY for snappy feel
         setInputValue('');
         setReplyingTo(null);
         setShowEmojiPicker(false);
+        if (inputRef.current) inputRef.current.style.height = '24px';
+
+        setSending(true);
+        onSendMessage(text, quotedId, quotedPreview).finally(() => {
+            setSending(false);
+        });
     };
 
     const handleKeyPress = (e) => {

@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import Layout from '../components/Layout';
+// Layout removed - handled by nested routing
 import { Search, Plus, Edit, X, Upload, Download, Star, Trash2, Eye } from 'lucide-react';
 import { hotelsAPI } from '../services/api';
+import LogoLoader from '../components/LogoLoader';
 import { useAuth } from '../contexts/AuthContext';
 
 // Helper for checking permissions
@@ -567,21 +568,11 @@ const Hotel = () => {
     return mealPlanMap[mealPlan] || mealPlan;
   };
 
-  if (loading) {
-    return (
-      <Layout>
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-        </div>
-      </Layout>
-    );
-  }
-
   return (
-    <Layout>
-      <div className="p-6" style={{ backgroundColor: '#D8DEF5', minHeight: '100vh' }}>
-        {/* Header */}
-        <div className="flex justify-between items-center mb-6">
+    <div className={`p-6 relative page-transition ${loading && hotels.length > 0 ? 'opacity-80' : ''}`}>
+      {loading && <div className="side-progress-bar absolute top-0 left-0 right-0 h-1 z-50" />}
+      
+      <div className="flex justify-between items-center mb-6">
           <h1 className="text-3xl font-bold text-gray-800">Hotel</h1>
           <div className="flex items-center gap-4">
             {/* Search Input */}
@@ -643,7 +634,13 @@ const Hotel = () => {
         )}
 
         {/* Hotels Table */}
-        <div className="bg-white rounded-lg shadow-md overflow-hidden">
+        {loading && hotels.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-[50vh] animate-in fade-in duration-500 bg-white rounded-2xl border border-dashed border-gray-200">
+             <LogoLoader text="Loading hotels..." />
+          </div>
+        ) : (
+          <>
+          <div className="bg-white rounded-lg shadow-md overflow-hidden">
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
@@ -1393,9 +1390,11 @@ const Hotel = () => {
             </div>
           </div>
         )}
-      </div>
-    </Layout>
+      </>
+    )}
+    </div>
   );
+
 };
 
 export default Hotel;

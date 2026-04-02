@@ -5,13 +5,14 @@ import { useAuth } from '../contexts/AuthContext';
 import { leadsAPI, usersAPI, followupsAPI, dayItinerariesAPI, packagesAPI, settingsAPI, suppliersAPI, hotelsAPI, paymentsAPI, googleMailAPI, whatsappAPI, whatsappWebAPI, queryDetailAPI, vouchersAPI, itineraryPricingAPI, leadInvoicesAPI, quotationsAPI, queryProposalsAPI } from '../services/api';
 import { searchPexelsPhotos } from '../services/pexels';
 import { getDisplayImageUrl, rewriteHtmlImageUrls, sanitizeEmailHtmlForDisplay } from '../utils/imageUrl';
-import Layout from '../components/Layout';
+// Layout removed - handled by nested routing
 import { useSettings } from '../contexts/SettingsContext';
 import { ArrowLeft, Calendar, Mail, Plus, Upload, X, Search, FileText, Printer, Send, MessageCircle, CheckCircle, CheckCircle2, Clock, Briefcase, MapPin, CalendarDays, Users, UserCheck, Leaf, Smartphone, Phone, MoreVertical, Download, Pencil, Trash2, Camera, RefreshCw, Reply, ChevronDown, Paperclip, Eye, Info, Gift, Heart } from 'lucide-react';
 import DetailRow from '../components/Quiries/DetailRow';
 import html2pdf from 'html2pdf.js';
 import { WhatsAppTab, MailsTab, FollowupsTab, BillingTab, HistoryTab, SuppCommTab, PostSalesTab, VoucherTab, DocsTab, InvoiceTab, CallsTab } from '../components/LeadTabs';
 import { callsAPI } from '../services/api';
+import LogoLoader from '../components/LogoLoader';
 
 const LeadDetails = () => {
   const { id } = useParams();
@@ -288,16 +289,30 @@ const LeadDetails = () => {
   }, [user?.id]);
 
 
-  // When quotation modal is open, lock body scroll so only modal scrolls
+  // Prevent background scroll when any modal is open
   useEffect(() => {
-    if (showQuotationModal) {
-      const original = document.body.style.overflow;
+    const isAnyModalOpen = 
+      showItineraryModal || showInsertItineraryModal || showQuotationModal || 
+      showFollowupModal || showPaymentModal || showComposeModal || 
+      showWaConnectModal || showPdfPriceOptionModal || showPaxModal || 
+      showEditLeadModal || showEditQueryModal || showVoucherPopup || 
+      showInvoicePreview || showItineraryLibraryModal;
+
+    if (isAnyModalOpen) {
       document.body.style.overflow = 'hidden';
-      return () => {
-        document.body.style.overflow = original;
-      };
+    } else {
+      document.body.style.overflow = 'unset';
     }
-  }, [showQuotationModal]);
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [
+    showItineraryModal, showInsertItineraryModal, showQuotationModal, 
+    showFollowupModal, showPaymentModal, showComposeModal, 
+    showWaConnectModal, showPdfPriceOptionModal, showPaxModal, 
+    showEditLeadModal, showEditQueryModal, showVoucherPopup, 
+    showInvoicePreview, showItineraryLibraryModal
+  ]);
 
   useEffect(() => {
     if ((activeTab === 'history' || activeTab === 'invoice') && id) {
@@ -4304,39 +4319,35 @@ const LeadDetails = () => {
 
   if (loading) {
     return (
-      <Layout>
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-        </div>
-      </Layout>
+      <div className="flex flex-col items-center justify-center h-[60vh] animate-in fade-in duration-500">
+        <LogoLoader text="Connecting to query details..." />
+      </div>
     );
   }
-
-  if (!lead || (lead && typeof lead.id === 'undefined')) {
-    return (
-      <Layout>
-        <div className="p-6">
-          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
-            Lead not found
-          </div>
-          <button
-            type="button"
-            onClick={() => navigate('/leads')}
-            className="mt-4 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
-          >
-            Back to Queries
-          </button>
-        </div>
-      </Layout>
-    );
-  }
-
-  const assignedUser = lead.assigned_user || users.find(u => u.id === lead.assigned_to);
-
-
 
   return (
-    <Layout Header={() => null} padding={20}>
+    <div className={`relative page-transition ${loading && lead ? 'opacity-80' : ''}`}>
+      {loading && <div className="side-progress-bar absolute top-0 left-0 right-0 h-1 z-50" />}
+      
+      {loading && !lead ? (
+          <div className="flex flex-col items-center justify-center h-[90vh] animate-in fade-in duration-500 bg-white/50 backdrop-blur-sm">
+             <LogoLoader text="Loading detailed query..." />
+          </div>
+      ) : !lead || (lead && typeof lead.id === 'undefined') ? (
+          <div className="flex flex-col items-center justify-center h-[90vh] animate-in fade-in duration-500 bg-[#D8DEF5]">
+             <div className="text-center">
+                <h2 className="text-2xl font-semibold text-gray-900 mb-2">Query Not Found</h2>
+                <p className="text-gray-600">The query you're looking for doesn't exist.</p>
+                <button
+                  onClick={() => navigate('/leads')}
+                  className="mt-6 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 shadow-lg active:scale-95 transition-all"
+                >
+                  Back to Queries
+                </button>
+             </div>
+          </div>
+      ) : (
+        <>
       <div className="p-4 sm:p-6" style={{ backgroundColor: settings?.dashboard_background_color || '#D8DEF5', minHeight: '100vh' }}>
         {/* Header */}
         <div className="mb-4 rounded-xl bg-white p-4 sm:p-6 shadow-sm border border-gray-100">
@@ -5539,7 +5550,9 @@ const LeadDetails = () => {
                 {/* Itineraries List */}
                 {loadingItineraries ? (
                   <div className="flex items-center justify-center py-12">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+                    <div className="transform scale-75">
+                      <LogoLoader text="Searching itineraries..." />
+                    </div>
                   </div>
                 ) : filteredItineraries.length === 0 ? (
                   <div className="text-center py-12 text-gray-500">
@@ -6832,18 +6845,14 @@ const LeadDetails = () => {
                   <X className="h-4 w-4" />
                   Without Price
                 </button>
-                <button
-                  onClick={() => setShowPdfPriceOptionModal(false)}
-                  className="w-full text-gray-400 hover:text-gray-600 font-bold py-2 text-sm uppercase tracking-widest"
-                >
-                  Cancel
-                </button>
               </div>
             </div>
           </div>
         </div>
       )}
-    </Layout>
+        </>
+      )}
+    </div>
   );
 };
 

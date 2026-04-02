@@ -23,6 +23,7 @@ import {
   Clock
 } from 'lucide-react';
 import { attendanceAPI } from '../services/api';
+import LogoLoader from '../components/LogoLoader';
 
 const EmployeeManagement = () => {
   const { id } = useParams();
@@ -255,7 +256,15 @@ const EmployeeManagement = () => {
   };
 
   return (
-    <div className="p-6 space-y-6">
+    <div className={`p-6 space-y-6 relative page-transition ${loading && (employees.length > 0 || employeeDetails) ? 'opacity-80' : ''}`}>
+      {loading && <div className="side-progress-bar absolute top-0 left-0 right-0 h-1 z-50" />}
+      
+      {loading && employees.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-[60vh] animate-in fade-in duration-500">
+             <LogoLoader text="Loading employee records..." />
+          </div>
+      ) : (
+        <>
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold">Employee Management</h1>
         <div className="flex items-center space-x-4">
@@ -814,6 +823,8 @@ const EmployeeManagement = () => {
             <p className="text-gray-500">Please select an employee from the dropdown to view their details and performance reports.</p>
           </CardContent>
         </Card>
+      )}
+        </>
       )}
     </div>
   );

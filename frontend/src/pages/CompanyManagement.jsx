@@ -238,16 +238,18 @@ const CompanyManagement = () => {
     }
   };
 
-  if (loading && companies.length === 0) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-      </div>
-    );
-  }
-
   return (
     <SuperAdminLayout>
+    <div className={`relative page-transition ${loading && companies.length > 0 ? 'opacity-80' : ''}`}>
+      {loading && <div className="side-progress-bar absolute top-0 left-0 right-0 h-1 z-50" />}
+      
+      {loading && companies.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-[60vh] animate-in fade-in duration-500">
+             <div className="w-12 h-12 border-4 border-blue-100 border-t-blue-600 rounded-full animate-spin mb-4" />
+             <p className="text-slate-400 font-medium animate-pulse uppercase tracking-[0.2em] text-[10px]">Loading companies...</p>
+          </div>
+      ) : (
+        <>
       <div className="min-h-screen">
         {/* Header */}
         <div className="bg-white shadow-sm border-b">
@@ -842,11 +844,14 @@ const CompanyManagement = () => {
                     )}
                   </button>
                 </div>
+                </div>
               </div>
             </div>
-          </div>
-        )}
-      </div>
+          )}
+        </div>
+        </>
+      )}
+    </div>
     </SuperAdminLayout>
   );
 };

@@ -1,5 +1,4 @@
 import { useNavigate } from "react-router-dom";
-import Layout from "../components/Layout";
 import { useAuth } from "../contexts/AuthContext";
 
 const Reports = () => {
@@ -61,7 +60,7 @@ const Reports = () => {
   });
 
   return (
-    <Layout>
+    <div className="relative page-transition">
       <div className="p-6 md:p-8 lg:p-10" style={{ backgroundColor: "#D8DEF5", minHeight: "100vh" }}>
         {/* Header */}
         <div className="mb-8 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -108,7 +107,7 @@ const Reports = () => {
           ))}
         </div>
       </div>
-    </Layout>
+    </div>
   );
 };
 

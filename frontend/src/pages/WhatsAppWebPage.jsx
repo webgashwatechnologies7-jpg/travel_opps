@@ -1,14 +1,14 @@
 import React from 'react';
-import Layout from '../components/Layout';
+// Layout removed - handled by nested routing
 import WhatsAppWebLayout from '../components/WhatsAppWeb/WhatsAppWebLayout';
 
 const WhatsAppWebPage = () => {
     return (
-        <Layout noPadding={true}>
+        <div noPadding={true}>
             <div className="w-full h-[calc(100vh-64px)] overflow-hidden">
                 <WhatsAppWebLayout />
             </div>
-        </Layout>
+        </div>
     );
 };
 

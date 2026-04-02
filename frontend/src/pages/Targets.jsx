@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { usersAPI, targetsAPI } from '../services/api';
-import Layout from '../components/Layout';
+// Layout removed - handled by nested routing
 import { Pencil, Trash2 } from 'lucide-react';
+import LogoLoader from '../components/LogoLoader';
 
 const Targets = () => {
   const [users, setUsers] = useState([]);
@@ -157,252 +158,247 @@ const Targets = () => {
 
   if (loading && targets.length === 0) {
     return (
-      <Layout>
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-        </div>
-      </Layout>
+      <div className="flex flex-col items-center justify-center h-[60vh] animate-in fade-in duration-500 bg-white">
+        <LogoLoader text="Loading targets..." />
+      </div>
     );
   }
 
   return (
-    <Layout>
-      <div>
-        <h1 className="text-3xl font-bold text-gray-800 mb-8">Employee Targets</h1>
+    <div>
+      <h1 className="text-3xl font-bold text-gray-800 mb-8">Employee Targets</h1>
 
-        {/* Create/Edit Target Form */}
-        <div className="bg-white rounded-lg shadow-md p-6 mb-8">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-semibold text-gray-800">
-              {editingTarget ? 'Edit Target' : 'Set Target'}
-            </h2>
-            {editingTarget && (
-              <button
-                onClick={cancelEdit}
-                className="text-sm text-gray-500 hover:text-gray-700 underline"
-              >
-                Cancel Edit
-              </button>
-            )}
-          </div>
-
-          {error && (
-            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-              {error}
-            </div>
+      {/* Create/Edit Target Form */}
+      <div className="bg-white rounded-lg shadow-md p-6 mb-8">
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-xl font-semibold text-gray-800">
+            {editingTarget ? 'Edit Target' : 'Set Target'}
+          </h2>
+          {editingTarget && (
+            <button
+              onClick={cancelEdit}
+              className="text-sm text-gray-500 hover:text-gray-700 underline"
+            >
+              Cancel Edit
+            </button>
           )}
-
-          {success && (
-            <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
-              {success}
-            </div>
-          )}
-
-          <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                User <span className="text-red-500">*</span>
-              </label>
-              <select
-                name="user_id"
-                value={formData.user_id}
-                onChange={handleChange}
-                required
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="">Select User</option>
-                {users.map((user) => (
-                  <option key={user.id} value={user.id}>
-                    {user.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Month <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="month"
-                name="month"
-                value={formData.month}
-                onChange={handleChange}
-                required
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="YYYY-MM"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Target Amount <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="number"
-                name="target_amount"
-                value={formData.target_amount}
-                onChange={handleChange}
-                required
-                min="0"
-                step="0.01"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="0.00"
-              />
-            </div>
-
-            <div className="flex items-end">
-              <button
-                type="submit"
-                disabled={submitting}
-                className={`w-full py-2 px-4 rounded-lg text-white disabled:cursor-not-allowed ${editingTarget
-                    ? 'bg-yellow-600 hover:bg-yellow-700 disabled:bg-yellow-400'
-                    : 'bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400'
-                  }`}
-              >
-                {submitting
-                  ? (editingTarget ? 'Updating...' : 'Creating...')
-                  : (editingTarget ? 'Update Target' : 'Create Target')}
-              </button>
-            </div>
-          </form>
         </div>
 
-        {/* Targets Table */}
-        <div className="bg-white rounded-lg shadow-md overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-200">
-            <h2 className="text-xl font-semibold text-gray-800">Targets Overview</h2>
+        {error && (
+          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+            {error}
           </div>
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    User
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Month
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Target Amount
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Achieved Amount
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Completion %
-                  </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {targets.length === 0 ? (
-                  <tr>
-                    <td colSpan="5" className="px-6 py-4 text-center text-gray-500">
-                      No targets found. Create a target to get started.
-                    </td>
-                  </tr>
-                ) : (
-                  targets
-                    .sort((a, b) => {
-                      // Sort by user name, then by month descending
-                      if (a.user_name !== b.user_name) {
-                        return a.user_name.localeCompare(b.user_name);
-                      }
-                      return b.month.localeCompare(a.month);
-                    })
-                    .map((target) => {
-                      const completion = calculateCompletion(
-                        target.target_amount,
-                        target.achieved_amount
-                      );
-                      const completionPercent = parseFloat(completion);
+        )}
 
-                      return (
-                        <tr key={`${target.user_id}-${target.month}`} className="hover:bg-gray-50">
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm font-medium text-gray-900">
-                              {target.user_name}
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm text-gray-900">{target.month}</div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm text-gray-900">
-                              ₹{target.target_amount.toLocaleString('en-IN', {
-                                minimumFractionDigits: 2,
-                                maximumFractionDigits: 2,
-                              })}
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm text-gray-900">
-                              ₹{target.achieved_amount.toLocaleString('en-IN', {
-                                minimumFractionDigits: 2,
-                                maximumFractionDigits: 2,
-                              })}
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="flex items-center">
-                              <div className="w-16 bg-gray-200 rounded-full h-2 mr-2">
-                                <div
-                                  className={`h-2 rounded-full ${completionPercent >= 100
-                                      ? 'bg-green-500'
-                                      : completionPercent >= 75
-                                        ? 'bg-blue-500'
-                                        : completionPercent >= 50
-                                          ? 'bg-yellow-500'
-                                          : 'bg-red-500'
-                                    }`}
-                                  style={{ width: `${Math.min(completionPercent, 100)}%` }}
-                                ></div>
-                              </div>
-                              <span
-                                className={`text-sm font-semibold ${completionPercent >= 100
-                                    ? 'text-green-600'
-                                    : completionPercent >= 75
-                                      ? 'text-blue-600'
-                                      : completionPercent >= 50
-                                        ? 'text-yellow-600'
-                                        : 'text-red-600'
-                                  }`}
-                              >
-                                {completion}%
-                              </span>
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                            <button
-                              onClick={() => handleEdit(target)}
-                              className="text-blue-600 hover:text-blue-900 mr-4"
-                              title="Edit"
-                            >
-                              <Pencil size={18} />
-                            </button>
-                            <button
-                              onClick={() => handleDelete(target.id)}
-                              className="text-red-600 hover:text-red-900"
-                              title="Delete"
-                            >
-                              <Trash2 size={18} />
-                            </button>
-                          </td>
-                        </tr>
-                      );
-                    })
-                )}
-              </tbody>
-            </table>
+        {success && (
+          <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
+            {success}
           </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              User <span className="text-red-500">*</span>
+            </label>
+            <select
+              name="user_id"
+              value={formData.user_id}
+              onChange={handleChange}
+              required
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              <option value="">Select User</option>
+              {users.map((user) => (
+                <option key={user.id} value={user.id}>
+                  {user.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Month <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="month"
+              name="month"
+              value={formData.month}
+              onChange={handleChange}
+              required
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              placeholder="YYYY-MM"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Target Amount <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="number"
+              name="target_amount"
+              value={formData.target_amount}
+              onChange={handleChange}
+              required
+              min="0"
+              step="0.01"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              placeholder="0.00"
+            />
+          </div>
+
+          <div className="flex items-end">
+            <button
+              type="submit"
+              disabled={submitting}
+              className={`w-full py-2 px-4 rounded-lg text-white disabled:cursor-not-allowed ${editingTarget
+                  ? 'bg-yellow-600 hover:bg-yellow-700 disabled:bg-yellow-400'
+                  : 'bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400'
+                }`}
+            >
+              {submitting
+                ? (editingTarget ? 'Updating...' : 'Creating...')
+                : (editingTarget ? 'Update Target' : 'Create Target')}
+            </button>
+          </div>
+        </form>
+      </div>
+
+      {/* Targets Table */}
+      <div className="bg-white rounded-lg shadow-md overflow-hidden">
+        <div className="px-6 py-4 border-b border-gray-200">
+          <h2 className="text-xl font-semibold text-gray-800">Targets Overview</h2>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  User
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Month
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Target Amount
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Achieved Amount
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Completion %
+                </th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Actions
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {targets.length === 0 ? (
+                <tr>
+                  <td colSpan="5" className="px-6 py-4 text-center text-gray-500">
+                    No targets found. Create a target to get started.
+                  </td>
+                </tr>
+              ) : (
+                targets
+                  .sort((a, b) => {
+                    // Sort by user name, then by month descending
+                    if (a.user_name !== b.user_name) {
+                      return a.user_name.localeCompare(b.user_name);
+                    }
+                    return b.month.localeCompare(a.month);
+                  })
+                  .map((target) => {
+                    const completion = calculateCompletion(
+                      target.target_amount,
+                      target.achieved_amount
+                    );
+                    const completionPercent = parseFloat(completion);
+
+                    return (
+                      <tr key={`${target.user_id}-${target.month}`} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm font-medium text-gray-900">
+                            {target.user_name}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900">{target.month}</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900">
+                            ₹{target.target_amount.toLocaleString('en-IN', {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            })}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900">
+                            ₹{target.achieved_amount.toLocaleString('en-IN', {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            })}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center">
+                            <div className="w-16 bg-gray-200 rounded-full h-2 mr-2">
+                              <div
+                                className={`h-2 rounded-full ${completionPercent >= 100
+                                    ? 'bg-green-500'
+                                    : completionPercent >= 75
+                                      ? 'bg-blue-500'
+                                      : completionPercent >= 50
+                                        ? 'bg-yellow-500'
+                                        : 'bg-red-500'
+                                  }`}
+                                style={{ width: `${Math.min(completionPercent, 100)}%` }}
+                              ></div>
+                            </div>
+                            <span
+                              className={`text-sm font-semibold ${completionPercent >= 100
+                                  ? 'text-green-600'
+                                  : completionPercent >= 75
+                                    ? 'text-blue-600'
+                                    : completionPercent >= 50
+                                      ? 'text-yellow-600'
+                                      : 'text-red-600'
+                                }`}
+                            >
+                              {completion}%
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                          <button
+                            onClick={() => handleEdit(target)}
+                            className="text-blue-600 hover:text-blue-900 mr-4"
+                            title="Edit"
+                          >
+                            <Pencil size={18} />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(target.id)}
+                            className="text-red-600 hover:text-red-900"
+                            title="Delete"
+                          >
+                            <Trash2 size={18} />
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
-    </Layout>
+    </div>
   );
 };
 
 export default Targets;
-

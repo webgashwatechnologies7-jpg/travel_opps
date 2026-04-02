@@ -380,7 +380,7 @@ const WhatsAppWebLayout = () => {
         setIsSending(false);
     }, []);
 
-    const handleSendMessage = (text, quotedMessageId = null, quotedText = null) => {
+    const handleSendMessage = async (text, quotedMessageId = null, quotedText = null) => {
         if (!activeChat) return;
 
         // Optimistic UI update — add to screen immediately
@@ -399,7 +399,7 @@ const WhatsAppWebLayout = () => {
 
         // Enqueue the actual API send
         sendQueue.current.push({ text, quotedMessageId, quotedText, tempId });
-        processSendQueue();
+        return await processSendQueue();
     };
 
     const handleSendMedia = async (file) => {

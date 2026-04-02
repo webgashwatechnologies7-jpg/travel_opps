@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { toast } from 'react-toastify';
-import Layout from '../components/Layout';
 import { Search, Plus, Edit, X, Trash2, Eye, RefreshCw } from 'lucide-react';
 import { suppliersAPI } from '../services/api';
+import LogoLoader from '../components/LogoLoader';
 
 // Helper for checking permissions
 const hasPermission = (user, permission) => {
@@ -269,20 +269,11 @@ const Suppliers = () => {
     }
   };
 
-  if (loading) {
-    return (
-      <Layout>
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-        </div>
-      </Layout>
-    );
-  }
-
   return (
-    <Layout>
-      <div className="p-6" style={{ backgroundColor: '#D8DEF5', minHeight: '100vh' }}>
-        {/* Header */}
+    <div className={`relative page-transition ${loading && suppliers.length > 0 ? 'opacity-80' : ''}`}>
+      {loading && <div className="side-progress-bar absolute top-0 left-0 right-0 h-1 z-50" />}
+      
+      <div className="p-6 mb-6">
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-3xl font-bold text-gray-800">Suppliers</h1>
           <div className="flex items-center gap-4">
@@ -294,14 +285,14 @@ const Suppliers = () => {
                 placeholder="Search by name"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 w-64"
+                className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 w-64 shadow-sm"
               />
             </div>
             {/* Add New Button */}
             {hasPermission(user, 'suppliers.create') && (
               <button
                 onClick={handleAddNew}
-                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2 font-medium"
+                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2 font-medium shadow-sm transition-all"
               >
                 <Plus className="h-5 w-5" />
                 Add New
@@ -309,12 +300,20 @@ const Suppliers = () => {
             )}
           </div>
         </div>
+      </div>
 
-        {error && !loading && (
-          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-            {error}
+      {error && !loading && (
+        <div className="mx-6 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4 shadow-sm">
+          {error}
+        </div>
+      )}
+
+      {loading && suppliers.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-[50vh] animate-in fade-in duration-500 bg-white/50 backdrop-blur-sm rounded-2xl border border-dashed border-gray-300 mx-6">
+             <LogoLoader text="Synchronizing Suppliers..." />
           </div>
-        )}
+      ) : (
+        <>
 
         {/* Suppliers Table */}
         <div className="bg-white rounded-lg shadow-md overflow-hidden">
@@ -731,7 +730,9 @@ const Suppliers = () => {
                   <div className="p-4">
                     {detailsLoading && (
                       <div className="flex items-center justify-center py-8">
-                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
+                        <div className="transform scale-75">
+                           <LogoLoader text="Loading summary..." />
+                        </div>
                       </div>
                     )}
 
@@ -842,8 +843,9 @@ const Suppliers = () => {
             </div>
           </div>
         )}
-      </div>
-    </Layout>
+        </>
+      )}
+    </div>
   );
 };
 

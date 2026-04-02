@@ -2,9 +2,10 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Mail, ArrowRight, RefreshCw, Inbox, Reply, X, Search } from 'lucide-react';
 import { toast } from 'react-toastify';
-import Layout from '../components/Layout';
+// Layout removed - handled by nested routing
 import { googleMailAPI } from '../services/api';
 import { rewriteHtmlImageUrls, sanitizeEmailHtmlForDisplay } from '../utils/imageUrl';
+import LogoLoader from '../components/LogoLoader';
 
 const EmailInbox = () => {
   const navigate = useNavigate();
@@ -188,18 +189,17 @@ const EmailInbox = () => {
     return safe;
   };
 
-  if (loading) {
-    return (
-      <Layout>
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600" />
-        </div>
-      </Layout>
-    );
-  }
-
   return (
-    <Layout>
+    <div className={`relative page-transition ${loading && emails.length > 0 ? 'opacity-80' : ''}`}>
+      {loading && <div className="side-progress-bar absolute top-0 left-0 right-0 h-1 z-50" />}
+      
+      {loading && emails.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-[60vh] animate-in fade-in duration-500 bg-white rounded-xl shadow-sm border border-gray-100 mt-20">
+             <LogoLoader text="Syncing inbox..." />
+          </div>
+      ) : (
+        <>
+      <div className="p-6 pt-20" style={{ minHeight: '100vh' }}>
       <div className="h-[calc(100vh-8rem)]">
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
@@ -446,7 +446,10 @@ const EmailInbox = () => {
           </div>
         </div>
       </div>
-    </Layout>
+    </div>
+        </>
+      )}
+    </div>
   );
 };
 

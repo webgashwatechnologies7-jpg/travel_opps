@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import Layout from '../components/Layout';
+// Layout removed - handled by nested routing
 import {
     Plus,
     MessageSquare,
@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { supportAPI, ASSET_URL } from '../services/api';
 import { toast } from 'react-toastify';
+import LogoLoader from '../components/LogoLoader';
 
 const Support = () => {
     const { user } = useAuth();
@@ -211,7 +212,7 @@ const Support = () => {
     };
 
     return (
-        <Layout>
+        <div>
             <div className="flex flex-col h-[calc(100vh-140px)] bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
                 {/* Header */}
                 <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-white">
@@ -242,7 +243,9 @@ const Support = () => {
                         </div>
                         <div className="flex-1 overflow-y-auto">
                             {loading && tickets.length === 0 ? (
-                                <div className="p-8 text-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div></div>
+                                <div className="p-8 text-center bg-gray-50/50">
+                                   <LogoLoader text="Loading tickets..." compact={true} />
+                                </div>
                             ) : tickets.length === 0 ? (
                                 <div className="p-8 text-center text-gray-500 text-sm">No tickets found.</div>
                             ) : (
@@ -586,7 +589,7 @@ const Support = () => {
                     </div>
                 </div>
             )}
-        </Layout>
+        </div>
     );
 };
 

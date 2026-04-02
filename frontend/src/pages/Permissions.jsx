@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { permissionsAPI } from '../services/api';
-import Layout from '../components/Layout';
+// Layout removed - handled by nested routing
 
 const Permissions = () => {
   const [roles, setRoles] = useState([]);
@@ -112,16 +112,16 @@ const Permissions = () => {
 
   if (loading && roles.length === 0) {
     return (
-      <Layout>
+      <div>
         <div className="flex items-center justify-center h-64">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
         </div>
-      </Layout>
+      </div>
     );
   }
 
   return (
-    <Layout>
+    <div>
       <div className="max-w-4xl mx-auto">
         <h1 className="text-3xl font-bold text-gray-800 mb-8">Manage Permissions</h1>
 
@@ -223,7 +223,7 @@ const Permissions = () => {
           </div>
         )}
       </div>
-    </Layout>
+    </div>
   );
 };
 

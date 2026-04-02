@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import Layout from '../components/Layout';
+// Layout removed - handled by nested routing
 import { Search, Plus, Edit, X, Upload, Download, Trash2, Eye } from 'lucide-react';
 import { transfersAPI } from '../services/api';
+import LogoLoader from '../components/LogoLoader';
 import { useAuth } from '../contexts/AuthContext';
 
 const Transfer = () => {
@@ -433,18 +434,16 @@ const Transfer = () => {
     }
   };
 
-  if (loading) {
-    return (
-      <Layout>
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-        </div>
-      </Layout>
-    );
-  }
-
   return (
-    <Layout>
+    <div className={`relative page-transition ${loading && transfers.length > 0 ? 'opacity-80' : ''}`}>
+      {loading && <div className="side-progress-bar absolute top-0 left-0 right-0 h-1 z-50" />}
+      
+      {loading && transfers.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-[60vh] animate-in fade-in duration-500 bg-[#D8DEF5]">
+             <LogoLoader text="Loading transport..." />
+          </div>
+      ) : (
+        <>
       <div className="p-6" style={{ backgroundColor: '#D8DEF5', minHeight: '100vh' }}>
         {/* Header */}
         <div className="flex justify-between items-center mb-6">
@@ -1007,7 +1006,9 @@ const Transfer = () => {
           </div>
         )}
       </div>
-    </Layout>
+        </>
+      )}
+    </div>
   );
 };
 

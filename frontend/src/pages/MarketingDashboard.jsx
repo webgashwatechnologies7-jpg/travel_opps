@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import Layout from '../components/Layout';
+// Layout removed - handled by nested routing
 import { useContent } from '../contexts/ContentContext';
 import { marketingAPI } from '../services/api';
 import {
@@ -31,6 +31,7 @@ import {
   MapPin,
   Plane
 } from 'lucide-react';
+import LogoLoader from '../components/LogoLoader';
 
 const MarketingDashboard = () => {
   const { t } = useContent();
@@ -89,26 +90,6 @@ const MarketingDashboard = () => {
     }
   };
 
-  if (loading) {
-    return (
-      <Layout>
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-        </div>
-      </Layout>
-    );
-  }
-
-  if (error) {
-    return (
-      <Layout>
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
-          {error}
-        </div>
-      </Layout>
-    );
-  }
-
   const months = [
     { value: '1', label: 'January' },
     { value: '2', label: 'February' },
@@ -125,8 +106,20 @@ const MarketingDashboard = () => {
   ];
 
   return (
-    <Layout>
-      <div className="min-h-screen">
+    <div className={`relative page-transition ${loading && stats ? 'opacity-80' : ''}`}>
+      {loading && <div className="side-progress-bar absolute top-0 left-0 right-0 h-1 z-50" />}
+      
+      {loading && !stats ? (
+          <div className="flex flex-col items-center justify-center h-[60vh] animate-in fade-in duration-500 bg-[#f8fafc]">
+             <LogoLoader text="Loading dashboard..." />
+          </div>
+      ) : (
+        <>
+            {error && (
+                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded m-4">
+                    {error}
+                </div>
+            )}
         {/* Header */}
         <div className="bg-white shadow-sm border-b border-gray-200">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -442,8 +435,9 @@ const MarketingDashboard = () => {
             </div>
           </div>
         </div>
-      </div>
-    </Layout>
+        </>
+      )}
+    </div>
   );
 };
 

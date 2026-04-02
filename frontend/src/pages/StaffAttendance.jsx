@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import Layout from '../components/Layout';
+// Layout removed - handled by nested routing
 import { 
   Users, 
   Clock, 
@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import api from '../services/api';
 import { toast } from 'react-toastify';
+import LogoLoader from '../components/LogoLoader';
 
 const StaffAttendance = () => {
     const [viewMode, setViewMode] = useState('daily'); // daily, monthly
@@ -56,8 +57,15 @@ const StaffAttendance = () => {
     };
 
     return (
-        <Layout>
-            <div className="max-w-7xl mx-auto space-y-8">
+        <div className={`max-w-7xl mx-auto space-y-8 p-6 relative page-transition ${loading && (data.present?.length > 0 || history.records?.length > 0) ? 'opacity-80' : ''}`}>
+             {loading && <div className="side-progress-bar absolute top-0 left-0 right-0 h-1 z-50" />}
+             
+             {loading && !data.summary.total_employees && !history.records?.length ? (
+                <div className="flex flex-col items-center justify-center h-[60vh] animate-in fade-in duration-500">
+                    <LogoLoader text="Syncing staff logs..." />
+                </div>
+             ) : (
+                <>
                 {/* Header */}
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                     <div>
@@ -153,7 +161,7 @@ const StaffAttendance = () => {
                         <div className="lg:col-span-2 space-y-4">
                             <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
                                 <div className="w-2 h-2 rounded-full bg-green-500"></div>
-                                Active Logs ({data.present.length})
+                                Active Logs ({data.present?.length || 0})
                             </h3>
                             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
                                 <table className="w-full text-left">
@@ -166,7 +174,7 @@ const StaffAttendance = () => {
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-gray-100">
-                                        {data.present.map((row) => (
+                                        {data.present?.map((row) => (
                                             <tr key={row.id} className="hover:bg-gray-50 transition-colors">
                                                 <td className="px-6 py-4">
                                                     <div className="flex items-center gap-3">
@@ -201,7 +209,7 @@ const StaffAttendance = () => {
                                         ))}
                                     </tbody>
                                 </table>
-                                {data.present.length === 0 && (
+                                {data.present?.length === 0 && (
                                     <div className="p-12 text-center text-gray-400">No one has punched in today yet.</div>
                                 )}
                             </div>
@@ -211,10 +219,10 @@ const StaffAttendance = () => {
                         <div className="space-y-4">
                             <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
                                 <div className="w-2 h-2 rounded-full bg-red-400"></div>
-                                Not Pushed In ({data.absent.length})
+                                Not Pushed In ({data.absent?.length || 0})
                             </h3>
                             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 space-y-4">
-                                {data.absent.map(user => (
+                                {data.absent?.map(user => (
                                     <div key={user.id} className="flex items-center justify-between p-3 rounded-xl border border-dashed border-gray-200">
                                         <div className="flex items-center gap-3">
                                             <div className="w-10 h-10 rounded-lg bg-gray-100 text-gray-500 flex items-center justify-center font-bold">
@@ -230,7 +238,7 @@ const StaffAttendance = () => {
                                         </button>
                                     </div>
                                 ))}
-                                {data.absent.length === 0 && (
+                                {data.absent?.length === 0 && (
                                     <div className="text-center py-8 text-gray-400 italic">Everyone is present! 🚀</div>
                                 )}
                             </div>
@@ -250,7 +258,7 @@ const StaffAttendance = () => {
                             </thead>
                             <tbody className="divide-y divide-gray-100">
                                 {/* Group records by user for monthly view snippet */}
-                                {Object.values(history.records.reduce((acc, r) => {
+                                {Object.values((history.records || []).reduce((acc, r) => {
                                     if (!acc[r.user_id]) acc[r.user_id] = { user: r.user, days: 0, hours: 0, ot: 0 };
                                     acc[r.user_id].days++;
                                     acc[r.user_id].hours += parseFloat(r.total_hours || 0);
@@ -278,8 +286,9 @@ const StaffAttendance = () => {
                         </table>
                     </div>
                 )}
-            </div>
-        </Layout>
+             </>
+          )}
+        </div>
     );
 };
 

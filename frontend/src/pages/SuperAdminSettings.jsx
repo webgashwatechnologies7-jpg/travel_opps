@@ -3,6 +3,7 @@ import { Settings, Save, Globe, Info } from 'lucide-react';
 import { superAdminAPI } from '../services/api';
 import SuperAdminLayout from '../components/SuperAdminLayout';
 import { toast } from 'react-toastify';
+import LogoLoader from '../components/LogoLoader';
 
 const SuperAdminSettings = () => {
     const [settings, setSettings] = useState([]);
@@ -85,7 +86,7 @@ const SuperAdminSettings = () => {
         return (
             <SuperAdminLayout>
                 <div className="flex items-center justify-center min-h-screen">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+                    <LogoLoader text="Loading Settings..." />
                 </div>
             </SuperAdminLayout>
         );

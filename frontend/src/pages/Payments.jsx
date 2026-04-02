@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { paymentsAPI } from '../services/api';
-import Layout from '../components/Layout';
+// Layout removed - handled by nested routing
 import { useSettings } from '../contexts/SettingsContext';
+import LogoLoader from '../components/LogoLoader';
 
 const Payments = () => {
   const { currency } = useSettings();
@@ -40,19 +41,16 @@ const Payments = () => {
     return colors[status] || 'bg-gray-100 text-gray-800';
   };
 
-  if (loading) {
-    return (
-      <Layout>
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-        </div>
-      </Layout>
-    );
-  }
-
   return (
-    <Layout>
-      <div>
+    <div className={`p-6 relative page-transition ${loading && dueToday.length + pending.length > 0 ? 'opacity-80' : ''}`}>
+      {loading && <div className="side-progress-bar absolute top-0 left-0 right-0 h-1 z-50" />}
+      
+      {loading && dueToday.length === 0 && pending.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-[60vh] animate-in fade-in duration-500">
+             <LogoLoader text="Checking payments..." />
+          </div>
+      ) : (
+        <>
         <h1 className="text-3xl font-bold text-gray-800 mb-8">Payments</h1>
 
         <div className="flex space-x-4 mb-6">
@@ -112,8 +110,9 @@ const Payments = () => {
             <div className="text-center py-8 text-gray-500">No payments found</div>
           )}
         </div>
-      </div>
-    </Layout>
+        </>
+      )}
+    </div>
   );
 };
 

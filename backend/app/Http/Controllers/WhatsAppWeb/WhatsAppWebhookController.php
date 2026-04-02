@@ -211,6 +211,22 @@ class WhatsAppWebhookController extends Controller
                 }
             }
         }
+        
+        // NEW FILTER: Only process messages for numbers that are already in the Leads table.
+        // This prevents personal chats from cluttering the CRM.
+        if (!$lead) {
+            // Check if this chat was already manually linked to a lead or created from the CRM
+            $existingLinkedChat = DB::table('whatsapp_chats')
+                ->where('chat_id', $jid)
+                ->where('company_id', $session->company_id)
+                ->whereNotNull('lead_id')
+                ->exists();
+
+            if (!$existingLinkedChat) {
+                // Log::info("Ignoring non-lead WhatsApp message", ['chat_id' => $jid]);
+                return response()->json(['status' => 'ignored', 'message' => 'Not a lead number']);
+            }
+        }
 
         // 3. Get or create chat (Point 3: Chat List Management)
         $chat = DB::table('whatsapp_chats')

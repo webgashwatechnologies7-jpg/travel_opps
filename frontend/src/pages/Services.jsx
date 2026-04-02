@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import Layout from '../components/Layout';
+// Layout removed - handled by nested routing
 import { servicesAPI } from '../services/api';
 import { Plus, Edit2, Trash2, Eye, ToggleLeft, ToggleRight, Search, Filter } from 'lucide-react';
 
@@ -109,16 +109,16 @@ const Services = () => {
 
   if (loading) {
     return (
-      <Layout>
+      <div>
         <div className="flex items-center justify-center h-64">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
         </div>
-      </Layout>
+      </div>
     );
   }
 
   return (
-    <Layout>
+    <div>
       <div className="p-6" style={{ backgroundColor: '#D8DEF5', minHeight: '100vh' }}>
         {/* Header */}
         <div className="flex justify-between items-center mb-6">
@@ -323,7 +323,7 @@ const Services = () => {
           </div>
         )}
       </div>
-    </Layout>
+    </div>
   );
 };
 

@@ -1,7 +1,8 @@
-import Layout from '../components/Layout';
+// Layout removed - handled by nested routing
 import { toast } from 'react-toastify';
 import { companySettingsAPI } from '../services/api';
 import { Download, Share2, Users, PhoneCall, CheckCircle, ClipboardList } from 'lucide-react';
+import LogoLoader from '../components/LogoLoader';
 
 const TeamReports = () => {
   const [branches, setBranches] = useState([]);
@@ -83,7 +84,7 @@ const TeamReports = () => {
         <head>
           <title>Team Report - ${branchLabel}</title>
           <style>
-            body { font-family: Arial, sans-serif; padding: 24px; color: #111827; }
+            body { font-family: 'Poppins', sans-serif; padding: 24px; color: #111827; }
             h1 { font-size: 20px; margin-bottom: 4px; }
             .meta { color: #6b7280; font-size: 12px; margin-bottom: 16px; }
             .summary { display: flex; gap: 12px; margin-bottom: 16px; }
@@ -150,7 +151,9 @@ const TeamReports = () => {
   };
 
   return (
-    <Layout>
+    <div className={`relative page-transition ${loading && report ? 'opacity-80' : ''}`}>
+      {loading && <div className="side-progress-bar absolute top-0 left-0 right-0 h-1 z-50" />}
+      
       <div className="max-w-7xl mx-auto space-y-6">
         <div className="bg-white shadow-sm rounded-lg px-6 py-4 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
           <div>
@@ -201,9 +204,9 @@ const TeamReports = () => {
           </div>
         </div>
 
-        {loading ? (
+        {loading && !report ? (
           <div className="flex items-center justify-center h-48">
-            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
+             <LogoLoader text="Loading team reports..." />
           </div>
         ) : error ? (
           <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
@@ -290,7 +293,7 @@ const TeamReports = () => {
           </>
         )}
       </div>
-    </Layout>
+    </div>
   );
 };
 

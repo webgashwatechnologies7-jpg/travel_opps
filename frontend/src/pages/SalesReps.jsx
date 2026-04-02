@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import Layout from '../components/Layout';
+// Layout removed - handled by nested routing
 import { dashboardAPI } from '../services/api';
+import LogoLoader from '../components/LogoLoader';
 
 const SalesReps = () => {
   const navigate = useNavigate();
@@ -54,26 +55,26 @@ const SalesReps = () => {
 
   if (loading) {
     return (
-      <Layout>
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      <div>
+        <div className="flex items-center justify-center h-[50vh]">
+          <LogoLoader text="Fetching sales reps..." />
         </div>
-      </Layout>
+      </div>
     );
   }
 
   if (error) {
     return (
-      <Layout>
+      <div>
         <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
           {error}
         </div>
-      </Layout>
+      </div>
     );
   }
 
   return (
-    <Layout>
+    <div>
       <div className="p-6">
         <h1 className="text-3xl font-bold text-gray-800 mb-4">Sales Reps</h1>
 
@@ -149,7 +150,7 @@ const SalesReps = () => {
           </table>
         </div>
       </div>
-    </Layout>
+    </div>
   );
 };
 

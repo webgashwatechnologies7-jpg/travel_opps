@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import Layout from '../components/Layout';
+// Layout removed - handled by nested routing
 import { toast } from 'react-toastify';
 import { useSettings } from '../contexts/SettingsContext';
 import { Search, Plus, Edit, X, Image as ImageIcon, Trash2, Camera, Upload } from 'lucide-react';
 import { dayItinerariesAPI, packagesAPI } from '../services/api';
 import { searchPexelsPhotos } from '../services/pexels';
+import LogoLoader from '../components/LogoLoader';
 
 // Helper for checking permissions
 const hasPermission = (user, permission) => {
@@ -329,16 +330,14 @@ const DayItinerary = () => {
 
   if (loading) {
     return (
-      <Layout>
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-        </div>
-      </Layout>
+      <div className="flex flex-col items-center justify-center h-[60vh] animate-in fade-in duration-500 bg-[#D8DEF5]">
+        <LogoLoader text="Loading itineraries..." />
+      </div>
     );
   }
 
   return (
-    <Layout>
+    <div>
       <div className="p-6" style={{ backgroundColor: settings?.dashboard_background_color || '#D8DEF5', minHeight: '100vh' }}>
         {/* Header */}
         <div className="flex justify-between items-center mb-6">
@@ -794,7 +793,7 @@ const DayItinerary = () => {
           </div>
         )}
       </div>
-    </Layout>
+    </div>
   );
 };
 

@@ -27,20 +27,13 @@ class WhatsAppChatController extends Controller
         $subordinateIds = $user->getAllSubordinateIds();
 
         $chats = DB::table('whatsapp_chats')
+            ->join('leads', 'whatsapp_chats.lead_id', '=', 'leads.id')
             ->where('whatsapp_chats.company_id', $effectiveCompanyId)
+            ->whereNull('leads.deleted_at')
             ->where(function ($query) use ($user, $subordinateIds) {
-                // Rules for chat list visibility:
-                // 1. Always show your own chats (whether linked to a lead or not)
-                // 2. Show subordinate chats ONLY if they are linked to a lead
+                // Show chats for current user or their subordinates
                 $query->where('whatsapp_chats.user_id', $user->id)
-                    ->orWhere(function ($q) use ($subordinateIds) {
-                        $q->whereIn('whatsapp_chats.user_id', $subordinateIds)
-                            ->whereNotNull('whatsapp_chats.lead_id');
-                    });
-            })
-            ->leftJoin('leads', function ($join) {
-                $join->on('whatsapp_chats.lead_id', '=', 'leads.id')
-                    ->whereNull('leads.deleted_at');
+                    ->orWhereIn('whatsapp_chats.user_id', $subordinateIds);
             })
             ->select(
                 'whatsapp_chats.*',

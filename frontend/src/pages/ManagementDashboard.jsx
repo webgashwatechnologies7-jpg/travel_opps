@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import Layout from '../components/Layout';
+// Layout removed - handled by nested routing
 import { useSettings } from '../contexts/SettingsContext';
 import {
   usersAPI,
@@ -17,6 +17,7 @@ import {
   ArrowRight,
   LayoutDashboard,
 } from 'lucide-react';
+import LogoLoader from '../components/LogoLoader';
 
 const ManagementDashboard = () => {
   const navigate = useNavigate();
@@ -217,7 +218,7 @@ const ManagementDashboard = () => {
   const perUser = activeRange.per_user || [];
 
   return (
-    <Layout>
+    <div>
       <div className="p-6 md:p-8 lg:p-10" style={{ backgroundColor: settings?.dashboard_background_color || '#D8DEF5', minHeight: '100vh' }}>
         <div className="max-w-7xl mx-auto space-y-8">
           {/* Header */}
@@ -246,10 +247,7 @@ const ManagementDashboard = () => {
 
           {loading ? (
             <div className="flex justify-center py-16">
-              <div className="text-center">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-3" />
-                <p className="text-gray-600 text-sm">Staff dashboard is loading...</p>
-              </div>
+              <LogoLoader text="Staff dashboard is loading..." />
             </div>
           ) : (
             <>
@@ -524,7 +522,7 @@ const ManagementDashboard = () => {
           )}
         </div>
       </div>
-    </Layout>
+    </div>
   );
 };
 

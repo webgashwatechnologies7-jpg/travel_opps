@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import Layout from '../components/Layout';
+// Layout removed - handled by nested routing
 import { useErrorHandler } from '../hooks/useErrorHandler';
 import {
     marketingEmailCampaignsAPI,
@@ -24,6 +24,7 @@ import {
     Loader2
 } from 'lucide-react';
 import CampaignProgressModal from '../components/CampaignProgressModal';
+import LogoLoader from '../components/LogoLoader';
 
 const Campaigns = () => {
     const { error, loading, setError, handleError, clearError, executeWithErrorHandling } = useErrorHandler();
@@ -194,8 +195,15 @@ const Campaigns = () => {
     };
 
     return (
-        <Layout>
-            <div className="min-h-screen">
+        <div className={`relative page-transition ${loading && campaigns.length > 0 ? 'opacity-80' : ''}`}>
+            {loading && <div className="side-progress-bar absolute top-0 left-0 right-0 h-1 z-50" />}
+            
+            {loading && campaigns.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-[60vh] animate-in fade-in duration-500">
+                    <LogoLoader text="Loading campaigns..." />
+                </div>
+            ) : (
+                <>
                 {/* Header */}
                 <div className="bg-white shadow-sm border-b border-gray-200">
                     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -339,7 +347,6 @@ const Campaigns = () => {
                         </div>
                     </div>
                 </div>
-            </div>
 
             {/* Shared Modal */}
             {showCreateModal && (
@@ -512,7 +519,9 @@ const Campaigns = () => {
                 type={progressModal.type}
                 totalLeads={progressModal.totalLeads}
             />
-        </Layout>
+                </>
+            )}
+        </div>
     );
 };
 

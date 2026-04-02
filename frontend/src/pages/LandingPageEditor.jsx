@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import Layout from '../components/Layout';
+// Layout removed - handled by nested routing
 import { landingPagesAPI } from '../services/api';
 import { ArrowLeft, Save, Plus, Trash2, Upload, ChevronUp, ChevronDown } from 'lucide-react';
 
@@ -239,29 +239,29 @@ const LandingPageEditor = () => {
 
   if (loading) {
     return (
-      <Layout>
+      <div>
         <div className="flex justify-center h-64 items-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600"></div>
         </div>
-      </Layout>
+      </div>
     );
   }
 
   if (!page) {
     return (
-      <Layout>
+      <div>
         <div className="text-center py-12">
           <p className="text-gray-600">Landing page not found</p>
           <Link to="/marketing/landing-pages" className="text-teal-600 mt-2 inline-block">← Back</Link>
         </div>
-      </Layout>
+      </div>
     );
   }
 
   const orderedSections = getSectionOrder();
 
   return (
-    <Layout>
+    <div>
       <div className="space-y-6">
         <div className="flex justify-between items-center">
           <div className="flex items-center gap-4">
@@ -760,7 +760,7 @@ const LandingPageEditor = () => {
           </div>
         </div>
       </div>
-    </Layout>
+    </div>
   );
 };
 

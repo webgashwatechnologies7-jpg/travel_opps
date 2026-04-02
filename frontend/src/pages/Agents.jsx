@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { accountsAPI } from '../services/api';
-import Layout from '../components/Layout';
+// Layout removed - handled by nested routing
 import AddAgentModal from '../components/AddAgentModal';
 import { toast } from 'react-toastify';
 import { Edit2, Trash2, Plus, Search } from 'lucide-react';
+import LogoLoader from '../components/LogoLoader';
 
 const Agents = () => {
   const [agents, setAgents] = useState([]);
@@ -109,16 +110,16 @@ const Agents = () => {
 
   if (loading) {
     return (
-      <Layout>
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      <div>
+        <div className="flex items-center justify-center h-[50vh]">
+          <LogoLoader text="Loading agents..." />
         </div>
-      </Layout>
+      </div>
     );
   }
 
   return (
-    <Layout>
+    <div>
       <div className="p-4">
         {/* Header */}
         <div className="bg-white shadow-sm rounded-lg mb-6 p-6">
@@ -251,7 +252,7 @@ const Agents = () => {
         editMode={true}
         initialData={selectedAgent}
       />
-    </Layout>
+    </div>
   );
 };
 

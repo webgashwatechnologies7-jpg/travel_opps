@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import Layout from '../components/Layout';
+// Layout removed - handled by nested routing
 import { Plane, Search, Calendar, MapPin, CheckCircle, Clock, Info } from 'lucide-react';
 import { toast } from 'react-toastify';
 
@@ -120,7 +120,7 @@ const FlightSearch = () => {
     }, []);
 
     return (
-        <Layout>
+        <div>
             <div className="bg-[#0f172a] -mt-6 pt-12 pb-32 px-4 md:px-8 relative rounded-b-[40px] shadow-2xl mb-16">
                 <div className="max-w-[1200px] mx-auto text-center mb-8">
                     <h1 className="text-4xl md:text-5xl font-extrabold text-white mb-4 tracking-tight">Compare and book flights with ease</h1>
@@ -306,7 +306,7 @@ const FlightSearch = () => {
                     </div>
                 )}
             </div>
-        </Layout>
+        </div>
     );
 };
 

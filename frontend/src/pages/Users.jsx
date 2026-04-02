@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { usersAPI } from '../services/api';
-import Layout from '../components/Layout';
+import LogoLoader from '../components/LogoLoader';
+// Layout removed - handled by nested routing
 
 const Users = () => {
   const navigate = useNavigate();
@@ -48,29 +49,30 @@ const Users = () => {
     toast.info('Edit functionality coming soon');
   };
 
-  if (loading) {
-    return (
-      <Layout>
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-        </div>
-      </Layout>
-    );
-  }
-
-  if (error) {
-    return (
-      <Layout>
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
-          {error}
-        </div>
-      </Layout>
-    );
-  }
-
   return (
-    <Layout>
-      <div>
+    <div className={`relative page-transition ${loading && users.length > 0 ? 'opacity-80' : ''}`}>
+      {loading && <div className="side-progress-bar absolute top-0 left-0 right-0 h-1 z-50" />}
+      
+      {loading && users.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-[60vh] animate-in fade-in duration-500">
+             <LogoLoader text="Loading users..." />
+          </div>
+      ) : (
+        <>
+        {error && (
+          <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-6 rounded-r-lg animate-in fade-in slide-in-from-top-4 duration-500">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                 <X className="h-5 w-5 text-red-500" />
+              </div>
+              <div className="ml-3">
+                <p className="text-sm text-red-700 font-medium">{error}</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-3xl font-bold text-gray-800">Users</h1>
           <button
@@ -166,8 +168,9 @@ const Users = () => {
             </table>
           </div>
         </div>
-      </div>
-    </Layout>
+        </>
+      )}
+    </div>
   );
 };
 

@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Clock, Activity, XCircle } from 'lucide-react';
 import { dashboardAPI, followupsAPI, leadsAPI } from '../services/api';
-import Layout from '../components/Layout';
+// Layout removed - handled by nested routing
 import PaymentCollectionTable from '../components/PaymentCollectionTable';
 import SalesRepsTable from '../components/SalesRepsTable';
 import TodayQueriesCard from '../components/dashboard/TodayQueriesCard';
@@ -20,6 +20,7 @@ import PendingDistributionCard from '../components/dashboard/PendingDistribution
 import { useNavigate } from "react-router";
 import { useAuth } from '../contexts/AuthContext';
 import { useSettings } from '../contexts/SettingsContext';
+import LogoLoader from '../components/LogoLoader';
 
 const Dashboard = () => {
   const [stats, setStats] = useState(null);
@@ -245,29 +246,23 @@ const Dashboard = () => {
 
   const { hasQueries, hasFollowups, hasItineraries, hasPayments, hasReports, hasSales } = featureFlags;
 
-  if (loading) {
-    return (
-      <Layout>
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-        </div>
-      </Layout>
-    );
-  }
-
-  if (error) {
-    return (
-      <Layout>
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
-          {error}
-        </div>
-      </Layout>
-    );
-  }
-
   return (
-    <Layout>
-      <div className="p-0">
+    <div className={`p-0 min-h-screen relative page-transition ${loading && stats ? 'opacity-80' : ''}`}>
+      {loading && <div className="side-progress-bar absolute top-0 left-0 right-0 h-1 z-50" />}
+      
+      {loading && !stats ? (
+          <div className="flex flex-col items-center justify-center h-[60vh] animate-in fade-in duration-500">
+             <LogoLoader text="Preparing dashboard..." />
+          </div>
+      ) : error ? (
+        <div className="p-6">
+          <div className="bg-red-50 border border-red-200 text-red-700 px-6 py-4 rounded-2xl shadow-sm flex items-center gap-3">
+             <div className="w-2 h-2 rounded-full bg-red-400" />
+             <span className="font-medium">{error}</span>
+          </div>
+        </div>
+      ) : (
+        <div className="p-0">
         {/* Unassigned Leads Alert for Managers/Admins */}
         {(user?.roles?.some(r => ['Admin', 'Company Admin', 'Manager'].includes(typeof r === 'string' ? r : r.name))) && (
           <PendingDistributionCard
@@ -510,9 +505,11 @@ const Dashboard = () => {
             </>
           )}
         </div>
-      </div>
-    </Layout>
+        </div>
+      )}
+    </div>
   );
 };
 
 export default Dashboard;
+

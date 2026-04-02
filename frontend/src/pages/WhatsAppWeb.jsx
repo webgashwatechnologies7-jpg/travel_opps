@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
-import Layout from '../components/Layout';
+// Layout removed - handled by nested routing
 import { whatsappWebAPI } from '../services/api';
 import { toast } from 'react-toastify';
-import { Search, MoreVertical, Smile, Paperclip, Send, Check, CheckCheck, Loader2, Phone, Camera, X, MessageSquare, LogOut, RefreshCcw } from 'lucide-react';
+import { Search, MoreVertical, Smile, Paperclip, Send, Check, CheckCheck, Loader2, Phone, Camera, X, MessageSquare, LogOut, RefreshCcw, Info } from 'lucide-react';
+import LogoLoader from '../components/LogoLoader';
 
 const WhatsAppWeb = () => {
     const [status, setStatus] = useState('Disconnected');
@@ -160,7 +161,7 @@ const WhatsAppWeb = () => {
 
     if (status !== 'Connected') {
         return (
-            <Layout>
+            <div>
                 <div className="flex flex-col items-center justify-center min-h-[80vh] bg-gray-50 p-6">
                     <div className="bg-white rounded-2xl shadow-2xl p-10 max-w-2xl w-full text-center border-t-8 border-[#25D366]">
                         <div className="flex justify-center mb-6">
@@ -199,9 +200,8 @@ const WhatsAppWeb = () => {
                                 <div className="bg-white p-4 rounded-xl border-4 border-[#25D366] shadow-inner mb-6 transition-all duration-300 transform hover:scale-105">
                                     <img src={qrCode} alt="WhatsApp QR Code" className="w-64 h-64" />
                                 </div>
-                                <div className="animate-pulse flex items-center gap-2 text-[#25D366] font-bold mb-4">
-                                    <RefreshCcw className="animate-spin" size={20} />
-                                    <span>Waiting for scan...</span>
+                                <div className="flex flex-col items-center justify-center mb-4 min-h-[100px]">
+                                    <LogoLoader text="Waiting for scan..." compact={true} />
                                 </div>
                                 <p className="text-xs text-gray-500 max-w-md bg-gray-100 p-3 rounded-lg border border-gray-200">
                                     1. Open WhatsApp on your phone<br />
@@ -221,12 +221,12 @@ const WhatsAppWeb = () => {
                         )}
                     </div>
                 </div>
-            </Layout>
+            </div>
         );
     }
 
     return (
-        <Layout>
+        <div>
             <div className="flex h-[calc(100vh-64px)] overflow-hidden bg-[#F0F2F5]">
                 {/* Chat Sidebar */}
                 <div className="w-1/3 min-w-[350px] flex flex-col border-r border-gray-300 bg-white">
@@ -382,7 +382,7 @@ const WhatsAppWeb = () => {
                     background: #A6A8A9;
                 }
             `}</style>
-        </Layout>
+        </div>
     );
 };
 

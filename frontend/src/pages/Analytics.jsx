@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { dashboardAPI } from '../services/api';
-import Layout from '../components/Layout';
+// Layout removed - handled by nested routing
+import LogoLoader from '../components/LogoLoader';
 
 const Analytics = () => {
   const location = useLocation();
@@ -36,20 +37,18 @@ const Analytics = () => {
     }
   };
 
-  if (loading) {
-    return (
-      <Layout>
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-        </div>
-      </Layout>
-    );
-  }
-
   const data = activeTab === 'source' ? sourceRoi : destinationPerf;
 
   return (
-    <Layout>
+    <div className={`relative page-transition ${loading && (sourceRoi.length > 0 || destinationPerf.length > 0) ? 'opacity-80' : ''}`}>
+      {loading && <div className="side-progress-bar absolute top-0 left-0 right-0 h-1 z-50" />}
+      
+      {loading && sourceRoi.length === 0 && destinationPerf.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-[60vh] animate-in fade-in duration-500 bg-[#F9FAFB]">
+             <LogoLoader text="Loading analytics..." />
+          </div>
+      ) : (
+        <>
       <div>
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-3xl font-bold text-gray-800">Analytics</h1>
@@ -138,7 +137,9 @@ const Analytics = () => {
           )}
         </div>
       </div>
-    </Layout>
+        </>
+      )}
+    </div>
   );
 };
 

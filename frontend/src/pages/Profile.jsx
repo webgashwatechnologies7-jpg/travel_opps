@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { profileAPI } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
-import Layout from '../components/Layout';
+import LogoLoader from '../components/LogoLoader';
+// Layout removed - handled by nested routing
 import { Camera, Mail, Phone, User, Check, X, Shield, Target } from 'lucide-react';
 
 const Profile = () => {
@@ -147,22 +148,14 @@ const Profile = () => {
   };
 
   if (loading) {
-    return (
-      <Layout>
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-        </div>
-      </Layout>
-    );
+    return <LogoLoader text="Loading Profile..." />;
   }
 
   if (!profile) {
     return (
-      <Layout>
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
-          Failed to load profile
-        </div>
-      </Layout>
+      <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+        Failed to load profile
+      </div>
     );
   }
 
@@ -178,8 +171,7 @@ const Profile = () => {
     completionPercentage >= 50 ? 'text-yellow-600' : 'text-red-600';
 
   return (
-    <Layout>
-      <div className="max-w-5xl mx-auto px-4 py-8">
+    <div className="max-w-5xl mx-auto px-4 py-8">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
             <h1 className="text-3xl font-bold text-gray-800">My Profile</h1>
             <div className="flex items-center gap-2">
@@ -448,7 +440,6 @@ const Profile = () => {
           </div>
         </div>
       </div>
-    </Layout>
   );
 };
 

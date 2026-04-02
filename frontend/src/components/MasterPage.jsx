@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Search, Plus, Edit, X, Trash2 } from 'lucide-react';
 import { toast } from 'react-toastify';
-import Layout from './Layout';
+// Layout removed - handled by nested routing
 import useApi from '../hooks/useApi';
 import { useAuth } from '../contexts/AuthContext';
+import LogoLoader from './LogoLoader';
 
 /**
  * Generic Master Page component for CRUD operations on simple resources.
@@ -142,18 +143,16 @@ const MasterPage = ({
         }
     };
 
-    if (loading && (!items || items.length === 0)) {
-        return (
-            <Layout>
-                <div className="flex items-center justify-center h-64">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-                </div>
-            </Layout>
-        );
-    }
-
     return (
-        <Layout>
+        <div className={`relative page-transition ${loading && items?.length > 0 ? 'opacity-80' : ''}`}>
+            {loading && <div className="side-progress-bar absolute top-0 left-0 right-0 h-1 z-50" />}
+            
+            {loading && (!items || items.length === 0) ? (
+                <div className="flex flex-col items-center justify-center h-[60vh] animate-in fade-in duration-500 bg-[#D8DEF5]">
+                    <LogoLoader text={`Loading ${title}...`} />
+                </div>
+            ) : (
+                <>
             <div className="p-6" style={{ backgroundColor: '#D8DEF5', minHeight: '100vh' }}>
                 <div className="flex justify-between items-center mb-6">
                     <h1 className="text-3xl font-bold text-gray-800">{title}</h1>
@@ -309,8 +308,10 @@ const MasterPage = ({
                         </div>
                     </div>
                 )}
-            </div>
-        </Layout>
+                </div>
+                </>
+            )}
+        </div>
     );
 };
 

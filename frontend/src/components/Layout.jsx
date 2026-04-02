@@ -1,4 +1,5 @@
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Suspense } from 'react';
+import { Link, useLocation, useNavigate, Outlet } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useSettings } from '../contexts/SettingsContext';
 import {
@@ -14,7 +15,12 @@ const MENU_ICON_MAP = {
   LayoutDashboard, MessageSquare, FileText, CreditCard, MessageCircle, Mail, Link2, BarChart3, Megaphone, Receipt, Settings, Grid, Users, Phone, ClipboardList, Package, Bell, Clock
 };
 
-const Layout = ({ children, Header, padding = 0 }) => {
+// A minimal loader for lazy-loaded chunks that doesn't block the sidebar
+const ChunkLoader = () => (
+    <div className="absolute top-0 left-0 right-0 h-1 z-[1000] side-progress-bar" />
+);
+
+const Layout = ({ Header, padding = 0 }) => {
   const { user, logout } = useAuth();
   const { settings, isSidebarOpen, toggleSidebar, menuItems, openSubmenus, setOpenSubmenus, toggleSubmenu } = useSettings();
   const location = useLocation();
@@ -37,19 +43,37 @@ const Layout = ({ children, Header, padding = 0 }) => {
   }, [user]);
 
   useEffect(() => {
-    setOpenSubmenus(() => {
-      const next = {};
+    setOpenSubmenus((prev) => {
+      const next = { ...prev };
       menuItems.forEach((item) => {
         if (item.submenu) {
           const key = item.label.toLowerCase();
-          if (item.submenu.some(sm => location.pathname.startsWith(sm.path))) next[key] = true;
+          if (item.submenu.some(sm => {
+            if (location.pathname.startsWith(sm.path)) return true;
+            if (location.pathname === '/company-settings/team-management' && sm.path.startsWith('/staff-management/')) return true;
+            return false;
+          })) {
+            next[key] = true;
+          }
         }
       });
       return next;
     });
-  }, [location.pathname, menuItems, setOpenSubmenus]);
+  }, [location.pathname, location.search, menuItems, setOpenSubmenus]);
 
-  const isActive = useCallback((path) => location.pathname === path || location.pathname.startsWith(path + '/'), [location.pathname]);
+  const isActive = useCallback((path) => {
+    if (location.pathname === path || location.pathname.startsWith(path + '/')) return true;
+    
+    // Special mapping for staff management
+    if (location.pathname === '/company-settings/team-management') {
+      const tab = new URLSearchParams(location.search).get('tab');
+      // Tab names correspond to these paths (users -> /staff-management/users, etc)
+      if (tab && path === `/staff-management/${tab}`) return true;
+      if (!tab && path === '/staff-management/users') return true; // Default tab is users
+    }
+    return false;
+  }, [location.pathname, location.search]);
+  
   const isSubmenuActive = useCallback((paths) => paths.some(path => isActive(path)), [isActive]);
 
   const handleLogout = useCallback(async () => {
@@ -79,7 +103,11 @@ const Layout = ({ children, Header, padding = 0 }) => {
         <HeaderComponent user={user} settings={settings} isAdmin={isAdmin} handleLogout={handleLogout} />
         <div className="custom-scroll" style={{ backgroundColor: bgColor }}>
           {Header && <div className="sticky top-[56px] lg:top-[64px] z-40 bg-white" style={{ padding: `${padding}px` }}><Header /></div>}
-          <div className="p-4 pb-6 md:p-6 md:pb-8 lg:p-8 lg:pb-8">{children}</div>
+          <div className="p-4 pb-6 md:p-6 md:pb-8 lg:p-8 lg:pb-8 relative">
+            <Suspense fallback={<ChunkLoader />}>
+              <Outlet />
+            </Suspense>
+          </div>
         </div>
       </div>
 

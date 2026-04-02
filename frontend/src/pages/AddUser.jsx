@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { usersAPI } from '../services/api';
-import Layout from '../components/Layout';
+// Layout removed - handled by nested routing
 
 const AddUser = () => {
   const navigate = useNavigate();
@@ -48,7 +48,7 @@ const AddUser = () => {
   };
 
   return (
-    <Layout>
+    <div>
       <div className="max-w-4xl mx-auto">
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-3xl font-bold text-gray-800">Add New User</h1>
@@ -261,7 +261,7 @@ const AddUser = () => {
           </form>
         </div>
       </div>
-    </Layout>
+    </div>
   );
 };
 

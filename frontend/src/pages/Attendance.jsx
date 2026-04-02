@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import Layout from '../components/Layout';
+// Layout removed - handled by nested routing
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Button } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
@@ -78,8 +78,7 @@ const Attendance = () => {
   };
 
   return (
-    <Layout>
-      <div className="p-6 max-w-7xl mx-auto space-y-6">
+    <div className="p-6 max-w-7xl mx-auto space-y-6">
         <div className="flex justify-between items-center bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
           <div>
             <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight">Attendance & Payroll</h1>
@@ -247,7 +246,6 @@ const Attendance = () => {
           </CardContent>
         </Card>
       </div>
-    </Layout>
   );
 };
 

@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import Layout from '../components/Layout';
+import LogoLoader from '../components/LogoLoader';
+// Layout removed - handled by nested routing
 import {
   Users,
   Building,
@@ -439,18 +440,16 @@ const TeamManagement = () => {
 
   const isPermissionsModal = modalType === 'role-permissions' || modalType === 'user-permissions';
 
-  if (loading) {
-    return (
-      <Layout>
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-        </div>
-      </Layout>
-    );
-  }
-
   return (
-    <Layout>
+    <div className={`relative page-transition ${loading && users.length > 0 ? 'opacity-80' : ''}`}>
+      {loading && <div className="side-progress-bar absolute top-0 left-0 right-0 h-1 z-50" />}
+      
+      {loading && users.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-[60vh] animate-in fade-in duration-500">
+             <LogoLoader text="Loading team data..." />
+          </div>
+      ) : (
+        <>
       {notification.text && (
         <div className="fixed bottom-6 right-6 z-50 max-w-sm w-full">
           <div
@@ -1366,9 +1365,8 @@ const TeamManagement = () => {
                   </div>
 
                   {logsLoading ? (
-                    <div className="flex flex-col items-center justify-center py-16 gap-4">
-                      <div className="animate-spin rounded-full h-10 w-10 border-4 border-amber-100 border-t-amber-600"></div>
-                      <p className="text-amber-600 font-bold text-sm animate-pulse">Fetching records...</p>
+                    <div className="flex flex-col items-center justify-center py-8">
+                       <LogoLoader text="Fetching records..." compact={true} />
                     </div>
                   ) : loginLogs.length > 0 ? (
                     <div className="max-h-[50vh] overflow-y-auto pr-2 custom-scrollbar">
@@ -1480,7 +1478,7 @@ const TeamManagement = () => {
 
                   {permissionsLoading ? (
                     <div className="flex items-center justify-center py-8">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                      <LogoLoader compact={true} text="Loading permissions..." />
                     </div>
                   ) : (
                     <div className="max-h-[60vh] overflow-y-auto pr-2">
@@ -1993,7 +1991,9 @@ const TeamManagement = () => {
           </div>
         )}
       </div>
-    </Layout >
+        </>
+      )}
+    </div>
   );
 };
 

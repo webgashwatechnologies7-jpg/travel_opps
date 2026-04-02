@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import Layout from '../components/Layout';
+// Layout removed - handled by nested routing
 import { companySettingsAPI, usersAPI, leadsAPI } from '../services/api';
 import { Loader2, User, Mail, Phone, Calendar, CheckCircle, XCircle, Clock, FileText, Activity, MessageSquare } from 'lucide-react';
 
@@ -89,24 +89,24 @@ const MyTeamDetails = () => {
 
     if (loading) {
         return (
-            <Layout>
+            <div>
                 <div className="flex justify-center items-center h-screen">
                     <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
                 </div>
-            </Layout>
+            </div>
         );
     }
 
     if (!user) {
         return (
-            <Layout>
+            <div>
                 <div className="p-6 text-center text-gray-500">User not found</div>
-            </Layout>
+            </div>
         );
     }
 
     return (
-        <Layout>
+        <div>
             <div className="p-6 space-y-6">
                 {/* Header */}
                 <div className="bg-white rounded-xl shadow-sm p-6 flex flex-col md:flex-row items-start md:items-center gap-6">
@@ -343,7 +343,7 @@ const MyTeamDetails = () => {
                     </div>
                 </div>
             </div>
-        </Layout>
+        </div>
     );
 };
 

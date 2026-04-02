@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import Layout from '../components/Layout';
+// Layout removed - handled by nested routing
 import { Hotel, Search, Calendar, Users, MapPin, Star, Wifi, Coffee } from 'lucide-react';
 import { toast } from 'react-toastify';
 
@@ -94,7 +94,7 @@ const HotelSearch = () => {
     }, []);
 
     return (
-        <Layout>
+        <div>
             <div className="p-4 md:p-6 lg:p-8 max-w-[1400px] mx-auto bg-gray-50/50 min-h-screen">
                 <div className="flex items-center gap-3 mb-6">
                     <Hotel className="h-8 w-8 text-blue-800" />
@@ -307,7 +307,7 @@ const HotelSearch = () => {
                     </div>
                 </div>
             </div>
-        </Layout>
+        </div>
     );
 };
 

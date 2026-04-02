@@ -1,4 +1,4 @@
-import Layout from '../components/Layout';
+// Layout removed - handled by nested routing
 import CompanyTelephonySetup from '../components/CompanyTelephonySetup';
 
 /**
@@ -6,9 +6,9 @@ import CompanyTelephonySetup from '../components/CompanyTelephonySetup';
  */
 const CompanyTelephonySettings = () => {
     return (
-        <Layout>
+        <div>
             <CompanyTelephonySetup />
-        </Layout>
+        </div>
     );
 };
 

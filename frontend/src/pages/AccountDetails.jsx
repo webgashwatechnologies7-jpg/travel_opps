@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import Layout from '../components/Layout';
+// Layout removed - handled by nested routing
 import { CreditCard, Save } from 'lucide-react';
 import { settingsAPI } from '../services/api';
 
@@ -64,16 +64,16 @@ const AccountDetails = () => {
 
   if (loading) {
     return (
-      <Layout>
+      <div>
         <div className="flex items-center justify-center h-64">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
         </div>
-      </Layout>
+      </div>
     );
   }
 
   return (
-    <Layout>
+    <div>
       <div className="p-6">
         <div className="mb-6">
           <h1 className="text-3xl font-bold text-gray-800 flex items-center gap-2">
@@ -183,7 +183,7 @@ const AccountDetails = () => {
           </div>
         </div>
       </div>
-    </Layout>
+    </div>
   );
 };
 

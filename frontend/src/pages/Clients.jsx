@@ -2,9 +2,10 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { accountsAPI } from '../services/api';
 import { toast } from 'react-toastify';
-import Layout from '../components/Layout';
+// Layout removed - handled by nested routing
 import AddClientModal from '../components/AddClientModal';
 import { Edit2, Trash2, Eye, TrendingUp, MoreVertical, Download, FileText, Plus } from 'lucide-react';
+import LogoLoader from '../components/LogoLoader';
 
 const Clients = () => {
   const navigate = useNavigate();
@@ -258,65 +259,70 @@ This is a bulk report for selected clients.
     }
   };
 
-  if (loading) {
-    return (
-      <Layout>
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-        </div>
-      </Layout>
-    );
-  }
-
   return (
-    <Layout>
-      <div>
-        <div className="bg-white shadow-sm rounded-lg mb-6">
-          <div className="px-6 py-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-4">
-                <h1 className="text-2xl font-bold text-gray-900">Clients</h1>
-                {selectedClients.length > 0 && (
-                  <div className="flex items-center space-x-2">
-                    <span className="text-sm text-gray-600">
-                      {selectedClients.length} selected
-                    </span>
+    <div className={`p-0 relative page-transition ${loading && clients.length > 0 ? 'opacity-80' : ''}`}>
+      {loading && <div className="side-progress-bar absolute top-0 left-0 right-0 h-1 z-50" />}
+      
+      <div className="p-6 mb-6">
+        <div className="bg-white/50 backdrop-blur-sm shadow-sm rounded-2xl border border-gray-100 mb-6 p-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-6">
+              <h1 className="text-3xl font-black text-gray-800 tracking-tight">Clients</h1>
+              {selectedClients.length > 0 && (
+                <div className="flex items-center space-x-3 animate-in slide-in-from-left duration-300">
+                  <span className="text-xs font-bold text-blue-600 bg-blue-50 px-3 py-1 rounded-full uppercase tracking-wider">
+                    {selectedClients.length} Selected
+                  </span>
+                  <div className="flex gap-2">
                     <button
                       onClick={() => handleBulkAction('bulkReport')}
-                      className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 flex items-center space-x-1"
+                      className="px-4 py-2 bg-blue-600 text-white text-xs font-bold rounded-xl hover:bg-blue-700 flex items-center space-x-2 transition-all shadow-md active:scale-95"
                     >
-                      <Download className="h-3 w-3" />
+                      <Download className="h-3.5 w-3.5" />
                       <span>Bulk Report</span>
                     </button>
                     <button
                       onClick={() => handleBulkAction('bulkDelete')}
-                      className="px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700 flex items-center space-x-1"
+                      className="px-4 py-2 bg-red-500 text-white text-xs font-bold rounded-xl hover:bg-red-600 flex items-center space-x-2 transition-all shadow-md active:scale-95"
                     >
-                      <Trash2 className="h-3 w-3" />
-                      <span>Delete</span>
+                      <Trash2 className="h-3.5 w-3.5" />
+                      <span>Delete Selected</span>
                     </button>
                   </div>
-                )}
+                </div>
+              )}
+            </div>
+            
+            <div className="flex items-center gap-4">
+              <div className="relative group">
+                <input
+                  type="text"
+                  placeholder="Search clients..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-80 px-5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all group-hover:bg-white shadow-sm font-medium text-sm"
+                />
               </div>
+
               <button
                 onClick={() => setShowAddModal(true)}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center space-x-2"
+                className="px-6 py-2.5 bg-blue-600 text-white text-sm font-bold rounded-xl hover:bg-blue-700 flex items-center space-x-2 transition-all shadow-lg active:scale-95 hover:shadow-blue-200"
               >
                 <Plus className="h-4 w-4" />
-                <span>Add New</span>
+                <span>Add Client</span>
               </button>
             </div>
           </div>
         </div>
-        <div className="mb-6">
-          <input
-            type="text"
-            placeholder="Search clients..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full max-w-md px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-        </div>
+      </div>
+
+      {loading && clients.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-[50vh] animate-in fade-in duration-500 bg-white/30 backdrop-blur-sm rounded-2xl border border-dashed border-gray-300 mx-6">
+             <LogoLoader text="Processing Client Records..." />
+          </div>
+      ) : (
+        <>
+        <div className="px-6 pb-6">
 
         <div className="bg-white rounded-lg shadow overflow-hidden">
           <table className="min-w-full divide-y divide-gray-200">
@@ -477,7 +483,9 @@ This is a bulk report for selected clients.
         editMode={true}
         initialData={selectedClient}
       />
-    </Layout>
+        </>
+      )}
+    </div>
   );
 };
 

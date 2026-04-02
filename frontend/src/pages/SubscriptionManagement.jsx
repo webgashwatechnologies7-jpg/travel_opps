@@ -197,18 +197,18 @@ const SubscriptionManagement = () => {
       .replace(/^-+|-+$/g, '');
   };
 
-  if (loading) {
-    return (
-      <SuperAdminLayout>
-        <div className="flex items-center justify-center min-h-screen">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-        </div>
-      </SuperAdminLayout>
-    );
-  }
-
   return (
     <SuperAdminLayout>
+    <div className={`relative page-transition ${loading && plans.length > 0 ? 'opacity-80' : ''}`}>
+      {loading && <div className="side-progress-bar absolute top-0 left-0 right-0 h-1 z-50" />}
+      
+      {loading && plans.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-[60vh] animate-in fade-in duration-500 bg-gray-50">
+             <div className="w-12 h-12 border-4 border-blue-100 border-t-blue-600 rounded-full animate-spin mb-4" />
+             <p className="text-slate-400 font-medium animate-pulse uppercase tracking-[0.2em] text-[10px]">Loading subscription plans...</p>
+          </div>
+      ) : (
+        <>
       <div className="min-h-screen bg-gray-50">
         {/* Header */}
         <div className="bg-white shadow-sm border-b">
@@ -585,8 +585,11 @@ const SubscriptionManagement = () => {
               </div>
             </div>
           </div>
-        )}
-      </div>
+          )}
+        </div>
+        </>
+      )}
+    </div>
     </SuperAdminLayout>
   );
 };

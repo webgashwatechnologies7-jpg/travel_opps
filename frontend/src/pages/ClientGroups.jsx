@@ -1,7 +1,8 @@
 import { useState, useEffect, useMemo } from 'react';
-import Layout from '../components/Layout';
+// Layout removed - handled by nested routing
 import { toast } from 'react-toastify';
 import { clientGroupsAPI, accountsAPI } from '../services/api';
+import LogoLoader from '../components/LogoLoader';
 import {
   Users,
   Plus,
@@ -269,16 +270,14 @@ const ClientGroups = () => {
 
   if (loading) {
     return (
-      <Layout>
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-        </div>
-      </Layout>
+      <div className="flex flex-col items-center justify-center h-[60vh] animate-in fade-in duration-500">
+        <LogoLoader text="Loading client groups..." />
+      </div>
     );
   }
 
   return (
-    <Layout>
+    <div>
       <div className="min-h-screen">
         {/* Header */}
         <div className="bg-white shadow-sm border-b border-gray-200">
@@ -744,8 +743,10 @@ const ClientGroups = () => {
                     <tbody className="bg-white divide-y divide-gray-200">
                       {loadingMembers ? (
                         <tr>
-                          <td colSpan="3" className="px-4 py-4 text-center">
-                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mx-auto"></div>
+                          <td colSpan="3" className="px-4 py-8 text-center">
+                            <div className="transform scale-75">
+                              <LogoLoader text="Loading members..." />
+                            </div>
                           </td>
                         </tr>
                       ) : groupMembers.length > 0 ? (
@@ -944,7 +945,7 @@ const ClientGroups = () => {
           </div>
         </div>
       )}
-    </Layout>
+    </div>
   );
 };
 

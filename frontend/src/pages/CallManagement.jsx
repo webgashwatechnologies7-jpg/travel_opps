@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
-import Layout from '../components/Layout';
+// Layout removed - handled by nested routing
 import { useErrorHandler } from '../hooks/useErrorHandler';
 import { toast } from 'react-toastify';
 import { callsAPI, leadsAPI, companySettingsAPI } from '../services/api';
@@ -9,6 +9,7 @@ import {
   ArrowUpRight, ArrowDownLeft, ShieldCheck, Headphones,
   Volume2, MoreVertical, Trash2, Edit3
 } from 'lucide-react';
+import LogoLoader from '../components/LogoLoader';
 
 const DEFAULT_FILTERS = {
   employee_id: '',
@@ -115,7 +116,7 @@ const CallManagement = () => {
   };
 
   return (
-    <Layout>
+    <div>
       <div className="space-y-6 max-w-[1600px] mx-auto p-4 md:p-6 lg:p-8">
         {/* Header Section */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
@@ -309,8 +310,8 @@ const CallManagement = () => {
                   <tbody className="divide-y divide-gray-50">
                     {loading ? (
                       <tr>
-                        <td colSpan="5" className="px-6 py-20 text-center text-gray-400 font-bold uppercase tracking-widest">
-                          Fetching records...
+                        <td colSpan="5" className="px-6 py-10">
+                           <LogoLoader text="Fetching records..." compact={true} />
                         </td>
                       </tr>
                     ) : calls.length === 0 ? (
@@ -493,7 +494,7 @@ const CallManagement = () => {
                 .custom-scroll::-webkit-scrollbar-thumb { background: #E5E7EB; border-radius: 20px; }
                 .custom-scroll::-webkit-scrollbar-thumb:hover { background: #D1D5DB; }
             `}} />
-    </Layout>
+    </div>
   );
 };
 

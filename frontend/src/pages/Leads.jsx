@@ -3,12 +3,13 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { leadsAPI, leadSourcesAPI, usersAPI, googleSheetsAPI } from '../services/api';
 import { toast } from 'react-toastify';
 import { useAuth } from '../contexts/AuthContext';
-import Layout from '../components/Layout';
+// Layout removed - handled by nested routing
 import { X, Search, Upload, Download, RefreshCw, ChevronDown, Filter, Eye, Mail, MessageSquare, Edit, MoreVertical, History, Plus, TrendingUp, BarChart3, Calendar, FileSpreadsheet, LayoutGrid, List, User, Trash2, ArrowUpDown } from 'lucide-react';
 import LeadCard from '../components/Quiries/LeadCard';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line 
 } from 'recharts';
+import LogoLoader from '../components/LogoLoader';
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const getCurrentMonth = () => MONTHS[new Date().getMonth()];
@@ -84,6 +85,19 @@ const Leads = () => {
   const [selectedLeadIds, setSelectedLeadIds] = useState([]);
   const [isBulkAssignModalOpen, setIsBulkAssignModalOpen] = useState(false);
   const [sortConfig, setSortConfig] = useState({ key: 'created_at', direction: 'desc' });
+
+  // Prevent background scroll when any modal is open
+  useEffect(() => {
+    const isAnyModalOpen = showModal || showAssignModal || showStatusModal || showImportModal || showGoogleSheetModal || isBulkAssignModalOpen;
+    if (isAnyModalOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [showModal, showAssignModal, showStatusModal, showImportModal, showGoogleSheetModal, isBulkAssignModalOpen]);
 
   const handleSort = (key) => {
     let direction = 'asc';
@@ -796,18 +810,12 @@ const Leads = () => {
     fetchLeads();
   };
 
-  if (loading) {
-    return (
-      <Layout>
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-        </div>
-      </Layout>
-    );
-  }
   return (
-    <Layout>
-      <div className="p-6 bg-[#F8FAFC] min-h-screen">
+    <div className={`p-6 bg-[#F8FAFC] min-h-screen relative page-transition ${loading && leads.length > 0 ? 'opacity-80' : ''}`}>
+        {loading && (
+          <div className="absolute top-0 left-0 right-0 h-1 z-[1000] side-progress-bar" />
+        )}
+        
         {/* Header Section */}
         <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4 relative z-50">
           <div className="animate-in-scale">
@@ -1174,8 +1182,7 @@ const Leads = () => {
 
                   {analyticsLoading ? (
                     <div className="h-[300px] flex flex-col items-center justify-center">
-                      <div className="w-12 h-12 border-4 border-blue-100 border-t-blue-600 rounded-full animate-spin mb-4"></div>
-                      <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">Generating Graphics...</p>
+                      <LogoLoader text="Generating Graphics..." compact={true} />
                     </div>
                   ) : analyticsData.length > 0 ? (
                     <div className="h-[300px] w-full">
@@ -1307,6 +1314,11 @@ const Leads = () => {
         {/* End of Analytics if open */}
 
         {!showAnalytics && (
+          loading && leads.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-10 bg-white rounded-2xl border border-slate-100 shadow-sm mx-4">
+             <LogoLoader text="Synchronizing records..." />
+          </div>
+        ) : (
           filteredLeads.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 bg-white rounded-lg shadow">
               <p className="text-gray-500 text-lg mb-2">No leads found</p>
@@ -1568,7 +1580,8 @@ const Leads = () => {
               )}
             </>
           )
-        )}
+        )
+      )}
 
         {/* Bulk Action Bar - Floating */}
         {selectedLeadIds.length > 0 && (
@@ -2112,8 +2125,7 @@ const Leads = () => {
           </div>
         )}
       </div>
-    </Layout>
-  );
+    );
 };
 
 // Google Sheet Integration Modal Component

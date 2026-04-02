@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import Layout from '../components/Layout';
+// Layout removed - handled by nested routing
 import { toast } from 'react-toastify';
 import { Mail, Plus, Edit, Trash2, Eye, Save, X } from 'lucide-react';
 import { settingsAPI } from '../services/api';
@@ -852,16 +852,16 @@ const EmailTemplates = () => {
 
   if (loading) {
     return (
-      <Layout>
+      <div>
         <div className="flex items-center justify-center h-64">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
         </div>
-      </Layout>
+      </div>
     );
   }
 
   return (
-    <Layout>
+    <div>
       <div className="p-6">
         <div className="mb-6">
           <div className="flex justify-between items-center">
@@ -1121,7 +1121,7 @@ const EmailTemplates = () => {
           </div>
         )}
       </div>
-    </Layout>
+    </div>
   );
 };
 

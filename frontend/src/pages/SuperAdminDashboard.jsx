@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { superAdminAPI } from '../services/api';
 import { Building2, Users, TrendingUp, AlertCircle, Plus, Clock, XCircle } from 'lucide-react';
 import SuperAdminLayout from '../components/SuperAdminLayout';
+import LogoLoader from '../components/LogoLoader';
 
 const SuperAdminDashboard = () => {
   const [stats, setStats] = useState(null);
@@ -33,7 +34,7 @@ const SuperAdminDashboard = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        <LogoLoader text="Loading Dashboard..." />
       </div>
     );
   }

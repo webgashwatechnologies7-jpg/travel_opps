@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import Layout from '../components/Layout';
+// Layout removed - handled by nested routing
 import { landingPagesAPI } from '../services/api';
 import { Globe, Plus, Edit, Trash2, Eye, Copy, ExternalLink, Users, TrendingUp } from 'lucide-react';
+import LogoLoader from '../components/LogoLoader';
 
 const LandingPages = () => {
   const [pages, setPages] = useState([]);
@@ -168,16 +169,14 @@ const LandingPages = () => {
 
   if (loading) {
     return (
-      <Layout>
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600"></div>
-        </div>
-      </Layout>
+      <div className="flex flex-col items-center justify-center h-[60vh] animate-in fade-in duration-500">
+        <LogoLoader text="Loading landing pages..." />
+      </div>
     );
   }
 
   return (
-    <Layout>
+    <div>
       <div className="space-y-6">
         <div className="flex justify-between items-center">
           <div>
@@ -542,7 +541,7 @@ const LandingPages = () => {
           </div>
         )}
       </div>
-    </Layout>
+    </div>
   );
 };
 

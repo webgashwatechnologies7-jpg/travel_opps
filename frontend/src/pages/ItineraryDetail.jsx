@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import Layout from '../components/Layout';
+// Layout removed - handled by nested routing
 import { useAuth } from '../contexts/AuthContext';
 import { getDisplayImageUrl } from '../utils/imageUrl';
 import { packagesAPI, dayItinerariesAPI, hotelsAPI, activitiesAPI, settingsAPI, destinationsAPI, itineraryPricingAPI, transfersAPI, mealPlansAPI, roomTypesAPI, queryProposalsAPI, leadsAPI } from '../services/api';
@@ -1693,17 +1693,17 @@ const ItineraryDetail = () => {
 
   if (loading) {
     return (
-      <Layout>
+      <div>
         <div className="flex items-center justify-center h-64">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
         </div>
-      </Layout>
+      </div>
     );
   }
 
   if (!itinerary) {
     return (
-      <Layout>
+      <div>
         <div className="p-6">
           <div className="text-center py-12">
             <p className="text-gray-500">Itinerary not found</p>
@@ -1715,13 +1715,13 @@ const ItineraryDetail = () => {
             </button>
           </div>
         </div>
-      </Layout>
+      </div>
     );
   }
 
   return (
     <>
-      <Layout>
+      <div>
         <div className="min-h-screen">
           {/* Header with Back Button */}
           <div className="bg-white border-b border-gray-200 px-6 py-4">
@@ -4987,7 +4987,7 @@ const ItineraryDetail = () => {
             </div>
           )}
         </div>
-      </Layout>
+      </div>
 
       {/* Manual Add Modal */}
       {showManualAddModal && (

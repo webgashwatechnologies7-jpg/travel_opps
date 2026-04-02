@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
 import { dashboardAPI, usersAPI, destinationsAPI } from '../services/api';
-import Layout from '../components/Layout';
+// Layout removed - handled by nested routing
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer 
 } from 'recharts';
 import { 
   TrendingUp, BarChart3, Users, Target, Award, CheckCircle2, Zap, Calendar, MapPin, User, Search, X, ClipboardList
 } from 'lucide-react';
+import LogoLoader from '../components/LogoLoader';
 
 const Performance = () => {
   const [performance, setPerformance] = useState([]);
@@ -92,33 +93,21 @@ const Performance = () => {
   };
 
   return (
-    <Layout title="Performance Insights">
-      <div className="space-y-6 relative">
-        {/* Loading Overlay */}
-        {loading && performance.length > 0 && (
-          <div className="absolute inset-0 z-50 bg-white/40 backdrop-blur-[2px] rounded-3xl flex items-center justify-center transition-all">
-            <div className="bg-white p-4 rounded-2xl shadow-2xl flex items-center gap-3">
-              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
-              <span className="text-xs font-bold text-gray-900">Updating Analytics...</span>
-            </div>
+    <div className={`relative page-transition ${loading && performance.length > 0 ? 'opacity-80' : ''}`} title="Performance Insights">
+      {loading && <div className="side-progress-bar absolute top-0 left-0 right-0 h-1 z-50" />}
+      
+      {loading && performance.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-[60vh] animate-in fade-in duration-500 bg-[#F9FAFB]">
+             <LogoLoader text="Gathering analytics data..." />
           </div>
-        )}
-
-        {/* Initial Loading State */}
-        {loading && performance.length === 0 && (
-          <div className="flex items-center justify-center h-96 bg-white rounded-3xl border border-gray-100 italic text-gray-400">
-            <div className="text-center">
-               <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mx-auto mb-4"></div>
-               <p className="font-bold">Gathering analytics data...</p>
-            </div>
-          </div>
-        )}
+      ) : (
+        <div className="space-y-6">
 
         {/* Advanced Header & Filter Section */}
         <div className="bg-white rounded-3xl shadow-xl border border-gray-100 p-8">
           <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center gap-6 mb-8">
             <div>
-              <h1 className="text-3xl font-black text-gray-900 tracking-tight">Performance Insights</h1>
+              <h1 className="text-3xl font-semibold text-gray-900 tracking-tight">Performance Insights</h1>
               <p className="text-gray-500 font-medium mt-1">
                 Unified analytics for {reportType === 'user' ? 'team members' : reportType === 'destination' ? 'destinations' : 'lead sources'}
               </p>
@@ -126,7 +115,7 @@ const Performance = () => {
             <div className="flex flex-wrap items-center gap-3">
               <button
                 onClick={() => setShowAnalytics(!showAnalytics)}
-                className={`flex items-center gap-2 px-6 py-3 rounded-2xl text-sm font-black transition-all active:scale-95 shadow-lg ${
+                className={`flex items-center gap-2 px-6 py-3 rounded-2xl text-sm font-bold transition-all active:scale-95 shadow-lg ${
                   showAnalytics 
                     ? 'bg-gray-900 text-white hover:bg-black' 
                     : 'bg-blue-600 text-white hover:bg-blue-700 shadow-blue-200'
@@ -149,13 +138,13 @@ const Performance = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-7 gap-4 bg-gray-50/50 p-6 rounded-3xl border border-gray-100">
             {/* Analysis Level Selector */}
             <div className="space-y-2">
-              <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-1.5 ml-1">
+              <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest flex items-center gap-1.5 ml-1">
                 <BarChart3 size={12} /> Analysis Level
               </label>
               <select
                 value={reportType}
                 onChange={(e) => setReportType(e.target.value)}
-                className="w-full px-4 py-2.5 bg-blue-50 border border-blue-200 rounded-xl text-sm font-black text-blue-700 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all cursor-pointer"
+                className="w-full px-4 py-2.5 bg-blue-50 border border-blue-200 rounded-xl text-sm font-bold text-blue-700 focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all cursor-pointer"
               >
                 <option value="user">By Team Member</option>
                 <option value="destination">By Destination</option>
@@ -164,7 +153,7 @@ const Performance = () => {
             </div>
             {/* Filter By Selector */}
             <div className="space-y-2">
-              <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-1.5 ml-1">
+              <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest flex items-center gap-1.5 ml-1">
                 <Search size={12} /> Filter By
               </label>
               <select
@@ -179,7 +168,7 @@ const Performance = () => {
 
             {/* Timeframe Selector */}
             <div className="space-y-2">
-              <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-1.5 ml-1">
+              <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest flex items-center gap-1.5 ml-1">
                 <Calendar size={12} /> Timeframe
               </label>
               <select
@@ -198,7 +187,7 @@ const Performance = () => {
             {/* Date Specific Logic */}
             {timeframe === 'month' ? (
               <div className="space-y-2 animate-in fade-in slide-in-from-left-2 transition-all">
-                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-1.5 ml-1">
+                <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest flex items-center gap-1.5 ml-1">
                   <Calendar size={12} /> Select Month
                 </label>
                 <input
@@ -211,7 +200,7 @@ const Performance = () => {
             ) : timeframe === 'custom' ? (
               <>
                 <div className="space-y-2 animate-in fade-in slide-in-from-left-2 transition-all">
-                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-1.5 ml-1">
+                  <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest flex items-center gap-1.5 ml-1">
                     From Date
                   </label>
                   <input
@@ -222,7 +211,7 @@ const Performance = () => {
                   />
                 </div>
                 <div className="space-y-2 animate-in fade-in slide-in-from-left-2 transition-all">
-                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-1.5 ml-1">
+                  <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest flex items-center gap-1.5 ml-1">
                     To Date
                   </label>
                   <input
@@ -237,7 +226,7 @@ const Performance = () => {
 
             {/* Destination Filter */}
             <div className="space-y-2">
-              <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-1.5 ml-1">
+              <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest flex items-center gap-1.5 ml-1">
                 <MapPin size={12} /> Destination
               </label>
               <select
@@ -254,7 +243,7 @@ const Performance = () => {
 
             {/* Employee Filter */}
             <div className="space-y-2">
-              <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-1.5 ml-1">
+              <label className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest flex items-center gap-1.5 ml-1">
                 <User size={12} /> Employee
               </label>
               <select
@@ -481,11 +470,11 @@ const Performance = () => {
         {!showAnalytics && (
           <div className="bg-white rounded-3xl shadow-xl border border-gray-100 overflow-hidden animate-in fade-in duration-500">
             <div className="p-8 border-b border-gray-50 bg-gray-50/30">
-              <h3 className="text-xl font-black text-gray-900 flex items-center gap-2">
+              <h3 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
                 <ClipboardList className="text-blue-600" size={24} />
                 Performance Metrics
               </h3>
-              <p className="text-xs font-bold text-gray-400 mt-1 uppercase tracking-widest px-1">
+              <p className="text-xs font-semibold text-gray-400 mt-1 uppercase tracking-widest px-1">
                  {timeframe === 'month' ? `${new Date(month).toLocaleString('default', { month: 'long', year: 'numeric' })}` : timeframe === 'day' ? 'Today' : timeframe === 'year' ? 'Annual' : 'Selected Period'} 
                  {' • Analysis by '} 
                  <span className="text-blue-600">{reportType === 'user' ? 'Team Members' : reportType === 'destination' ? 'Destinations' : 'Lead Sources'}</span>
@@ -496,15 +485,15 @@ const Performance = () => {
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-6 py-4 text-left text-xs font-black text-gray-500 uppercase tracking-widest">{reportType === 'user' ? 'Team Member' : reportType === 'destination' ? 'Destination' : 'Lead Source'}</th>
-                    <th className="px-6 py-4 text-left text-xs font-black text-gray-500 uppercase tracking-widest">Total Leads</th>
-                    <th className="px-6 py-4 text-left text-xs font-black text-gray-500 uppercase tracking-widest">Confirmed</th>
-                    <th className="px-6 py-4 text-left text-xs font-black text-gray-500 uppercase tracking-widest">Efficiency %</th>
+                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-widest">{reportType === 'user' ? 'Team Member' : reportType === 'destination' ? 'Destination' : 'Lead Source'}</th>
+                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-widest">Total Leads</th>
+                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-widest">Confirmed</th>
+                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-widest">Efficiency %</th>
                     {reportType === 'user' && (
                        <>
-                         <th className="px-6 py-4 text-left text-xs font-black text-gray-500 uppercase tracking-widest">Target</th>
-                         <th className="px-6 py-4 text-left text-xs font-black text-gray-500 uppercase tracking-widest">Achieved</th>
-                         <th className="px-6 py-4 text-left text-xs font-black text-gray-500 uppercase tracking-widest">Completion %</th>
+                         <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-widest">Target</th>
+                         <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-widest">Achieved</th>
+                         <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-widest">Completion %</th>
                        </>
                     )}
                   </tr>
@@ -561,7 +550,8 @@ const Performance = () => {
           </div>
         )}
       </div>
-    </Layout>
+      )}
+    </div>
   );
 };
 

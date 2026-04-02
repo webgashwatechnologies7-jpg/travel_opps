@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import Layout from '../components/Layout';
+// Layout removed - handled by nested routing
 import { companySettingsAPI } from '../services/api';
+import LogoLoader from '../components/LogoLoader';
 import {
     Shield,
     CheckCircle,
@@ -41,18 +42,12 @@ const SubscriptionDetails = () => {
     };
 
     if (loading) {
-        return (
-            <Layout>
-                <div className="flex items-center justify-center min-h-[60vh]">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-700"></div>
-                </div>
-            </Layout>
-        );
+        return <LogoLoader text="Fetching details..." />;
     }
 
     if (error) {
         return (
-            <Layout>
+            <div>
                 <div className="p-8 text-center bg-white rounded-xl shadow-sm border border-red-100 m-4">
                     <div className="bg-red-50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
                         <Info className="text-red-600 w-8 h-8" />
@@ -66,12 +61,12 @@ const SubscriptionDetails = () => {
                         Retry
                     </button>
                 </div>
-            </Layout>
+            </div>
         );
     }
 
     return (
-        <Layout>
+        <div>
             <div className="max-w-5xl mx-auto space-y-8 pb-12">
                 {/* Header Section */}
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
@@ -221,7 +216,7 @@ const SubscriptionDetails = () => {
                     </div>
                 </div>
             </div>
-        </Layout>
+        </div>
     );
 };
 

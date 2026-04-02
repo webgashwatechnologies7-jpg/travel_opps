@@ -3,8 +3,9 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { useAuth } from '../contexts/AuthContext';
 import { companySettingsAPI, whatsappAPI } from '../services/api';
-import Layout from '../components/Layout';
+// Layout removed - handled by nested routing
 import { ArrowLeft, User, Mail, Phone, Building, Shield, Calendar, Edit, Save, X, MapPin, Users, PhoneCall, CheckCircle, ClipboardList, Download, MessageCircle, Camera } from 'lucide-react';
+import LogoLoader from '../components/LogoLoader';
 
 const UserDetails = () => {
   const { id } = useParams();
@@ -219,103 +220,60 @@ const UserDetails = () => {
       return;
     }
 
-    win.document.write(`
-      <html>
-        <head>
-          <title>Employee Performance - ${user.name}</title>
-          <style>
-            body { font-family: Arial, sans-serif; padding: 24px; color: #111827; }
-            h1 { font-size: 22px; margin-bottom: 4px; }
-            h2 { font-size: 16px; margin: 16px 0 8px; }
-            .meta { color: #6b7280; font-size: 12px; margin-bottom: 16px; }
-            .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
-            .card { border: 1px solid #e5e7eb; border-radius: 8px; padding: 10px 12px; }
-            .label { font-size: 12px; color: #6b7280; margin-bottom: 4px; }
-            .value { font-size: 18px; font-weight: 600; color: #111827; }
-            table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 8px; }
-            th, td { border: 1px solid #e5e7eb; padding: 6px 8px; text-align: left; }
-            th { background: #f9fafb; font-weight: 600; }
-          </style>
-        </head>
-        <body>
-          <h1>Employee Performance - ${user.name}</h1>
-          <div class="meta">
-            Range: ${rangeLabel} | Generated: ${new Date().toLocaleString()}<br/>
-            Email: ${user.email || 'N/A'} | Branch: ${user.branch?.name || 'N/A'}
-          </div>
+    const assignedByRows = (rangeData.assigned_by_breakdown || []).map(function(item) {
+      return '<tr><td>' + (item.name || 'Unknown') + '</td><td>' + (item.count || 0) + '</td></tr>';
+    }).join('') || '<tr><td colspan="2">No data</td></tr>';
 
-          <h2>Summary</h2>
-          <div class="grid">
-            <div class="card">
-              <div class="label">Assigned Leads</div>
-              <div class="value">${rangeData.assigned_to_user ?? 0}</div>
-            </div>
-            <div class="card">
-              <div class="label">Contacted Leads</div>
-              <div class="value">${rangeData.contacted_leads ?? 0}</div>
-            </div>
-            <div class="card">
-              <div class="label">Calls Made</div>
-              <div class="value">${rangeData.calls_count ?? 0}</div>
-            </div>
-            <div class="card">
-              <div class="label">Confirmed Bookings</div>
-              <div class="value">${rangeData.confirmed_by_user ?? 0}</div>
-            </div>
-            <div class="card">
-              <div class="label">Followups</div>
-              <div class="value">${rangeData.followups_count ?? 0}</div>
-            </div>
-            <div class="card">
-              <div class="label">Leads Assigned Out (by this user)</div>
-              <div class="value">${rangeData.assigned_by_user ?? 0}</div>
-            </div>
-          </div>
+    const recentCallRows = (rangeData.recent_calls || []).map(function(call) {
+      return '<tr>' +
+        '<td>' + new Date(call.created_at).toLocaleString() + '</td>' +
+        '<td>' + (call.lead_name || '') + '</td>' +
+        '<td>' + (call.lead_phone || '') + '</td>' +
+        '<td>' + (call.description || '') + '</td>' +
+        '<td>' + (call.call_status || '') + '</td>' +
+        '</tr>';
+    }).join('') || '<tr><td colspan="5">No calls</td></tr>';
 
-          <h2>Assigned By (who gave leads)</h2>
-          <table>
-            <thead>
-              <tr>
-                <th>Employee</th>
-                <th>Leads Assigned</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${(rangeData.assigned_by_breakdown || []).map(item => `
-                <tr>
-                  <td>${item.name || 'Unknown'}</td>
-                  <td>${item.count || 0}</td>
-                </tr>
-              `).join('') || '<tr><td colspan="2">No data</td></tr>'}
-            </tbody>
-          </table>
+    const htmlContent = [
+      '<html><head>',
+      '<title>Employee Performance - ' + user.name + '</title>',
+      '<style>',
+      'body { font-family: \'Poppins\', sans-serif; padding: 24px; color: #111827; }',
+      'h1 { font-size: 22px; margin-bottom: 4px; }',
+      'h2 { font-size: 16px; margin: 16px 0 8px; }',
+      '.meta { color: #6b7280; font-size: 12px; margin-bottom: 16px; }',
+      '.grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }',
+      '.card { border: 1px solid #e5e7eb; border-radius: 8px; padding: 10px 12px; }',
+      '.label { font-size: 12px; color: #6b7280; margin-bottom: 4px; }',
+      '.value { font-size: 18px; font-weight: 600; color: #111827; }',
+      'table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 8px; }',
+      'th, td { border: 1px solid #e5e7eb; padding: 6px 8px; text-align: left; }',
+      'th { background: #f9fafb; font-weight: 600; }',
+      '</style></head><body>',
+      '<h1>Employee Performance - ' + user.name + '</h1>',
+      '<div class="meta">',
+      'Range: ' + rangeLabel + ' | Generated: ' + new Date().toLocaleString() + '<br/>',
+      'Email: ' + (user.email || 'N/A') + ' | Branch: ' + (user.branch && user.branch.name ? user.branch.name : 'N/A'),
+      '</div>',
+      '<h2>Summary</h2>',
+      '<div class="grid">',
+      '<div class="card"><div class="label">Assigned Leads</div><div class="value">' + (rangeData.assigned_to_user != null ? rangeData.assigned_to_user : 0) + '</div></div>',
+      '<div class="card"><div class="label">Contacted Leads</div><div class="value">' + (rangeData.contacted_leads != null ? rangeData.contacted_leads : 0) + '</div></div>',
+      '<div class="card"><div class="label">Calls Made</div><div class="value">' + (rangeData.calls_count != null ? rangeData.calls_count : 0) + '</div></div>',
+      '<div class="card"><div class="label">Confirmed Bookings</div><div class="value">' + (rangeData.confirmed_by_user != null ? rangeData.confirmed_by_user : 0) + '</div></div>',
+      '<div class="card"><div class="label">Followups</div><div class="value">' + (rangeData.followups_count != null ? rangeData.followups_count : 0) + '</div></div>',
+      '<div class="card"><div class="label">Leads Assigned Out (by this user)</div><div class="value">' + (rangeData.assigned_by_user != null ? rangeData.assigned_by_user : 0) + '</div></div>',
+      '</div>',
+      '<h2>Assigned By (who gave leads)</h2>',
+      '<table><thead><tr><th>Employee</th><th>Leads Assigned</th></tr></thead>',
+      '<tbody>' + assignedByRows + '</tbody></table>',
+      '<h2>Recent Calls</h2>',
+      '<table><thead><tr><th>Date</th><th>Client</th><th>Phone</th><th>Description</th><th>Status</th></tr></thead>',
+      '<tbody>' + recentCallRows + '</tbody></table>',
+      '</body></html>'
+    ].join('');
 
-          <h2>Recent Calls</h2>
-          <table>
-            <thead>
-              <tr>
-                <th>Date</th>
-                <th>Client</th>
-                <th>Phone</th>
-                <th>Description</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${(rangeData.recent_calls || []).map(call => `
-                <tr>
-                  <td>${new Date(call.created_at).toLocaleString()}</td>
-                  <td>${call.lead_name || ''}</td>
-                  <td>${call.lead_phone || ''}</td>
-                  <td>${call.description || ''}</td>
-                  <td>${call.call_status || ''}</td>
-                </tr>
-              `).join('') || '<tr><td colspan="5">No calls</td></tr>'}
-            </tbody>
-          </table>
-        </body>
-      </html>
-    `);
+    win.document.write(htmlContent);
     win.document.close();
     win.focus();
     win.print();
@@ -398,683 +356,689 @@ const UserDetails = () => {
     }));
   };
 
-  if (loading) {
-    return (
-      <Layout>
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-        </div>
-      </Layout>
-    );
-  }
-
-  if (!user) {
-    return (
-      <Layout>
-        <div className="flex items-center justify-center h-64">
-          <div className="text-center">
-            <h2 className="text-2xl font-semibold text-gray-900 mb-2">User Not Found</h2>
-            <p className="text-gray-600">The user you're looking for doesn't exist.</p>
-            <button
-              onClick={() => navigate('/company-settings/team-management')}
-              className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-            >
-              Back to Team Management
-            </button>
-          </div>
-        </div>
-      </Layout>
-    );
-  }
-
   return (
-    <Layout>
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="bg-white shadow-sm rounded-lg mb-6">
-          <div className="px-6 py-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-4">
-                <button
-                  onClick={() => navigate('/company-settings/team-management')}
-                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                >
-                  <ArrowLeft className="h-5 w-5 text-gray-600" />
-                </button>
-                <h1 className="text-2xl font-bold text-gray-900">User Details</h1>
+    <div className={'relative page-transition' + (loading && user ? ' opacity-80' : '')}>
+      {loading && <div className="side-progress-bar absolute top-0 left-0 right-0 h-1 z-50" />}
+      
+      {loading && !user ? (
+          <div className="flex flex-col items-center justify-center h-[60vh] animate-in fade-in duration-500">
+             <LogoLoader text="Loading user information..." />
+          </div>
+      ) : (
+        <>
+        {!user ? (
+          <div className="flex items-center justify-center h-[60vh] animate-in slide-in-from-bottom-4 duration-700">
+            <div className="text-center bg-white p-12 rounded-3xl shadow-xl border border-slate-100 max-w-md mx-auto">
+              <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-6">
+                <User className="w-10 h-10 text-slate-300" />
               </div>
+              <h2 className="text-2xl font-bold text-slate-800 mb-3 font-sans">User Not Found</h2>
+              <p className="text-slate-500 mb-8 leading-relaxed">The user profile you're looking for doesn't exist or may have been removed.</p>
               <button
-                type="button"
-                onClick={handleDownloadPerformancePdf}
-                className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50"
+                onClick={() => navigate('/company-settings/team-management')}
+                className="w-full py-4 bg-slate-900 text-white rounded-2xl font-bold hover:bg-black transition-all hover:shadow-lg active:scale-95"
               >
-                <Download className="h-4 w-4" />
-                Download Performance
+                Back to Team Management
               </button>
-              <div className="flex items-center space-x-2">
-                <span className={`px-3 py-1 rounded-full text-sm font-medium ${user.is_active
-                  ? 'bg-green-100 text-green-800'
-                  : 'bg-red-100 text-red-800'
-                  }`}>
-                  {user.is_active ? 'Active' : 'Inactive'}
-                </span>
-                {!editingUser ? (
-                  <button
-                    onClick={handleEditUser}
-                    className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                    title="Edit User"
-                  >
-                    <Edit className="h-4 w-4" />
-                  </button>
-                ) : (
-                  <div className="flex items-center space-x-2">
+            </div>
+          </div>
+        ) : (
+          <div className="min-h-screen pb-12">
+            <div className="max-w-7xl mx-auto">
+              {/* Header */}
+              <div className="bg-white shadow-sm rounded-lg mb-6">
+                <div className="px-6 py-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-4">
+                      <button
+                        onClick={() => navigate('/company-settings/team-management')}
+                        className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                      >
+                        <ArrowLeft className="h-5 w-5 text-gray-600" />
+                      </button>
+                      <h1 className="text-2xl font-bold text-gray-900">User Details</h1>
+                    </div>
                     <button
-                      onClick={handleSaveUser}
-                      className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
-                      title="Save Changes"
+                      type="button"
+                      onClick={handleDownloadPerformancePdf}
+                      className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50"
                     >
-                      <Save className="h-4 w-4" />
+                      <Download className="h-4 w-4" />
+                      Download Performance
                     </button>
-                    <button
-                      onClick={handleCancelEdit}
-                      className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                      title="Cancel"
-                    >
-                      <X className="h-4 w-4" />
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* User Info Card */}
-        <div className="bg-white shadow-sm rounded-lg mb-6">
-          <div className="px-6 py-4">
-            <div className="flex flex-col md:flex-row items-center gap-6 mb-6 pb-6 border-b border-gray-100">
-              <div className="relative group">
-                <div className="h-24 w-24 rounded-full bg-blue-100 flex items-center justify-center overflow-hidden border-4 border-white shadow-sm ring-1 ring-gray-100">
-                  {editForm.profile_picture instanceof File ? (
-                    <img src={URL.createObjectURL(editForm.profile_picture)} className="h-full w-full object-cover" alt="Preview" />
-                  ) : user.profile_picture ? (
-                    <img src={user.profile_picture} className="h-full w-full object-cover" alt={user.name} />
-                  ) : (
-                    <span className="text-3xl font-bold text-blue-600 uppercase">{user.name.charAt(0)}</span>
-                  )}
-                </div>
-                {editingUser && (
-                  <>
-                    <button
-                      onClick={() => document.getElementById('user-profile-upload').click()}
-                      className="absolute bottom-0 right-0 bg-blue-600 text-white p-1.5 rounded-full shadow-lg hover:bg-blue-700 transition-colors"
-                      title="Update Photo"
-                    >
-                      <Camera className="h-4 w-4" />
-                    </button>
-                    <input
-                      id="user-profile-upload"
-                      type="file"
-                      className="hidden"
-                      accept="image/*"
-                      onChange={(e) => {
-                        const file = e.target.files[0];
-                        if (file) {
-                          setEditForm(prev => ({ ...prev, profile_picture: file }));
-                        }
-                      }}
-                    />
-                  </>
-                )}
-              </div>
-              <div>
-                <h2 className="text-xl font-bold text-gray-900">{user.name}</h2>
-                <p className="text-gray-500">{user.roles?.map(r => r.name).join(', ') || 'N/A'}</p>
-                <div className="flex items-center gap-2 mt-2">
-                  <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${user.is_active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                    {user.is_active ? 'Active' : 'Inactive'}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Personal Information</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {editingUser ? (
-                <>
-                  <div className="flex items-center space-x-3">
-                    <User className="h-5 w-5 text-gray-400" />
-                    <div className="flex-1">
-                      <p className="text-sm text-gray-500">Full Name</p>
-                      <input
-                        type="text"
-                        name="name"
-                        value={editForm.name}
-                        onChange={handleEditFormChange}
-                        className="w-full px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-3">
-                    <Mail className="h-5 w-5 text-gray-400" />
-                    <div className="flex-1">
-                      <p className="text-sm text-gray-500">Email</p>
-                      <input
-                        type="email"
-                        name="email"
-                        value={editForm.email}
-                        onChange={handleEditFormChange}
-                        className="w-full px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-3">
-                    <Phone className="h-5 w-5 text-gray-400" />
-                    <div className="flex-1">
-                      <p className="text-sm text-gray-500">Phone</p>
-                      <input
-                        type="tel"
-                        name="phone"
-                        value={editForm.phone}
-                        onChange={handleEditFormChange}
-                        className="w-full px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-3">
-                    <User className="h-5 w-5 text-gray-400" />
-                    <div className="flex-1">
-                      <p className="text-sm text-gray-500">Employee ID</p>
-                      <input
-                        type="text"
-                        name="employee_id"
-                        value={editForm.employee_id}
-                        onChange={handleEditFormChange}
-                        className="w-full px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-3">
-                    <MapPin className="h-5 w-5 text-gray-400" />
-                    <div className="flex-1">
-                      <p className="text-sm text-gray-500">Address</p>
-                      <input
-                        type="text"
-                        name="address"
-                        value={editForm.address}
-                        onChange={handleEditFormChange}
-                        className="w-full px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-3">
-                    <MapPin className="h-5 w-5 text-gray-400" />
-                    <div className="flex-1">
-                      <p className="text-sm text-gray-500">City</p>
-                      <input
-                        type="text"
-                        name="city"
-                        value={editForm.city}
-                        onChange={handleEditFormChange}
-                        className="w-full px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-3">
-                    <MapPin className="h-5 w-5 text-gray-400" />
-                    <div className="flex-1">
-                      <p className="text-sm text-gray-500">State</p>
-                      <input
-                        type="text"
-                        name="state"
-                        value={editForm.state}
-                        onChange={handleEditFormChange}
-                        className="w-full px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-3">
-                    <MapPin className="h-5 w-5 text-gray-400" />
-                    <div className="flex-1">
-                      <p className="text-sm text-gray-500">Country</p>
-                      <input
-                        type="text"
-                        name="country"
-                        value={editForm.country}
-                        onChange={handleEditFormChange}
-                        className="w-full px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-3">
-                    <MapPin className="h-5 w-5 text-gray-400" />
-                    <div className="flex-1">
-                      <p className="text-sm text-gray-500">Postal Code</p>
-                      <input
-                        type="text"
-                        name="postal_code"
-                        value={editForm.postal_code}
-                        onChange={handleEditFormChange}
-                        className="w-full px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-3">
-                    <Shield className="h-5 w-5 text-blue-400" />
-                    <div className="flex-1">
-                      <p className="text-sm text-blue-600 font-semibold">New Password (reset)</p>
-                      <input
-                        type="password"
-                        name="password"
-                        value={editForm.password || ''}
-                        onChange={handleEditFormChange}
-                        autoComplete="new-password"
-                        placeholder="Leave blank to keep current"
-                        className="w-full px-2 py-1 border border-blue-200 rounded focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div className="flex items-center space-x-3">
-                    <User className="h-5 w-5 text-gray-400" />
-                    <div>
-                      <p className="text-sm text-gray-500">Full Name</p>
-                      <p className="font-medium text-gray-900">{user.name}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-3">
-                    <Mail className="h-5 w-5 text-gray-400" />
-                    <div>
-                      <p className="text-sm text-gray-500">Email</p>
-                      <p className="font-medium text-gray-900">{user.email}</p>
-                      {user.email_verified && (
-                        <span className="inline-flex px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded ml-2">
-                          Verified
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-3">
-                    <Phone className="h-5 w-5 text-gray-400" />
-                    <div>
-                      <p className="text-sm text-gray-500">Phone</p>
-                      <p className="font-medium text-gray-900">{user.phone || 'N/A'}</p>
-                      {user.phone_verified && (
-                        <span className="inline-flex px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded ml-2">
-                          Verified
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-3">
-                    <User className="h-5 w-5 text-gray-400" />
-                    <div>
-                      <p className="text-sm text-gray-500">Employee ID</p>
-                      <p className="font-medium text-gray-900">{user.employee_id || 'N/A'}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-3">
-                    <Building className="h-5 w-5 text-gray-400" />
-                    <div>
-                      <p className="text-sm text-gray-500">Branch</p>
-                      <p className="font-medium text-gray-900">{user.branch?.name || 'N/A'}</p>
-                      {user.branch?.code && (
-                        <p className="text-xs text-gray-500">Code: {user.branch.code}</p>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-3">
-                    <Shield className="h-5 w-5 text-gray-400" />
-                    <div>
-                      <p className="text-sm text-gray-500">Roles</p>
-                      <div className="flex flex-wrap gap-1">
-                        {user.roles?.map(role => (
-                          <span key={role.id} className="inline-flex px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded">
-                            {role.name}
-                          </span>
-                        )) || 'N/A'}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-3">
-                    <MapPin className="h-5 w-5 text-gray-400" />
-                    <div>
-                      <p className="text-sm text-gray-500">Address</p>
-                      <p className="font-medium text-gray-900">{user.address || 'N/A'}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-3">
-                    <Calendar className="h-5 w-5 text-gray-400" />
-                    <div>
-                      <p className="text-sm text-gray-500">Created At</p>
-                      <p className="font-medium text-gray-900">{user.created_at || 'N/A'}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-3">
-                    <Calendar className="h-5 w-5 text-gray-400" />
-                    <div>
-                      <p className="text-sm text-gray-500">Last Login</p>
-                      <p className="font-medium text-gray-900">{user.last_login || 'N/A'}</p>
-                    </div>
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
-          <div className="bg-white shadow-sm rounded-lg p-6">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <Shield className="h-8 w-8 text-blue-600" />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-500">Total Roles</p>
-                <p className="text-2xl font-bold text-gray-900">{user.roles?.length || 0}</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white shadow-sm rounded-lg p-6">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <Building className="h-8 w-8 text-green-600" />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-500">Branch</p>
-                <p className="text-lg font-bold text-gray-900">{user.branch?.name || 'N/A'}</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white shadow-sm rounded-lg p-6">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <Mail className="h-8 w-8 text-purple-600" />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-500">Email Status</p>
-                <p className="text-lg font-bold text-gray-900">
-                  {user.email_verified ? 'Verified' : 'Not Verified'}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white shadow-sm rounded-lg p-6">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <Phone className="h-8 w-8 text-orange-600" />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-500">Phone Status</p>
-                <p className="text-lg font-bold text-gray-900">
-                  {user.phone_verified ? 'Verified' : 'Not Verified'}
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Performance Summary */}
-        <div className="bg-white shadow-sm rounded-lg mb-6">
-          <div className="px-6 py-4 border-b border-gray-200">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-gray-900">Performance Summary</h2>
-              <div className="flex items-center space-x-2">
-                {['week', 'month', 'year'].map((range) => (
-                  <button
-                    key={range}
-                    onClick={() => setSelectedRange(range)}
-                    className={`px-3 py-1 text-sm rounded-full border transition-colors ${selectedRange === range
-                      ? 'bg-blue-600 text-white border-blue-600'
-                      : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'
-                      }`}
-                  >
-                    {range.charAt(0).toUpperCase() + range.slice(1)}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          <div className="px-6 py-4">
-            {performanceLoading ? (
-              <div className="flex items-center justify-center h-32">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-              </div>
-            ) : performanceError ? (
-              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
-                {performanceError}
-              </div>
-            ) : (
-              <>
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
-                  <div className="bg-gray-50 rounded-lg p-4">
-                    <div className="flex items-center">
-                      <Users className="h-6 w-6 text-blue-600" />
-                      <div className="ml-3">
-                        <p className="text-sm text-gray-500">Assigned Leads</p>
-                        <p className="text-xl font-semibold text-gray-900">
-                          {performance?.ranges?.[selectedRange]?.assigned_to_user ?? 0}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="bg-gray-50 rounded-lg p-4">
-                    <div className="flex items-center">
-                      <ClipboardList className="h-6 w-6 text-indigo-600" />
-                      <div className="ml-3">
-                        <p className="text-sm text-gray-500">Leads Contacted</p>
-                        <p className="text-xl font-semibold text-gray-900">
-                          {performance?.ranges?.[selectedRange]?.contacted_leads ?? 0}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="bg-gray-50 rounded-lg p-4">
-                    <div className="flex items-center">
-                      <PhoneCall className="h-6 w-6 text-orange-600" />
-                      <div className="ml-3">
-                        <p className="text-sm text-gray-500">Calls Made</p>
-                        <p className="text-xl font-semibold text-gray-900">
-                          {performance?.ranges?.[selectedRange]?.calls_count ?? 0}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="bg-gray-50 rounded-lg p-4">
-                    <div className="flex items-center">
-                      <CheckCircle className="h-6 w-6 text-green-600" />
-                      <div className="ml-3">
-                        <p className="text-sm text-gray-500">Bookings Confirmed</p>
-                        <p className="text-xl font-semibold text-gray-900">
-                          {performance?.ranges?.[selectedRange]?.confirmed_by_user ?? 0}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  <div className="bg-white border border-gray-200 rounded-lg">
-                    <div className="px-4 py-3 border-b border-gray-200">
-                      <h3 className="text-sm font-semibold text-gray-900">Assigned By</h3>
-                    </div>
-                    <div className="px-4 py-3 space-y-2">
-                      {performance?.ranges?.[selectedRange]?.assigned_by_breakdown?.length ? (
-                        performance.ranges[selectedRange].assigned_by_breakdown.map((item) => (
-                          <div key={item.user_id ?? item.name} className="flex items-center justify-between text-sm text-gray-700">
-                            <span>{item.name}</span>
-                            <span className="font-semibold text-gray-900">{item.count}</span>
-                          </div>
-                        ))
+                    <div className="flex items-center space-x-2">
+                      <span className={`px-3 py-1 rounded-full text-sm font-medium ${user.is_active
+                        ? 'bg-green-100 text-green-800'
+                        : 'bg-red-100 text-red-800'
+                        }`}>
+                        {user.is_active ? 'Active' : 'Inactive'}
+                      </span>
+                      {!editingUser ? (
+                        <button
+                          onClick={handleEditUser}
+                          className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                          title="Edit User"
+                        >
+                          <Edit className="h-4 w-4" />
+                        </button>
                       ) : (
-                        <p className="text-sm text-gray-500">No assignments found for this period.</p>
+                        <div className="flex items-center space-x-2">
+                          <button
+                            onClick={handleSaveUser}
+                            className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                            title="Save Changes"
+                          >
+                            <Save className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={handleCancelEdit}
+                            className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                            title="Cancel"
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                        </div>
                       )}
                     </div>
                   </div>
-
-                  <div className="bg-white border border-gray-200 rounded-lg">
-                    <div className="px-4 py-3 border-b border-gray-200">
-                      <h3 className="text-sm font-semibold text-gray-900">Activity Summary</h3>
-                    </div>
-                    <div className="px-4 py-3 space-y-2 text-sm text-gray-700">
-                      <div className="flex items-center justify-between">
-                        <span>Followups</span>
-                        <span className="font-semibold text-gray-900">
-                          {performance?.ranges?.[selectedRange]?.followups_count ?? 0}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span>Leads Assigned By User</span>
-                        <span className="font-semibold text-gray-900">
-                          {performance?.ranges?.[selectedRange]?.assigned_by_user ?? 0}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
                 </div>
+              </div>
 
-                <div className="mt-6 bg-white border border-gray-200 rounded-lg">
-                  <div className="px-4 py-3 border-b border-gray-200">
-                    <h3 className="text-sm font-semibold text-gray-900">Recent Calls</h3>
-                  </div>
-                  <div className="px-4 py-3">
-                    {performance?.ranges?.[selectedRange]?.recent_calls?.length ? (
-                      <div className="overflow-x-auto">
-                        <table className="min-w-full text-sm">
-                          <thead className="text-left text-gray-500">
-                            <tr>
-                              <th className="py-2 pr-4">Lead</th>
-                              <th className="py-2 pr-4">Phone</th>
-                              <th className="py-2 pr-4">Status</th>
-                              <th className="py-2 pr-4">Duration</th>
-                              <th className="py-2 pr-4">Recording</th>
-                              <th className="py-2">Date</th>
-                            </tr>
-                          </thead>
-                          <tbody className="text-gray-700">
-                            {performance.ranges[selectedRange].recent_calls.map((call) => (
-                              <tr key={call.id} className="border-t border-gray-100">
-                                <td className="py-2 pr-4">{call.lead_name || 'N/A'}</td>
-                                <td className="py-2 pr-4">{call.lead_phone || 'N/A'}</td>
-                                <td className="py-2 pr-4">{call.call_status || 'N/A'}</td>
-                                <td className="py-2 pr-4">
-                                  {call.duration_seconds ? `${call.duration_seconds}s` : 'N/A'}
-                                </td>
-                                <td className="py-2 pr-4">
-                                  {call.recording_url ? (
-                                    <a
-                                      href={call.recording_url}
-                                      target="_blank"
-                                      rel="noreferrer"
-                                      className="text-blue-600 hover:text-blue-800"
-                                    >
-                                      View
-                                    </a>
-                                  ) : (
-                                    'N/A'
-                                  )}
-                                </td>
-                                <td className="py-2">
-                                  {call.created_at ? new Date(call.created_at).toLocaleString() : 'N/A'}
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
+              {/* User Info Card */}
+              <div className="bg-white shadow-sm rounded-lg mb-6">
+                <div className="px-6 py-4">
+                  <div className="flex flex-col md:flex-row items-center gap-6 mb-6 pb-6 border-b border-gray-100">
+                    <div className="relative group">
+                      <div className="h-24 w-24 rounded-full bg-blue-100 flex items-center justify-center overflow-hidden border-4 border-white shadow-sm ring-1 ring-gray-100">
+                        {editForm.profile_picture instanceof File ? (
+                          <img src={URL.createObjectURL(editForm.profile_picture)} className="h-full w-full object-cover" alt="Preview" />
+                        ) : user.profile_picture ? (
+                          <img src={user.profile_picture} className="h-full w-full object-cover" alt={user.name} />
+                        ) : (
+                          <span className="text-3xl font-bold text-blue-600 uppercase">{user.name.charAt(0)}</span>
+                        )}
                       </div>
+                      {editingUser && (
+                        <>
+                          <button
+                            onClick={() => document.getElementById('user-profile-upload').click()}
+                            className="absolute bottom-0 right-0 bg-blue-600 text-white p-1.5 rounded-full shadow-lg hover:bg-blue-700 transition-colors"
+                            title="Update Photo"
+                          >
+                            <Camera className="h-4 w-4" />
+                          </button>
+                          <input
+                            id="user-profile-upload"
+                            type="file"
+                            className="hidden"
+                            accept="image/*"
+                            onChange={(e) => {
+                              const file = e.target.files[0];
+                              if (file) {
+                                setEditForm(prev => ({ ...prev, profile_picture: file }));
+                              }
+                            }}
+                          />
+                        </>
+                      )}
+                    </div>
+                    <div>
+                      <h2 className="text-xl font-bold text-gray-900">{user.name}</h2>
+                      <p className="text-gray-500">{user.roles?.map(r => r.name).join(', ') || 'N/A'}</p>
+                      <div className="flex items-center gap-2 mt-2">
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${user.is_active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                          {user.is_active ? 'Active' : 'Inactive'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <h2 className="text-lg font-semibold text-gray-900 mb-4">Personal Information</h2>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {editingUser ? (
+                      <>
+                        <div className="flex items-center space-x-3">
+                          <User className="h-5 w-5 text-gray-400" />
+                          <div className="flex-1">
+                            <p className="text-sm text-gray-500">Full Name</p>
+                            <input
+                              type="text"
+                              name="name"
+                              value={editForm.name}
+                              onChange={handleEditFormChange}
+                              className="w-full px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-3">
+                          <Mail className="h-5 w-5 text-gray-400" />
+                          <div className="flex-1">
+                            <p className="text-sm text-gray-500">Email</p>
+                            <input
+                              type="email"
+                              name="email"
+                              value={editForm.email}
+                              onChange={handleEditFormChange}
+                              className="w-full px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-3">
+                          <Phone className="h-5 w-5 text-gray-400" />
+                          <div className="flex-1">
+                            <p className="text-sm text-gray-500">Phone</p>
+                            <input
+                              type="tel"
+                              name="phone"
+                              value={editForm.phone}
+                              onChange={handleEditFormChange}
+                              className="w-full px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-3">
+                          <User className="h-5 w-5 text-gray-400" />
+                          <div className="flex-1">
+                            <p className="text-sm text-gray-500">Employee ID</p>
+                            <input
+                              type="text"
+                              name="employee_id"
+                              value={editForm.employee_id}
+                              onChange={handleEditFormChange}
+                              className="w-full px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-3">
+                          <MapPin className="h-5 w-5 text-gray-400" />
+                          <div className="flex-1">
+                            <p className="text-sm text-gray-500">Address</p>
+                            <input
+                              type="text"
+                              name="address"
+                              value={editForm.address}
+                              onChange={handleEditFormChange}
+                              className="w-full px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-3">
+                          <MapPin className="h-5 w-5 text-gray-400" />
+                          <div className="flex-1">
+                            <p className="text-sm text-gray-500">City</p>
+                            <input
+                              type="text"
+                              name="city"
+                              value={editForm.city}
+                              onChange={handleEditFormChange}
+                              className="w-full px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-3">
+                          <MapPin className="h-5 w-5 text-gray-400" />
+                          <div className="flex-1">
+                            <p className="text-sm text-gray-500">State</p>
+                            <input
+                              type="text"
+                              name="state"
+                              value={editForm.state}
+                              onChange={handleEditFormChange}
+                              className="w-full px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-3">
+                          <MapPin className="h-5 w-5 text-gray-400" />
+                          <div className="flex-1">
+                            <p className="text-sm text-gray-500">Country</p>
+                            <input
+                              type="text"
+                              name="country"
+                              value={editForm.country}
+                              onChange={handleEditFormChange}
+                              className="w-full px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-3">
+                          <MapPin className="h-5 w-5 text-gray-400" />
+                          <div className="flex-1">
+                            <p className="text-sm text-gray-500">Postal Code</p>
+                            <input
+                              type="text"
+                              name="postal_code"
+                              value={editForm.postal_code}
+                              onChange={handleEditFormChange}
+                              className="w-full px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-3">
+                          <Shield className="h-5 w-5 text-blue-400" />
+                          <div className="flex-1">
+                            <p className="text-sm text-blue-600 font-semibold">New Password (reset)</p>
+                            <input
+                              type="password"
+                              name="password"
+                              value={editForm.password || ''}
+                              onChange={handleEditFormChange}
+                              autoComplete="new-password"
+                              placeholder="Leave blank to keep current"
+                              className="w-full px-2 py-1 border border-blue-200 rounded focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                          </div>
+                        </div>
+                      </>
                     ) : (
-                      <p className="text-sm text-gray-500">No call logs found for this period.</p>
+                      <>
+                        <div className="flex items-center space-x-3">
+                          <User className="h-5 w-5 text-gray-400" />
+                          <div>
+                            <p className="text-sm text-gray-500">Full Name</p>
+                            <p className="font-medium text-gray-900">{user.name}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-3">
+                          <Mail className="h-5 w-5 text-gray-400" />
+                          <div>
+                            <p className="text-sm text-gray-500">Email</p>
+                            <p className="font-medium text-gray-900">{user.email}</p>
+                            {user.email_verified && (
+                              <span className="inline-flex px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded ml-2">
+                                Verified
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-3">
+                          <Phone className="h-5 w-5 text-gray-400" />
+                          <div>
+                            <p className="text-sm text-gray-500">Phone</p>
+                            <p className="font-medium text-gray-900">{user.phone || 'N/A'}</p>
+                            {user.phone_verified && (
+                              <span className="inline-flex px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded ml-2">
+                                Verified
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-3">
+                          <User className="h-5 w-5 text-gray-400" />
+                          <div>
+                            <p className="text-sm text-gray-500">Employee ID</p>
+                            <p className="font-medium text-gray-900">{user.employee_id || 'N/A'}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-3">
+                          <Building className="h-5 w-5 text-gray-400" />
+                          <div>
+                            <p className="text-sm text-gray-500">Branch</p>
+                            <p className="font-medium text-gray-900">{user.branch?.name || 'N/A'}</p>
+                            {user.branch?.code && (
+                              <p className="text-xs text-gray-500">Code: {user.branch.code}</p>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-3">
+                          <Shield className="h-5 w-5 text-gray-400" />
+                          <div>
+                            <p className="text-sm text-gray-500">Roles</p>
+                            <div className="flex flex-wrap gap-1">
+                              {user.roles?.map(role => (
+                                <span key={role.id} className="inline-flex px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded">
+                                  {role.name}
+                                </span>
+                              )) || 'N/A'}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-3">
+                          <MapPin className="h-5 w-5 text-gray-400" />
+                          <div>
+                            <p className="text-sm text-gray-500">Address</p>
+                            <p className="font-medium text-gray-900">{user.address || 'N/A'}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-3">
+                          <Calendar className="h-5 w-5 text-gray-400" />
+                          <div>
+                            <p className="text-sm text-gray-500">Created At</p>
+                            <p className="font-medium text-gray-900">{user.created_at || 'N/A'}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-3">
+                          <Calendar className="h-5 w-5 text-gray-400" />
+                          <div>
+                            <p className="text-sm text-gray-500">Last Login</p>
+                            <p className="font-medium text-gray-900">{user.last_login || 'N/A'}</p>
+                          </div>
+                        </div>
+                      </>
                     )}
                   </div>
                 </div>
-              </>
-            )}
-          </div>
-        </div>
-
-        {/* WhatsApp Chats - who this employee messaged via WhatsApp (admin can view) */}
-        <div className="bg-white shadow-sm rounded-lg mb-6">
-          <div className="px-6 py-4 border-b border-gray-200">
-            <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-              <MessageCircle className="h-5 w-5 text-green-600" />
-              WhatsApp Chats
-            </h2>
-            <p className="text-sm text-gray-500 mt-1">
-              WhatsApp messages sent by this employee from the CRM to leads/customers — all conversations are shown here.
-            </p>
-          </div>
-          <div className="px-6 py-4">
-            {whatsappLoading ? (
-              <div className="flex items-center justify-center h-24">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600"></div>
               </div>
-            ) : whatsappInbox.length === 0 ? (
-              <p className="text-sm text-gray-500">This user has not sent any WhatsApp messages yet.</p>
-            ) : (
-              <div className="flex flex-col md:flex-row gap-6">
-                <div className="md:w-1/2 space-y-2 max-h-80 overflow-y-auto">
-                  {whatsappInbox.map((conv) => (
-                    <button
-                      key={conv.lead_id}
-                      type="button"
-                      onClick={() => openChat(conv.lead_id)}
-                      className={`w-full text-left px-4 py-3 rounded-lg border transition-colors ${selectedChatLeadId === conv.lead_id
-                        ? 'bg-green-50 border-green-300 ring-1 ring-green-200'
-                        : 'bg-gray-50 border-gray-200 hover:bg-gray-100'
-                        }`}
-                    >
-                      <div className="font-medium text-gray-900">{conv.client_name || conv.phone || 'Unknown'}</div>
-                      <div className="text-xs text-gray-500 truncate">{conv.phone}</div>
-                      {conv.last_message && (
-                        <div className="text-sm text-gray-600 truncate mt-1">{conv.last_message}</div>
-                      )}
-                      <div className="text-xs text-gray-400 mt-1">
-                        {conv.last_sent_at ? new Date(conv.last_sent_at).toLocaleString() : ''} · {conv.total_messages} msg
-                      </div>
-                    </button>
-                  ))}
+
+              {/* Stats Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+                <div className="bg-white shadow-sm rounded-lg p-6">
+                  <div className="flex items-center">
+                    <div className="flex-shrink-0">
+                      <Shield className="h-8 w-8 text-blue-600" />
+                    </div>
+                    <div className="ml-4">
+                      <p className="text-sm font-medium text-gray-500">Total Roles</p>
+                      <p className="text-2xl font-bold text-gray-900">{user.roles?.length || 0}</p>
+                    </div>
+                  </div>
                 </div>
-                <div className="md:w-1/2 border border-gray-200 rounded-lg p-4 min-h-[200px] bg-gray-50">
-                  {!selectedChatLeadId ? (
-                    <p className="text-sm text-gray-500">Select a chat from the list above to view the conversation.</p>
-                  ) : chatLoading ? (
-                    <div className="flex items-center justify-center h-32">
-                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-green-600"></div>
+
+                <div className="bg-white shadow-sm rounded-lg p-6">
+                  <div className="flex items-center">
+                    <div className="flex-shrink-0">
+                      <Building className="h-8 w-8 text-green-600" />
+                    </div>
+                    <div className="ml-4">
+                      <p className="text-sm font-medium text-gray-500">Branch</p>
+                      <p className="text-lg font-bold text-gray-900">{user.branch?.name || 'N/A'}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-white shadow-sm rounded-lg p-6">
+                  <div className="flex items-center">
+                    <div className="flex-shrink-0">
+                      <Mail className="h-8 w-8 text-purple-600" />
+                    </div>
+                    <div className="ml-4">
+                      <p className="text-sm font-medium text-gray-500">Email Status</p>
+                      <p className="text-lg font-bold text-gray-900">
+                        {user.email_verified ? 'Verified' : 'Not Verified'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-white shadow-sm rounded-lg p-6">
+                  <div className="flex items-center">
+                    <div className="flex-shrink-0">
+                      <Phone className="h-8 w-8 text-orange-600" />
+                    </div>
+                    <div className="ml-4">
+                      <p className="text-sm font-medium text-gray-500">Phone Status</p>
+                      <p className="text-lg font-bold text-gray-900">
+                        {user.phone_verified ? 'Verified' : 'Not Verified'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Performance Summary */}
+              <div className="bg-white shadow-sm rounded-lg mb-6">
+                <div className="px-6 py-4 border-b border-gray-200">
+                  <div className="flex items-center justify-between">
+                    <h2 className="text-lg font-semibold text-gray-900">Performance Summary</h2>
+                    <div className="flex items-center space-x-2">
+                      {['week', 'month', 'year'].map((range) => (
+                        <button
+                          key={range}
+                          onClick={() => setSelectedRange(range)}
+                          className={`px-3 py-1 text-sm rounded-full border transition-colors ${selectedRange === range
+                              ? 'bg-blue-600 text-white border-blue-600'
+                              : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'
+                            }`}
+                        >
+                          {range.charAt(0).toUpperCase() + range.slice(1)}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="px-6 py-4">
+                  {performanceLoading ? (
+                    <div className="flex items-center justify-center py-8">
+                      <div className="transform scale-75">
+                        <LogoLoader text="Loading performance..." />
+                      </div>
+                    </div>
+                  ) : performanceError ? (
+                    <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+                      {performanceError}
                     </div>
                   ) : (
-                    <div className="space-y-3 overflow-y-auto max-h-80">
-                      {chatMessages.map((msg) => (
-                        <div
-                          key={msg.id}
-                          className="bg-white border border-gray-200 rounded-lg p-3 text-sm"
-                        >
-                          <div className="text-xs text-gray-500 mb-1">
-                            {msg.sent_at ? new Date(msg.sent_at).toLocaleString() : ''}
-                            {msg.user?.name && <span className="ml-2">· {msg.user.name}</span>}
+                    <>
+                      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+                        <div className="bg-gray-50 rounded-lg p-4">
+                          <div className="flex items-center">
+                            <Users className="h-6 w-6 text-blue-600" />
+                            <div className="ml-3">
+                              <p className="text-sm text-gray-500">Assigned Leads</p>
+                              <p className="text-xl font-semibold text-gray-900">
+                                {performance?.ranges?.[selectedRange]?.assigned_to_user ?? 0}
+                              </p>
+                            </div>
                           </div>
-                          <div className="text-gray-800 whitespace-pre-wrap">{msg.message || '—'}</div>
                         </div>
-                      ))}
-                      {chatMessages.length === 0 && <p className="text-sm text-gray-500">No messages in this thread.</p>}
+
+                        <div className="bg-gray-50 rounded-lg p-4">
+                          <div className="flex items-center">
+                            <ClipboardList className="h-6 w-6 text-indigo-600" />
+                            <div className="ml-3">
+                              <p className="text-sm text-gray-500">Leads Contacted</p>
+                              <p className="text-xl font-semibold text-gray-900">
+                                {performance?.ranges?.[selectedRange]?.contacted_leads ?? 0}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="bg-gray-50 rounded-lg p-4">
+                          <div className="flex items-center">
+                            <PhoneCall className="h-6 w-6 text-orange-600" />
+                            <div className="ml-3">
+                              <p className="text-sm text-gray-500">Calls Made</p>
+                              <p className="text-xl font-semibold text-gray-900">
+                                {performance?.ranges?.[selectedRange]?.calls_count ?? 0}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="bg-gray-50 rounded-lg p-4">
+                          <div className="flex items-center">
+                            <CheckCircle className="h-6 w-6 text-green-600" />
+                            <div className="ml-3">
+                              <p className="text-sm text-gray-500">Bookings Confirmed</p>
+                              <p className="text-xl font-semibold text-gray-900">
+                                {performance?.ranges?.[selectedRange]?.confirmed_by_user ?? 0}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <div className="bg-white border border-gray-200 rounded-lg">
+                          <div className="px-4 py-3 border-b border-gray-200">
+                            <h3 className="text-sm font-semibold text-gray-900">Assigned By</h3>
+                          </div>
+                          <div className="px-4 py-3 space-y-2">
+                            {performance?.ranges?.[selectedRange]?.assigned_by_breakdown?.length ? (
+                              performance.ranges[selectedRange].assigned_by_breakdown.map((item) => (
+                                <div key={item.user_id ?? item.name} className="flex items-center justify-between text-sm text-gray-700">
+                                  <span>{item.name}</span>
+                                  <span className="font-semibold text-gray-900">{item.count}</span>
+                                </div>
+                              ))
+                            ) : (
+                              <p className="text-sm text-gray-500">No assignments found for this period.</p>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="bg-white border border-gray-200 rounded-lg">
+                          <div className="px-4 py-3 border-b border-gray-200">
+                            <h3 className="text-sm font-semibold text-gray-900">Activity Summary</h3>
+                          </div>
+                          <div className="px-4 py-3 space-y-2 text-sm text-gray-700">
+                            <div className="flex items-center justify-between">
+                              <span>Followups</span>
+                              <span className="font-semibold text-gray-900">
+                                {performance?.ranges?.[selectedRange]?.followups_count ?? 0}
+                              </span>
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <span>Leads Assigned By User</span>
+                              <span className="font-semibold text-gray-900">
+                                {performance?.ranges?.[selectedRange]?.assigned_by_user ?? 0}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="mt-6 bg-white border border-gray-200 rounded-lg">
+                        <div className="px-4 py-3 border-b border-gray-200">
+                          <h3 className="text-sm font-semibold text-gray-900">Recent Calls</h3>
+                        </div>
+                        <div className="px-4 py-3">
+                          {performance?.ranges?.[selectedRange]?.recent_calls?.length ? (
+                            <div className="overflow-x-auto">
+                              <table className="min-w-full text-sm">
+                                <thead className="text-left text-gray-500">
+                                  <tr>
+                                    <th className="py-2 pr-4">Lead</th>
+                                    <th className="py-2 pr-4">Phone</th>
+                                    <th className="py-2 pr-4">Status</th>
+                                    <th className="py-2 pr-4">Duration</th>
+                                    <th className="py-2 pr-4">Recording</th>
+                                    <th className="py-2">Date</th>
+                                  </tr>
+                                </thead>
+                                <tbody className="text-gray-700">
+                                  {performance.ranges[selectedRange].recent_calls.map((call) => (
+                                    <tr key={call.id} className="border-t border-gray-100">
+                                      <td className="py-2 pr-4">{call.lead_name || 'N/A'}</td>
+                                      <td className="py-2 pr-4">{call.lead_phone || 'N/A'}</td>
+                                      <td className="py-2 pr-4">{call.call_status || 'N/A'}</td>
+                                      <td className="py-2 pr-4">
+                                        {call.duration_seconds ? `${call.duration_seconds}s` : 'N/A'}
+                                      </td>
+                                      <td className="py-2 pr-4">
+                                        {call.recording_url ? (
+                                          <a
+                                            href={call.recording_url}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            className="text-blue-600 hover:text-blue-800"
+                                          >
+                                            View
+                                          </a>
+                                        ) : (
+                                          'N/A'
+                                        )}
+                                      </td>
+                                      <td className="py-2">
+                                        {call.created_at ? new Date(call.created_at).toLocaleString() : 'N/A'}
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          ) : (
+                            <p className="text-sm text-gray-500">No call logs found for this period.</p>
+                          )}
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {/* WhatsApp Chats - who this employee messaged via WhatsApp (admin can view) */}
+              <div className="bg-white shadow-sm rounded-lg mb-6">
+                <div className="px-6 py-4 border-b border-gray-200">
+                  <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                    <MessageCircle className="h-5 w-5 text-green-600" />
+                    WhatsApp Chats
+                  </h2>
+                  <p className="text-sm text-gray-500 mt-1">
+                    WhatsApp messages sent by this employee from the CRM to leads/customers — all conversations are shown here.
+                  </p>
+                </div>
+                <div className="px-6 py-4">
+                  {whatsappLoading ? (
+                    <div className="flex items-center justify-center py-8">
+                      <div className="transform scale-75">
+                        <LogoLoader text="Loading chats..." />
+                      </div>
+                    </div>
+                  ) : whatsappInbox.length === 0 ? (
+                    <p className="text-sm text-gray-500">This user has not sent any WhatsApp messages yet.</p>
+                  ) : (
+                    <div className="flex flex-col md:flex-row gap-6">
+                      <div className="md:w-1/2 space-y-2 max-h-80 overflow-y-auto">
+                        {whatsappInbox.map((conv) => (
+                          <button
+                            key={conv.lead_id}
+                            type="button"
+                            onClick={() => openChat(conv.lead_id)}
+                            className={`w-full text-left px-4 py-3 rounded-lg border transition-colors ${selectedChatLeadId === conv.lead_id
+                                ? 'bg-green-50 border-green-300 ring-1 ring-green-200'
+                                : 'bg-gray-50 border-gray-200 hover:bg-gray-100'
+                              }`}
+                          >
+                            <div className="font-medium text-gray-900">{conv.client_name || conv.phone || 'Unknown'}</div>
+                            <div className="text-xs text-gray-500 truncate">{conv.phone}</div>
+                            {conv.last_message && (
+                              <div className="text-sm text-gray-600 truncate mt-1">{conv.last_message}</div>
+                            )}
+                            <div className="text-xs text-gray-400 mt-1">
+                              {conv.last_sent_at ? new Date(conv.last_sent_at).toLocaleString() : ''} · {conv.total_messages} msg
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                      <div className="md:w-1/2 border border-gray-200 rounded-lg p-4 min-h-[200px] bg-gray-50">
+                        {!selectedChatLeadId ? (
+                          <p className="text-sm text-gray-500">Select a chat from the list above to view the conversation.</p>
+                        ) : chatLoading ? (
+                          <div className="flex items-center justify-center py-8">
+                            <div className="transform scale-75">
+                              <LogoLoader text="Loading thread..." />
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="space-y-3 overflow-y-auto max-h-80">
+                            {chatMessages.map((msg) => (
+                              <div
+                                key={msg.id}
+                                className="bg-white border border-gray-200 rounded-lg p-3 text-sm"
+                              >
+                                <div className="text-xs text-gray-500 mb-1">
+                                  {msg.sent_at ? new Date(msg.sent_at).toLocaleString() : ''}
+                                  {msg.user?.name && <span className="ml-2">· {msg.user.name}</span>}
+                                </div>
+                                <div className="text-gray-800 whitespace-pre-wrap">{msg.message || '—'}</div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   )}
                 </div>
               </div>
-            )}
+            </div>
           </div>
-        </div>
-      </div>
-    </Layout>
+        )}
+        </>
+      )}
+    </div>
   );
 };
 

@@ -1,4 +1,4 @@
-import Layout from '../components/Layout';
+// Layout removed - handled by nested routing
 import CompanyWhatsAppSetup from '../components/CompanyWhatsAppSetup';
 
 /**
@@ -7,9 +7,9 @@ import CompanyWhatsAppSetup from '../components/CompanyWhatsAppSetup';
  */
 const CompanyWhatsAppSettings = () => {
   return (
-    <Layout>
+    <div>
       <CompanyWhatsAppSetup />
-    </Layout>
+    </div>
   );
 };
 

@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
 import { followupsAPI } from '../services/api';
 import { toast } from 'react-toastify';
-import Layout from '../components/Layout';
+import LogoLoader from '../components/LogoLoader';
+
+// Layout removed - handled by nested routing
 
 const Followups = () => {
   const [todayFollowups, setTodayFollowups] = useState([]);
@@ -40,85 +42,82 @@ const Followups = () => {
 
   const followups = activeTab === 'today' ? todayFollowups : overdueFollowups;
 
-  if (loading) {
-    return (
-      <Layout>
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-        </div>
-      </Layout>
-    );
-  }
-
   return (
-    <Layout>
-      <div>
+    <div className={`p-6 relative page-transition ${loading && todayFollowups.length + overdueFollowups.length > 0 ? 'opacity-80' : ''}`}>
+      {loading && <div className="side-progress-bar absolute top-0 left-0 right-0 h-1 z-50" />}
+      
+      {loading && todayFollowups.length === 0 && overdueFollowups.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-[60vh] animate-in fade-in duration-500">
+             <LogoLoader text="Loading followups..." />
+          </div>
+      ) : (
+        <>
         <h1 className="text-3xl font-bold text-gray-800 mb-8">Followups</h1>
 
-        <div className="flex space-x-4 mb-6">
-          <button
-            onClick={() => setActiveTab('today')}
-            className={`px-6 py-2 rounded-lg ${activeTab === 'today'
-              ? 'bg-blue-600 text-white'
-              : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-              }`}
-          >
-            Today ({todayFollowups.length})
-          </button>
-          <button
-            onClick={() => setActiveTab('overdue')}
-            className={`px-6 py-2 rounded-lg ${activeTab === 'overdue'
-              ? 'bg-red-600 text-white'
-              : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-              }`}
-          >
-            Overdue ({overdueFollowups.length})
-          </button>
-        </div>
-
-        <div className="bg-white rounded-lg shadow overflow-hidden">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Lead</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Remark</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Reminder</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {followups.map((followup) => (
-                <tr key={followup.id}>
-                  <td className="px-6 py-4">
-                    <div className="text-sm font-medium text-gray-900">
-                      {followup.lead?.client_name || 'N/A'}
-                    </div>
-                    <div className="text-sm text-gray-500">{followup.lead?.phone || 'N/A'}</div>
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-500">{followup.remark || 'N/A'}</td>
-                  <td className="px-6 py-4 text-sm text-gray-500">
-                    {followup.reminder_date} {followup.reminder_time || ''}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <button
-                      onClick={() => handleComplete(followup.id)}
-                      className="text-green-600 hover:text-green-900"
-                    >
-                      Mark Complete
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          {followups.length === 0 && (
-            <div className="text-center py-8 text-gray-500">No followups found</div>
-          )}
-        </div>
+      <div className="flex space-x-4 mb-6">
+        <button
+          onClick={() => setActiveTab('today')}
+          className={`px-6 py-2 rounded-lg ${activeTab === 'today'
+            ? 'bg-blue-600 text-white'
+            : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+            }`}
+        >
+          Today ({todayFollowups.length})
+        </button>
+        <button
+          onClick={() => setActiveTab('overdue')}
+          className={`px-6 py-2 rounded-lg ${activeTab === 'overdue'
+            ? 'bg-red-600 text-white'
+            : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+            }`}
+        >
+          Overdue ({overdueFollowups.length})
+        </button>
       </div>
-    </Layout>
+
+      <div className="bg-white rounded-lg shadow overflow-hidden">
+        <table className="min-w-full divide-y divide-gray-200">
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Lead</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Remark</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Reminder</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="bg-white divide-y divide-gray-200">
+            {followups.map((followup) => (
+              <tr key={followup.id}>
+                <td className="px-6 py-4">
+                  <div className="text-sm font-medium text-gray-900">
+                    {followup.lead?.client_name || 'N/A'}
+                  </div>
+                  <div className="text-sm text-gray-500">{followup.lead?.phone || 'N/A'}</div>
+                </td>
+                <td className="px-6 py-4 text-sm text-gray-500">{followup.remark || 'N/A'}</td>
+                <td className="px-6 py-4 text-sm text-gray-500">
+                  {followup.reminder_date} {followup.reminder_time || ''}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <button
+                    onClick={() => handleComplete(followup.id)}
+                    className="text-green-600 hover:text-green-900"
+                  >
+                    Mark Complete
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {followups.length === 0 && (
+          <div className="text-center py-8 text-gray-500">No followups found</div>
+        )}
+      </div>
+        </>
+      )}
+    </div>
   );
 };
 
 export default Followups;
-

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import Layout from '../components/Layout';
+// Layout removed - handled by nested routing
 import { Search, Plus, Edit, X, Trash2 } from 'lucide-react';
 import { packageThemesAPI } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
@@ -181,16 +181,16 @@ const PackageTheme = () => {
 
   if (loading) {
     return (
-      <Layout>
+      <div>
         <div className="flex items-center justify-center h-64">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
         </div>
-      </Layout>
+      </div>
     );
   }
 
   return (
-    <Layout>
+    <div>
       <div className="p-6" style={{ backgroundColor: '#D8DEF5', minHeight: '100vh' }}>
         {/* Header */}
         <div className="flex justify-between items-center mb-6">
@@ -417,7 +417,7 @@ const PackageTheme = () => {
           </div>
         )}
       </div>
-    </Layout>
+    </div>
   );
 };
 

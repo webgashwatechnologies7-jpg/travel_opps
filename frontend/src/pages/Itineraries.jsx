@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { useAuth } from '../contexts/AuthContext';
-import Layout from '../components/Layout';
+// Layout removed - handled by nested routing
 import { Search, Plus, Edit, Eye, X, Image as ImageIcon, Hash, MapPin, CalendarDays, Trash, Upload, Camera } from 'lucide-react';
 import { packagesAPI } from '../services/api';
 import { searchPexelsPhotos } from '../services/pexels';
+import LogoLoader from '../components/LogoLoader';
 
 // Helper for checking permissions
 const hasPermission = (user, permission) => {
@@ -165,15 +167,36 @@ const Itineraries = () => {
     }
   };
 
-  const handleEdit = async (itinerary) => {
-    try {
-      setEditingItineraryId(itinerary.id);
-      const response = await packagesAPI.get(itinerary.id);
+  // Prevent background scroll when any modal is open
+  useEffect(() => {
+    if (showModal || showViewModal || showLibraryModal) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [showModal, showViewModal, showLibraryModal]);
+
+  const handleEdit = (itinerary) => {
+    setEditingItineraryId(itinerary.id);
+    
+    // Set initial data from the list so the modal opens instantly
+    setFormData({
+      itinerary_name: itinerary.title || itinerary.itinerary_name || '',
+      duration: itinerary.duration?.toString() || '1',
+      destinations: itinerary.destination || itinerary.destinations || '',
+      notes: itinerary.notes || '',
+      image: null
+    });
+    setImagePreview(itinerary.image || null);
+    setShowModal(true);
+
+    // Fetch full details in background to ensure data is fresh
+    packagesAPI.get(itinerary.id).then(response => {
       const data = response.data.data;
-
-      // Convert image URL to absolute if needed
       const imageUrl = data.image ? normalizeImageUrl(data.image) : null;
-
       setFormData({
         itinerary_name: data.itinerary_name || '',
         duration: data.duration?.toString() || '1',
@@ -182,11 +205,9 @@ const Itineraries = () => {
         image: null
       });
       setImagePreview(imageUrl);
-      setShowModal(true);
-    } catch (err) {
-      console.error('Failed to fetch itinerary:', err);
-      toast.error('Failed to load itinerary details');
-    }
+    }).catch(err => {
+      console.error('Failed to fetch fresh itinerary details:', err);
+    });
   };
 
   const handleCloseModal = () => {
@@ -356,54 +377,51 @@ const Itineraries = () => {
     );
   });
 
-  if (loading) {
-    return (
-      <Layout>
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-        </div>
-      </Layout>
-    );
-  }
-
   return (
-    <Layout >
-      <div className="p-6  ">
-        {/* Header */}
-        <div className="mb-6 mt-20">
-          <div className="flex justify-between items-center mb-4">
-            <h1 className="text-3xl font-bold text-gray-800">Itineraries</h1>
-            <div className="flex items-center gap-4">
-              {/* Search Input */}
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
-                <input
-                  type="text"
-                  placeholder="Search by name"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 pr-4 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 w-64 text-sm"
-                />
-              </div>
-              {/* Add New Button */}
-              {hasPermission(user, 'itineraries.create') && (
-                <button
-                  onClick={handleAddNew}
-                  className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2 font-medium shadow-sm"
-                >
-                  <Plus className="h-5 w-5" />
-                  Add New
-                </button>
-              )}
+    <div className={`p-6 relative page-transition ${loading && itineraries.length > 0 ? 'opacity-80' : ''}`}>
+      {loading && <div className="side-progress-bar absolute top-0 left-0 right-0 h-1 z-50" />}
+      
+      <div className="mb-6 mt-2">
+        <div className="flex justify-between items-center mb-4">
+          <h1 className="text-3xl font-bold text-gray-800">Itineraries</h1>
+          <div className="flex items-center gap-4">
+            {/* Search Input */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+              <input
+                type="text"
+                placeholder="Search by name"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10 pr-4 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 w-64 text-sm"
+              />
             </div>
+            {/* Add New Button */}
+            {hasPermission(user, 'itineraries.create') && (
+              <button
+                onClick={handleAddNew}
+                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2 font-medium shadow-sm"
+              >
+                <Plus className="h-5 w-5" />
+                Add New
+              </button>
+            )}
           </div>
         </div>
+      </div>
 
-        {error && (
-          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-            {error}
+      {error && (
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+          {error}
+        </div>
+      )}
+
+      {loading && itineraries.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-[50vh] animate-in fade-in duration-500 bg-white rounded-2xl border border-dashed border-gray-200">
+             <LogoLoader text="Loading itineraries..." />
           </div>
-        )}
+      ) : (
+        <>
 
         {/* Itineraries Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6">
@@ -542,199 +560,147 @@ const Itineraries = () => {
           )}
         </div>
 
-      </div>
 
       {/* Create Itinerary Modal */}
-      {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 overflow-y-auto py-8">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl mx-4 my-auto">
+      {showModal && typeof document !== 'undefined' && document.body && createPortal(
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[9999] p-4 overflow-y-auto">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl mx-auto my-auto animate-in-scale">
             {/* Modal Header */}
-            <div className="flex justify-between items-center p-6 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-white">
-              <h2 className="text-2xl font-bold text-gray-800">
+            <div className="flex justify-between items-center p-6 border-b">
+              <h2 className="text-xl font-bold text-gray-800 tracking-tight">
                 {editingItineraryId ? 'Edit Itinerary' : 'Create Itinerary'}
               </h2>
-              <button
+              <button 
                 onClick={handleCloseModal}
-                className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full p-1 transition-colors"
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+                aria-label="Close"
               >
                 <X className="h-6 w-6" />
               </button>
             </div>
 
             {/* Modal Body */}
-            <form onSubmit={handleSave}>
-              <div className="p-6 grid grid-cols-2 gap-6 max-h-[70vh] overflow-y-auto">
-                {/* Itinerary setup section */}
-                <div className="col-span-2">
-                  <h3 className="text-lg font-semibold text-gray-800 mb-4 pb-2 border-b border-gray-200">Itinerary Details</h3>
+            <form onSubmit={handleSave} className="p-6">
+              <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-2 custom-scrollbar">
+
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider">Itinerary Name</label>
+                    <input
+                      type="text"
+                      className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all font-medium text-gray-800"
+                      value={formData.itinerary_name}
+                      onChange={(e) => setFormData({ ...formData, itinerary_name: e.target.value })}
+                      placeholder="Enter itinerary name"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider">Duration (Days)</label>
+                    <input
+                      type="number"
+                      className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all font-medium text-gray-800"
+                      value={formData.duration}
+                      onChange={(e) => setFormData({ ...formData, duration: e.target.value })}
+                      min="1"
+                    />
+                  </div>
                 </div>
 
-                {/* Itinerary Name */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Itinerary Name
-                  </label>
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider">Destinations</label>
                   <input
                     type="text"
-                    value={formData.itinerary_name}
-                    onChange={(e) => setFormData({ ...formData, itinerary_name: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="Enter itinerary name"
-                    required
-                  />
-                </div>
-
-                {/* Duration (days) */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Duration (Days)
-                  </label>
-                  <input
-                    type="number"
-                    value={formData.duration}
-                    onChange={(e) => setFormData({ ...formData, duration: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="e.g. 3"
-                    min="1"
-                  />
-                </div>
-
-                {/* Destinations */}
-                <div className="col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Destinations
-                  </label>
-                  <input
-                    type="text"
+                    className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all font-medium text-gray-800"
                     value={formData.destinations}
                     onChange={(e) => setFormData({ ...formData, destinations: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="Enter Destination"
+                    placeholder="e.g. Delhi - Shimla - Manali"
                   />
                 </div>
 
-                {/* Notes */}
-                <div className="col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Notes
-                  </label>
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider">Notes / Description</label>
                   <textarea
+                    className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all h-32 font-medium text-gray-800 resize-none"
                     value={formData.notes}
                     onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="Notes"
-                    rows="3"
+                    placeholder="Enter itinerary details..."
                   />
                 </div>
 
-                {/* Image */}
-                <div className="col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Image
-                  </label>
-                  <div className="space-y-3">
-                    <div className="flex gap-2">
-                      <label className="flex-1 cursor-pointer">
-                        <input
-                          type="file"
-                          accept="image/*"
-                          onChange={handleFileChange}
-                          className="hidden"
-                        />
-                        <div className="flex items-center justify-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors border border-gray-300">
-                          <Upload className="h-4 w-4" />
-                          <span className="text-sm font-medium">Upload Image</span>
-                        </div>
-                      </label>
-                      <button
-                        type="button"
-                        onClick={() => setShowLibraryModal(true)}
-                        className="flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded-lg transition-colors"
-                      >
-                        <Camera className="h-4 w-4" />
-                        <span className="text-sm font-medium">Choose from Library</span>
-                      </button>
-                    </div>
-
-                    {/* Image Preview */}
-                    {(imagePreview || formData.image) && (
-                      <div className="mt-3">
-                        <label className="block text-xs font-medium text-gray-600 mb-2">
-                          {editingItineraryId && imagePreview && !formData.image ? 'Current Image:' : 'Preview:'}
-                        </label>
-                        <div className="relative w-40 h-40 border-2 border-gray-300 rounded-lg overflow-hidden bg-gray-50 shadow-sm">
-                          <img
-                            src={imagePreview || (formData.image instanceof File ? URL.createObjectURL(formData.image) : formData.image?.url || formData.image)}
-                            alt="Preview"
-                            className="w-full h-full object-cover"
-                            onError={(e) => {
-                              console.error('Preview image failed to load:', imagePreview || formData.image);
-                              e.target.style.display = 'none';
-                              const parent = e.target.parentElement;
-                              if (parent && !parent.querySelector('.preview-error')) {
-                                const span = document.createElement('span');
-                                span.className = 'preview-error text-xs text-gray-400 absolute inset-0 flex items-center justify-center';
-                                span.textContent = 'Invalid Image';
-                                parent.appendChild(span);
-                              }
-                            }}
-                          />
-                        </div>
-                        {editingItineraryId && imagePreview && !formData.image && (
-                          <p className="text-xs text-blue-600 mt-2 font-medium">
-                            ℹ️ Current image is displayed above. Select a new file to replace it.
-                          </p>
-                        )}
-                        {formData.image && (
-                          <p className="text-xs text-green-600 mt-2 font-medium">
-                            ✓ New image selected. This will replace the current image.
-                          </p>
-                        )}
-                      </div>
-                    )}
-
-                    {/* No Image Message */}
-                    {!imagePreview && !formData.image && (
-                      <div className="flex items-center gap-2 text-sm text-gray-500 bg-gray-50 p-3 rounded-lg border border-gray-200">
-                        <ImageIcon className="h-5 w-5 text-gray-400" />
-                        <span>No image selected. {editingItineraryId ? 'Current image will be kept if no new image is uploaded.' : 'Upload an image to display with this itinerary.'}</span>
-                      </div>
-                    )}
+                <div className="space-y-3">
+                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider">Itinerary Banner Image</label>
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => document.getElementById('itinerary-img-up').click()}
+                      className="flex items-center gap-2 px-4 py-2.5 border border-gray-200 rounded-lg text-sm font-semibold text-gray-700 hover:bg-gray-50 bg-white transition-all active:scale-[0.98]"
+                    >
+                      <Upload className="h-4 w-4" />
+                      Upload Image
+                    </button>
+                    <input
+                      type="file"
+                      id="itinerary-img-up"
+                      accept="image/*"
+                      onChange={handleFileChange}
+                      className="hidden"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowLibraryModal(true)}
+                      className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 transition-all active:scale-[0.98] shadow-sm"
+                    >
+                      <Camera className="h-4 w-4" />
+                      Select from Library
+                    </button>
                   </div>
+                  {(imagePreview || formData.image) && (
+                    <div className="mt-4 p-3 bg-gray-50 rounded-xl border border-gray-100 flex flex-col gap-2 w-fit">
+                       <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Image Preview</p>
+                       <img 
+                        src={imagePreview || (formData.image instanceof File ? URL.createObjectURL(formData.image) : formData.image?.url || formData.image)} 
+                        alt="Preview" 
+                        className="w-48 h-28 object-cover rounded-lg border shadow-sm" 
+                      />
+                    </div>
+                  )}
                 </div>
               </div>
 
               {/* Modal Footer */}
-              <div className="flex justify-end gap-3 p-6 border-t border-gray-200 bg-gray-50">
+              <div className="flex justify-end gap-3 mt-6 pt-6 border-t font-poppins">
                 <button
                   type="button"
                   onClick={handleCloseModal}
-                  className="px-6 py-2.5 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 font-medium transition-colors"
+                  className="px-6 py-2.5 border border-gray-200 rounded-lg text-sm font-bold text-gray-600 hover:bg-gray-50 transition-all active:scale-[0.98]"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={saving}
-                  className="bg-blue-600 text-white px-6 py-2.5 rounded-lg hover:bg-blue-700 disabled:opacity-50 font-medium shadow-sm transition-colors"
+                  className="px-10 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700 disabled:opacity-50 transition-all active:scale-[0.98] shadow-md shadow-blue-50"
                 >
-                  {saving ? 'Saving...' : 'Save'}
+                  {saving ? 'SAVING...' : 'SAVE ITINERARY'}
                 </button>
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Choose from Library Modal */}
-      {showLibraryModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60]">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl mx-4 max-h-[90vh] overflow-hidden flex flex-col">
-            <div className="flex justify-between items-center p-4 border-b border-gray-200">
+      {showLibraryModal && typeof document !== 'undefined' && document.body && createPortal(
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[10000] p-4 overflow-y-auto">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col animate-in-scale">
+            <div className="flex justify-between items-center p-6 border-b">
               <h2 className="text-xl font-bold text-gray-800">Choose from Library</h2>
               <button
                 onClick={() => { setShowLibraryModal(false); setLibrarySearchTerm(''); setFreeStockPhotos([]); }}
-                className="text-gray-400 hover:text-gray-600 transition-colors p-1"
+                className="text-gray-400 hover:text-gray-600 transition-colors"
               >
                 <X className="h-6 w-6" />
               </button>
@@ -756,17 +722,17 @@ const Itineraries = () => {
                 Your itineraries
               </button>
             </div>
-            <div className="p-4 border-b border-gray-200">
-              <div className="flex gap-2">
-                <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+            <div className="p-8 border-b border-slate-50 bg-slate-50/20 flex flex-col gap-4">
+              <div className="flex gap-3">
+                <div className="relative flex-1 group">
+                  <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400 h-4 w-4 group-focus-within:text-blue-500 transition-colors" />
                   <input
                     type="text"
                     value={librarySearchTerm}
                     onChange={(e) => setLibrarySearchTerm(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && (libraryTab === 'free' ? fetchFreeStockImages() : null)}
-                    placeholder={libraryTab === 'free' ? 'Search e.g. Shimla, Kufri...' : 'Search your itineraries e.g. Shimla'}
-                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder={libraryTab === 'free' ? 'Search locations (e.g. Maldives, Paris)...' : 'Search your itineraries...'}
+                    className="w-full pl-12 pr-4 py-3.5 bg-white border border-slate-200 rounded-2xl focus:ring-4 focus:ring-blue-100 focus:border-blue-300 outline-none transition-all font-bold text-sm"
                   />
                 </div>
                 {libraryTab === 'free' && (
@@ -774,42 +740,47 @@ const Itineraries = () => {
                     type="button"
                     onClick={fetchFreeStockImages}
                     disabled={(librarySearchTerm || '').trim().length < 2 || freeStockLoading}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="px-8 py-3.5 bg-blue-600 text-white rounded-2xl font-bold hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-blue-100 active:scale-95 transition-all text-sm"
                   >
-                    Search
+                    SEARCH
                   </button>
                 )}
               </div>
-              <p className="text-xs text-gray-500 mt-2">
-                {libraryTab === 'free' ? 'Free images from Pexels. Type location (Shimla, Kufri) and click Search.' : 'Images from itineraries you already added.'}
-              </p>
+              <div className="flex items-center gap-2 px-1">
+                 <div className="w-1.5 h-1.5 rounded-full bg-blue-500"></div>
+                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                    {libraryTab === 'free' ? 'Pexels high-res stock images' : 'Reuse images from your previous itineraries'}
+                 </p>
+              </div>
             </div>
-            <div className="flex-1 overflow-y-auto p-4">
+            <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
               {libraryTab === 'free' ? (
                 freeStockLoading ? (
-                  <div className="flex items-center justify-center h-64">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+                  <div className="flex flex-col items-center justify-center h-64">
+                    <LogoLoader text="Searching Stock..." compact={true} />
                   </div>
                 ) : (librarySearchTerm || '').trim().length < 2 ? (
-                  <div className="text-center py-12 text-gray-500">
-                    Type a location (e.g. Shimla, Kufri) and click Search to get free images.
+                  <div className="flex flex-col items-center justify-center h-64 text-slate-400 bg-slate-50/50 rounded-3xl border-2 border-dashed border-slate-100">
+                    <ImageIcon className="w-12 h-12 mb-3 opacity-20" />
+                    <p className="text-xs font-black uppercase tracking-widest">Enter location and click Search</p>
                   </div>
                 ) : freeStockPhotos.length === 0 ? (
-                  <div className="text-center py-12 text-gray-500">
-                    No images found. Try another search or add VITE_PEXELS_API_KEY in .env (pexels.com/api).
+                  <div className="flex flex-col items-center justify-center h-64 text-slate-400 bg-slate-50/50 rounded-3xl border-2 border-dashed border-slate-100">
+                    <X className="w-12 h-12 mb-3 opacity-20" />
+                    <p className="text-xs font-black uppercase tracking-widest text-center px-8">No matching high-res images found</p>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
                     {freeStockPhotos.map((p) => (
                       <button
                         key={p.id}
                         type="button"
                         onClick={() => handleSelectFreeStockImage(p.url)}
-                        className="relative aspect-square rounded-lg overflow-hidden border-2 border-gray-200 hover:border-blue-500 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="group relative aspect-square rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all active:scale-[0.98]"
                       >
-                        <img src={p.thumb || p.url} alt={p.alt} className="w-full h-full object-cover" />
-                        <div className="absolute inset-0 bg-black bg-opacity-0 hover:bg-opacity-20 transition-opacity flex items-center justify-center">
-                          <span className="text-white opacity-0 hover:opacity-100 font-medium text-sm">Select</span>
+                        <img src={p.thumb || p.url} alt={p.alt} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-4">
+                          <span className="text-white font-black text-[10px] uppercase tracking-widest">Select Image</span>
                         </div>
                       </button>
                     ))}
@@ -817,15 +788,17 @@ const Itineraries = () => {
                 )
               ) : (
                 librarySearch.length < 2 ? (
-                  <div className="text-center py-12 text-gray-500">
-                    Type at least 2 characters to see images from your itineraries.
+                   <div className="flex flex-col items-center justify-center h-64 text-slate-400 bg-slate-50/50 rounded-3xl border-2 border-dashed border-slate-100">
+                    <History className="w-12 h-12 mb-3 opacity-20" />
+                    <p className="text-xs font-black uppercase tracking-widest">Search your collections</p>
                   </div>
                 ) : libraryImages.length === 0 ? (
-                  <div className="text-center py-12 text-gray-500">
-                    No images for &quot;{librarySearchTerm}&quot;. Use &quot;Free stock images&quot; tab to search Kufri, Shimla, etc.
+                  <div className="flex flex-col items-center justify-center h-64 text-slate-400 bg-slate-50/50 rounded-3xl border-2 border-dashed border-slate-100">
+                    <X className="w-12 h-12 mb-3 opacity-20" />
+                    <p className="text-xs font-black uppercase tracking-widest">No local results</p>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
                     {libraryImages.map((p) => (
                       <button
                         key={p.id}
@@ -835,11 +808,14 @@ const Itineraries = () => {
                           setShowLibraryModal(false);
                           setLibrarySearchTerm('');
                         }}
-                        className="relative aspect-square rounded-lg overflow-hidden border-2 border-gray-200 hover:border-blue-500 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="group relative aspect-square rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all active:scale-[0.98]"
                       >
-                        <img src={p.image} alt={p.itinerary_name || p.title || 'Select'} className="w-full h-full object-cover" />
-                        <div className="absolute inset-0 bg-black bg-opacity-0 hover:bg-opacity-20 transition-opacity flex items-center justify-center">
-                          <span className="text-white opacity-0 hover:opacity-100 font-medium text-sm">Select</span>
+                        <img src={p.image} alt={p.itinerary_name || p.title || 'Select'} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-4">
+                          <div className="flex flex-col text-left">
+                             <span className="text-white font-black text-[10px] uppercase tracking-widest truncate w-full">{p.itinerary_name || 'Untitled'}</span>
+                             <span className="text-white/60 font-medium text-[8px] uppercase tracking-widest mt-0.5">Click to choose</span>
+                          </div>
                         </div>
                       </button>
                     ))}
@@ -848,192 +824,129 @@ const Itineraries = () => {
               )}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* View Itinerary Modal */}
-      {showViewModal && viewingItinerary && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 overflow-y-auto py-8">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl mx-4 my-auto">
+      {showViewModal && viewingItinerary && typeof document !== 'undefined' && document.body && createPortal(
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[9999] p-4 overflow-y-auto">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl mx-auto my-auto animate-in-scale flex flex-col overflow-hidden">
             {/* Modal Header */}
-            <div className="flex justify-between items-center p-6 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-white">
-              <h2 className="text-2xl font-bold text-gray-800">Itinerary Details</h2>
+            <div className="flex justify-between items-center p-6 border-b">
+              <h2 className="text-xl font-bold text-gray-800">Itinerary Overview</h2>
               <button
-                onClick={() => {
-                  setShowViewModal(false);
-                  setViewingItinerary(null);
-                }}
-                className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full p-1 transition-colors"
+                onClick={() => { setShowViewModal(false); setViewingItinerary(null); }}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
               >
                 <X className="h-6 w-6" />
               </button>
             </div>
 
             {/* Modal Body */}
-            <div className="p-6">
-              <div className="grid grid-cols-2 gap-6">
-                {/* Image */}
-                <div className="col-span-2 mb-4">
+            <div className="p-8 overflow-y-auto custom-scrollbar flex-1">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                {/* Image Section */}
+                <div className="md:col-span-2">
                   {viewingItinerary.image ? (
-                    <div className="relative w-full h-64 bg-gray-100 rounded-lg overflow-hidden border-2 border-gray-200 shadow-sm">
+                    <div className="relative w-full h-72 rounded-xl overflow-hidden border shadow-sm cursor-pointer">
                       <img
                         src={viewingItinerary.image}
-                        alt={viewingItinerary.itinerary_name || 'Itinerary Image'}
+                        alt={viewingItinerary.itinerary_name || 'Itinerary'}
                         className="w-full h-full object-cover"
-                        onError={(e) => {
-                          console.error('View modal image failed to load:', viewingItinerary.image);
-                          e.target.style.display = 'none';
-                          const parent = e.target.parentElement;
-                          if (parent && !parent.querySelector('.image-error')) {
-                            const div = document.createElement('div');
-                            div.className = 'image-error absolute inset-0 flex items-center justify-center bg-gray-100';
-                            div.innerHTML = '<div class="text-center"><div class="text-gray-400 text-sm font-medium">Image not available</div></div>';
-                            parent.appendChild(div);
-                          }
-                        }}
                       />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent"></div>
+                      <div className="absolute bottom-6 left-6 pr-6">
+                         <span className="bg-blue-600 text-white px-3 py-1 rounded-md text-[10px] font-bold uppercase tracking-widest mb-1.5 inline-block">
+                             {viewingItinerary.duration ? `${viewingItinerary.duration} Days` : 'N/A'}
+                         </span>
+                         <h3 className="text-white text-2xl font-bold tracking-tight">{viewingItinerary.itinerary_name || 'Untitled'}</h3>
+                      </div>
                     </div>
                   ) : (
-                    <div className="w-full h-64 bg-gray-100 rounded-lg border-2 border-dashed border-gray-300 flex items-center justify-center">
-                      <div className="text-center">
-                        <ImageIcon className="h-12 w-12 text-gray-400 mx-auto mb-2" />
-                        <div className="text-gray-400 text-sm font-medium">No image available</div>
-                      </div>
+                    <div className="w-full h-48 bg-gray-50 rounded-xl border flex items-center justify-center">
+                        <ImageIcon className="h-10 w-10 text-gray-200" />
                     </div>
                   )}
                 </div>
 
-                {/* Itinerary Name */}
-                <div className="col-span-2">
-                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
-                    Itinerary Name
-                  </label>
-                  <p className="text-xl font-bold text-gray-900 bg-gray-50 px-4 py-2 rounded-lg border border-gray-200">{viewingItinerary.itinerary_name || 'N/A'}</p>
+                <div className="space-y-6">
+                   <div className="space-y-2">
+                      <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest flex items-center gap-2">
+                         <MapPin className="w-3 h-3" /> Destinations
+                      </h4>
+                      <p className="text-sm font-medium text-gray-700 bg-gray-50 p-4 rounded-xl border border-gray-100">
+                         {viewingItinerary.destinations || 'No destinations listed'}
+                      </p>
+                   </div>
+                   <div className="grid grid-cols-2 gap-3">
+                      <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
+                         <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Standard Cost</span>
+                         <span className="text-lg font-bold text-gray-800">{formatPrice(viewingItinerary.price || 0)}</span>
+                      </div>
+                      <div className="bg-blue-50/50 p-4 rounded-xl border border-blue-100/50">
+                         <span className="text-[10px] font-bold text-blue-600 uppercase tracking-widest block mb-1">Website Price</span>
+                         <span className="text-lg font-bold text-blue-800">{formatPrice(viewingItinerary.website_cost || 0)}</span>
+                      </div>
+                   </div>
                 </div>
 
-                {/* Start Date */}
-                <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
-                    Start Date
-                  </label>
-                  <p className="text-base font-semibold text-gray-900">{viewingItinerary.start_date ? formatDate(viewingItinerary.start_date) : 'N/A'}</p>
+                <div className="space-y-6">
+                   <div className="space-y-2">
+                      <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest flex items-center gap-2">
+                         <CalendarDays className="w-3 h-3" /> Details
+                      </h4>
+                      <div className="bg-gray-50 p-6 rounded-xl border border-gray-100 space-y-3">
+                         <div className="flex justify-between items-center text-sm">
+                            <span className="font-semibold text-gray-500">Adults</span>
+                            <span className="font-bold text-gray-800">{viewingItinerary.adult || 0}</span>
+                         </div>
+                         <div className="flex justify-between items-center text-sm border-t pt-3">
+                            <span className="font-semibold text-gray-500">Children</span>
+                            <span className="font-bold text-gray-800">{viewingItinerary.child || 0}</span>
+                         </div>
+                         <div className="flex justify-between items-center text-sm border-t pt-3">
+                            <span className="font-semibold text-gray-500">Website Status</span>
+                            <span className={`text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full ${viewingItinerary.show_on_website ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                               {viewingItinerary.show_on_website ? 'Visible' : 'Hidden'}
+                            </span>
+                         </div>
+                      </div>
+                   </div>
                 </div>
 
-                {/* End Date */}
-                <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
-                    End Date
-                  </label>
-                  <p className="text-base font-semibold text-gray-900">{viewingItinerary.end_date ? formatDate(viewingItinerary.end_date) : 'N/A'}</p>
-                </div>
-
-                {/* Duration */}
-                <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
-                  <label className="block text-xs font-semibold text-blue-600 uppercase tracking-wide mb-2">
-                    Duration
-                  </label>
-                  <p className="text-base font-bold text-blue-900">{viewingItinerary.duration ? `${viewingItinerary.duration} Days` : 'N/A'}</p>
-                </div>
-
-                {/* Adult */}
-                <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
-                    Adult
-                  </label>
-                  <p className="text-base font-semibold text-gray-900">{viewingItinerary.adult || '0'}</p>
-                </div>
-
-                {/* Child */}
-                <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
-                    Child
-                  </label>
-                  <p className="text-base font-semibold text-gray-900">{viewingItinerary.child || '0'}</p>
-                </div>
-
-                {/* Price */}
-                <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
-                  <label className="block text-xs font-semibold text-yellow-700 uppercase tracking-wide mb-2">
-                    Price
-                  </label>
-                  <p className="text-lg font-bold text-yellow-900">{formatPrice(viewingItinerary.price)}</p>
-                </div>
-
-                {/* Website Cost */}
-                <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
-                  <label className="block text-xs font-semibold text-yellow-700 uppercase tracking-wide mb-2">
-                    Website Cost
-                  </label>
-                  <p className="text-lg font-bold text-yellow-900">{formatPrice(viewingItinerary.website_cost)}</p>
-                </div>
-
-                {/* Show on Website */}
-                <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
-                    Show on Website
-                  </label>
-                  <span
-                    className={`inline-flex px-3 py-1.5 text-xs font-bold rounded-full ${viewingItinerary.show_on_website
-                      ? 'bg-green-100 text-green-800 border border-green-300'
-                      : 'bg-red-100 text-red-800 border border-red-300'
-                      }`}
-                  >
-                    {viewingItinerary.show_on_website ? 'Yes' : 'No'}
-                  </span>
-                </div>
-
-                {/* Destinations */}
-                <div className="col-span-2 bg-gray-50 p-4 rounded-lg border border-gray-200">
-                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
-                    Destinations
-                  </label>
-                  <p className="text-base text-gray-900 font-medium">{viewingItinerary.destinations || 'N/A'}</p>
-                </div>
-
-                {/* Notes */}
                 {viewingItinerary.notes && (
-                  <div className="col-span-2 bg-gray-50 p-4 rounded-lg border border-gray-200">
-                    <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
-                      Notes
-                    </label>
-                    <p className="text-sm text-gray-700 whitespace-pre-wrap bg-white p-3 rounded border border-gray-200">{viewingItinerary.notes}</p>
+                  <div className="md:col-span-2 space-y-2">
+                    <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest flex items-center gap-2">
+                       <Hash className="w-3 h-3" /> Description
+                    </h4>
+                    <div className="bg-gray-50 p-6 rounded-xl border border-gray-100 text-sm font-medium text-gray-600 whitespace-pre-wrap leading-relaxed">
+                       {viewingItinerary.notes}
+                    </div>
                   </div>
                 )}
-
-                {/* Created By */}
-                <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
-                    Created By
-                  </label>
-                  <p className="text-sm font-medium text-gray-900">{viewingItinerary.created_by_name || 'N/A'}</p>
-                </div>
-
-                {/* Last Updated */}
-                <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
-                    Last Updated
-                  </label>
-                  <p className="text-sm font-medium text-gray-900">{viewingItinerary.last_updated || formatDate(viewingItinerary.updated_at) || 'N/A'}</p>
-                </div>
               </div>
             </div>
 
             {/* Modal Footer */}
-            <div className="flex justify-end p-6 border-t border-gray-200 bg-gray-50">
-              <button
-                onClick={() => {
-                  setShowViewModal(false);
-                  setViewingItinerary(null);
-                }}
-                className="px-6 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium shadow-sm transition-colors"
+            <div className="p-8 border-t flex items-center justify-between">
+               <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                  Package ID: {viewingItinerary.id}
+               </div>
+               <button
+                onClick={() => { setShowViewModal(false); setViewingItinerary(null); }}
+                className="px-10 py-2.5 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-700 transition-all active:scale-[0.98] text-sm"
               >
-                Close
+                GOT IT
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
-    </Layout>
+        </>
+      )}
+    </div>
   );
 };
 

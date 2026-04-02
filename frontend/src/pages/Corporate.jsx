@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { accountsAPI } from '../services/api';
-import Layout from '../components/Layout';
+// Layout removed - handled by nested routing
 import AddCorporateModal from '../components/AddCorporateModal';
 import { toast } from 'react-toastify';
 import { Edit2, Trash2, Plus, Search } from 'lucide-react';
+import LogoLoader from '../components/LogoLoader';
 
 const Corporate = () => {
   const [corporates, setCorporates] = useState([]);
@@ -114,16 +115,16 @@ const Corporate = () => {
 
   if (loading) {
     return (
-      <Layout>
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      <div>
+        <div className="flex items-center justify-center h-[50vh]">
+          <LogoLoader text="Loading corporate clients..." />
         </div>
-      </Layout>
+      </div>
     );
   }
 
   return (
-    <Layout>
+    <div>
       <div className="p-4">
         {/* Header */}
         <div className="bg-white shadow-sm rounded-lg mb-6 p-6">
@@ -266,7 +267,7 @@ const Corporate = () => {
         editMode={true}
         initialData={selectedCorporate}
       />
-    </Layout>
+    </div>
   );
 };
 

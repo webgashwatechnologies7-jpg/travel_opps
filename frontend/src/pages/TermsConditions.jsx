@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
-import Layout from '../components/Layout';
+// Layout removed - handled by nested routing
 import { FileText, Save, AlertCircle, FileCheck, XCircle, Calendar, Heart, Bold, Italic, Underline, List, AlignLeft, AlignCenter, AlignRight, AlignJustify } from 'lucide-react';
 import { settingsAPI } from '../services/api';
+import LogoLoader from '../components/LogoLoader';
 
 // PolicySection must be outside TermsConditions so it is not recreated on every keystroke (which was causing focus loss after one word)
 const COLOR_CONFIG = {
@@ -217,16 +218,14 @@ const TermsConditions = () => {
 
   if (loading) {
     return (
-      <Layout>
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-        </div>
-      </Layout>
+      <div className="flex flex-col items-center justify-center h-[60vh] animate-in fade-in duration-500 bg-white">
+        <LogoLoader text="Loading policies..." />
+      </div>
     );
   }
 
   return (
-    <Layout>
+    <div>
       <div className="p-6">
         <div className="mb-6">
           <h1 className="text-3xl font-bold text-gray-800 flex items-center gap-2">
@@ -326,7 +325,7 @@ const TermsConditions = () => {
           </button>
         </div>
       </div>
-    </Layout>
+    </div>
   );
 };
 

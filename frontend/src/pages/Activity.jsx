@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { toast } from 'react-toastify';
-import Layout from '../components/Layout';
+// Layout removed - handled by nested routing
 import { Search, Plus, Edit, X, Upload, Download, Trash2 } from 'lucide-react';
 import { activitiesAPI } from '../services/api';
+import LogoLoader from '../components/LogoLoader';
 
 // Helper for checking permissions
 const hasPermission = (user, permission) => {
@@ -431,21 +432,12 @@ const Activity = () => {
     }
   };
 
-  if (loading) {
-    return (
-      <Layout>
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-        </div>
-      </Layout>
-    );
-  }
-
   return (
-    <Layout>
-      <div className="p-6" style={{ backgroundColor: '#D8DEF5', minHeight: '100vh' }}>
-        {/* Header */}
-        <div className="flex justify-between items-center mb-6">
+    <div className={`relative page-transition ${loading && activities.length > 0 ? 'opacity-80' : ''}`}>
+      {loading && <div className="side-progress-bar absolute top-0 left-0 right-0 h-1 z-50" />}
+      
+      <div className="p-6 mb-6">
+        <div className="flex justify-between items-center mb-4">
           <h1 className="text-3xl font-bold text-gray-800">Activity</h1>
           <div className="flex items-center gap-4">
             {/* Search Input */}
@@ -463,7 +455,7 @@ const Activity = () => {
             {hasPermission(user, 'activities.create') && (
               <button
                 onClick={handleAddNew}
-                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2 font-medium"
+                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2 font-medium shadow-sm transition-all"
               >
                 <Plus className="h-5 w-5" />
                 Add New
@@ -472,7 +464,7 @@ const Activity = () => {
             {hasPermission(user, 'activities.create') && (
               <button
                 onClick={handleImport}
-                className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center gap-2 font-medium"
+                className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center gap-2 font-medium shadow-sm"
               >
                 <Upload className="h-5 w-5" />
                 Import
@@ -480,26 +472,27 @@ const Activity = () => {
             )}
             <button
               onClick={handleExport}
-              className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center gap-2 font-medium"
+              className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center gap-2 font-medium shadow-sm"
             >
               <Download className="h-5 w-5" />
               Export
             </button>
-            <button
-              onClick={handleDownloadFormat}
-              className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center gap-2 font-medium"
-            >
-              <Download className="h-5 w-5" />
-              Download Import Format
-            </button>
           </div>
         </div>
+      </div>
 
-        {error && !loading && (
-          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-            {error}
+      {error && !loading && (
+        <div className="mx-6 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+          {error}
+        </div>
+      )}
+
+      {loading && activities.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-[50vh] animate-in fade-in duration-500 bg-white/50 backdrop-blur-sm rounded-2xl border border-dashed border-gray-300 mx-6">
+             <LogoLoader text="Loading activities..." />
           </div>
-        )}
+      ) : (
+        <>
 
         {/* Activities Table */}
         <div className="bg-white rounded-lg shadow-md overflow-hidden">
@@ -952,8 +945,9 @@ const Activity = () => {
             </div>
           </div>
         )}
-      </div>
-    </Layout>
+        </>
+      )}
+    </div>
   );
 };
 

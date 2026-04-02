@@ -9,7 +9,7 @@ export const generatePDFReport = (clientData, reportData, dateRange) => {
       <title>Client Payment Report - ${clientData.name}</title>
       <style>
         body {
-          font-family: Arial, sans-serif;
+          font-family: 'Poppins', sans-serif;
           margin: 20px;
           color: #333;
         }

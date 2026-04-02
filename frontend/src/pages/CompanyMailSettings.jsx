@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Mail, Save, Send, HelpCircle, ChevronDown, ChevronUp, Eye, EyeOff, Inbox, Link2 } from 'lucide-react';
 import { toast } from 'react-toastify';
-import Layout from '../components/Layout';
+// Layout removed - handled by nested routing
 import { companySettingsAPI, googleMailAPI, companyGoogleAPI } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -216,7 +216,7 @@ const CompanyMailSettings = () => {
   };
 
   return (
-    <Layout>
+    <div>
       <div className="min-h-screen py-8 px-4 sm:px-6 lg:px-8">
         <div className="max-w-4xl mx-auto">
           <div className="bg-white rounded-lg shadow p-6">
@@ -669,7 +669,7 @@ const CompanyMailSettings = () => {
           </div>
         </div>
       </div>
-    </Layout>
+    </div>
   );
 };
 

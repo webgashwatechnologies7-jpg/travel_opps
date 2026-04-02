@@ -2,8 +2,9 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { accountsAPI, followUpAPI, leadsAPI, paymentsAPI } from '../services/api';
-import Layout from '../components/Layout';
+// Layout removed - handled by nested routing
 import { ArrowLeft, Phone, Mail, MapPin, Calendar, DollarSign, FileText, MessageSquare, User, Plus, Edit, Save, X, TrendingUp } from 'lucide-react';
+import LogoLoader from '../components/LogoLoader';
 
 const ClientDetails = () => {
   const { id } = useParams();
@@ -449,17 +450,17 @@ const ClientDetails = () => {
 
   if (loading) {
     return (
-      <Layout>
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      <div>
+        <div className="flex items-center justify-center h-[50vh]">
+          <LogoLoader text="Loading client details..." />
         </div>
-      </Layout>
+      </div>
     );
   }
 
   if (!client) {
     return (
-      <Layout>
+      <div>
         <div className="flex items-center justify-center h-64">
           <div className="text-center">
             <h2 className="text-2xl font-semibold text-gray-900 mb-2">Client Not Found</h2>
@@ -472,12 +473,12 @@ const ClientDetails = () => {
             </button>
           </div>
         </div>
-      </Layout>
+      </div>
     );
   }
 
   return (
-    <Layout>
+    <div>
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="bg-white shadow-sm rounded-lg mb-6">
@@ -1139,7 +1140,7 @@ const ClientDetails = () => {
           </div>
         </div>
       </div>
-    </Layout>
+    </div>
   );
 };
 

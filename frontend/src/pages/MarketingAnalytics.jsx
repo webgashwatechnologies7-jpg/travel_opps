@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import Layout from '../components/Layout';
+// Layout removed - handled by nested routing
 import { 
   BarChart3,
   TrendingUp,
@@ -20,6 +20,7 @@ import {
   BarChart,
   Bar
 } from 'recharts';
+import LogoLoader from '../components/LogoLoader';
 
 const MarketingAnalytics = () => {
   const [loading, setLoading] = useState(true);
@@ -48,18 +49,16 @@ const MarketingAnalytics = () => {
     }
   };
 
-  if (loading) {
-    return (
-      <Layout>
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
-        </div>
-      </Layout>
-    );
-  }
-
   return (
-    <Layout>
+    <div className={`relative page-transition ${loading && fbInsights ? 'opacity-80' : ''}`}>
+      {loading && <div className="side-progress-bar absolute top-0 left-0 right-0 h-1 z-50" />}
+      
+      {loading && !fbInsights ? (
+          <div className="flex flex-col items-center justify-center h-[60vh] animate-in fade-in duration-500 bg-[#F9FAFB]">
+             <LogoLoader text="Loading analytics..." />
+          </div>
+      ) : (
+        <>
       <div className="space-y-6">
         <div className="flex justify-between items-center">
           <div>
@@ -258,7 +257,9 @@ const MarketingAnalytics = () => {
           </div>
         </div>
       </div>
-    </Layout>
+        </>
+      )}
+    </div>
   );
 };
 

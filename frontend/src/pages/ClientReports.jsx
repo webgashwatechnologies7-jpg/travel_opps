@@ -2,9 +2,10 @@ import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { accountsAPI, paymentsAPI, leadsAPI } from '../services/api';
 import { toast } from 'react-toastify';
-import Layout from '../components/Layout';
+// Layout removed - handled by nested routing
 import { ArrowLeft, Download, FileText, Table, Calendar, DollarSign, TrendingUp, Filter, FileDown } from 'lucide-react';
 import { generatePDFReport, generateExcelReport, generateDetailedReport } from '../utils/reportGenerator';
+import LogoLoader from '../components/LogoLoader';
 
 const formatCurrency = (val) => `₹${Number(val).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
 const formatDate = (d) => (d ? new Date(d).toISOString().split('T')[0] : '-');
@@ -278,37 +279,29 @@ const ClientReports = () => {
     });
   };
 
-  if (loading) {
-    return (
-      <Layout>
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-        </div>
-      </Layout>
-    );
-  }
-
-  if (!client) {
-    return (
-      <Layout>
-        <div className="flex items-center justify-center h-64">
-          <div className="text-center">
-            <h2 className="text-2xl font-semibold text-gray-900 mb-2">Client Not Found</h2>
-            <p className="text-gray-600">The client you're looking for doesn't exist.</p>
-            <button
-              onClick={() => navigate('/accounts/clients')}
-              className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-            >
-              Back to Clients
-            </button>
-          </div>
-        </div>
-      </Layout>
-    );
-  }
-
   return (
-    <Layout>
+    <div className={`relative page-transition ${loading && client ? 'opacity-80' : ''}`}>
+      {loading && <div className="side-progress-bar absolute top-0 left-0 right-0 h-1 z-50" />}
+      
+      {loading && !client ? (
+          <div className="flex flex-col items-center justify-center h-[60vh] animate-in fade-in duration-500">
+             <LogoLoader text="Loading client reports..." />
+          </div>
+      ) : !client ? (
+          <div className="flex flex-col items-center justify-center h-[60vh] animate-in fade-in duration-500">
+             <div className="text-center">
+                <h2 className="text-2xl font-semibold text-gray-900 mb-2">Client Not Found</h2>
+                <p className="text-gray-600">The client you're looking for doesn't exist.</p>
+                <button
+                  onClick={() => navigate('/accounts/clients')}
+                  className="mt-6 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 shadow-lg active:scale-95 transition-all"
+                >
+                  Back to Clients
+                </button>
+             </div>
+          </div>
+      ) : (
+        <>
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="bg-white shadow-sm rounded-lg mb-6">
@@ -569,7 +562,9 @@ const ClientReports = () => {
           </div>
         </div>
       </div>
-    </Layout>
+        </>
+      )}
+    </div>
   );
 };
 
