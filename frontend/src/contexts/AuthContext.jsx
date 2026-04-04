@@ -189,8 +189,45 @@ export const AuthProvider = ({ children }) => {
     setUser(newUser);
   };
 
+  const refreshUser = async () => {
+    try {
+      const response = await authAPI.profile();
+      if (response.data && response.data.success) {
+        // Data is nested in response.data.data.user
+        const refreshedUser = response.data.data.user || response.data.data; 
+        updateUser(refreshedUser);
+        return refreshedUser;
+      }
+    } catch (error) {
+      console.error('Failed to refresh user profile:', error);
+      // If profile fetch fails with 401, it will be handled by api interceptor
+    }
+    return null;
+  };
+
+  // Sync profile when window is focused (passive real-time sync)
+  useEffect(() => {
+    const handleFocus = () => {
+      if (user) {
+        console.log('Window focused - syncing user profile...');
+        refreshUser();
+      }
+    };
+
+    // Listen for custom refresh event from API interceptor
+    const handleCustomRefresh = () => refreshUser();
+
+    window.addEventListener('focus', handleFocus);
+    window.addEventListener('refresh-user-profile', handleCustomRefresh);
+
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+      window.removeEventListener('refresh-user-profile', handleCustomRefresh);
+    };
+  }, [user?.id]);
+
   return (
-    <AuthContext.Provider value={{ user, login, logout, loading, updateUser }}>
+    <AuthContext.Provider value={{ user, login, logout, loading, updateUser, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );

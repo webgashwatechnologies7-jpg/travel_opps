@@ -388,6 +388,142 @@ class DashboardController extends Controller
     }
 
     /**
+     * Get company-wide user presence and working hours statistics.
+     */
+    public function getCompanyPresenceStats(Request $request): JsonResponse
+    {
+        try {
+            $currentUser = $request->user();
+            $companyId = $currentUser->company_id;
+            $period = $request->get('period', 'today'); // today, weekly, monthly
+            
+            $startDate = now()->startOfDay();
+            if ($period === 'weekly') {
+                $startDate = now()->startOfWeek();
+            } elseif ($period === 'monthly') {
+                $startDate = now()->startOfMonth();
+            }
+
+            // Restricted to higher roles
+            if (!$currentUser->is_super_admin && !$currentUser->hasRole(['Company Admin', 'Admin', 'Manager'])) {
+                return response()->json(['success' => false, 'message' => 'Unauthorized Access'], 403);
+            }
+
+            $usersQuery = User::where('company_id', $companyId);
+
+            // Managers only see their own subordinates (if they are not admins)
+            if ($currentUser->hasRole('Manager') && !$currentUser->hasRole(['Company Admin', 'Admin', 'Super Admin'])) {
+                $subordinateIds = $currentUser->getAllSubordinateIds();
+                $usersQuery->whereIn('id', $subordinateIds);
+            }
+
+            $users = $usersQuery->select('id', 'name', 'profile_picture', 'last_seen_at')
+                ->with('roles:id,name')
+                ->get();
+
+            $allUserIds = $users->pluck('id')->toArray();
+
+            // Fetch activity for the selected period
+            $logsGroup = \App\Models\UserLoginLog::whereIn('user_id', $allUserIds)
+                ->where('login_at', '>=', $startDate)
+                ->get()
+                ->groupBy('user_id');
+
+            $userData = [];
+            $totalSeconds = 0;
+            $totalSessions = 0;
+            $totalLogouts = 0;
+            $liveNowCount = 0;
+
+            foreach ($users as $userItem) {
+                $userLogs = $logsGroup->get($userItem->id, collect());
+                
+                $seconds = 0;
+                $loginCount = $userLogs->count();
+                $logoutCount = 0;
+                
+                foreach ($userLogs as $log) {
+                    $start = \Carbon\Carbon::parse($log->login_at);
+                    // Use start date as boundary for duration if session started before period
+                    if ($start->lt($startDate)) $start = $startDate->copy();
+
+                    $end = $log->logout_at ? \Carbon\Carbon::parse($log->logout_at) : ($log->last_activity_at ? \Carbon\Carbon::parse($log->last_activity_at) : now());
+                    
+                    if ($log->logout_at) {
+                        $logoutCount++;
+                    }
+
+                    $diff = $end->diffInSeconds($start);
+                    if ($diff > 0) {
+                        $seconds += $diff;
+                    }
+                }
+
+                $isOnline = $userItem->is_online;
+                if ($isOnline) $liveNowCount++;
+
+                $userData[] = [
+                    'id' => $userItem->id,
+                    'name' => $userItem->name,
+                    'role' => $userItem->roles->first()?->name ?? 'User',
+                    'profile_picture' => $userItem->profile_picture ? asset('storage/' . $userItem->profile_picture) : null,
+                    'is_online' => $isOnline,
+                    'total_seconds' => $seconds,
+                    'formatted_time' => sprintf('%dh %dm', floor($seconds / 3600), floor(($seconds % 3600) / 60)),
+                    'login_count' => $loginCount,
+                    'logout_count' => $logoutCount,
+                ];
+
+                $totalSeconds += $seconds;
+                $totalSessions += $loginCount;
+                $totalLogouts += $logoutCount;
+            }
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'users' => collect($userData)->sortByDesc('is_online')->values()->all(),
+                    'aggregates' => [
+                        'period' => $period,
+                        'total_seconds' => $totalSeconds,
+                        'total_formatted_time' => sprintf('%dh %dm', floor($totalSeconds / 3600), floor(($totalSeconds % 3600) / 60)),
+                        'total_sessions' => $totalSessions,
+                        'total_logouts' => $totalLogouts,
+                        'live_now' => $liveNowCount,
+                        'total_users' => $users->count()
+                    ]
+                ]
+            ]);
+
+            $totalHours = floor($aggregateSeconds / 3600);
+            $totalMinutes = floor(($aggregateSeconds % 3600) / 60);
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'users' => $userData,
+                    'aggregates' => [
+                        'total_formatted_time' => "{$totalHours}h {$totalMinutes}m",
+                        'total_sessions' => $aggregateSessions,
+                        'total_logouts' => $aggregateLogouts,
+                        'live_now' => $aggregateLive,
+                        'total_users' => $users->count()
+                    ]
+                ]
+            ], 200);
+
+        } catch (\Exception $e) {
+            \Log::error('Error calculating company presence stats', ['error' => $e->getMessage()]);
+            return response()->json([
+                'success' => false,
+                'message' => 'Error calculating presence stats',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+
+    /**
      * Get revenue growth monthly for current year.
      *
      * @param Request $request

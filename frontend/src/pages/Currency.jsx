@@ -275,7 +275,7 @@ const Currency = () => {
                           >
                             <Edit className="h-5 w-5" />
                           </button>
-                          {(user?.is_super_admin || user?.roles?.some(r => ['Admin', 'Company Admin', 'Super Admin'].includes(typeof r === 'string' ? r : r.name))) && (
+                          {(user?.is_super_admin || user?.roles?.some(r => ['Admin', 'Company Admin', 'Super Admin', 'Manager'].includes(typeof r === 'string' ? r : r.name))) && (
                             <button
                               onClick={() => handleDelete(currency.id)}
                               className="text-red-600 hover:text-red-900 p-2 hover:bg-red-50 rounded-full"

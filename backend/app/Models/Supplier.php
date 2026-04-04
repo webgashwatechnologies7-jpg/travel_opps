@@ -27,6 +27,7 @@ class Supplier extends Model
         'phone_code',
         'mobile',
         'address',
+        'status',
     ];
 
     /**

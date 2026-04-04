@@ -1,9 +1,28 @@
-// Layout removed - handled by nested routing
+import React, { useState, useEffect, useMemo } from 'react';
 import { toast } from 'react-toastify';
 import { companySettingsAPI } from '../services/api';
-import { Download, Share2, Users, PhoneCall, CheckCircle, ClipboardList } from 'lucide-react';
+import { 
+  Download, 
+  Share2, 
+  Users, 
+  PhoneCall, 
+  CheckCircle, 
+  ClipboardList,
+  ChevronRight,
+  BarChart3,
+  TrendingUp,
+  LayoutGrid
+} from 'lucide-react';
+import { 
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
+  PieChart, Pie, Cell
+} from 'recharts';
 import LogoLoader from '../components/LogoLoader';
 
+/**
+ * Executive Team Reports
+ * Refinement: Semibold Poppins, professional list density, smaller headings.
+ */
 const TeamReports = () => {
   const [branches, setBranches] = useState([]);
   const [selectedBranchId, setSelectedBranchId] = useState('');
@@ -18,7 +37,7 @@ const TeamReports = () => {
 
   useEffect(() => {
     fetchReport();
-  }, [selectedBranchId]);
+  }, [selectedBranchId, selectedRange]);
 
   const fetchBranches = async () => {
     try {
@@ -35,7 +54,7 @@ const TeamReports = () => {
     setLoading(true);
     setError('');
     try {
-      const params = {};
+      const params = { range: selectedRange };
       if (selectedBranchId) {
         params.branch_id = selectedBranchId;
       }
@@ -56,9 +75,19 @@ const TeamReports = () => {
   const activeRange = report?.ranges?.[selectedRange] || {};
   const branchLabel = report?.branch?.name || 'All Teams';
 
-  const summaryText = useMemo(() => {
-    return `${branchLabel} (${selectedRange}) - Assigned: ${activeRange.assigned_to_team || 0}, Contacted: ${activeRange.contacted_leads || 0}, Calls: ${activeRange.calls_count || 0}, Confirmed: ${activeRange.confirmed_by_team || 0}`;
-  }, [branchLabel, selectedRange, activeRange]);
+  // Chart Data preparation
+  const chartData = (activeRange.per_user || []).map(u => ({
+    name: u.name?.split(' ')[0],
+    fullName: u.name,
+    assigned: u.assigned_to_user || 0,
+    confirmed: u.confirmed_by_user || 0,
+    contacted: u.contacted_leads || 0
+  }));
+
+  const pieData = chartData.map(item => ({
+    name: item.name,
+    value: item.confirmed
+  })).filter(item => item.value > 0);
 
   const handleDownloadPdf = () => {
     const printWindow = window.open('', '_blank');
@@ -126,172 +155,177 @@ const TeamReports = () => {
     printWindow.print();
   };
 
-  const handleShare = async () => {
-    const shareData = {
-      title: `Team Report - ${branchLabel}`,
-      text: summaryText,
-    };
-
-    if (navigator.share) {
-      try {
-        await navigator.share(shareData);
-      } catch (err) {
-        console.error('Share failed:', err);
-      }
-      return;
-    }
-
-    try {
-      await navigator.clipboard.writeText(summaryText);
-      toast.success('Report summary copied to clipboard.');
-    } catch (err) {
-      console.error('Clipboard failed:', err);
-      toast.error('Unable to share report.');
-    }
-  };
+  if (loading && !report) {
+    return (
+      <div className="flex flex-col items-center justify-center h-[50vh] bg-white rounded-2xl border border-slate-100 shadow-sm">
+         <LogoLoader text="Syncing productivity data..." />
+      </div>
+    );
+  }
 
   return (
-    <div className={`relative page-transition ${loading && report ? 'opacity-80' : ''}`}>
-      {loading && <div className="side-progress-bar absolute top-0 left-0 right-0 h-1 z-50" />}
-      
-      <div className="max-w-7xl mx-auto space-y-6">
-        <div className="bg-white shadow-sm rounded-lg px-6 py-4 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Team Reports</h1>
-            <p className="text-sm text-gray-600">Weekly, monthly, yearly performance by team</p>
-          </div>
-          <div className="flex flex-wrap items-center gap-3">
+    <div className="space-y-8 animate-in fade-in duration-500" style={{ fontFamily: "'Poppins', sans-serif" }}>
+      {/* Controls */}
+      <div className="bg-white rounded-2xl shadow-sm p-6 border border-gray-100 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+         <div>
+            <h2 className="text-[18px] font-semibold text-gray-800 tracking-tight">Team <span className="text-[#2C55D4]">Intelligence</span></h2>
+            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mt-1 opacity-80">Multi-branch productivity tracker</p>
+         </div>
+         
+         <div className="flex flex-wrap items-center gap-3">
             <select
               value={selectedBranchId}
               onChange={(e) => setSelectedBranchId(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
+              className="px-4 py-2 bg-slate-50 border border-slate-100 rounded-xl text-[12px] font-semibold outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all cursor-pointer shadow-sm"
             >
-              <option value="">All Teams</option>
-              {branches.map((branch) => (
-                <option key={branch.id} value={branch.id}>
-                  {branch.name}
-                </option>
-              ))}
+              <option value="">All Branches</option>
+              {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
             </select>
-            <div className="flex items-center gap-2">
-              {['week', 'month', 'year'].map((range) => (
-                <button
-                  key={range}
-                  onClick={() => setSelectedRange(range)}
-                  className={`px-3 py-1.5 text-sm rounded-full border transition-colors ${selectedRange === range
-                      ? 'bg-blue-600 text-white border-blue-600'
-                      : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'
-                    }`}
-                >
-                  {range.charAt(0).toUpperCase() + range.slice(1)}
-                </button>
+
+            <div className="flex bg-slate-50 p-1 rounded-xl border border-slate-100">
+               {['week', 'month', 'year'].map(r => (
+                  <button
+                     key={r}
+                     onClick={() => setSelectedRange(r)}
+                     className={`px-5 py-2 rounded-lg text-[10px] font-bold transition-all uppercase tracking-widest ${
+                        selectedRange === r ? 'bg-white text-[#2C55D4] shadow-sm border border-blue-50' : 'text-slate-400 hover:text-slate-600'
+                     }`}
+                  >
+                     {r}
+                  </button>
+               ))}
+            </div>
+
+            <div className="flex bg-slate-50 p-1 rounded-xl border border-slate-100">
+               <button onClick={handleDownloadPdf} className="p-2 text-slate-400 hover:text-blue-600 rounded-lg transition-all" title="Download PDF"><Download size={16} /></button>
+               <button className="p-2 text-slate-400 hover:text-blue-600 rounded-lg transition-all" title="Share Report"><Share2 size={16} /></button>
+            </div>
+         </div>
+      </div>
+
+      {/* Stats Quick Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+         {[
+            { label: "ASSIGNED", val: activeRange.assigned_to_team, color: "bg-blue-600" },
+            { label: "CONTACTED", val: activeRange.contacted_leads, color: "bg-indigo-500" },
+            { label: "CALLS MADE", val: activeRange.calls_count, color: "bg-orange-500" },
+            { label: "CONFIRMED", val: activeRange.confirmed_by_team, color: "bg-emerald-500" }
+         ].map((card, i) => (
+            <div key={i} className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 group transition-all hover:bg-[#FBFCFE]">
+               <div className="flex items-center justify-between mb-2">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{card.label}</p>
+                  <div className={`w-1.5 h-1.5 rounded-full ${card.color}`} />
+               </div>
+               <h3 className="text-2xl font-semibold text-gray-800 tabular-nums">{card.val || 0}</h3>
+            </div>
+         ))}
+      </div>
+
+      {/* Visualizations */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+         <div className="lg:col-span-2 bg-white rounded-2xl shadow-sm p-6 border border-gray-100 flex flex-col min-h-[400px]">
+            <div className="flex items-center justify-between mb-6">
+               <div>
+                  <h3 className="text-[14px] font-bold text-gray-800 uppercase tracking-widest">Team Efficiency</h3>
+                  <p className="text-[10px] font-semibold text-slate-400 uppercase mt-1">Assigned leads vs closure frequency</p>
+               </div>
+               <div className="flex items-center gap-3 text-[9px] font-bold uppercase tracking-widest opacity-60">
+                   <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-blue-500" /> Assigned</span>
+                   <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-emerald-500" /> Confirmed</span>
+               </div>
+            </div>
+            
+            <div className="flex-1 w-full pt-4 overflow-x-auto no-scrollbar">
+               <div style={{ minWidth: chartData.length > 8 ? `${chartData.length * 80}px` : '100%', height: '320px' }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                     <BarChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 20 }}>
+                        <CartesianGrid vertical={false} stroke="#F1F5F9" strokeDasharray="3 3" opacity={0.3} />
+                        <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 9, fontWeight: 700, fill: '#94A3B8' }} interval={0} angle={-25} textAnchor="end" height={60} />
+                        <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 700, fill: '#94A3B8' }} />
+                        <Tooltip cursor={{ fill: '#F9FAFB', radius: 10 }} contentStyle={{ borderRadius: '15px', border: 'none', shadow: 'none', fontWeight: 700, fontSize: '11px' }} />
+                        <Bar dataKey="assigned" name="Assigned" fill="#3B82F6" barSize={30} radius={[5, 5, 0, 0]} opacity={0.8} />
+                        <Bar dataKey="confirmed" name="Confirmed" fill="#10B981" barSize={30} radius={[5, 5, 0, 0]} opacity={0.8} />
+                     </BarChart>
+                  </ResponsiveContainer>
+               </div>
+            </div>
+         </div>
+
+         <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm flex flex-col">
+            <h4 className="text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-6">Booking Weighatge</h4>
+            <div className="h-[180px] w-full">
+               <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                     <Pie data={pieData} dataKey="value" innerRadius={55} outerRadius={75} paddingAngle={2}>
+                        {pieData.map((entry, index) => (
+                           <Cell key={index} fill={['#3B82F6', '#10B981', '#8B5CF6', '#F59E0B', '#EF4444'][index % 5]} />
+                        ))}
+                     </Pie>
+                     <Tooltip />
+                  </PieChart>
+               </ResponsiveContainer>
+            </div>
+            <div className="mt-6 flex-1 overflow-y-auto no-scrollbar space-y-3">
+              {chartData.slice(0, 5).map((item, idx) => (
+                 <div key={idx} className="flex items-center justify-between">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{item.name}</span>
+                    <span className="text-[11px] font-bold text-slate-700">{Math.round((item.confirmed / (activeRange.confirmed_by_team || 1)) * 100)}%</span>
+                 </div>
               ))}
             </div>
-            <button
-              onClick={handleDownloadPdf}
-              className="inline-flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700"
-            >
-              <Download className="h-4 w-4" />
-              Download PDF
-            </button>
-            <button
-              onClick={handleShare}
-              className="inline-flex items-center gap-2 px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50"
-            >
-              <Share2 className="h-4 w-4" />
-              Share
-            </button>
-          </div>
-        </div>
+         </div>
+      </div>
 
-        {loading && !report ? (
-          <div className="flex items-center justify-center h-48">
-             <LogoLoader text="Loading team reports..." />
-          </div>
-        ) : error ? (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
-            {error}
-          </div>
-        ) : (
-          <>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-              <div className="bg-white shadow-sm rounded-lg p-5">
-                <div className="flex items-center">
-                  <Users className="h-6 w-6 text-blue-600" />
-                  <div className="ml-3">
-                    <p className="text-sm text-gray-500">Assigned Leads</p>
-                    <p className="text-xl font-semibold text-gray-900">{activeRange.assigned_to_team || 0}</p>
-                  </div>
-                </div>
-              </div>
-              <div className="bg-white shadow-sm rounded-lg p-5">
-                <div className="flex items-center">
-                  <ClipboardList className="h-6 w-6 text-indigo-600" />
-                  <div className="ml-3">
-                    <p className="text-sm text-gray-500">Contacted Leads</p>
-                    <p className="text-xl font-semibold text-gray-900">{activeRange.contacted_leads || 0}</p>
-                  </div>
-                </div>
-              </div>
-              <div className="bg-white shadow-sm rounded-lg p-5">
-                <div className="flex items-center">
-                  <PhoneCall className="h-6 w-6 text-orange-600" />
-                  <div className="ml-3">
-                    <p className="text-sm text-gray-500">Calls Made</p>
-                    <p className="text-xl font-semibold text-gray-900">{activeRange.calls_count || 0}</p>
-                  </div>
-                </div>
-              </div>
-              <div className="bg-white shadow-sm rounded-lg p-5">
-                <div className="flex items-center">
-                  <CheckCircle className="h-6 w-6 text-green-600" />
-                  <div className="ml-3">
-                    <p className="text-sm text-gray-500">Bookings Confirmed</p>
-                    <p className="text-xl font-semibold text-gray-900">{activeRange.confirmed_by_team || 0}</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white shadow-sm rounded-lg">
-              <div className="px-6 py-4 border-b border-gray-200">
-                <h2 className="text-lg font-semibold text-gray-900">Team Members</h2>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="min-w-full text-sm">
-                  <thead className="bg-gray-50 text-gray-500">
-                    <tr>
-                      <th className="px-6 py-3 text-left font-medium">Name</th>
-                      <th className="px-6 py-3 text-left font-medium">Email</th>
-                      <th className="px-6 py-3 text-left font-medium">Assigned</th>
-                      <th className="px-6 py-3 text-left font-medium">Contacted</th>
-                      <th className="px-6 py-3 text-left font-medium">Confirmed</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-200 text-gray-700">
-                    {activeRange.per_user?.length ? (
-                      activeRange.per_user.map((member) => (
-                        <tr key={member.user_id}>
-                          <td className="px-6 py-3">{member.name}</td>
-                          <td className="px-6 py-3">{member.email || 'N/A'}</td>
-                          <td className="px-6 py-3">{member.assigned_to_user || 0}</td>
-                          <td className="px-6 py-3">{member.contacted_leads || 0}</td>
-                          <td className="px-6 py-3">{member.confirmed_by_user || 0}</td>
-                        </tr>
-                      ))
-                    ) : (
-                      <tr>
-                        <td className="px-6 py-6 text-center text-gray-500" colSpan="5">
-                          No team data for this range.
+      {/* Team Details Table */}
+      <div className="bg-white rounded-2xl shadow-sm overflow-hidden border border-gray-100">
+         <div className="p-6 border-b border-gray-50 bg-[#FBFCFE]">
+            <h3 className="text-[14px] font-bold text-gray-800 uppercase tracking-widest flex items-center gap-3">
+               Participant <span className="text-[#2C55D4]">List Report.</span>
+            </h3>
+         </div>
+         <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-50">
+               <thead className="bg-[#FBFCFE]">
+                  <tr>
+                     <th className="px-8 py-4 text-left text-[10px] font-bold text-slate-400 uppercase tracking-widest">Employee</th>
+                     <th className="px-8 py-4 text-center text-[10px] font-bold text-slate-400 uppercase tracking-widest">Assigned</th>
+                     <th className="px-8 py-4 text-center text-[10px] font-bold text-slate-400 uppercase tracking-widest">Contacted</th>
+                     <th className="px-8 py-4 text-center text-[10px] font-bold text-slate-400 uppercase tracking-widest">Confirmed</th>
+                     <th className="px-8 py-4 text-left text-[10px] font-bold text-slate-400 uppercase tracking-widest">Success Ratio</th>
+                  </tr>
+               </thead>
+               <tbody className="bg-white divide-y divide-gray-50">
+                  {activeRange.per_user?.map((member, idx) => (
+                     <tr key={idx} className="hover:bg-slate-50/20 transition-colors">
+                        <td className="px-8 py-4">
+                           <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 bg-slate-100 rounded-xl flex items-center justify-center text-slate-500 font-bold text-[13px]">
+                                 {member.name?.charAt(0)}
+                              </div>
+                              <div>
+                                 <p className="text-[13px] font-semibold text-slate-800 leading-none">{member.name}</p>
+                                 <p className="text-[10px] font-medium text-slate-400 mt-1">{member.email}</p>
+                              </div>
+                           </div>
                         </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </>
-        )}
+                        <td className="px-8 py-4 text-[13px] font-bold text-slate-700 text-center tabular-nums">{member.assigned_to_user || 0}</td>
+                        <td className="px-8 py-4 text-[13px] font-bold text-slate-700 text-center tabular-nums">{member.contacted_leads || 0}</td>
+                        <td className="px-8 py-4 text-[13px] font-bold text-emerald-600 text-center tabular-nums">{member.confirmed_by_user || 0}</td>
+                        <td className="px-8 py-4">
+                           <div className="flex items-center gap-3">
+                              <div className="flex-1 bg-slate-100 h-1.5 rounded-full overflow-hidden min-w-[70px]">
+                                 <div className="bg-[#2C55D4] h-full" style={{ width: `${Math.min((member.confirmed_by_user / (member.assigned_to_user || 1)) * 100, 100)}%` }}></div>
+                              </div>
+                              <span className="text-[12px] font-bold text-slate-800">
+                                 {member.assigned_to_user > 0 ? Math.round((member.confirmed_by_user / member.assigned_to_user) * 100) : 0}%
+                              </span>
+                           </div>
+                        </td>
+                     </tr>
+                  ))}
+               </tbody>
+            </table>
+         </div>
       </div>
     </div>
   );

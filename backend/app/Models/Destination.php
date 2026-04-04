@@ -18,6 +18,8 @@ class Destination extends Model
     protected $fillable = [
         'company_id',
         'name',
+        'photo',
+        'status',
     ];
 
     /**

@@ -1,18 +1,21 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { toast } from 'react-toastify';
-// Layout removed - handled by nested routing
-import { Search, Plus, Edit, X, Upload, Download, Trash2 } from 'lucide-react';
-import { activitiesAPI } from '../services/api';
+import { Search, Plus, Edit, X, Trash2, Eye, MapPin, ActivityIcon, User, Calendar, ExternalLink, Mail, Phone, Info, Building, Briefcase, Image as ImageIcon, Link as LinkIcon, DollarSign, Camera, Upload } from 'lucide-react';
+import { activitiesAPI, suppliersAPI, packagesAPI } from '../services/api';
+import { searchPexelsPhotos } from '../services/pexels';
 import LogoLoader from '../components/LogoLoader';
 
 // Helper for checking permissions
 const hasPermission = (user, permission) => {
   if (!user) return false;
-  // Super Admin bypass
   if (user.is_super_admin) return true;
-  if (user.roles?.some(r => ['Admin', 'Company Admin', 'Super Admin'].includes(typeof r === 'string' ? r : r.name))) return true;
-  // Check granular permission
+  const bypassRoles = ['Admin', 'Company Admin', 'Super Admin', 'Manager'];
+  if (user.roles?.some(r => {
+    const roleName = typeof r === 'string' ? r : r.name;
+    return roleName && bypassRoles.some(br => br.toLowerCase() === roleName.toLowerCase());
+  })) return true;
   if (user.permissions && user.permissions.includes(permission)) return true;
   return false;
 };
@@ -20,936 +23,465 @@ const hasPermission = (user, permission) => {
 const Activity = () => {
   const { user } = useAuth();
   const [activities, setActivities] = useState([]);
+  const [suppliers, setSuppliers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [error, setError] = useState('');
+
+  // Modals
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+  const [showImageModal, setShowImageModal] = useState(false);
+
+  // States
   const [editingActivityId, setEditingActivityId] = useState(null);
-  const [formData, setFormData] = useState({
-    name: '',
-    destination: '',
-    activity_details: '',
-    activity_photo: null,
-    status: 'active'
-  });
+  const [viewingActivity, setViewingActivity] = useState(null);
   const [saving, setSaving] = useState(false);
-  const [photoPreview, setPhotoPreview] = useState(null);
-  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
-  const [importFile, setImportFile] = useState(null);
-  const [importing, setImporting] = useState(false);
-  const [isPriceModalOpen, setIsPriceModalOpen] = useState(false);
-  const [selectedActivity, setSelectedActivity] = useState(null);
-  const [prices, setPrices] = useState([]);
-  const [loadingPrices, setLoadingPrices] = useState(false);
-  const [editingPriceId, setEditingPriceId] = useState(null);
-  const [priceFormData, setPriceFormData] = useState({
-    from_date: '',
-    to_date: '',
-    price: ''
+
+  // Image Library States
+  const [imagePreview, setImagePreview] = useState(null);
+  const [imageSource, setImageSource] = useState('upload'); // 'upload' or 'library'
+  const [libraryPackages, setLibraryPackages] = useState([]);
+  const [librarySearchTerm, setLibrarySearchTerm] = useState('');
+  const [libraryLoading, setLibraryLoading] = useState(false);
+  const [libraryTab, setLibraryTab] = useState('free');
+  const [freeStockPhotos, setFreeStockPhotos] = useState([]);
+  const [freeStockLoading, setFreeStockLoading] = useState(false);
+
+  // Form Data
+  const [formData, setFormData] = useState({
+    name: '', destination: '', description: '', image: null, contact_person: '', email: '', phone: '', address: '', status: 'active', activity_link: '', supplier_id: ''
   });
 
-  useEffect(() => {
-    fetchActivities();
-  }, []);
-
-  const fetchActivities = async () => {
+  const fetchData = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await activitiesAPI.list();
-      setActivities(response.data.data || response.data || []);
-      setError('');
-    } catch (err) {
-      if (err.response?.status === 404) {
-        setActivities([]);
-      } else {
-        setError('Failed to load activities');
-        console.error(err);
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
+      const [actRes, supRes] = await Promise.all([activitiesAPI.list(), suppliersAPI.list()]);
+      const data = actRes.data.data || actRes.data || [];
+      const processedData = data.map(a => {
+        return {
+          ...a,
+          image: a.activity_photo || a.image,
+          description: a.activity_details || a.description
+        };
+      });
+      setActivities(processedData);
+      setSuppliers(supRes.data.data || supRes.data || []);
+    } catch (err) { toast.error('Failed to sync master records'); }
+    finally { setLoading(false); }
+  }, []);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
 
   const handleAddNew = () => {
     setEditingActivityId(null);
+    setFormData({ name: '', destination: '', description: '', image: null, contact_person: '', email: '', phone: '', address: '', status: 'active', activity_link: '', supplier_id: '' });
+    setImagePreview(null);
     setIsModalOpen(true);
+  };
+
+  const handleEdit = (a) => {
+    setEditingActivityId(a.id);
     setFormData({
-      name: '',
-      destination: '',
-      activity_details: '',
-      activity_photo: null,
-      status: 'active'
+      name: a.name || '',
+      destination: a.destination || '',
+      description: a.activity_details || a.description || '',
+      image: null,
+      contact_person: a.contact_person || '',
+      email: a.email || '',
+      phone: a.mobile || a.phone || '',
+      address: a.address || '',
+      status: a.status || 'active',
+      activity_link: a.activity_link || '',
+      supplier_id: a.supplier_id || ''
     });
-    setPhotoPreview(null);
-  };
-
-  const handleCloseModal = () => {
-    setIsModalOpen(false);
-    setEditingActivityId(null);
-    setFormData({
-      name: '',
-      destination: '',
-      activity_details: '',
-      activity_photo: null,
-      status: 'active'
-    });
-    setPhotoPreview(null);
-  };
-
-  const handleInputChange = (field, value) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: value
-    }));
-  };
-
-  const handleFileChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      setFormData(prev => ({
-        ...prev,
-        activity_photo: file
-      }));
-      // Create preview
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setPhotoPreview(reader.result);
-      };
-      reader.readAsDataURL(file);
-    }
+    setImagePreview(a.activity_photo || a.image || null);
+    setImageSource('upload');
+    setIsModalOpen(true);
   };
 
   const handleSave = async (e) => {
     e.preventDefault();
     setSaving(true);
-
     try {
-      const activityData = new FormData();
-      activityData.append('name', formData.name);
-      activityData.append('destination', formData.destination);
-      activityData.append('activity_details', formData.activity_details || '');
-      if (formData.activity_photo) {
-        activityData.append('activity_photo', formData.activity_photo);
+      const submitData = new FormData();
+      submitData.append('name', formData.name);
+      submitData.append('destination', formData.destination);
+      submitData.append('activity_details', formData.description || '');
+      submitData.append('contact_person', formData.contact_person || '');
+      submitData.append('email', formData.email || '');
+      submitData.append('phone', formData.phone || '');
+      submitData.append('address', formData.address || ''); // activity table has 'address'
+      submitData.append('status', formData.status || 'active');
+      submitData.append('activity_link', formData.activity_link || '');
+      if (formData.supplier_id) submitData.append('supplier_id', formData.supplier_id);
+
+      if (formData.image) {
+        submitData.append('activity_photo', formData.image);
+      } else if (imagePreview && imageSource === 'library') {
+        const response = await fetch(imagePreview);
+        const blob = await response.blob();
+        const file = new File([blob], 'activity.jpg', { type: blob.type });
+        submitData.append('activity_photo', file);
       }
-      activityData.append('status', formData.status);
 
       if (editingActivityId) {
-        await activitiesAPI.update(editingActivityId, activityData);
-        setError('');
-      } else {
-        await activitiesAPI.create(activityData);
-        setError('');
-      }
+        submitData.append('_method', 'PUT');
+        await activitiesAPI.update(editingActivityId, submitData);
+      } else await activitiesAPI.create(submitData);
 
-      await fetchActivities();
-      handleCloseModal();
-    } catch (err) {
-      setError(err.response?.data?.message || (editingActivityId ? 'Failed to update activity' : 'Failed to add activity'));
-      console.error(err);
-    } finally {
-      setSaving(false);
-    }
+      fetchData();
+      setIsModalOpen(false);
+      toast.success('Activity sync complete');
+    } catch (err) { toast.error('Failed to save activity'); }
+    finally { setSaving(false); }
   };
 
-  const handleEdit = (activity) => {
-    setEditingActivityId(activity.id);
-    setIsModalOpen(true);
-
-    setFormData({
-      name: activity.name || '',
-      destination: activity.destination || '',
-      activity_details: activity.activity_details || '',
-      activity_photo: null,
-      status: activity.status || 'active'
-    });
-    setPhotoPreview(activity.activity_photo || null);
-  };
-
-  const handleDelete = async (activityId) => {
-    if (!window.confirm('Are you sure you want to delete this activity?')) {
-      return;
-    }
-
+  const toggleStatus = async (e, a) => {
+    e.stopPropagation();
+    if (!hasPermission(user, 'activities.status')) return;
     try {
-      await activitiesAPI.delete(activityId);
-      await fetchActivities();
-      setError('');
-    } catch (err) {
-      setError(err.response?.data?.message || 'Failed to delete activity');
-      console.error(err);
-    }
+      const newStatus = a.status === 'active' ? 'inactive' : 'active';
+      await activitiesAPI.update(a.id, {
+        ...a,
+        status: newStatus,
+        activity_details: a.activity_details || a.description,
+        _method: 'PUT'
+      });
+      fetchData();
+      toast.success(`Status updated to ${newStatus}`);
+    } catch (err) { toast.error('Failed to update status'); }
   };
 
-  const handleImport = () => {
-    setIsImportModalOpen(true);
-    setImportFile(null);
+  // Image Library Logic
+  const fetchLibraryPackages = async () => {
+    setLibraryLoading(true);
+    try {
+      const response = await packagesAPI.list();
+      const data = response.data.data || [];
+      const processed = data.map((p) => {
+        if (p.image) {
+          let url = p.image;
+          if (url.startsWith('/storage') || (url.startsWith('/') && !url.startsWith('http'))) {
+            const baseUrl = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api').replace('/api', '');
+            url = `${baseUrl}${url}`;
+          }
+          if (url.includes('localhost') && !url.includes(':8000')) url = url.replace('localhost', 'localhost:8000');
+          return { ...p, image: url };
+        }
+        return p;
+      });
+      setLibraryPackages(processed);
+    } catch (err) { toast.error('Library sync failed'); }
+    finally { setLibraryLoading(false); }
   };
 
-  const handleCloseImportModal = () => {
-    setIsImportModalOpen(false);
-    setImportFile(null);
+  useEffect(() => {
+    if (showImageModal && imageSource === 'library' && libraryTab === 'your' && libraryPackages.length === 0) fetchLibraryPackages();
+  }, [showImageModal, imageSource, libraryTab]);
+
+  const fetchFreeStockImages = async () => {
+    const q = (librarySearchTerm || formData.destination || '').trim();
+    if (q.length < 2) return;
+    setFreeStockLoading(true);
+    try {
+      const { photos } = await searchPexelsPhotos(q, 15);
+      setFreeStockPhotos(photos || []);
+    } catch (e) { setFreeStockPhotos([]); }
+    finally { setFreeStockLoading(false); }
   };
 
-  const handleImportFileChange = (e) => {
+  const handleSelectFreeStockImage = async (imageUrl) => {
+    try {
+      const res = await fetch(imageUrl);
+      const blob = await res.blob();
+      const file = new File([blob], 'activity.jpg', { type: blob.type || 'image/jpeg' });
+      setFormData((prev) => ({ ...prev, image: file }));
+      setImagePreview(URL.createObjectURL(file));
+      setImageSource('upload');
+      setShowImageModal(false);
+    } catch (e) { toast.error('Failed to load image'); }
+  };
+
+  const handleImageSelectFromLibrary = (imageUrl) => {
+    setImagePreview(imageUrl);
+    setFormData(prev => ({ ...prev, image: null }));
+    setImageSource('library');
+    setShowImageModal(false);
+  };
+
+  const handleImageFileChange = (e) => {
     const file = e.target.files[0];
     if (file) {
-      setImportFile(file);
+      setFormData(prev => ({ ...prev, image: file }));
+      setImagePreview(null);
+      setImageSource('upload');
+      const reader = new FileReader();
+      reader.onloadend = () => setImagePreview(reader.result);
+      reader.readAsDataURL(file);
     }
   };
 
-  const handleImportSubmit = async (e) => {
-    e.preventDefault();
-    if (!importFile) {
-      setError('Please select a file to import');
-      return;
-    }
-
-    try {
-      setImporting(true);
-      const formData = new FormData();
-      formData.append('file', importFile);
-
-      await activitiesAPI.importActivities(formData);
-      await fetchActivities();
-      handleCloseImportModal();
-      setError('');
-    } catch (err) {
-      setError(err.response?.data?.message || 'Failed to import activities');
-      console.error(err);
-    } finally {
-      setImporting(false);
-    }
-  };
-
-  const handleExport = async () => {
-    try {
-      setError('');
-      const response = await activitiesAPI.exportActivities();
-
-      if (response.data instanceof Blob) {
-        const blob = response.data;
-        const url = window.URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.setAttribute('download', `activities_export_${new Date().toISOString().split('T')[0]}.csv`);
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
-        window.URL.revokeObjectURL(url);
-      } else {
-        const blob = new Blob([response.data], {
-          type: 'text/csv;charset=utf-8;'
-        });
-        const url = window.URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.setAttribute('download', `activities_export_${new Date().toISOString().split('T')[0]}.csv`);
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
-        window.URL.revokeObjectURL(url);
-      }
-    } catch (err) {
-      let errorMessage = 'Failed to export activities';
-      if (err.response?.data instanceof Blob) {
-        try {
-          const text = await err.response.data.text();
-          const errorData = JSON.parse(text);
-          errorMessage = errorData.message || errorMessage;
-        } catch (e) {
-          // If parsing fails, use default message
-        }
-      } else if (err.response?.data?.message) {
-        errorMessage = err.response.data.message;
-      }
-      setError(errorMessage);
-      console.error('Export error:', err);
-    }
-  };
-
-  const handleDownloadFormat = async () => {
-    try {
-      setError('');
-      const response = await activitiesAPI.downloadImportFormat();
-
-      if (response.data instanceof Blob) {
-        const blob = response.data;
-        const url = window.URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.setAttribute('download', 'activity_import_template.csv');
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
-        window.URL.revokeObjectURL(url);
-      } else {
-        const blob = new Blob([response.data], {
-          type: 'text/csv;charset=utf-8;'
-        });
-        const url = window.URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.setAttribute('download', 'activity_import_template.csv');
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
-        window.URL.revokeObjectURL(url);
-      }
-    } catch (err) {
-      let errorMessage = 'Failed to download import format';
-      if (err.response?.data instanceof Blob) {
-        try {
-          const text = await err.response.data.text();
-          const errorData = JSON.parse(text);
-          errorMessage = errorData.message || errorMessage;
-        } catch (e) {
-          // If parsing fails, use default message
-        }
-      } else if (err.response?.data?.message) {
-        errorMessage = err.response.data.message;
-      }
-      setError(errorMessage);
-      console.error('Download error:', err);
-    }
-  };
-
-  const handleUpdatePrice = async (activity) => {
-    setSelectedActivity(activity);
-    setIsPriceModalOpen(true);
-    setPriceFormData({
-      from_date: '',
-      to_date: '',
-      price: ''
-    });
-    await fetchPrices(activity.id);
-  };
-
-  const handleClosePriceModal = () => {
-    setIsPriceModalOpen(false);
-    setSelectedActivity(null);
-    setPrices([]);
-    setPriceFormData({
-      from_date: '',
-      to_date: '',
-      price: ''
-    });
-    setEditingPriceId(null);
-  };
-
-  const fetchPrices = async (activityId) => {
-    try {
-      setLoadingPrices(true);
-      const response = await activitiesAPI.getPrices(activityId);
-      setPrices(response.data.data || []);
-    } catch (err) {
-      console.error('Failed to load prices:', err);
-      setPrices([]);
-    } finally {
-      setLoadingPrices(false);
-    }
-  };
-
-  const handlePriceInputChange = (field, value) => {
-    setPriceFormData(prev => ({
-      ...prev,
-      [field]: value
-    }));
-  };
-
-  const handleAddPrice = async (e) => {
-    e.preventDefault();
-    if (!selectedActivity) return;
-
-    try {
-      if (editingPriceId) {
-        await activitiesAPI.updatePrice(selectedActivity.id, editingPriceId, priceFormData);
-        setError('');
-      } else {
-        await activitiesAPI.createPrice(selectedActivity.id, priceFormData);
-        await fetchActivities();
-      }
-
-      await fetchPrices(selectedActivity.id);
-      setEditingPriceId(null);
-      setPriceFormData({
-        from_date: '',
-        to_date: '',
-        price: ''
-      });
-      setError('');
-    } catch (err) {
-      setError(err.response?.data?.message || (editingPriceId ? 'Failed to update price' : 'Failed to add price'));
-      console.error(err);
-    }
-  };
-
-  const handleEditPrice = (price) => {
-    setEditingPriceId(price.id);
-    setPriceFormData({
-      from_date: price.from_date,
-      to_date: price.to_date,
-      price: price.price || ''
-    });
-  };
-
-  const handleCancelEditPrice = () => {
-    setEditingPriceId(null);
-    setPriceFormData({
-      from_date: '',
-      to_date: '',
-      price: ''
-    });
-  };
-
-  const handleDeletePrice = async (priceId) => {
-    if (!selectedActivity) return;
-    if (!window.confirm('Are you sure you want to delete this price?')) return;
-
-    try {
-      await activitiesAPI.deletePrice(selectedActivity.id, priceId);
-      await fetchPrices(selectedActivity.id);
-      await fetchActivities();
-      setError('');
-    } catch (err) {
-      setError(err.response?.data?.message || 'Failed to delete price');
-      console.error(err);
-    }
-  };
-
-  const filteredActivities = activities.filter(activity => {
-    const name = activity.name || '';
-    const searchLower = searchTerm.toLowerCase();
-    return name.toLowerCase().includes(searchLower);
-  });
-
-  const formatDate = (dateString) => {
-    if (!dateString) return 'N/A';
-    try {
-      const date = new Date(dateString);
-      return date.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
-    } catch {
-      return dateString;
-    }
-  };
+  const filteredActivities = useMemo(() =>
+    activities.filter(a => (a.name || '').toLowerCase().includes(searchTerm.toLowerCase())),
+    [activities, searchTerm]
+  );
 
   return (
-    <div className={`relative page-transition ${loading && activities.length > 0 ? 'opacity-80' : ''}`}>
-      {loading && <div className="side-progress-bar absolute top-0 left-0 right-0 h-1 z-50" />}
-      
-      <div className="p-6 mb-6">
-        <div className="flex justify-between items-center mb-4">
-          <h1 className="text-3xl font-bold text-gray-800">Activity</h1>
-          <div className="flex items-center gap-4">
-            {/* Search Input */}
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
-              <input
-                type="text"
-                placeholder="Search by name"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 w-64"
-              />
-            </div>
-            {/* Action Buttons */}
-            {hasPermission(user, 'activities.create') && (
-              <button
-                onClick={handleAddNew}
-                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2 font-medium shadow-sm transition-all"
-              >
-                <Plus className="h-5 w-5" />
-                Add New
-              </button>
-            )}
-            {hasPermission(user, 'activities.create') && (
-              <button
-                onClick={handleImport}
-                className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center gap-2 font-medium shadow-sm"
-              >
-                <Upload className="h-5 w-5" />
-                Import
-              </button>
-            )}
-            <button
-              onClick={handleExport}
-              className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center gap-2 font-medium shadow-sm"
-            >
-              <Download className="h-5 w-5" />
-              Export
-            </button>
+    <div className="p-6 font-poppins" style={{ backgroundColor: '#D8DEF5', minHeight: '100vh' }}>
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-3xl font-bold text-gray-800">Activities</h1>
+        <div className="flex items-center gap-4">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-5 w-5" />
+            <input
+              type="text"
+              placeholder="Search by name"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 w-64 bg-white"
+            />
           </div>
+          {hasPermission(user, 'activities.create') && (
+            <button onClick={handleAddNew} className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2 font-medium shadow-sm">
+              <Plus className="h-5 w-5" /> Add New
+            </button>
+          )}
         </div>
       </div>
 
-      {error && !loading && (
-        <div className="mx-6 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-          {error}
-        </div>
+      <div className="bg-white rounded-lg shadow-md overflow-hidden">
+        <table className="min-w-full divide-y divide-gray-200">
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="px-6 py-3 text-left text-xs font-bold uppercase tracking-widest text-gray-500">Activity Asset</th>
+              <th className="px-6 py-3 text-left text-xs font-bold uppercase tracking-widest text-gray-500">Destination</th>
+              <th className="px-6 py-3 text-left text-xs font-bold uppercase tracking-widest text-gray-500">Status</th>
+              <th className="px-6 py-3 text-left text-xs font-bold uppercase tracking-widest text-gray-500">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="bg-white divide-y divide-gray-200">
+            {filteredActivities.length === 0 ? (
+              <tr><td colSpan="4" className="px-6 py-12 text-center text-gray-500 text-sm font-medium">No activities found</td></tr>
+            ) : (
+              filteredActivities.map((a) => (
+                <tr key={a.id} className="hover:bg-gray-50 transition-colors">
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center overflow-hidden border">
+                        {a.image ? <img src={a.image} className="w-full h-full object-cover" /> : <ImageIcon className="h-5 w-5 text-gray-400" />}
+                      </div>
+                      <div className="text-sm font-medium text-gray-900">{a.name || 'N/A'}</div>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-bold uppercase tracking-wide">{a.destination || 'N/A'}</td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <button
+                      onClick={(e) => toggleStatus(e, a)}
+                      className={`px-3 py-1 inline-flex text-[10px] uppercase font-black tracking-widest rounded-full cursor-pointer transition-all ${a.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}
+                    >
+                      {a.status === 'active' ? 'Active' : 'Inactive'}
+                    </button>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                    <div className="flex items-center gap-2">
+                      <button onClick={() => { setViewingActivity(a); setIsViewModalOpen(true); }} className="text-blue-600 hover:text-blue-900 p-2 hover:bg-blue-50 rounded-full" title="View Detail"><Eye size={18} /></button>
+                      {hasPermission(user, 'activities.edit') && <button onClick={() => handleEdit(a)} className="text-green-600 hover:text-green-900 p-2 hover:bg-green-50 rounded-full" title="Edit Properties"><Edit size={18} /></button>}
+                      {hasPermission(user, 'activities.delete') && <button onClick={() => { if (window.confirm('Remove from registry?')) { activitiesAPI.delete(a.id); fetchData(); } }} className="text-red-600 hover:text-red-900 p-2 hover:bg-red-50 rounded-full" title="Remove"><Trash2 size={18} /></button>}
+                    </div>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {/* VIEW MODAL - Executive Suite Redesign */}
+      {isViewModalOpen && viewingActivity && createPortal(
+        <div className="fixed inset-0 bg-[#0F172A]/40 backdrop-blur-md flex items-center justify-center z-[9999] p-4 animate-in fade-in duration-300">
+          <div className="bg-white rounded-[32px] shadow-2xl w-full max-w-2xl overflow-hidden animate-in zoom-in-95 duration-300 border border-white/20" style={{ fontFamily: "'Poppins', sans-serif" }}>
+            {/* Modal Header */}
+            <div className="px-8 py-6 border-b border-slate-50 flex justify-between items-center bg-white sticky top-0 z-10">
+               <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 bg-blue-50 rounded-2xl flex items-center justify-center text-[#2C55D4] shadow-sm">
+                     <ActivityIcon size={24} strokeWidth={2.5} />
+                  </div>
+                  <div>
+                    <h2 className="text-[18px] font-semibold text-slate-800 leading-none">{viewingActivity.name}</h2>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1.5 flex items-center gap-1.5 focus:outline-none">
+                       <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> Activity & Experience Registry
+                    </p>
+                  </div>
+               </div>
+               <button 
+                  onClick={() => setIsViewModalOpen(false)} 
+                  className="w-10 h-10 rounded-full bg-slate-50 text-slate-400 flex items-center justify-center hover:bg-slate-100 hover:text-slate-600 transition-all active:scale-90"
+               >
+                  <X size={20} />
+               </button>
+            </div>
+
+            <div className="p-8 space-y-8 max-h-[75vh] overflow-y-auto no-scrollbar">
+              {viewingActivity.image ? (
+                <div className="relative group overflow-hidden rounded-3xl border border-slate-100 shadow-xl shadow-blue-900/5 aspect-video">
+                  <img src={viewingActivity.image} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" alt={viewingActivity.name} />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-6">
+                     <p className="text-white text-xs font-bold uppercase tracking-widest">Experience Spotlight: {viewingActivity.name}</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="w-full h-40 bg-slate-50 rounded-3xl border border-dashed border-slate-200 flex flex-col items-center justify-center text-slate-400 gap-3">
+                   <ImageIcon size={40} strokeWidth={1} />
+                   <p className="text-[10px] font-bold uppercase tracking-widest leading-none">No Visual Memory Found</p>
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100/50">
+                   <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Asset ID</label>
+                   <p className="text-[14px] font-bold text-slate-800 tabular-nums">#ACT-{viewingActivity.id}</p>
+                </div>
+                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100/50">
+                   <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Status Phase</label>
+                   <div className="flex items-center gap-2">
+                      <div className={`w-2 h-2 rounded-full ${viewingActivity.status === 'active' ? 'bg-emerald-500' : 'bg-rose-500'}`} />
+                      <p className={`text-[12px] font-black uppercase tracking-widest ${viewingActivity.status === 'active' ? 'text-emerald-600' : 'text-rose-600'}`}>
+                         {viewingActivity.status}
+                      </p>
+                   </div>
+                </div>
+                
+                <div className="col-span-1 md:col-span-2 p-5 bg-[#F8FAFC] rounded-2xl border border-blue-50">
+                   <div className="flex items-center gap-3 mb-2">
+                      <MapPin size={16} className="text-[#2C55D4]" />
+                      <label className="text-[10px] font-bold text-[#2C55D4] uppercase tracking-widest block">Geographic Operational Center</label>
+                   </div>
+                   <p className="text-[16px] font-bold text-slate-800 uppercase pl-7 leading-none tracking-wide">
+                      {viewingActivity.destination || 'Global Experience'}
+                   </p>
+                </div>
+
+                <div className="col-span-1 md:col-span-2 p-5 bg-white rounded-2xl border border-slate-100">
+                   <div className="flex items-center gap-3 mb-3">
+                      <Info size={16} className="text-slate-400" />
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Technical Synopsis</label>
+                   </div>
+                   <p className="text-[13px] font-medium text-slate-600 leading-relaxed pl-7 text-justify whitespace-pre-line">
+                      {viewingActivity.description || viewingActivity.activity_details || 'No technical specifications provided for this experience registry.'}
+                   </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-8 py-6 border-t border-slate-50 flex justify-end gap-3 bg-slate-50/50">
+               <button 
+                  onClick={() => setIsViewModalOpen(false)} 
+                  className="px-10 py-3 bg-[#1E293B] text-white rounded-2xl text-[11px] font-bold uppercase tracking-widest shadow-lg shadow-blue-900/10 hover:shadow-xl hover:-translate-y-0.5 transition-all active:scale-95"
+               >
+                  Close Panel
+               </button>
+            </div>
+          </div>
+        </div>, document.body
       )}
 
-      {loading && activities.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-[50vh] animate-in fade-in duration-500 bg-white/50 backdrop-blur-sm rounded-2xl border border-dashed border-gray-300 mx-6">
-             <LogoLoader text="Loading activities..." />
-          </div>
-      ) : (
-        <>
-
-        {/* Activities Table */}
-        <div className="bg-white rounded-lg shadow-md overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Name
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Destination
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Price
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    By
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Last Update
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {filteredActivities.length === 0 ? (
-                  <tr>
-                    <td colSpan="7" className="px-6 py-4 text-center text-gray-500">
-                      No activities found
-                    </td>
-                  </tr>
-                ) : (
-                  filteredActivities.map((activity) => (
-                    <tr key={activity.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900">{activity.name || 'N/A'}</div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">{activity.destination || 'N/A'}</div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <button
-                          onClick={() => handleUpdatePrice(activity)}
-                          className="text-sm text-blue-600 hover:text-blue-800 cursor-pointer"
-                        >
-                          Update ({activity.price_updates_count || 0})
-                        </button>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <button
-                          onClick={async () => {
-                            if (!hasPermission(user, 'activities.status')) return;
-                            try {
-                              const newStatus = activity.status === 'active' ? 'inactive' : 'active';
-                              // Use FormData since backend might expect that for activities (update handles it?)
-                              // Or simple JSON. ActivitiesAPI.update uses FormData in my view, 
-                              // but let's see if we can just pass object. Usually frontend uses FormData if photos involved.
-                              // Let's create FormData to be safe, or just assume backend handles JSON too.
-                              // Wait, existing handleSave uses FormData.
-                              const formData = new FormData();
-                              formData.append('status', newStatus);
-                              formData.append('_method', 'PUT'); // Laravel sometimes needs this for PUT with FormData
-
-                              // We should ideally preserve other fields but update only status. 
-                              // Backend 'update' likely updates all fields.
-                              // For now, let's assume partial update is supported OR fetch all data.
-                              // Safest is to just send status if backend supports partial.
-                              // If not, we might wipe data.
-
-                              // Actually, let's just use the toggle but if I need to use FormData, I need existing values.
-                              // But 'activity' object here has existing values.
-
-                              // Let's try sending just JSON first if the update endpoint supports it.
-                              // If `activitiesAPI.update` expects id and data.
-                              // If existing code uses FormData, let's use FormData with all existing fields.
-
-                              const submitData = new FormData();
-                              submitData.append('name', activity.name);
-                              submitData.append('destination', activity.destination);
-                              submitData.append('activity_details', activity.activity_details || '');
-                              submitData.append('status', newStatus);
-                              submitData.append('_method', 'PUT');
-
-                              await activitiesAPI.update(activity.id, submitData);
-                              fetchActivities();
-                              toast.success(`Status updated to ${newStatus}`);
-                            } catch (err) {
-                              console.error(err);
-                              toast.error('Failed to update status');
-                            }
-                          }}
-                          className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full cursor-pointer ${activity.status === 'active'
-                            ? 'bg-green-100 text-green-800'
-                            : 'bg-red-100 text-red-800'
-                            }`}
-                          disabled={!hasPermission(user, 'activities.status')}
-                        >
-                          {activity.status === 'active' ? 'Active' : 'Inactive'}
-                        </button>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">{activity.created_by_name || 'Travbizz Travel IT Solutions'}</div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">
-                          {formatDate(activity.updated_at || activity.last_update)}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        {hasPermission(user, 'activities.edit') && (
-                          <button
-                            onClick={() => handleEdit(activity)}
-                            className="text-green-600 hover:text-green-900 p-2 hover:bg-green-50 rounded"
-                            title="Edit"
-                          >
-                            <Edit className="h-5 w-5" />
-                          </button>
-                        )}
-                        {hasPermission(user, 'activities.delete') && (user?.is_super_admin || user?.roles?.some(r => ['Admin', 'Company Admin', 'Super Admin'].includes(typeof r === 'string' ? r : r.name))) && (
-                          <button
-                            onClick={() => handleDelete(activity.id)}
-                            className="text-red-600 hover:text-red-900 p-2 hover:bg-red-50 rounded ml-2"
-                            title="Delete"
-                          >
-                            <Trash2 className="h-5 w-5" />
-                          </button>
-                        )}
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        {/* Add/Edit Activity Modal */}
-        {isModalOpen && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl mx-4">
-              {/* Modal Header */}
-              <div className="flex justify-between items-center p-6 border-b border-gray-200">
-                <h2 className="text-xl font-bold text-gray-800">
-                  {editingActivityId ? 'Edit Activity' : 'Add Activity'}
-                </h2>
-                <button
-                  onClick={handleCloseModal}
-                  className="text-gray-400 hover:text-gray-600 transition-colors"
-                >
-                  <X className="h-6 w-6" />
-                </button>
-              </div>
-
-              {/* Modal Body */}
-              <form onSubmit={handleSave} encType="multipart/form-data">
-                <div className="p-6 space-y-4">
-                  {/* Activity Name */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Activity name *
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.name}
-                      onChange={(e) => handleInputChange('name', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="Enter activity name"
-                      required
-                    />
-                  </div>
-
-                  {/* Destination */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Destination *
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.destination}
-                      onChange={(e) => handleInputChange('destination', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="Enter destination"
-                      required
-                    />
-                  </div>
-
-                  {/* Activity Details */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Activity Details
-                    </label>
-                    <textarea
-                      value={formData.activity_details}
-                      onChange={(e) => handleInputChange('activity_details', e.target.value)}
-                      rows={4}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="Enter activity details"
-                    />
-                  </div>
-
-                  {/* Activity Photo */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Activity Photo *
-                    </label>
-                    <div className="flex items-center gap-4">
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={handleFileChange}
-                        className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-                        required={!editingActivityId}
-                      />
-                      {photoPreview && (
-                        <img src={photoPreview} alt="Preview" className="h-20 w-20 object-cover rounded-lg" />
-                      )}
-                    </div>
-                    {!photoPreview && !formData.activity_photo && (
-                      <p className="mt-1 text-sm text-gray-500">No file chosen</p>
-                    )}
-                  </div>
-
-                  {/* Status */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Status *
-                    </label>
-                    <select
-                      value={formData.status}
-                      onChange={(e) => handleInputChange('status', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      required
-                    >
-                      <option value="active">Active</option>
-                      <option value="inactive">Inactive</option>
-                    </select>
-                  </div>
-                </div>
-
-                {/* Modal Footer */}
-                <div className="flex justify-end gap-3 p-6 border-t border-gray-200">
-                  <button
-                    type="button"
-                    onClick={handleCloseModal}
-                    className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={saving}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {saving ? (editingActivityId ? 'Updating...' : 'Saving...') : 'Save'}
-                  </button>
-                </div>
-              </form>
+      {/* ADD/EDIT FORM FOR ACTIVITY */}
+      {isModalOpen && createPortal(
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[9999] p-4 font-poppins font-medium">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl overflow-hidden animate-in-scale font-medium">
+            <div className="flex justify-between items-center p-6 border-b bg-gray-50">
+              <h2 className="text-xl font-bold uppercase tracking-widest">{editingActivityId ? 'Edit Event' : 'New Event Registry'}</h2>
+              <button onClick={() => setIsModalOpen(false)}><X size={24} /></button>
             </div>
-          </div>
-        )}
-
-        {/* Update Price Modal */}
-        {isPriceModalOpen && selectedActivity && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl mx-4 max-h-[90vh] overflow-hidden flex flex-col">
-              {/* Modal Header */}
-              <div className="flex justify-between items-center p-6 border-b border-gray-200">
-                <h2 className="text-xl font-bold text-gray-800">Update Price - {selectedActivity.name}</h2>
-                <button
-                  onClick={handleClosePriceModal}
-                  className="text-gray-400 hover:text-gray-600 transition-colors"
-                >
-                  <X className="h-6 w-6" />
-                </button>
+            <form onSubmit={handleSave} className="p-6 space-y-4 max-h-[75vh] overflow-y-auto">
+              <div className="grid grid-cols-2 gap-4 text-sm font-medium">
+                <div className="space-y-1">
+                  <label className="text-gray-700 block">Activity name *</label>
+                  <input placeholder="Activity title" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} className="w-full border p-2 rounded focus:ring-2 focus:ring-blue-500 outline-none" required />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-gray-700 block text-sm">Destination *</label>
+                  <input placeholder="City" value={formData.destination} onChange={e => setFormData({ ...formData, destination: e.target.value })} className="w-full border p-2 rounded focus:ring-2 focus:ring-blue-500 outline-none font-medium" required />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 gap-4">
+                <div className="space-y-1 font-medium">
+                  <label className="text-gray-700 mb-1 block text-sm">Activity Photo (Library/Direct)</label>
+                  <div className="flex gap-2">
+                    <label className="flex-1 flex items-center justify-center gap-2 p-2 border border-dashed rounded bg-blue-50 cursor-pointer hover:bg-blue-100 transition-all">
+                      <Upload size={16} className="text-blue-600" /><span className="text-[10px] font-bold text-blue-600 uppercase tracking-widest">Upload Asset</span>
+                      <input type="file" className="hidden" onChange={handleImageFileChange} />
+                    </label>
+                    <button type="button" onClick={() => { setImageSource('library'); setShowImageModal(true); }} className="flex-1 flex items-center justify-center gap-2 p-2 border border-emerald-200 rounded bg-emerald-50 text-emerald-600 hover:bg-emerald-100 transition-all font-bold">
+                      <Camera size={16} /><span className="text-[10px] uppercase tracking-widest leading-none">Photo Library</span>
+                    </button>
+                  </div>
+                </div>
               </div>
 
-              {/* Modal Body */}
-              <div className="flex-1 overflow-y-auto p-6">
-                {/* Input Form Section */}
-                <form onSubmit={handleAddPrice} className="mb-6">
-                  <div className="grid grid-cols-12 gap-3 mb-4">
-                    <div className="col-span-3">
-                      <label className="block text-sm font-medium text-gray-700 mb-1">From Date</label>
-                      <input
-                        type="date"
-                        value={priceFormData.from_date}
-                        onChange={(e) => handlePriceInputChange('from_date', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                        required
-                      />
-                    </div>
-                    <div className="col-span-3">
-                      <label className="block text-sm font-medium text-gray-700 mb-1">To Date</label>
-                      <input
-                        type="date"
-                        value={priceFormData.to_date}
-                        onChange={(e) => handlePriceInputChange('to_date', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                        required
-                      />
-                    </div>
-                    <div className="col-span-4">
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Price</label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        value={priceFormData.price}
-                        onChange={(e) => handlePriceInputChange('price', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                        placeholder="Enter price"
-                        required
-                      />
-                    </div>
-                    <div className="col-span-2 flex items-end gap-2">
-                      {editingPriceId && (
-                        <button
-                          type="button"
-                          onClick={handleCancelEditPrice}
-                          className="w-full bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600 transition-colors text-sm font-medium"
-                        >
-                          Cancel
-                        </button>
-                      )}
-                      <button
-                        type="submit"
-                        className="w-full bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
-                      >
-                        {editingPriceId ? 'Update' : 'Add'}
-                      </button>
-                    </div>
-                  </div>
-                </form>
-
-                {/* Price List Section */}
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-800 mb-4">Price List</h3>
-                  {loadingPrices ? (
-                    <div className="text-center py-8">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-                    </div>
-                  ) : prices.length === 0 ? (
-                    <div className="text-center py-8 text-gray-500">No Price</div>
-                  ) : (
-                    <div className="overflow-x-auto">
-                      <table className="min-w-full divide-y divide-gray-200">
-                        <thead className="bg-gray-50">
-                          <tr>
-                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">From</th>
-                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">To</th>
-                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Price</th>
-                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
-                          </tr>
-                        </thead>
-                        <tbody className="bg-white divide-y divide-gray-200">
-                          {prices.map((price) => (
-                            <tr key={price.id} className="hover:bg-gray-50">
-                              <td className="px-4 py-3 text-sm text-gray-900">{new Date(price.from_date).toLocaleDateString('en-GB')}</td>
-                              <td className="px-4 py-3 text-sm text-gray-900">{new Date(price.to_date).toLocaleDateString('en-GB')}</td>
-                              <td className="px-4 py-3 text-sm text-gray-900">{price.price || '-'}</td>
-                              <td className="px-4 py-3 text-sm">
-                                <div className="flex gap-3">
-                                  <button
-                                    onClick={() => handleEditPrice(price)}
-                                    className="text-blue-600 hover:text-blue-900"
-                                  >
-                                    Edit
-                                  </button>
-                                  <button
-                                    onClick={() => handleDeletePrice(price.id)}
-                                    className="text-red-600 hover:text-red-900"
-                                  >
-                                    Delete
-                                  </button>
-                                </div>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
+              {imagePreview && (
+                <div className="relative w-full h-40 rounded-lg overflow-hidden border group shadow-inner bg-gray-50">
+                  <img src={imagePreview} className="w-full h-full object-cover" />
+                  <button type="button" onClick={() => { setImagePreview(null); setFormData({ ...formData, image: null }); }} className="absolute top-2 right-2 bg-red-600 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"><X size={14} /></button>
                 </div>
+              )}
+
+              <div className="space-y-1 text-sm font-medium">
+                <label className="text-gray-700 block uppercase tracking-widest text-[10px] font-black">Event Description</label>
+                <textarea rows="3" placeholder="Overview of the activity..." value={formData.description} onChange={e => setFormData({ ...formData, description: e.target.value })} className="w-full border p-2 rounded focus:ring-2 focus:ring-blue-500 outline-none resize-none font-normal" />
+              </div>
+              <div className="grid grid-cols-2 gap-4 text-sm font-medium font-medium">
+                <div className="space-y-1">
+                  <label className="text-gray-700 block">Activity Website</label>
+                  <input placeholder="URL" value={formData.activity_link} onChange={e => setFormData({ ...formData, activity_link: e.target.value })} className="w-full border p-2 rounded focus:ring-2 focus:ring-blue-500 outline-none font-medium" />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-gray-700 block">Registry Status</label>
+                  <select value={formData.status} onChange={e => setFormData({ ...formData, status: e.target.value })} className="w-full border p-2 rounded focus:ring-2 focus:ring-blue-500 outline-none font-medium">
+                    <option value="active">Active</option>
+                    <option value="inactive">Inactive</option>
+                  </select>
+                </div>
+              </div>
+              <div className="flex justify-end gap-3 pt-6 border-t font-medium">
+                <button type="button" onClick={() => setIsModalOpen(false)} className="px-6 py-2 text-gray-500 uppercase tracking-widest text-xs font-bold hover:bg-gray-50 font-black">Dismiss</button>
+                <button type="submit" disabled={saving} className="px-12 py-2 bg-blue-600 text-white rounded font-black uppercase tracking-widest text-[10px] hover:bg-blue-700 shadow-xl">{saving ? 'Syncing...' : 'Complete Entry'}</button>
+              </div>
+            </form>
+          </div>
+        </div>, document.body
+      )}
+
+      {/* --- UNIVERSAL IMAGE LIBRARY --- */}
+      {showImageModal && createPortal(
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[9999] p-4 font-poppins font-medium">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col animate-in-scale">
+            <div className="flex justify-between items-center p-4 border-b bg-gray-50 font-bold uppercase tracking-widest text-[10px]"><h2 className="text-lg">Global Event Gallery</h2><button onClick={() => setShowImageModal(false)}><X size={24} /></button></div>
+            <div className="flex border-b text-[10px] font-bold uppercase tracking-widest">
+              <button onClick={() => setLibraryTab('free')} className={`px-10 py-5 transition-all ${libraryTab === 'free' ? 'border-b-4 border-blue-600 text-blue-600 bg-white' : 'text-gray-400 hover:text-gray-600'}`}>Stock Market Search</button>
+              <button onClick={() => setLibraryTab('your')} className={`px-10 py-5 transition-all ${libraryTab === 'your' ? 'border-b-4 border-blue-600 text-blue-600 bg-white' : 'text-gray-400 hover:text-gray-600'}`}>My Gallery Storage</button>
+            </div>
+            <div className="p-4 border-b bg-white">
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 focus:text-blue-600 transition-colors" size={18} />
+                  <input type="text" value={librarySearchTerm} onChange={e => setLibrarySearchTerm(e.target.value)} className="w-full pl-10 pr-4 py-2 bg-gray-50 border rounded-lg outline-none text-sm focus:ring-2 focus:ring-blue-500 font-medium" placeholder={libraryTab === 'free' ? "e.g. Desert Safari, Water Sports..." : "Search across internal records..."} />
+                </div>
+                <button onClick={() => libraryTab === 'free' ? fetchFreeStockImages() : null} className="px-10 bg-blue-600 text-white rounded-lg text-xs font-black uppercase tracking-widest shadow-md">Search</button>
               </div>
             </div>
-          </div>
-        )}
-
-        {/* Import Activity Excel Modal */}
-        {isImportModalOpen && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-4">
-              {/* Modal Header */}
-              <div className="flex justify-between items-center p-6 border-b border-gray-200">
-                <h2 className="text-xl font-bold text-gray-800">Import Activity Excel</h2>
-                <button
-                  onClick={handleCloseImportModal}
-                  className="text-gray-400 hover:text-gray-600 transition-colors"
-                >
-                  <X className="h-6 w-6" />
-                </button>
-              </div>
-
-              {/* Modal Body */}
-              <form onSubmit={handleImportSubmit}>
-                <div className="p-6">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Import Excel
-                    </label>
-                    <input
-                      type="file"
-                      accept=".xlsx,.xls,.csv"
-                      onChange={handleImportFileChange}
-                      className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-                      required
-                    />
-                    {!importFile && (
-                      <p className="mt-1 text-sm text-gray-500">No file chosen</p>
-                    )}
-                    {importFile && (
-                      <p className="mt-1 text-sm text-green-600">{importFile.name}</p>
-                    )}
-                  </div>
+            <div className="flex-1 overflow-y-auto p-6 grid grid-cols-4 gap-4 bg-gray-100">
+              {(libraryTab === 'free' ? freeStockPhotos : libraryPackages).map((img, i) => (
+                <div key={i} onClick={() => libraryTab === 'free' ? handleSelectFreeStockImage(img.url) : handleImageSelectFromLibrary(img.image)} className="aspect-square relative rounded-xl overflow-hidden border-2 bg-white hover:border-blue-600 cursor-pointer group shadow-md transition-all duration-300">
+                  <img src={img.thumb || img.url || img.image} className="w-full h-full object-cover transition-transform group-hover:scale-110" /><div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-[10px] font-bold tracking-widest uppercase">SELECT ASSET</div>
                 </div>
-
-                {/* Modal Footer */}
-                <div className="flex justify-end gap-3 p-6 border-t border-gray-200">
-                  <button
-                    type="button"
-                    onClick={handleCloseImportModal}
-                    className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={importing || !importFile}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {importing ? 'Importing...' : 'Save'}
-                  </button>
-                </div>
-              </form>
+              ))}
             </div>
           </div>
-        )}
-        </>
+        </div>, document.body
       )}
     </div>
   );
 };
-
 export default Activity;
-

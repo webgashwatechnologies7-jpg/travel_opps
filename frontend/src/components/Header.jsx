@@ -30,7 +30,7 @@ const Header = ({ user, settings, isAdmin, handleLogout }) => {
 
         if (user) {
             fetchNotifications();
-            const interval = setInterval(fetchNotifications, 60000);
+            const interval = setInterval(fetchNotifications, 10000); // Check every 10 seconds
             return () => clearInterval(interval);
         }
     }, [user]);
@@ -79,14 +79,14 @@ const Header = ({ user, settings, isAdmin, handleLogout }) => {
                 {/* Right side actions */}
                 <div className="flex items-center gap-2 sm:gap-4 ml-auto">
                     <div className="hidden sm:flex items-center gap-2">
-                        <button 
+                        <button
                             onClick={() => navigate('/flight-search')}
                             style={{ backgroundColor: '#2D3192' }}
                             className="px-3 py-2 text-white rounded-lg text-sm flex items-center gap-2 font-medium transition-all hover:shadow-md active:scale-95 cursor-pointer hover:brightness-110"
                         >
                             <Plane className="h-4 w-4" /> <span>Flight Search</span>
                         </button>
-                        <button 
+                        <button
                             onClick={() => navigate('/hotel-search')}
                             style={{ backgroundColor: '#C42771' }}
                             className="px-3 py-2 text-white rounded-lg text-sm flex items-center gap-2 font-medium transition-all hover:shadow-md active:scale-95 cursor-pointer hover:brightness-110"
@@ -150,15 +150,15 @@ const Header = ({ user, settings, isAdmin, handleLogout }) => {
                     </div>
 
                     <div className="relative user-dropdown">
-                        <button 
-                            onClick={toggleUser} 
+                        <button
+                            onClick={toggleUser}
                             className="flex items-center gap-2.5 pl-3 border-l border-gray-300 ml-2 hover:bg-gray-200/30 rounded-full pr-1.5 py-1 transition-all"
                         >
                             <div key={user?.profile_picture} className="w-9 h-9 bg-blue-700 rounded-full flex items-center justify-center text-white text-sm font-bold shadow-sm border-2 border-white overflow-hidden">
                                 {user?.profile_picture && !imageError ? (
-                                    <img 
-                                        src={`${user.profile_picture}${user.profile_picture.includes('?') ? '&' : '?'}t=${new Date().getTime()}`} 
-                                        alt="" 
+                                    <img
+                                        src={`${user.profile_picture}${user.profile_picture.includes('?') ? '&' : '?'}t=${new Date().getTime()}`}
+                                        alt=""
                                         className="w-full h-full object-cover"
                                         onError={(e) => {
                                             setImageError(true);
@@ -174,20 +174,20 @@ const Header = ({ user, settings, isAdmin, handleLogout }) => {
                             </div>
                             <ChevronDownIcon className={`h-4 w-4 text-gray-500 transition-transform duration-300 ${isUserDropdownOpen ? 'rotate-180' : ''}`} />
                         </button>
-                        
+
                         {isUserDropdownOpen && (
                             <div className="absolute right-0 mt-3 w-56 bg-white rounded-xl shadow-2xl border border-gray-100 z-[110] overflow-hidden transform origin-top-right transition-all">
-                                <Link 
-                                    to="/profile" 
+                                <Link
+                                    to="/profile"
                                     onClick={() => setIsUserDropdownOpen(false)}
                                     className="px-5 py-4 bg-gray-50/50 border-b block hover:bg-blue-50/50 transition-colors"
                                 >
                                     <div className="flex items-center gap-3 mb-1">
                                         <div key={user?.profile_picture} className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center text-blue-700 text-base font-bold uppercase overflow-hidden">
                                             {user?.profile_picture ? (
-                                                <img 
-                                                    src={`${user.profile_picture}${user.profile_picture.includes('?') ? '&' : '?'}t=${new Date().getTime()}`} 
-                                                    alt="" 
+                                                <img
+                                                    src={`${user.profile_picture}${user.profile_picture.includes('?') ? '&' : '?'}t=${new Date().getTime()}`}
+                                                    alt=""
                                                     className="w-full h-full object-cover"
                                                 />
                                             ) : (
@@ -202,28 +202,28 @@ const Header = ({ user, settings, isAdmin, handleLogout }) => {
                                 </Link>
                                 <div className="p-1.5 font-medium">
                                     {isAdmin && (
-                                        <Link 
-                                            to="/settings/subscription" 
+                                        <Link
+                                            to="/settings/subscription"
                                             onClick={() => setIsUserDropdownOpen(false)}
                                             className="flex items-center px-3.5 py-2.5 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 rounded-lg gap-3 transition-colors group"
                                         >
-                                            <Package className="h-4 w-4 text-gray-400 group-hover:text-blue-500" /> 
+                                            <Package className="h-4 w-4 text-gray-400 group-hover:text-blue-500" />
                                             <span>Subscription Plan</span>
                                         </Link>
                                     )}
-                                    <Link 
-                                         to="/profile" 
-                                         onClick={() => setIsUserDropdownOpen(false)}
-                                         className="flex items-center px-3.5 py-2.5 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 rounded-lg gap-3 transition-colors group"
-                                     >
-                                         <Settings className="h-4 w-4 text-gray-400 group-hover:text-blue-500" /> 
-                                         <span>Profile Settings</span>
-                                     </Link>
-                                    <button 
-                                        onClick={handleLogout} 
+                                    <Link
+                                        to="/profile"
+                                        onClick={() => setIsUserDropdownOpen(false)}
+                                        className="flex items-center px-3.5 py-2.5 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 rounded-lg gap-3 transition-colors group"
+                                    >
+                                        <Settings className="h-4 w-4 text-gray-400 group-hover:text-blue-500" />
+                                        <span>Profile Settings</span>
+                                    </Link>
+                                    <button
+                                        onClick={handleLogout}
                                         className="w-full px-3.5 py-2.5 text-sm text-left text-red-600 hover:bg-red-50 rounded-lg flex items-center gap-3 mt-1 transition-colors group"
                                     >
-                                        <LogOut className="h-4 w-4 text-red-400 group-hover:text-red-500" /> 
+                                        <LogOut className="h-4 w-4 text-red-400 group-hover:text-red-500" />
                                         <span>Logout</span>
                                     </button>
                                 </div>

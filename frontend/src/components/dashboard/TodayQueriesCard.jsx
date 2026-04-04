@@ -1,85 +1,72 @@
-import React from "react";
+import React from 'react';
+import { Search, Clock, ChevronDown } from 'lucide-react';
 
-const TodayQueriesCard = ({ queries = [], totalCount, loading, onViewAll, onQueryClick }) => {
-  const displayCount = typeof totalCount === "number" ? totalCount : queries.length;
-
+/**
+ * Today Queries Comparison Card
+ * Strictly matched to Reference 24
+ */
+const TodayQueriesCard = ({ queries = [], loading, onViewAll, onQueryClick }) => {
   return (
-    <div className="w-full h-full bg-white rounded-xl shadow-sm overflow-hidden flex flex-col">
-      {/* Header */}
-      <div className="rounded-lg p-4" style={{
-        backgroundImage: `
-      linear-gradient(
-        rgba(255, 255, 255, 0.45),
-        rgba(255, 255, 255, 0.45)
-      ),
-      url(/images/dashboard/queries.svg)
-    `,
-        backgroundRepeat: "no-repeat",
-        backgroundSize: "cover",
-      }}>
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-500 text-white text-lg shadow-sm" >
-            <img src="/icons/bucket.svg" className="w-5 h-5 invert brightness-0" alt="" />
-          </div>
+    <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 w-full h-[320px] flex flex-col relative overflow-hidden group" style={{ fontFamily: "'Poppins', sans-serif" }}>
+      {/* Visual Decoration Shape - Matched to Reference 24 */}
+      <div className="absolute top-1/2 -right-8 w-64 h-64 bg-blue-50/20 rounded-full z-0 -translate-y-1/2 transition-transform duration-700 group-hover:scale-105"></div>
+      <div className="absolute -bottom-8 right-1/4 w-32 h-32 bg-blue-100/10 rounded-full z-0"></div>
 
+      {/* Top Header - Icon Left, Text Right (Strict 24 Match) */}
+      <div className="relative z-10 flex items-start justify-between mb-6">
+        <div className="flex items-start gap-4">
+          <div className="w-10 h-10 rounded-full bg-[#2C55D4] flex items-center justify-center flex-shrink-0 shadow-sm border border-white/20">
+            <Search size={18} className="text-white" strokeWidth={3} />
+          </div>
           <div>
-            <p className="text-xs font-medium text-black">Today's Queries</p>
-            <h2 className="text-base font-bold text-gray-900">
-              {loading ? "-" : displayCount}
+            <h2 className="text-lg font-semibold text-gray-800 tracking-tight">
+              Today's <span className="text-blue-600">Queries</span>
             </h2>
+            <p className="text-[20px] font-bold text-slate-800 leading-none mt-1 tabular-nums">{queries.length}</p>
           </div>
         </div>
         <button
-          type="button"
           onClick={onViewAll}
-          className="text-xs font-medium text-blue-700 hover:underline mt-1 inline-block"
+          className="text-[#2C55D4] text-[11px] font-bold uppercase tracking-widest flex items-center gap-1 hover:text-blue-700 transition-all group"
         >
-          View All Queries
+          View All <ChevronDown size={12} strokeWidth={3} className="group-hover:translate-y-0.5 transition-transform" />
         </button>
       </div>
 
-      {/* List */}
-      <div className="mt-1 p-4 bg-white flex-1 space-y-3 min-h-[140px] overflow-y-auto custom-scroll">
-        {loading ? (
-          <div className="text-center text-xs text-gray-400 py-4">Loading...</div>
-        ) : queries.length === 0 ? (
-          <div className="text-center text-xs text-gray-400 py-4">No queries today</div>
+      <div className="flex-1 overflow-y-auto custom-scroll space-y-4 pr-1 relative z-10 mt-2">
+        {queries.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-full py-10 opacity-30 grayscale saturate-0">
+            <Clock className="h-12 w-12 text-slate-300 mb-2" />
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-relaxed text-center">
+              No queries today
+            </p>
+          </div>
         ) : (
-          queries.map((item) => (
+          queries.map((item, idx) => (
             <div
-              key={item.id || `${item.title}-${item.date}`}
+              key={idx}
               onClick={() => onQueryClick?.(item)}
-              className="border-b border-gray-100 pb-3 last:border-b-0 last:pb-0 cursor-pointer hover:bg-blue-50/50 rounded-lg p-2 transition-all duration-200"
+              className="px-2 py-3 cursor-pointer border-b last:border-0 border-gray-50 hover:bg-slate-50 transition-all rounded-xl"
             >
-              <h4 className="text-sm font-bold text-gray-900 truncate mb-1" title={item.title}>
-                {item.title}
-              </h4>
-
-              <div className="flex items-center justify-between text-[11px] text-gray-500">
-                <div className="flex items-center gap-1.5 min-w-0 pr-2">
-                  <div className="w-5 h-5 rounded-full bg-gray-100 flex items-center justify-center shrink-0">
-                    <img src="/icons/user.svg" className="w-3 h-3 opacity-60" alt="" />
+              <div className="flex items-center justify-between gap-4">
+                <div className="min-w-0 flex items-center gap-3">
+                  <div className="w-1.5 h-1.5 rounded-full bg-[#2C55D4] flex-shrink-0" />
+                  <div>
+                    <h4 className="text-[11px] font-bold text-slate-700 uppercase tracking-tight truncate leading-tight group-hover:text-[#2C55D4]">
+                      {item.title}
+                    </h4>
+                    <p className="text-[9px] font-semibold text-slate-400 uppercase tracking-widest mt-0.5 truncate max-w-[150px]">
+                      {item.name}
+                    </p>
                   </div>
-                  <span className="truncate font-medium">{item.name}</span>
                 </div>
-                <span className="text-blue-600 font-bold bg-blue-50 px-2 py-0.5 rounded-full whitespace-nowrap shadow-sm border border-blue-100/50">
-                  {item.date}
-                </span>
+                <div className="text-right flex-shrink-0">
+                  <p className="text-[9px] font-bold text-slate-300 tabular-nums uppercase">{item.date}</p>
+                </div>
               </div>
             </div>
           ))
         )}
-      </div>
-
-      {/* Button */}
-      <div className="p-2 bg-white pt-0">
-        <button
-          type="button"
-          onClick={onViewAll}
-          className="w-fit px-3 py-2 rounded-md bg-primary text-xs text-white font-medium hover:bg-secondary transition-colors shadow-sm"
-        >
-          View All Queries
-        </button>
       </div>
     </div>
   );

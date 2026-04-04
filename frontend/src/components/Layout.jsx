@@ -17,7 +17,7 @@ const MENU_ICON_MAP = {
 
 // A minimal loader for lazy-loaded chunks that doesn't block the sidebar
 const ChunkLoader = () => (
-    <div className="absolute top-0 left-0 right-0 h-1 z-[1000] side-progress-bar" />
+  <div className="absolute top-0 left-0 right-0 h-1 z-[1000] side-progress-bar" />
 );
 
 const Layout = ({ Header, padding = 0 }) => {
@@ -63,7 +63,7 @@ const Layout = ({ Header, padding = 0 }) => {
 
   const isActive = useCallback((path) => {
     if (location.pathname === path || location.pathname.startsWith(path + '/')) return true;
-    
+
     // Special mapping for staff management
     if (location.pathname === '/company-settings/team-management') {
       const tab = new URLSearchParams(location.search).get('tab');
@@ -73,7 +73,7 @@ const Layout = ({ Header, padding = 0 }) => {
     }
     return false;
   }, [location.pathname, location.search]);
-  
+
   const isSubmenuActive = useCallback((paths) => paths.some(path => isActive(path)), [isActive]);
 
   const handleLogout = useCallback(async () => {
@@ -101,9 +101,9 @@ const Layout = ({ Header, padding = 0 }) => {
 
       <div className={`main-content transition-all duration-300 ${isSidebarOpen ? 'lg:ml-64' : 'lg:ml-20'} ml-0 pb-20 lg:pb-0 min-h-screen`} style={{ backgroundColor: bgColor }}>
         <HeaderComponent user={user} settings={settings} isAdmin={isAdmin} handleLogout={handleLogout} />
-        <div className="custom-scroll" style={{ backgroundColor: bgColor }}>
+        <div className="custom-scroll">
           {Header && <div className="sticky top-[56px] lg:top-[64px] z-40 bg-white" style={{ padding: `${padding}px` }}><Header /></div>}
-          <div className="p-4 pb-6 md:p-6 md:pb-8 lg:p-8 lg:pb-8 relative">
+          <div className="relative">
             <Suspense fallback={<ChunkLoader />}>
               <Outlet />
             </Suspense>

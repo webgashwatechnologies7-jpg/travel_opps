@@ -30,6 +30,7 @@ class SupplierController extends Controller
             'phone_code' => 'nullable|string|max:20',
             'mobile' => 'nullable|string|max:50',
             'address' => 'nullable|string',
+            'status' => 'nullable|string|max:20',
         ];
     }
 
@@ -49,6 +50,7 @@ class SupplierController extends Controller
             'mobile' => $resource->mobile,
             'title' => $resource->title,
             'address' => $resource->address,
+            'status' => $resource->status ?: 'active',
             'created_at' => $resource->created_at,
             'updated_at' => $resource->updated_at,
         ];

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { dashboardAPI, usersAPI, destinationsAPI } from '../services/api';
+import { dashboardAPI, usersAPI, destinationsAPI, companySettingsAPI } from '../services/api';
 // Layout removed - handled by nested routing
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer 
@@ -67,8 +67,8 @@ const Performance = () => {
         month: timeframe === 'month' ? month : undefined,
         from_date: timeframe === 'custom' ? fromDate : undefined,
         to_date: timeframe === 'custom' ? toDate : undefined,
-        destination: selectedDestination,
-        employee_id: selectedEmployee,
+        destination: selectedDestination || undefined,
+        employee_id: selectedEmployee || undefined,
         filter_by: filterBy,
       };
       

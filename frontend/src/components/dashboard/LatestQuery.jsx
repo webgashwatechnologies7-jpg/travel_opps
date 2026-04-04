@@ -1,89 +1,59 @@
 import React from "react";
-import { useNavigate } from "react-router-dom";
+import { ChevronDown } from "lucide-react";
 
-export default function LatestQuery({ latestNotes = [] }) {
-  const navigate = useNavigate();
-
+const LatestQuery = ({ latestNotes = [], onViewMore }) => {
   return (
-    <div className="bg-white rounded-xl shadow-sm p-4 h-full flex flex-col">
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-base font-bold text-gray-900">
-          Latest Query <span className="text-blue-700">Notes</span>
+    <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 w-full h-full flex flex-col relative overflow-hidden" style={{ fontFamily: "'Poppins', sans-serif" }}>
+      <div className="flex items-center justify-between mb-4 flex-shrink-0">
+        <h2 className="text-lg font-semibold text-gray-800 tracking-tight">
+          Latest Query <span className="text-[#2C55D4]">Notes</span>
         </h2>
         <button
-          type="button"
-          onClick={() => navigate("/notes")}
-          className="text-xs font-semibold text-blue-600 hover:text-blue-700"
+          onClick={onViewMore}
+          className="text-[#2C55D4] text-[11px] font-bold uppercase tracking-widest flex items-center gap-1 hover:text-blue-700 transition-all group"
         >
-          View more
+          View More <ChevronDown size={12} strokeWidth={3} className="group-hover:translate-y-0.5 transition-transform" />
         </button>
       </div>
 
-      <div className="relative flex-1 overflow-y-auto custom-scroll pr-2 -mr-2">
+      <div className="flex-1 overflow-y-auto custom-scroll pr-2 relative -mr-1">
         {latestNotes.length === 0 ? (
-          <div className="flex items-center justify-center h-full text-xs text-gray-400">
-            No notes available
+          <div className="flex flex-col items-center justify-center h-full text-center py-10 opacity-30 grayscale saturate-0">
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">No notes available</p>
           </div>
         ) : (
-          latestNotes.map((note, index) => {
-            const leadId = note.lead_id || note.lead?.id;
-            return (
-              <div
-                key={note.id || index}
-                className={`flex gap-3 group ${leadId ? "cursor-pointer" : ""}`}
-                onClick={() => {
-                  if (leadId) navigate(`/leads/${leadId}`);
-                }}
-              >
-                {/* Timeline Column */}
-                <div className="relative flex flex-col items-center w-4 flex-none">
-                  {/* Vertical Line */}
-                  <div className="absolute top-0 bottom-0 w-[2px] bg-slate-200 left-1/2 -translate-x-1/2 group-last:bottom-auto group-last:h-6"></div>
-                  {/* Dot */}
-                  <div className="w-2 h-2 bg-orange-400 rounded-full z-10 mt-5 ring-2 ring-white"></div>
-                </div>
+          <div className="relative pl-6 space-y-6">
+            {/* Timeline Vertical Line */}
+            <div className="absolute left-1.5 top-2 bottom-4 w-[2px] bg-slate-100 rounded-full" />
 
-                {/* Content Column */}
-                <div className="flex-1 py-3 border-b border-gray-100 group-last:border-0">
-                  <p
-                    className="text-xs font-bold text-gray-900 truncate"
-                    title={
-                      note.lead?.client_name
-                      || note.lead?.name
-                      || note.client_name
-                      || note.client?.name
-                      || note.company_name
-                      || "Client"
-                    }
-                  >
-                    {note.lead?.client_name
-                      || note.lead?.name
-                      || note.client_name
-                      || note.client?.name
-                      || note.company_name
-                      || "Client"}
-                  </p>
+            {latestNotes.map((note, index) => {
+              const dateObj = note.created_at ? new Date(note.created_at) : new Date();
+              const dateStr = dateObj.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
 
-                  <p className="text-xs text-gray-500 mt-1 line-clamp-2">
-                    {note.note || note.remark || note.message || "No content"}
-                  </p>
+              return (
+                <div key={index} className="relative group cursor-pointer">
+                  {/* Timeline Dot */}
+                  <div className="absolute -left-[22px] top-1.5 w-3 h-3 rounded-full border-2 border-white bg-[#2C55D4] ring-4 ring-blue-50/50 shadow-sm transition-transform group-hover:scale-125" />
 
-                  <p className="text-[10px] text-gray-400 mt-1">
-                    {new Date(note.created_at || Date.now()).toLocaleString("en-GB", {
-                      day: "2-digit",
-                      month: "2-digit",
-                      year: "numeric",
-                      hour: "2-digit",
-                      minute: "2-digit",
-                      hour12: true,
-                    })}
+                  {/* Content Label Only (Matching Reference Style) */}
+                  <div className="flex justify-between items-start mb-1">
+                    <p className="text-[11.5px] font-semibold text-slate-700 truncate uppercase tracking-tight group-hover:text-[#2C55D4] transition-colors">
+                      {note.lead?.client_name || note.client_name || "Note Update"}
+                    </p>
+                    <span className="text-[9px] font-bold text-slate-300 tabular-nums uppercase">{dateStr}</span>
+                  </div>
+
+                  <p className="text-[10px] font-medium text-slate-400 line-clamp-3 leading-relaxed tracking-tight uppercase group-hover:text-slate-500 transition-colors">
+                    {note.note || note.remark || "Shared an update on the query."}
                   </p>
                 </div>
-              </div>
-            );
-          })
+              );
+            })}
+          </div>
         )}
       </div>
     </div>
   );
-}
+};
+
+export default LatestQuery;

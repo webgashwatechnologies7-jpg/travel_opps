@@ -1,17 +1,21 @@
-import { useState, useEffect } from 'react';
-// Layout removed - handled by nested routing
-import { Search, Plus, Edit, X, Upload, Download, Star, Trash2, Eye } from 'lucide-react';
-import { hotelsAPI } from '../services/api';
-import LogoLoader from '../components/LogoLoader';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { toast } from 'react-toastify';
+import { Search, Plus, Edit, X, Trash2, Eye, Star, MapPin, Building, Calendar, DollarSign, User, ExternalLink, Mail, Phone, Info, Image as ImageIcon, Briefcase, Link as LinkIcon, RefreshCw, Camera, Upload } from 'lucide-react';
+import { hotelsAPI, suppliersAPI, packagesAPI } from '../services/api';
+import { searchPexelsPhotos } from '../services/pexels';
+import LogoLoader from '../components/LogoLoader';
 
 // Helper for checking permissions
 const hasPermission = (user, permission) => {
   if (!user) return false;
-  // Super Admin bypass
   if (user.is_super_admin) return true;
-  if (user.roles?.some(r => ['Admin', 'Company Admin', 'Super Admin'].includes(typeof r === 'string' ? r : r.name))) return true;
-  // Check granular permission
+  const bypassRoles = ['Admin', 'Company Admin', 'Super Admin', 'Manager'];
+  if (user.roles?.some(r => {
+    const roleName = typeof r === 'string' ? r : r.name;
+    return roleName && bypassRoles.some(br => br.toLowerCase() === roleName.toLowerCase());
+  })) return true;
   if (user.permissions && user.permissions.includes(permission)) return true;
   return false;
 };
@@ -19,1383 +23,553 @@ const hasPermission = (user, permission) => {
 const Hotel = () => {
   const { user } = useAuth();
   const [hotels, setHotels] = useState([]);
+  const [suppliers, setSuppliers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [error, setError] = useState('');
+
+  // Modals
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingHotelId, setEditingHotelId] = useState(null);
-  const [formData, setFormData] = useState({
-    name: '',
-    category: '',
-    destination: '',
-    hotel_details: '',
-    hotel_photo: null,
-    contact_person: '',
-    email: '',
-    phone: '',
-    hotel_address: '',
-    hotel_link: '',
-    status: 'active',
-    created_by: ''
-  });
-  const [saving, setSaving] = useState(false);
-  const [photoPreview, setPhotoPreview] = useState(null);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
-  const [viewingHotel, setViewingHotel] = useState(null);
   const [isPriceModalOpen, setIsPriceModalOpen] = useState(false);
-  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
-  const [selectedHotel, setSelectedHotel] = useState(null);
+  const [showImageModal, setShowImageModal] = useState(false);
+
+  // States
+  const [viewingHotel, setViewingHotel] = useState(null);
+  const [editingHotelId, setEditingHotelId] = useState(null);
+  const [pricingHotel, setPricingHotel] = useState(null);
+  const [saving, setSaving] = useState(false);
   const [rates, setRates] = useState([]);
   const [loadingRates, setLoadingRates] = useState(false);
-  const [editingRateId, setEditingRateId] = useState(null);
-  const [importFile, setImportFile] = useState(null);
-  const [importing, setImporting] = useState(false);
-  const [rateFormData, setRateFormData] = useState({
-    from_date: '',
-    to_date: '',
-    room_type: '',
-    meal_plan: 'BB',
-    single: '',
-    double: '',
-    triple: '',
-    quad: '',
-    cwb: '',
-    cnb: ''
+
+  // Image Library States
+  const [imagePreview, setImagePreview] = useState(null);
+  const [imageSource, setImageSource] = useState('upload'); // 'upload' or 'library'
+  const [libraryPackages, setLibraryPackages] = useState([]);
+  const [librarySearchTerm, setLibrarySearchTerm] = useState('');
+  const [libraryLoading, setLibraryLoading] = useState(false);
+  const [libraryTab, setLibraryTab] = useState('free');
+  const [freeStockPhotos, setFreeStockPhotos] = useState([]);
+  const [freeStockLoading, setFreeStockLoading] = useState(false);
+
+  // Form Data
+  const [formData, setFormData] = useState({
+    name: '', category: '', destination: '', description: '', image: null, contact_person: '', email: '', phone: '', address: '', status: 'active', hotel_link: '', supplier_id: ''
   });
 
-  useEffect(() => {
-    fetchHotels();
-  }, []);
-
-  const fetchHotels = async () => {
+  const fetchData = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await hotelsAPI.list();
-      setHotels(response.data.data || response.data || []);
-      setError('');
-    } catch (err) {
-      if (err.response?.status === 404) {
-        setHotels([]);
-      } else {
-        setError('Failed to load hotels');
-        console.error(err);
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
+      const [hRes, sRes] = await Promise.all([hotelsAPI.list(), suppliersAPI.list()]);
+      const data = hRes.data.data || hRes.data || [];
+      const processedData = data.map(h => {
+        // Map backend names to frontend keys if needed, but here we just ensure path is correct
+        const imageUrl = h.hotel_photo || h.image;
+        return {
+          ...h,
+          image: imageUrl,
+          description: h.hotel_details || h.description,
+          address: h.hotel_address || h.address
+        };
+      });
+      setHotels(processedData);
+      setSuppliers(sRes.data.data || sRes.data || []);
+    } catch (err) { toast.error('Failed to load records'); }
+    finally { setLoading(false); }
+  }, []);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
 
   const handleAddNew = () => {
     setEditingHotelId(null);
+    setFormData({ name: '', category: '', destination: '', description: '', image: null, contact_person: '', email: '', phone: '', address: '', status: 'active', hotel_link: '', supplier_id: '' });
+    setImagePreview(null);
     setIsModalOpen(true);
+  };
+
+  const handleEdit = (hotel) => {
+    setEditingHotelId(hotel.id);
     setFormData({
-      name: '',
-      category: '',
-      destination: '',
-      hotel_details: '',
-      hotel_photo: null,
-      contact_person: '',
-      email: '',
-      phone: '',
-      hotel_address: '',
-      hotel_link: '',
-      status: 'active',
-      created_by: ''
+      name: hotel.name || '',
+      category: hotel.category || '',
+      destination: hotel.destination || '',
+      description: hotel.hotel_details || hotel.description || '',
+      image: null,
+      contact_person: hotel.contact_person || '',
+      email: hotel.email || '',
+      phone: hotel.phone || hotel.mobile || '',
+      address: hotel.hotel_address || hotel.address || '',
+      status: hotel.status || 'active',
+      hotel_link: hotel.hotel_link || '',
+      supplier_id: hotel.supplier_id || ''
     });
-    setPhotoPreview(null);
-  };
-
-  const handleCloseModal = () => {
-    setIsModalOpen(false);
-    setEditingHotelId(null);
-    setFormData({
-      name: '',
-      category: '',
-      destination: '',
-      hotel_details: '',
-      hotel_photo: null,
-      contact_person: '',
-      email: '',
-      phone: '',
-      hotel_address: '',
-      hotel_link: '',
-      status: 'active',
-      created_by: ''
-    });
-    setPhotoPreview(null);
-  };
-
-  const handleInputChange = (field, value) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: value
-    }));
-  };
-
-  const handleFileChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      setFormData(prev => ({
-        ...prev,
-        hotel_photo: file
-      }));
-      // Create preview
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setPhotoPreview(reader.result);
-      };
-      reader.readAsDataURL(file);
-    }
+    setImagePreview(hotel.hotel_photo || hotel.image || null);
+    setImageSource('upload');
+    setIsModalOpen(true);
   };
 
   const handleSave = async (e) => {
     e.preventDefault();
     setSaving(true);
-
     try {
-      const hotelData = new FormData();
-      hotelData.append('name', formData.name);
-      if (formData.category) hotelData.append('category', formData.category);
-      hotelData.append('destination', formData.destination);
-      hotelData.append('hotel_details', formData.hotel_details || '');
-      if (formData.hotel_photo) {
-        hotelData.append('hotel_photo', formData.hotel_photo);
+      const submitData = new FormData();
+      // Map frontend keys to backend EXPECTED keys
+      submitData.append('name', formData.name);
+      submitData.append('category', formData.category);
+      submitData.append('destination', formData.destination);
+      submitData.append('hotel_details', formData.description || '');
+      submitData.append('contact_person', formData.contact_person || '');
+      submitData.append('email', formData.email || '');
+      submitData.append('phone', formData.phone || '');
+      submitData.append('hotel_address', formData.address || '');
+      submitData.append('status', formData.status || 'active');
+      submitData.append('hotel_link', formData.hotel_link || '');
+      if (formData.supplier_id) submitData.append('supplier_id', formData.supplier_id);
+
+      if (formData.image) {
+        submitData.append('hotel_photo', formData.image);
+      } else if (imagePreview && imageSource === 'library') {
+        const response = await fetch(imagePreview);
+        const blob = await response.blob();
+        const file = new File([blob], 'hotel-image.jpg', { type: blob.type });
+        submitData.append('hotel_photo', file);
       }
-      hotelData.append('contact_person', formData.contact_person || '');
-      hotelData.append('email', formData.email || '');
-      hotelData.append('phone', formData.phone || '');
-      hotelData.append('hotel_address', formData.hotel_address);
-      hotelData.append('hotel_link', formData.hotel_link || '');
-      hotelData.append('status', formData.status);
 
       if (editingHotelId) {
-        await hotelsAPI.update(editingHotelId, hotelData);
-        setError('');
-      } else {
-        await hotelsAPI.create(hotelData);
-        setError('');
-      }
+        submitData.append('_method', 'PUT');
+        await hotelsAPI.update(editingHotelId, submitData);
+      } else await hotelsAPI.create(submitData);
 
-      await fetchHotels();
-      handleCloseModal();
-    } catch (err) {
-      setError(err.response?.data?.message || (editingHotelId ? 'Failed to update hotel' : 'Failed to add hotel'));
-      console.error(err);
-    } finally {
-      setSaving(false);
-    }
+      fetchData();
+      setIsModalOpen(false);
+      toast.success('Hotel sync complete');
+    } catch (err) { toast.error('Failed to save hotel'); }
+    finally { setSaving(false); }
   };
 
-  const handleEdit = (hotel) => {
-    setEditingHotelId(hotel.id);
-    setIsModalOpen(true);
-
-    setFormData({
-      name: hotel.name || '',
-      category: hotel.category || '',
-      destination: hotel.destination || '',
-      hotel_details: hotel.hotel_details || '',
-      hotel_photo: null,
-      contact_person: hotel.contact_person || '',
-      email: hotel.email || '',
-      phone: hotel.phone || '',
-      hotel_address: hotel.hotel_address || '',
-      hotel_link: hotel.hotel_link || '',
-      status: hotel.status || 'active',
-      created_by: hotel.created_by || ''
-    });
-    setPhotoPreview(hotel.hotel_photo || null);
-  };
-
-  const handleDelete = async (hotelId) => {
-    if (!window.confirm('Are you sure you want to delete this hotel?')) {
-      return;
-    }
-
+  const toggleStatus = async (e, h) => {
+    e.stopPropagation();
+    if (!hasPermission(user, 'hotels.status')) return;
     try {
-      await hotelsAPI.delete(hotelId);
-      await fetchHotels();
-      setError('');
-    } catch (err) {
-      setError(err.response?.data?.message || 'Failed to delete hotel');
-      console.error(err);
-    }
+      const newStatus = h.status === 'active' ? 'inactive' : 'active';
+      // Backend expects hotel_address, etc. but GenericCrudTrait might work with what we have. 
+      // To be safe, we wrap it.
+      await hotelsAPI.update(h.id, {
+        ...h,
+        status: newStatus,
+        hotel_address: h.hotel_address || h.address,
+        hotel_details: h.hotel_details || h.description,
+        _method: 'PUT'
+      });
+      fetchData();
+      toast.success(`Status updated to ${newStatus}`);
+    } catch (err) { toast.error('Failed to update status'); }
   };
 
-  const handleView = (hotel) => {
-    setViewingHotel(hotel);
-    setIsViewModalOpen(true);
+  const handleOpenPrice = (hotel) => {
+    setPricingHotel(hotel);
+    setIsPriceModalOpen(true);
+    setLoadingRates(true);
+    hotelsAPI.getRates(hotel.id).then(res => {
+      setRates(res.data.data || []);
+      setLoadingRates(false);
+    }).catch(() => setLoadingRates(false));
   };
 
-  const handleCloseViewModal = () => {
-    setIsViewModalOpen(false);
-    setViewingHotel(null);
+  // Image Library Logic
+  const fetchLibraryPackages = async () => {
+    setLibraryLoading(true);
+    try {
+      const response = await packagesAPI.list();
+      const data = response.data.data || [];
+      const processed = data.map((p) => {
+        if (p.image) {
+          let url = p.image;
+          if (url.startsWith('/storage') || (url.startsWith('/') && !url.startsWith('http'))) {
+            const baseUrl = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api').replace('/api', '');
+            url = `${baseUrl}${url}`;
+          }
+          if (url.includes('localhost') && !url.includes(':8000')) url = url.replace('localhost', 'localhost:8000');
+          return { ...p, image: url };
+        }
+        return p;
+      });
+      setLibraryPackages(processed);
+    } catch (err) { toast.error('Library sync failed'); }
+    finally { setLibraryLoading(false); }
   };
 
-  const handleImport = () => {
-    setIsImportModalOpen(true);
-    setImportFile(null);
+  useEffect(() => {
+    if (showImageModal && imageSource === 'library' && libraryTab === 'your' && libraryPackages.length === 0) fetchLibraryPackages();
+  }, [showImageModal, imageSource, libraryTab]);
+
+  const fetchFreeStockImages = async () => {
+    const q = (librarySearchTerm || formData.destination || '').trim();
+    if (q.length < 2) return;
+    setFreeStockLoading(true);
+    try {
+      const { photos } = await searchPexelsPhotos(q, 15);
+      setFreeStockPhotos(photos || []);
+    } catch (e) { setFreeStockPhotos([]); }
+    finally { setFreeStockLoading(false); }
   };
 
-  const handleCloseImportModal = () => {
-    setIsImportModalOpen(false);
-    setImportFile(null);
+  const handleSelectFreeStockImage = async (imageUrl) => {
+    try {
+      const res = await fetch(imageUrl);
+      const blob = await res.blob();
+      const file = new File([blob], 'image.jpg', { type: blob.type || 'image/jpeg' });
+      setFormData((prev) => ({ ...prev, image: file }));
+      setImagePreview(URL.createObjectURL(file));
+      setImageSource('upload');
+      setShowImageModal(false);
+    } catch (e) { toast.error('Failed to load image'); }
   };
 
-  const handleImportFileChange = (e) => {
+  const handleImageSelectFromLibrary = (imageUrl) => {
+    setImagePreview(imageUrl);
+    setFormData(prev => ({ ...prev, image: null }));
+    setImageSource('library');
+    setShowImageModal(false);
+  };
+
+  const handleImageFileChange = (e) => {
     const file = e.target.files[0];
     if (file) {
-      setImportFile(file);
+      setFormData(prev => ({ ...prev, image: file }));
+      setImagePreview(null);
+      setImageSource('upload');
+      const reader = new FileReader();
+      reader.onloadend = () => setImagePreview(reader.result);
+      reader.readAsDataURL(file);
     }
   };
 
-  const handleImportSubmit = async (e) => {
-    e.preventDefault();
-    if (!importFile) {
-      setError('Please select a file to import');
-      return;
-    }
-
-    try {
-      setImporting(true);
-      const formData = new FormData();
-      formData.append('file', importFile);
-
-      await hotelsAPI.importHotels(formData);
-      await fetchHotels(); // Refresh hotels list
-      handleCloseImportModal();
-      setError('');
-    } catch (err) {
-      setError(err.response?.data?.message || 'Failed to import hotels');
-      console.error(err);
-    } finally {
-      setImporting(false);
-    }
-  };
-
-  const handleExport = async () => {
-    try {
-      setError('');
-      const response = await hotelsAPI.exportHotels();
-
-      // Check if response is actually a blob
-      if (response.data instanceof Blob) {
-        // Create blob from response
-        const blob = response.data;
-
-        // Create download link
-        const url = window.URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.setAttribute('download', `hotels_export_${new Date().toISOString().split('T')[0]}.csv`);
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
-        window.URL.revokeObjectURL(url);
-      } else {
-        // If not a blob, try to create one from the data
-        const blob = new Blob([response.data], {
-          type: 'text/csv;charset=utf-8;'
-        });
-
-        const url = window.URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.setAttribute('download', `hotels_export_${new Date().toISOString().split('T')[0]}.csv`);
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
-        window.URL.revokeObjectURL(url);
-      }
-    } catch (err) {
-      let errorMessage = 'Failed to export hotels';
-
-      // Try to parse error response if it's a blob
-      if (err.response?.data instanceof Blob) {
-        try {
-          const text = await err.response.data.text();
-          const errorData = JSON.parse(text);
-          errorMessage = errorData.message || errorMessage;
-        } catch (e) {
-          // If parsing fails, use default message
-        }
-      } else if (err.response?.data?.message) {
-        errorMessage = err.response.data.message;
-      }
-
-      setError(errorMessage);
-      console.error('Export error:', err);
-    }
-  };
-
-  const handleDownloadFormat = async () => {
-    try {
-      setError('');
-      const response = await hotelsAPI.downloadImportFormat();
-
-      // Check if response is actually a blob
-      if (response.data instanceof Blob) {
-        // Create blob from response
-        const blob = response.data;
-
-        // Create download link
-        const url = window.URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.setAttribute('download', 'hotel_import_template.csv');
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
-        window.URL.revokeObjectURL(url);
-      } else {
-        // If not a blob, try to create one from the data
-        const blob = new Blob([response.data], {
-          type: 'text/csv;charset=utf-8;'
-        });
-
-        const url = window.URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.setAttribute('download', 'hotel_import_template.csv');
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
-        window.URL.revokeObjectURL(url);
-      }
-    } catch (err) {
-      let errorMessage = 'Failed to download import format';
-
-      // Try to parse error response if it's a blob
-      if (err.response?.data instanceof Blob) {
-        try {
-          const text = await err.response.data.text();
-          const errorData = JSON.parse(text);
-          errorMessage = errorData.message || errorMessage;
-        } catch (e) {
-          // If parsing fails, use default message
-        }
-      } else if (err.response?.data?.message) {
-        errorMessage = err.response.data.message;
-      }
-
-      setError(errorMessage);
-      console.error('Download error:', err);
-    }
-  };
-
-  const handleUpdatePrice = async (hotel) => {
-    setSelectedHotel(hotel);
-    setIsPriceModalOpen(true);
-    setRateFormData({
-      from_date: '',
-      to_date: '',
-      room_type: '',
-      meal_plan: 'BB',
-      single: '',
-      double: '',
-      triple: '',
-      quad: '',
-      cwb: '',
-      cnb: ''
-    });
-    await fetchRates(hotel.id);
-  };
-
-  const handleClosePriceModal = () => {
-    setIsPriceModalOpen(false);
-    setSelectedHotel(null);
-    setRates([]);
-    setRateFormData({
-      from_date: '',
-      to_date: '',
-      room_type: '',
-      meal_plan: 'BB',
-      single: '',
-      double: '',
-      triple: '',
-      quad: '',
-      cwb: '',
-      cnb: ''
-    });
-  };
-
-  const fetchRates = async (hotelId) => {
-    try {
-      setLoadingRates(true);
-      const response = await hotelsAPI.getRates(hotelId);
-      setRates(response.data.data || []);
-    } catch (err) {
-      console.error('Failed to load rates:', err);
-      setRates([]);
-    } finally {
-      setLoadingRates(false);
-    }
-  };
-
-  const handleRateInputChange = (field, value) => {
-    setRateFormData(prev => ({
-      ...prev,
-      [field]: value
-    }));
-  };
-
-  const handleAddRate = async (e) => {
-    e.preventDefault();
-    if (!selectedHotel) return;
-
-    try {
-      if (editingRateId) {
-        // Update existing rate
-        await hotelsAPI.updateRate(selectedHotel.id, editingRateId, rateFormData);
-        setError('');
-      } else {
-        // Create new rate
-        await hotelsAPI.createRate(selectedHotel.id, rateFormData);
-        await fetchHotels(); // Refresh hotels list to update count
-      }
-
-      await fetchRates(selectedHotel.id);
-      setEditingRateId(null);
-      setRateFormData({
-        from_date: '',
-        to_date: '',
-        room_type: '',
-        meal_plan: 'BB',
-        single: '',
-        double: '',
-        triple: '',
-        quad: '',
-        cwb: '',
-        cnb: ''
-      });
-      setError('');
-    } catch (err) {
-      setError(err.response?.data?.message || (editingRateId ? 'Failed to update rate' : 'Failed to add rate'));
-      console.error(err);
-    }
-  };
-
-  const handleEditRate = (rate) => {
-    setEditingRateId(rate.id);
-    setRateFormData({
-      from_date: rate.from_date,
-      to_date: rate.to_date,
-      room_type: rate.room_type,
-      meal_plan: rate.meal_plan,
-      single: rate.single || '',
-      double: rate.double || '',
-      triple: rate.triple || '',
-      quad: rate.quad || '',
-      cwb: rate.cwb || '',
-      cnb: rate.cnb || ''
-    });
-    // Scroll to form
-    const formElement = document.querySelector('form');
-    if (formElement) {
-      formElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
-  };
-
-  const handleCancelEdit = () => {
-    setEditingRateId(null);
-    setRateFormData({
-      from_date: '',
-      to_date: '',
-      room_type: '',
-      meal_plan: 'BB',
-      single: '',
-      double: '',
-      triple: '',
-      quad: '',
-      cwb: '',
-      cnb: ''
-    });
-  };
-
-  const handleDeleteRate = async (rateId) => {
-    if (!selectedHotel) return;
-    if (!window.confirm('Are you sure you want to delete this rate?')) return;
-
-    try {
-      await hotelsAPI.deleteRate(selectedHotel.id, rateId);
-      await fetchRates(selectedHotel.id);
-      await fetchHotels(); // Refresh hotels list to update count
-      setError('');
-    } catch (err) {
-      setError(err.response?.data?.message || 'Failed to delete rate');
-      console.error(err);
-    }
-  };
-
-  const renderStars = (category) => {
-    const stars = [];
-    for (let i = 0; i < 5; i++) {
-      stars.push(
-        <Star
-          key={i}
-          className={`h-4 w-4 ${i < category ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'}`}
-        />
-      );
-    }
-    return <div className="flex gap-0.5">{stars}</div>;
-  };
-
-  const filteredHotels = hotels.filter(hotel => {
-    const name = hotel.name || '';
-    const destination = hotel.destination || '';
-    const searchLower = searchTerm.toLowerCase();
-    return name.toLowerCase().includes(searchLower) || destination.toLowerCase().includes(searchLower);
-  });
-
-  const formatDate = (dateString) => {
-    if (!dateString) return 'N/A';
-    try {
-      const date = new Date(dateString);
-      return date.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
-    } catch {
-      return dateString;
-    }
-  };
-
-  const formatMealPlan = (mealPlan) => {
-    const mealPlanMap = {
-      'BB': 'Bed & Breakfast (BB)',
-      'HB': 'Half Board (HB)',
-      'FB': 'Full Board (FB)',
-      'MAP': 'Modified American Plan (MAP)',
-      'AP': 'American Plan (AP)'
-    };
-    return mealPlanMap[mealPlan] || mealPlan;
-  };
-
-  return (
-    <div className={`p-6 relative page-transition ${loading && hotels.length > 0 ? 'opacity-80' : ''}`}>
-      {loading && <div className="side-progress-bar absolute top-0 left-0 right-0 h-1 z-50" />}
-      
-      <div className="flex justify-between items-center mb-6">
-          <h1 className="text-3xl font-bold text-gray-800">Hotel</h1>
-          <div className="flex items-center gap-4">
-            {/* Search Input */}
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
-              <input
-                type="text"
-                placeholder="Search by name"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 w-64"
-              />
-            </div>
-            {/* Action Buttons */}
-            {hasPermission(user, 'hotels.create') && (
-              <button
-                onClick={handleAddNew}
-                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2 font-medium"
-              >
-                <Plus className="h-5 w-5" />
-                Add New
-              </button>
-            )}
-
-            {hasPermission(user, 'hotels.create') && (
-              <button
-                onClick={handleImport}
-                className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center gap-2 font-medium"
-              >
-                <Upload className="h-5 w-5" />
-                Import
-              </button>
-            )}
-
-            <button
-              onClick={handleExport}
-              className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center gap-2 font-medium"
-            >
-              <Download className="h-5 w-5" />
-              Export
-            </button>
-
-            {hasPermission(user, 'hotels.create') && (
-              <button
-                onClick={handleDownloadFormat}
-                className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center gap-2 font-medium"
-              >
-                <Download className="h-5 w-5" />
-                Download Import Format
-              </button>
-            )}
-          </div>
-        </div>
-
-        {error && !loading && (
-          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-            {error}
-          </div>
-        )}
-
-        {/* Hotels Table */}
-        {loading && hotels.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-[50vh] animate-in fade-in duration-500 bg-white rounded-2xl border border-dashed border-gray-200">
-             <LogoLoader text="Loading hotels..." />
-          </div>
-        ) : (
-          <>
-          <div className="bg-white rounded-lg shadow-md overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Name
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Category
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Destination
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Price
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    By
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Last Update
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    ACTIONS PRO
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {filteredHotels.length === 0 ? (
-                  <tr>
-                    <td colSpan="8" className="px-6 py-4 text-center text-gray-500">
-                      No hotels found
-                    </td>
-                  </tr>
-                ) : (
-                  filteredHotels.map((hotel) => (
-                    <tr key={hotel.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900">{hotel.name || 'N/A'}</div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        {renderStars(hotel.category || 3)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">{hotel.destination || 'N/A'}</div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        {hasPermission(user, 'hotels.edit') ? (
-                          <button
-                            onClick={() => handleUpdatePrice(hotel)}
-                            className="text-sm text-blue-600 hover:text-blue-800 cursor-pointer"
-                          >
-                            Update ({hotel.price_updates_count || 0})
-                          </button>
-                        ) : (
-                          <span className="text-sm text-gray-500">
-                            {hotel.price_updates_count || 0} Prices
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${hotel.status === 'active'
-                          ? 'bg-green-100 text-green-800'
-                          : 'bg-red-100 text-red-800'
-                          }`}>
-                          {hotel.status === 'active' ? 'Active' : 'Inactive'}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">{hotel.created_by_name || 'Travbizz Travel IT Solutions'}</div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">
-                          {formatDate(hotel.updated_at || hotel.last_update)}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => handleView(hotel)}
-                            className="bg-blue-600 text-white p-2 hover:bg-blue-700 rounded-lg flex items-center gap-1"
-                            title="View"
-                          >
-                            <Eye className="h-4 w-4" />
-                            <span className="text-[10px] uppercase font-bold">View</span>
-                          </button>
-                          {hasPermission(user, 'hotels.edit') && (
-                            <button
-                              onClick={() => handleEdit(hotel)}
-                              className="text-green-600 hover:text-green-900 p-2 hover:bg-green-50 rounded"
-                              title="Edit"
-                            >
-                              <Edit className="h-5 w-5" />
-                            </button>
-                          )}
-                          {hasPermission(user, 'hotels.delete') && (user?.is_super_admin || user?.roles?.some(r => ['Admin', 'Company Admin', 'Super Admin'].includes(typeof r === 'string' ? r : r.name))) && (
-                            <button
-                              onClick={() => handleDelete(hotel.id)}
-                              className="text-red-600 hover:text-red-900 p-2 hover:bg-red-50 rounded"
-                              title="Delete"
-                            >
-                              <Trash2 className="h-5 w-5" />
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        {/* View Hotel Modal */}
-        {isViewModalOpen && viewingHotel && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl mx-4 overflow-hidden">
-              {/* Modal Header */}
-              <div className="flex justify-between items-center p-6 border-b border-gray-200 bg-blue-600 text-white">
-                <h2 className="text-xl font-bold">Hotel Details</h2>
-                <button
-                  onClick={handleCloseViewModal}
-                  className="text-white hover:text-gray-200 transition-colors"
-                >
-                  <X className="h-6 w-6" />
-                </button>
-              </div>
-
-              {/* Modal Body */}
-              <div className="p-6 space-y-6 max-h-[80vh] overflow-y-auto">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* Photo Section */}
-                  <div className="space-y-4">
-                    <div className="aspect-video rounded-lg overflow-hidden bg-gray-100 border border-gray-200">
-                      {viewingHotel.hotel_photo ? (
-                        <img
-                          src={viewingHotel.hotel_photo}
-                          alt={viewingHotel.name}
-                          className="w-full h-full object-cover"
-                          onError={(e) => { e.target.src = 'https://placehold.co/600x400?text=No+Image'; }}
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-gray-400">
-                          No Photo Available
-                        </div>
-                      )}
-                    </div>
-                    <div>
-                      <h3 className="text-2xl font-bold text-gray-900">{viewingHotel.name}</h3>
-                      <div className="mt-1">{renderStars(viewingHotel.category || 3)}</div>
-                    </div>
-                  </div>
-
-                  {/* Basic Info */}
-                  <div className="space-y-4">
-                    <div>
-                      <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Destination</label>
-                      <p className="text-gray-900 font-medium">{viewingHotel.destination || 'N/A'}</p>
-                    </div>
-                    <div>
-                      <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</label>
-                      <div className="mt-1">
-                        <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${viewingHotel.status === 'active'
-                          ? 'bg-green-100 text-green-800'
-                          : 'bg-red-100 text-red-800'
-                          }`}>
-                          {viewingHotel.status === 'active' ? 'Active' : 'Inactive'}
-                        </span>
-                      </div>
-                    </div>
-                    <div>
-                      <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Address</label>
-                      <p className="text-gray-900 text-sm whitespace-pre-wrap">{viewingHotel.hotel_address || 'N/A'}</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-6 border-t border-gray-100">
-                  {/* Contact Info */}
-                  <div className="space-y-4">
-                    <h4 className="font-bold text-gray-800 border-b pb-2">Contact Information</h4>
-                    <div>
-                      <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Contact Person</label>
-                      <p className="text-gray-900 text-sm">{viewingHotel.contact_person || 'N/A'}</p>
-                    </div>
-                    <div>
-                      <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Email</label>
-                      <p className="text-gray-900 text-sm">{viewingHotel.email || 'N/A'}</p>
-                    </div>
-                    <div>
-                      <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Phone</label>
-                      <p className="text-gray-900 text-sm">{viewingHotel.phone || 'N/A'}</p>
-                    </div>
-                    {viewingHotel.hotel_link && (
-                      <div>
-                        <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Website</label>
-                        <p className="text-sm">
-                          <a href={viewingHotel.hotel_link} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
-                            Visit Website
-                          </a>
-                        </p>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Details */}
-                  <div className="space-y-4">
-                    <h4 className="font-bold text-gray-800 border-b pb-2">Description / Details</h4>
-                    <p className="text-gray-700 text-sm leading-relaxed whitespace-pre-wrap">
-                      {viewingHotel.hotel_details || 'No additional details provided.'}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="pt-6 border-t border-gray-100 flex justify-between items-center text-xs text-gray-400 italic">
-                  <span>Created By: {viewingHotel.created_by_name || 'System'}</span>
-                  <span>Last Updated: {formatDate(viewingHotel.updated_at)}</span>
-                </div>
-              </div>
-
-              {/* Modal Footer */}
-              <div className="p-6 border-t border-gray-200 flex justify-end">
-                <button
-                  onClick={handleCloseViewModal}
-                  className="px-6 py-2 bg-gray-100 text-gray-700 font-bold rounded-lg hover:bg-gray-200 transition-colors"
-                >
-                  Close
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Add/Edit Hotel Modal */}
-        {isModalOpen && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl mx-4">
-              {/* Modal Header */}
-              <div className="flex justify-between items-center p-6 border-b border-gray-200">
-                <h2 className="text-xl font-bold text-gray-800">
-                  {editingHotelId ? 'Edit Hotel' : 'Add Hotel'}
-                </h2>
-                <button
-                  onClick={handleCloseModal}
-                  className="text-gray-400 hover:text-gray-600 transition-colors"
-                >
-                  <X className="h-6 w-6" />
-                </button>
-              </div>
-
-              {/* Modal Body */}
-              <form onSubmit={handleSave} encType="multipart/form-data">
-                <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
-                  {/* Hotel Name */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Hotel name *
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.name}
-                      onChange={(e) => handleInputChange('name', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="Enter hotel name"
-                      required
-                    />
-                  </div>
-
-                  {/* Category and Destination */}
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Category *
-                      </label>
-                      <select
-                        value={formData.category}
-                        onChange={(e) => handleInputChange('category', e.target.value ? parseInt(e.target.value) : '')}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        required
-                      >
-                        <option value="">Select</option>
-                        <option value={1}>1 Star</option>
-                        <option value={2}>2 Stars</option>
-                        <option value={3}>3 Stars</option>
-                        <option value={4}>4 Stars</option>
-                        <option value={5}>5 Stars</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Destination *
-                      </label>
-                      <input
-                        type="text"
-                        value={formData.destination}
-                        onChange={(e) => handleInputChange('destination', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="Enter destination"
-                        required
-                      />
-                    </div>
-                  </div>
-
-                  {/* Hotel Details */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Hotel Details
-                    </label>
-                    <textarea
-                      value={formData.hotel_details}
-                      onChange={(e) => handleInputChange('hotel_details', e.target.value)}
-                      rows={4}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="Enter hotel details"
-                    />
-                  </div>
-
-                  {/* Hotel Photo */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Hotel Photo {!editingHotelId && '*'}
-                    </label>
-                    <div className="flex items-center gap-4">
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={handleFileChange}
-                        className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-                        required={!editingHotelId}
-                      />
-                      {photoPreview && (
-                        <img src={photoPreview} alt="Preview" className="h-20 w-20 object-cover rounded-lg" />
-                      )}
-                    </div>
-                    {!photoPreview && !formData.hotel_photo && (
-                      <p className="mt-1 text-sm text-gray-500">No file chosen</p>
-                    )}
-                  </div>
-
-                  {/* Contact Person and Email */}
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Contact Person
-                      </label>
-                      <input
-                        type="text"
-                        value={formData.contact_person}
-                        onChange={(e) => handleInputChange('contact_person', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="Enter contact person name"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Email
-                      </label>
-                      <input
-                        type="email"
-                        value={formData.email}
-                        onChange={(e) => handleInputChange('email', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="Enter email"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Phone */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Phone
-                    </label>
-                    <input
-                      type="tel"
-                      value={formData.phone}
-                      onChange={(e) => handleInputChange('phone', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="Enter phone number"
-                    />
-                  </div>
-
-                  {/* Hotel Address */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Hotel Address *
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.hotel_address}
-                      onChange={(e) => handleInputChange('hotel_address', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="Enter hotel address"
-                      required
-                    />
-                  </div>
-
-                  {/* Status and Hotel Link */}
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Status *
-                      </label>
-                      <select
-                        value={formData.status}
-                        onChange={(e) => handleInputChange('status', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        required
-                      >
-                        <option value="active">Active</option>
-                        <option value="inactive">Inactive</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Hotel Link
-                      </label>
-                      <input
-                        type="url"
-                        value={formData.hotel_link}
-                        onChange={(e) => handleInputChange('hotel_link', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="Enter hotel website link"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Modal Footer */}
-                <div className="flex justify-end gap-3 p-6 border-t border-gray-200">
-                  <button
-                    type="button"
-                    onClick={handleCloseModal}
-                    className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={saving}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {saving ? (editingHotelId ? 'Updating...' : 'Saving...') : 'Save'}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
-
-        {/* Update Price Modal */}
-        {isPriceModalOpen && selectedHotel && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg shadow-xl w-full max-w-6xl mx-4 max-h-[90vh] overflow-hidden flex flex-col">
-              {/* Modal Header */}
-              <div className="flex justify-between items-center p-6 border-b border-gray-200">
-                <h2 className="text-xl font-bold text-gray-800">Update Price - {selectedHotel.name}</h2>
-                <button
-                  onClick={handleClosePriceModal}
-                  className="text-gray-400 hover:text-gray-600 transition-colors"
-                >
-                  <X className="h-6 w-6" />
-                </button>
-              </div>
-
-              {/* Modal Body */}
-              <div className="flex-1 overflow-y-auto p-6">
-                {/* Input Form Section */}
-                <form onSubmit={handleAddRate} className="mb-6">
-                  <div className="grid grid-cols-12 gap-3 mb-4">
-                    <div className="col-span-2">
-                      <label className="block text-sm font-medium text-gray-700 mb-1">From Date</label>
-                      <input
-                        type="date"
-                        value={rateFormData.from_date}
-                        onChange={(e) => handleRateInputChange('from_date', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                        required
-                      />
-                    </div>
-                    <div className="col-span-2">
-                      <label className="block text-sm font-medium text-gray-700 mb-1">To</label>
-                      <input
-                        type="date"
-                        value={rateFormData.to_date}
-                        onChange={(e) => handleRateInputChange('to_date', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                        required
-                      />
-                    </div>
-                    <div className="col-span-2">
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Room Type</label>
-                      <select
-                        value={rateFormData.room_type}
-                        onChange={(e) => handleRateInputChange('room_type', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                        required
-                      >
-                        <option value="">Select</option>
-                        <option value="1bhk">1bhk</option>
-                        <option value="1BR Villa with Private Pool">1BR Villa with Private Pool</option>
-                        <option value="Club Room">Club Room</option>
-                        <option value="Daosri The Inn">Daosri The Inn</option>
-                        <option value="Deluxe">Deluxe</option>
-                        <option value="Deluxe Room">Deluxe Room</option>
-                        <option value="DLX">DLX</option>
-                        <option value="Executive Room">Executive Room</option>
-                        <option value="Penthouse Suite">Penthouse Suite</option>
-                        <option value="Premium (Non View Room)">Premium (Non View Room)</option>
-                        <option value="Premium Room">Premium Room</option>
-                        <option value="Room type">Room type</option>
-                        <option value="Standard">Standard</option>
-                        <option value="Standard (Non View)">Standard (Non View)</option>
-                        <option value="Suite Room">Suite Room</option>
-                        <option value="Super Deluxe Room">Super Deluxe Room</option>
-                        <option value="Superior Room">Superior Room</option>
-                      </select>
-                    </div>
-                    <div className="col-span-2">
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Meal Plan</label>
-                      <select
-                        value={rateFormData.meal_plan}
-                        onChange={(e) => handleRateInputChange('meal_plan', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                        required
-                      >
-                        <option value="BB">Bed & Breakfast (BB)</option>
-                        <option value="HB">Half Board (HB)</option>
-                        <option value="FB">Full Board (FB)</option>
-                        <option value="MAP">Modified American Plan (MAP)</option>
-                        <option value="AP">American Plan (AP)</option>
-                      </select>
-                    </div>
-                    <div className="col-span-1">
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Single</label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        value={rateFormData.single}
-                        onChange={(e) => handleRateInputChange('single', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                        placeholder="0"
-                      />
-                    </div>
-                    <div className="col-span-1">
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Double</label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        value={rateFormData.double}
-                        onChange={(e) => handleRateInputChange('double', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                        placeholder="0"
-                      />
-                    </div>
-                    <div className="col-span-1">
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Triple</label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        value={rateFormData.triple}
-                        onChange={(e) => handleRateInputChange('triple', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                        placeholder="0"
-                      />
-                    </div>
-                    <div className="col-span-1">
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Quad</label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        value={rateFormData.quad}
-                        onChange={(e) => handleRateInputChange('quad', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                        placeholder="0"
-                      />
-                    </div>
-                    <div className="col-span-1">
-                      <label className="block text-sm font-medium text-gray-700 mb-1">CWB</label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        value={rateFormData.cwb}
-                        onChange={(e) => handleRateInputChange('cwb', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                        placeholder="0"
-                      />
-                    </div>
-                    <div className="col-span-1">
-                      <label className="block text-sm font-medium text-gray-700 mb-1">CNB</label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        value={rateFormData.cnb}
-                        onChange={(e) => handleRateInputChange('cnb', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                        placeholder="0"
-                      />
-                    </div>
-                    <div className="col-span-1 flex items-end gap-2">
-                      {editingRateId && (
-                        <button
-                          type="button"
-                          onClick={handleCancelEdit}
-                          className="w-full bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600 transition-colors text-sm font-medium"
-                        >
-                          Cancel
-                        </button>
-                      )}
-                      <button
-                        type="submit"
-                        className="w-full bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
-                      >
-                        {editingRateId ? 'Update' : 'Add'}
-                      </button>
-                    </div>
-                  </div>
-                </form>
-
-                {/* Rate List Section */}
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-800 mb-4">Rate List</h3>
-                  {loadingRates ? (
-                    <div className="text-center py-8">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-                    </div>
-                  ) : rates.length === 0 ? (
-                    <div className="text-center py-8 text-gray-500">No Rate</div>
-                  ) : (
-                    <div className="overflow-x-auto">
-                      <table className="min-w-full divide-y divide-gray-200">
-                        <thead className="bg-gray-50">
-                          <tr>
-                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">From</th>
-                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">To</th>
-                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Room Type</th>
-                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Meal Plan</th>
-                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Single</th>
-                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Double</th>
-                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Triple</th>
-                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Quad</th>
-                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">CWB</th>
-                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">CNB</th>
-                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
-                          </tr>
-                        </thead>
-                        <tbody className="bg-white divide-y divide-gray-200">
-                          {rates.map((rate) => (
-                            <tr key={rate.id} className="hover:bg-gray-50">
-                              <td className="px-4 py-3 text-sm text-gray-900">{new Date(rate.from_date).toLocaleDateString('en-GB')}</td>
-                              <td className="px-4 py-3 text-sm text-gray-900">{new Date(rate.to_date).toLocaleDateString('en-GB')}</td>
-                              <td className="px-4 py-3 text-sm text-gray-900">{rate.room_type}</td>
-                              <td className="px-4 py-3 text-sm text-gray-900">{formatMealPlan(rate.meal_plan)}</td>
-                              <td className="px-4 py-3 text-sm text-gray-900">{rate.single || '-'}</td>
-                              <td className="px-4 py-3 text-sm text-gray-900">{rate.double || '-'}</td>
-                              <td className="px-4 py-3 text-sm text-gray-900">{rate.triple || '-'}</td>
-                              <td className="px-4 py-3 text-sm text-gray-900">{rate.quad || '-'}</td>
-                              <td className="px-4 py-3 text-sm text-gray-900">{rate.cwb || '-'}</td>
-                              <td className="px-4 py-3 text-sm text-gray-900">{rate.cnb || '-'}</td>
-                              <td className="px-4 py-3 text-sm">
-                                <div className="flex gap-3">
-                                  <button
-                                    onClick={() => handleEditRate(rate)}
-                                    className="text-blue-600 hover:text-blue-900"
-                                  >
-                                    Edit
-                                  </button>
-                                  <button
-                                    onClick={() => handleDeleteRate(rate.id)}
-                                    className="text-red-600 hover:text-red-900"
-                                  >
-                                    Delete
-                                  </button>
-                                </div>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Import Hotel Excel Modal */}
-        {isImportModalOpen && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-4">
-              {/* Modal Header */}
-              <div className="flex justify-between items-center p-6 border-b border-gray-200">
-                <h2 className="text-xl font-bold text-gray-800">Import Hotel Excel</h2>
-                <button
-                  onClick={handleCloseImportModal}
-                  className="text-gray-400 hover:text-gray-600 transition-colors"
-                >
-                  <X className="h-6 w-6" />
-                </button>
-              </div>
-
-              {/* Modal Body */}
-              <form onSubmit={handleImportSubmit}>
-                <div className="p-6">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Import Excel
-                    </label>
-                    <input
-                      type="file"
-                      accept=".xlsx,.xls,.csv"
-                      onChange={handleImportFileChange}
-                      className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-                      required
-                    />
-                    {!importFile && (
-                      <p className="mt-1 text-sm text-gray-500">No file chosen</p>
-                    )}
-                    {importFile && (
-                      <p className="mt-1 text-sm text-green-600">{importFile.name}</p>
-                    )}
-                  </div>
-                </div>
-
-                {/* Modal Footer */}
-                <div className="flex justify-end gap-3 p-6 border-t border-gray-200">
-                  <button
-                    type="button"
-                    onClick={handleCloseImportModal}
-                    className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={importing || !importFile}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {importing ? 'Importing...' : 'Save'}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
-      </>
-    )}
+  const renderStars = (count) => (
+    <div className="flex gap-0.5">
+      {[...Array(5)].map((_, i) => (
+        <Star key={i} size={12} className={i < Math.floor(count) ? "fill-amber-400 text-amber-400" : "text-gray-200"} />
+      ))}
     </div>
   );
 
+  const filteredHotels = useMemo(() =>
+    hotels.filter(h => (h.name || '').toLowerCase().includes(searchTerm.toLowerCase())),
+    [hotels, searchTerm]
+  );
+
+  return (
+    <div className="p-6 font-poppins" style={{ backgroundColor: '#D8DEF5', minHeight: '100vh' }}>
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-3xl font-bold text-gray-800">Hotels</h1>
+        <div className="flex items-center gap-4">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-5 w-5" />
+            <input
+              type="text"
+              placeholder="Search by name"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 w-64 bg-white"
+            />
+          </div>
+          {hasPermission(user, 'hotels.create') && (
+            <button onClick={handleAddNew} className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2 font-medium shadow-sm">
+              <Plus className="h-5 w-5" /> Add New
+            </button>
+          )}
+        </div>
+      </div>
+
+      <div className="bg-white rounded-lg shadow-md overflow-hidden">
+        <table className="min-w-full divide-y divide-gray-200">
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Hotel Asset</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Destination</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="bg-white divide-y divide-gray-200">
+            {filteredHotels.length === 0 ? (
+              <tr><td colSpan="5" className="px-6 py-12 text-center text-gray-500 text-sm font-medium">No hotels found</td></tr>
+            ) : (
+              filteredHotels.map((h) => (
+                <tr key={h.id} className="hover:bg-gray-50 transition-colors">
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center overflow-hidden border">
+                        {h.image ? <img src={h.image} className="w-full h-full object-cover" /> : <ImageIcon className="h-5 w-5 text-gray-400" />}
+                      </div>
+                      <div className="text-sm font-medium text-gray-900">{h.name || 'N/A'}</div>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">{renderStars(h.category || 3)}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 capitalize font-medium">{h.destination}</td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <button
+                      onClick={(e) => toggleStatus(e, h)}
+                      className={`px-3 py-1 inline-flex text-[10px] uppercase font-bold tracking-widest rounded-full cursor-pointer transition-all ${h.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}
+                    >
+                      {h.status === 'active' ? 'Active' : 'Inactive'}
+                    </button>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                    <div className="flex items-center gap-2">
+                      <button onClick={() => { setViewingHotel(h); setIsViewModalOpen(true); }} className="text-blue-600 hover:text-blue-900 p-2 hover:bg-blue-50 rounded-full" title="View"><Eye size={18} /></button>
+                      <button onClick={() => handleOpenPrice(h)} className="text-amber-600 hover:text-amber-900 p-2 hover:bg-amber-50 rounded-full" title="Rates"><DollarSign size={18} /></button>
+                      {hasPermission(user, 'hotels.edit') && <button onClick={() => handleEdit(h)} className="text-green-600 hover:text-green-900 p-2 hover:bg-green-50 rounded-full" title="Edit"><Edit size={18} /></button>}
+                      {hasPermission(user, 'hotels.delete') && <button onClick={async () => { if (window.confirm('Delete this record?')) { await hotelsAPI.delete(h.id); fetchData(); } }} className="text-red-600 hover:text-red-900 p-2 hover:bg-red-50 rounded-full" title="Delete"><Trash2 size={18} /></button>}
+                    </div>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {/* VIEW MODAL - Executive Suite Redesign */}
+      {isViewModalOpen && viewingHotel && createPortal(
+        <div className="fixed inset-0 bg-[#0F172A]/40 backdrop-blur-md flex items-center justify-center z-[9999] p-4 animate-in fade-in duration-300">
+          <div className="bg-white rounded-[32px] shadow-2xl w-full max-w-2xl overflow-hidden animate-in zoom-in-95 duration-300 border border-white/20" style={{ fontFamily: "'Poppins', sans-serif" }}>
+            {/* Modal Header */}
+            <div className="px-8 py-6 border-b border-slate-50 flex justify-between items-center bg-white sticky top-0 z-10">
+               <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 bg-blue-50 rounded-2xl flex items-center justify-center text-[#2C55D4] shadow-sm">
+                     <Building size={24} strokeWidth={2.5} />
+                  </div>
+                  <div>
+                    <h2 className="text-[18px] font-semibold text-slate-800 leading-none">{viewingHotel.name}</h2>
+                    <div className="flex items-center gap-2 mt-1.5">
+                       {renderStars(viewingHotel.category)}
+                       <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">
+                          Property Registry
+                       </span>
+                    </div>
+                  </div>
+               </div>
+               <button 
+                  onClick={() => setIsViewModalOpen(false)} 
+                  className="w-10 h-10 rounded-full bg-slate-50 text-slate-400 flex items-center justify-center hover:bg-slate-100 hover:text-slate-600 transition-all active:scale-90"
+               >
+                  <X size={20} />
+               </button>
+            </div>
+
+            <div className="p-8 space-y-8 max-h-[75vh] overflow-y-auto no-scrollbar">
+              {viewingHotel.image ? (
+                <div className="relative group overflow-hidden rounded-3xl border border-slate-100 shadow-xl shadow-blue-900/5 aspect-video">
+                  <img src={viewingHotel.image} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" alt={viewingHotel.name} />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-6">
+                     <p className="text-white text-xs font-bold uppercase tracking-widest">{viewingHotel.name} - Asset Portfolio</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="w-full h-40 bg-slate-50 rounded-3xl border border-dashed border-slate-200 flex flex-col items-center justify-center text-slate-400 gap-3">
+                   <ImageIcon size={40} strokeWidth={1} />
+                   <p className="text-[10px] font-bold uppercase tracking-widest leading-none">No Property Visuals Found</p>
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100/50">
+                   <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Contact Intelligence</label>
+                   <p className="text-[13px] font-semibold text-slate-800">{viewingHotel.contact_person || 'No Lead Contact'}</p>
+                   <p className="text-[11px] font-medium text-slate-500 mt-1">{viewingHotel.phone || 'Registry Missing Phone'}</p>
+                </div>
+                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100/50">
+                   <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Destination Hub</label>
+                   <div className="flex items-center gap-2">
+                      <MapPin size={14} className="text-[#2C55D4]" />
+                      <p className="text-[13px] font-bold text-slate-800 uppercase tracking-wide">
+                         {viewingHotel.destination || 'Global Link'}
+                      </p>
+                   </div>
+                </div>
+                
+                <div className="col-span-1 md:col-span-2 p-5 bg-[#F8FAFC] rounded-2xl border border-blue-50">
+                   <div className="flex items-center gap-3 mb-2">
+                      <Briefcase size={16} className="text-[#2C55D4]" />
+                      <label className="text-[10px] font-bold text-[#2C55D4] uppercase tracking-widest block">Operational Address</label>
+                   </div>
+                   <p className="text-[14px] font-medium text-slate-600 pl-7 leading-relaxed">
+                      {viewingHotel.hotel_address || viewingHotel.address || 'Global HQ Operations'}
+                   </p>
+                </div>
+
+                <div className="col-span-1 md:col-span-2 p-5 bg-white rounded-2xl border border-slate-100">
+                   <div className="flex items-center gap-3 mb-3">
+                      <Info size={16} className="text-slate-400" />
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Technical Synopsis</label>
+                   </div>
+                   <p className="text-[13px] font-medium text-slate-600 leading-relaxed pl-7 text-justify whitespace-pre-line">
+                      {viewingHotel.description || viewingHotel.hotel_details || 'No technical specifications provided for this property registry.'}
+                   </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-8 py-6 border-t border-slate-50 flex justify-end gap-3 bg-slate-50/50">
+               <button 
+                  onClick={() => setIsViewModalOpen(false)} 
+                  className="px-10 py-3 bg-[#1E293B] text-white rounded-2xl text-[11px] font-bold uppercase tracking-widest shadow-lg shadow-blue-900/10 hover:shadow-xl hover:-translate-y-0.5 transition-all active:scale-95"
+               >
+                  Dismiss Sheet
+               </button>
+            </div>
+          </div>
+        </div>, document.body
+      )}
+
+      {/* ADD/EDIT MODAL */}
+      {isModalOpen && createPortal(
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[9999] p-4 font-poppins">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl overflow-hidden animate-in-scale">
+            <div className="flex justify-between items-center p-6 border-b bg-gray-50">
+              <h2 className="text-xl font-bold">{editingHotelId ? 'Edit Hotel' : 'New Hotel Entry'}</h2>
+              <button onClick={() => setIsModalOpen(false)}><X size={24} /></button>
+            </div>
+            <form onSubmit={handleSave} className="p-6 space-y-4 max-h-[75vh] overflow-y-auto font-medium">
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div className="space-y-1">
+                  <label className="text-gray-700 block">Hotel name *</label>
+                  <input placeholder="Hotel title" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} className="w-full border p-2 rounded focus:ring-2 focus:ring-blue-500 outline-none" required />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-gray-700 block">Category *</label>
+                  <select value={formData.category} onChange={e => setFormData({ ...formData, category: e.target.value })} className="w-full border p-2 rounded focus:ring-2 focus:ring-blue-500 outline-none" required>
+                    <option value="">Select Category</option>
+                    {[1, 2, 3, 4, 5].map(v => <option key={v} value={v}>{v} Star Rating</option>)}
+                  </select>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4 items-end text-sm">
+                <div className="space-y-1">
+                  <label className="text-gray-700 block">Location *</label>
+                  <input placeholder="City" value={formData.destination} onChange={e => setFormData({ ...formData, destination: e.target.value })} className="w-full border p-2 rounded focus:ring-2 focus:ring-blue-500 outline-none" required />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-gray-700 mb-1 block">Hotel Photo (Library/Upload)</label>
+                  <div className="flex gap-2">
+                    <label className="flex-1 flex items-center justify-center gap-2 p-2 border border-dashed rounded bg-blue-50 cursor-pointer hover:bg-blue-100 transition-all">
+                      <Upload size={16} className="text-blue-600" /><span className="text-[10px] font-bold text-blue-600 uppercase tracking-widest leading-none">Upload</span>
+                      <input type="file" className="hidden" onChange={handleImageFileChange} />
+                    </label>
+                    <button type="button" onClick={() => { setImageSource('library'); setShowImageModal(true); }} className="flex-1 flex items-center justify-center gap-2 p-2 border border-emerald-200 rounded bg-emerald-50 text-emerald-600 hover:bg-emerald-100 transition-all">
+                      <Camera size={16} /><span className="text-[10px] font-bold uppercase tracking-widest leading-none">Library</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {imagePreview && (
+                <div className="relative w-full h-32 rounded-lg overflow-hidden border group">
+                  <img src={imagePreview} className="w-full h-full object-cover" />
+                  <button type="button" onClick={() => { setImagePreview(null); setFormData({ ...formData, image: null }); }} className="absolute top-2 right-2 bg-red-600 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"><X size={14} /></button>
+                </div>
+              )}
+
+              <div className="space-y-1 text-sm">
+                <label className="text-gray-700 block">Hotel Synopsis / Details</label>
+                <textarea rows="3" placeholder="Hotel overview and amenities" value={formData.description} onChange={e => setFormData({ ...formData, description: e.target.value })} className="w-full border p-2 rounded focus:ring-2 focus:ring-blue-500 outline-none resize-none font-normal" />
+              </div>
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div className="space-y-1">
+                  <label className="text-gray-700 block">Contact Person</label>
+                  <input placeholder="Name" value={formData.contact_person} onChange={e => setFormData({ ...formData, contact_person: e.target.value })} className="w-full border p-2 rounded focus:ring-2 focus:ring-blue-500 outline-none" />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-gray-700 block">Contact Phone</label>
+                  <input placeholder="Phone" value={formData.phone} onChange={e => setFormData({ ...formData, phone: e.target.value })} className="w-full border p-2 rounded focus:ring-2 focus:ring-blue-500 outline-none" />
+                </div>
+              </div>
+              <div className="space-y-1 text-sm text-sm">
+                <label className="text-gray-700 block">Full Address *</label>
+                <input placeholder="Postal Address" value={formData.address} onChange={e => setFormData({ ...formData, address: e.target.value })} className="w-full border p-2 rounded focus:ring-2 focus:ring-blue-500 outline-none" required />
+              </div>
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div className="space-y-1">
+                  <label className="text-gray-700 block">Digital Link</label>
+                  <input placeholder="Website URL" value={formData.hotel_link} onChange={e => setFormData({ ...formData, hotel_link: e.target.value })} className="w-full border p-2 rounded focus:ring-2 focus:ring-blue-500 outline-none" />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-gray-700 block">Registry Status</label>
+                  <select value={formData.status} onChange={e => setFormData({ ...formData, status: e.target.value })} className="w-full border p-2 rounded focus:ring-2 focus:ring-blue-500 outline-none">
+                    <option value="active">Active</option>
+                    <option value="inactive">Inactive</option>
+                  </select>
+                </div>
+              </div>
+              <div className="flex justify-end gap-3 pt-6 border-t">
+                <button type="button" onClick={() => setIsModalOpen(false)} className="px-6 py-2 text-gray-400 font-bold uppercase tracking-widest text-xs hover:bg-gray-50">Dismiss</button>
+                <button type="submit" disabled={saving} className="px-10 py-2 bg-blue-600 text-white rounded font-bold uppercase tracking-widest text-[10px] hover:bg-blue-700 shadow-lg">{saving ? 'Syncing...' : 'Complete Registry'}</button>
+              </div>
+            </form>
+          </div>
+        </div>, document.body
+      )}
+
+      {/* SHARED IMAGE LIBRARY */}
+      {showImageModal && createPortal(
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[9999] p-4 font-poppins font-medium">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col animate-in-scale">
+            <div className="flex justify-between items-center p-4 border-b bg-gray-50"><h2 className="text-lg font-bold">Hotel Visual Library</h2><button onClick={() => setShowImageModal(false)}><X size={24} /></button></div>
+            <div className="flex border-b text-[10px] font-bold uppercase tracking-widest">
+              <button onClick={() => setLibraryTab('free')} className={`px-8 py-4 transition-all ${libraryTab === 'free' ? 'border-b-4 border-blue-600 text-blue-600' : 'text-gray-400 hover:text-gray-600'}`}>Global Photo Stock</button>
+              <button onClick={() => setLibraryTab('your')} className={`px-8 py-4 transition-all ${libraryTab === 'your' ? 'border-b-4 border-blue-600 text-blue-600' : 'text-gray-400 hover:text-gray-600'}`}>My Gallery</button>
+            </div>
+            <div className="p-4 border-b bg-white">
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                  <input type="text" value={librarySearchTerm} onChange={e => setLibrarySearchTerm(e.target.value)} className="w-full pl-10 pr-4 py-2 border rounded-lg outline-none text-sm focus:ring-2 focus:ring-blue-500" placeholder={libraryTab === 'free' ? "Search Luxury Hotels, Rooms, etc." : "Search internal gallery"} />
+                </div>
+                <button onClick={() => libraryTab === 'free' ? fetchFreeStockImages() : null} className="px-8 bg-blue-600 text-white rounded-lg text-xs font-bold uppercase tracking-widest leading-none">Search</button>
+              </div>
+            </div>
+            <div className="flex-1 overflow-y-auto p-6 grid grid-cols-4 gap-4 bg-gray-50">
+              {(libraryTab === 'free' ? freeStockPhotos : libraryPackages).map((img, i) => (
+                <div key={i} onClick={() => libraryTab === 'free' ? handleSelectFreeStockImage(img.url) : handleImageSelectFromLibrary(img.image)} className="aspect-square relative rounded-xl overflow-hidden border-2 bg-white hover:border-blue-500 cursor-pointer group shadow-sm transition-all duration-300">
+                  <img src={img.thumb || img.url || img.image} className="w-full h-full object-cover" /><div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-[10px] font-bold tracking-widest uppercase">SELECT</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>, document.body
+      )}
+
+      {/* PRICING MODAL */}
+      {isPriceModalOpen && pricingHotel && createPortal(
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[9999] p-4 font-poppins font-medium">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-lg overflow-hidden animate-in-scale">
+            <div className="p-6 border-b flex justify-between items-center bg-amber-50">
+              <h2 className="text-xl font-bold text-amber-900 flex items-center gap-2"><DollarSign size={24} /> Rate Index: {pricingHotel.name}</h2>
+              <button onClick={() => setIsPriceModalOpen(false)}><X size={24} /></button>
+            </div>
+            <div className="p-6">
+              {loadingRates ? <LogoLoader text="Syncing..." /> : (
+                <div className="space-y-4">
+                  {rates.length > 0 ? (
+                    <div className="max-h-[50vh] overflow-y-auto space-y-2">
+                      {rates.map((r, i) => (
+                        <div key={i} className="flex justify-between items-center p-4 bg-gray-50 rounded border border-gray-200 shadow-sm">
+                          <div className="text-sm text-gray-800">{r.room_type || 'Hotel Plan'}</div>
+                          <div className="text-sm font-bold text-emerald-600">₹{r.price || 0}</div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : <div className="py-20 text-center text-gray-500 text-sm font-bold border-2 border-dashed rounded-lg bg-gray-50 uppercase tracking-widest text-[10px]">No rates listed.</div>}
+                  <button className="w-full py-3 bg-blue-600 text-white rounded font-bold uppercase tracking-widest text-[10px] hover:bg-blue-700 shadow-lg mt-4 leading-none inline-flex items-center justify-center gap-2 font-bold"><Plus size={16} /> Update Rate Board</button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>, document.body
+      )}
+    </div>
+  );
 };
-
 export default Hotel;
-

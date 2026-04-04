@@ -30,7 +30,7 @@ Route::middleware('auth:sanctum')->prefix('suppliers')->group(function () {
     Route::get('/{supplierId}/financial-transactions', [SupplierFinancialController::class, 'getSupplierFinancialTransactions']);
     Route::post('/{supplierId}/financial-transactions/{transactionId}/payment', [SupplierFinancialController::class, 'recordSupplierTransactionPayment']);
     Route::apiResource('/', SupplierController::class)->parameters(['' => 'id'])->except(['destroy']);
-    Route::delete('/{id}', [SupplierController::class, 'destroy'])->middleware('role:Admin|Company Admin');
+    Route::delete('/{id}', [SupplierController::class, 'destroy'])->middleware('role:Admin|Company Admin|Manager');
 });
 
 // Settings routes - require authentication

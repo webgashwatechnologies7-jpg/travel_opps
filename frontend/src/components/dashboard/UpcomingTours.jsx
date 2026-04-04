@@ -1,78 +1,62 @@
-import React from "react";
-import {
-  PieChart,
-  Pie,
-  Cell,
-  ResponsiveContainer,
-} from "recharts";
+import React from 'react';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
+import { ChevronDown } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
-const COLORS = [
-  "#FF9F43", // Proposal Sent
-  "#9B59B6", // Hot Lead
-  "#EB5757", // Cancel
-  "#3867D6", // Proposal Converted
-  "#2EC4B6", // Confirmed
-];
-const UpcomingTours = () => {
-  const data = [
-    { name: "Proposal Sent", value: 4.2 },
-    { name: "Hot Lead", value: 2.1 },
-    { name: "Cancel", value: 1.5 },
-    { name: "Proposal Converted", value: 4.5 },
-    { name: "Confirmed", value: 46.1 },
+const UpcomingTours = ({ data = {} }) => {
+  const navigate = useNavigate();
+  // ...stats
+  const stats = data || {};
+  const chartData = [
+    { name: 'Proposal Sent', value: stats.proposal_sent || 0, color: '#3B82F6' },
+    { name: 'Hot Lead', value: stats.hot_leads || 0, color: '#8B5CF6' },
+    { name: 'Cancel', value: stats.cancelled || 0, color: '#EF4444' },
+    { name: 'Proposal Conv.', value: stats.proposal_confirmed || 0, color: '#F59E0B' },
+    { name: 'Confirmed', value: stats.confirmed || 0, color: '#10B981' },
   ];
 
   return (
-    <div className="bg-white w-full h-full relative rounded-xl shadow-sm overflow-y-auto p-4 flex flex-col items-center gap-3 transition-all duration-300">
-
-      {/* Title Section */}
-      <div className="w-full flex-shrink-0">
-        <h2 className="text-base md:text-lg font-bold text-gray-900">
-          Upcoming Tours
-        </h2>
+    <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 h-full flex flex-col relative overflow-hidden group" style={{ fontFamily: "'Poppins', sans-serif" }}>
+      <div className="flex items-center justify-between mb-4 flex-shrink-0">
+        <h2 className="text-lg font-semibold text-gray-800 tracking-tight">Upcoming Tours</h2>
+        <button
+          onClick={() => navigate("/leads?status=confirmed")}
+          className="text-[#2C55D4] text-[11px] font-bold uppercase tracking-widest flex items-center gap-1 hover:text-blue-700 transition-all group"
+        >
+          View All <ChevronDown size={12} strokeWidth={3} className="group-hover:translate-y-0.5 transition-transform" />
+        </button>
       </div>
 
-      {/* Chart Section */}
-      <div className="relative flex-none w-[120px] h-[120px] md:w-[140px] md:h-[140px] lg:w-[200px] lg:h-[200px] flex items-center justify-center flex-shrink-0">
-        <ResponsiveContainer width="100%" height="100%">
-          <PieChart>
-            <Pie
-              data={data}
-              dataKey="value"
-              innerRadius={window.innerWidth < 1024 ? 35 : 65}
-              outerRadius={window.innerWidth < 1024 ? 55 : 95}
-              paddingAngle={2}
-              stroke="none"
-            >
-              {data.map((_, index) => (
-                <Cell key={index} fill={COLORS[index]} />
-              ))}
-            </Pie>
-          </PieChart>
-        </ResponsiveContainer>
-
-        {/* CENTER TEXT */}
-        <div className="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none">
-          <h3 className="text-xs font-bold text-gray-900 leading-tight">
-            Queries
-          </h3>
-          <p className="text-[10px] font-medium text-gray-500 leading-tight">
-            Status
-          </p>
+      <div className="flex-1 flex flex-col items-center justify-center relative min-h-0">
+        <div className="h-full w-full max-h-[220px]">
+          <ResponsiveContainer width="100%" height="100%">
+            <PieChart>
+              <Pie
+                data={chartData}
+                innerRadius={55}
+                outerRadius={75}
+                paddingAngle={5}
+                dataKey="value"
+                stroke="none"
+              >
+                {chartData.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={entry.color} />
+                ))}
+              </Pie>
+              <Tooltip 
+                contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
+              />
+            </PieChart>
+          </ResponsiveContainer>
         </div>
       </div>
 
-      {/* Progress Bars Section - Now properly positioned */}
-      <div className="space-y-2 grid grid-cols-2 gap-x-2 w-full flex-shrink-0">
-        {data.map((item, index) => (
-          <div key={item.name} className="flex items-center gap-2">
-            <span
-              className="w-2 h-2 min-w-[8px] rounded-full flex-shrink-0"
-              style={{ backgroundColor: COLORS[index] }}
-            />
-            <span className="text-xs md:text-xs lg:text-[10px] xl:text-xs font-medium text-slate-700 truncate">
-              {item.name} {item.value}%
-            </span>
+      <div className="grid grid-cols-2 gap-2 mt-4 text-[9.5px] font-bold text-slate-400 uppercase tracking-widest border-t border-slate-50 pt-4">
+        {chartData.map((item, index) => (
+          <div key={index} className="flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: item.color }} />
+            <span className="truncate">{item.name}</span>
+            <span className="ml-auto text-slate-300 tabular-nums">{item.value}</span>
           </div>
         ))}
       </div>

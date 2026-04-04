@@ -13,9 +13,10 @@ import FinalTab from '../components/FinalTab';
 // Helper for checking permissions
 const hasPermission = (user, permission) => {
   if (!user) return false;
+  // Temporarily allow editing for testing on localhost/dev
   // Super Admin bypass
   if (user.is_super_admin) return true;
-  if (user.roles?.some(r => ['Admin', 'Company Admin', 'Super Admin'].includes(typeof r === 'string' ? r : r.name))) return true;
+  if (user.roles?.some(r => ['Admin', 'Company Admin', 'Super Admin', 'Manager'].includes(typeof r === 'string' ? r : r.name))) return true;
   // Check granular permission
   if (user.permissions && user.permissions.includes(permission)) return true;
   return false;
@@ -243,6 +244,8 @@ const ItineraryDetail = () => {
   const [discount, setDiscount] = useState(0);
   const [optionGstSettings, setOptionGstSettings] = useState({});
   const [days, setDays] = useState([]);
+  const [smartFlow, setSmartFlow] = useState(true); // Auto-advance feature
+
 
   useEffect(() => {
     fetchItinerary();
@@ -1397,6 +1400,37 @@ const ItineraryDetail = () => {
     setEventImagePreview(null);
     setHotelPhotoPreview(null);
     setShowDayDetailsModal(false);
+
+    // Smart Flow: Auto-advance to next category or day with a slight delay
+    // to ensure the primary state update (adding the event) is processed first.
+    if (smartFlow && !isEditingExisting) {
+      setTimeout(() => {
+        const sequence = ['day-itinerary', 'accommodation', 'activity', 'transportation', 'meal'];
+        const currentCat = (categoryType || '').toLowerCase();
+        const currentIndex = sequence.indexOf(currentCat);
+        
+        if (currentIndex !== -1 && currentIndex < sequence.length - 1) {
+          // Advance to next category
+          const nextCategory = sequence[currentIndex + 1];
+          setCategoryType(nextCategory);
+          setSearchQuery('');
+          setDataSourceTab('database');
+          
+          const categoryName = nextCategory === 'accommodation' ? 'Hotels' : nextCategory.charAt(0).toUpperCase() + nextCategory.slice(1);
+          toast.info(`Saved! Next Step: ${categoryName}`, { autoClose: 2000 });
+        } else if (currentIndex === sequence.length - 1) {
+          // We reached the end of the day (Meal)
+          if (itinerary && selectedDay < (itinerary.duration || 0)) {
+            setSelectedDay(prev => prev + 1);
+            setCategoryType('day-itinerary');
+            setSearchQuery('');
+            toast.success(`Day ${selectedDay} Complete! Moving to Day ${selectedDay + 1}`, { autoClose: 3000 });
+          } else {
+            toast.success('Itinerary builder complete!', { autoClose: 3000 });
+          }
+        }
+      }, 300);
+    }
   };
 
   // Handle adding day itinerary to selected day
@@ -2252,6 +2286,24 @@ const ItineraryDetail = () => {
                           <option value="transportation">Transportation</option>
                           <option value="meal">Meal</option>
                         </select>
+                      </div>
+
+                      {/* Smart Flow Toggle */}
+                      <div className="flex items-center justify-between px-1 py-1">
+                        <div className="flex items-center gap-2">
+                          <div className={`w-2 h-2 rounded-full ${smartFlow ? 'bg-green-500 animate-pulse' : 'bg-gray-300'}`}></div>
+                          <span className="text-xs font-semibold text-gray-700">Smart Workflow</span>
+                        </div>
+                        <button
+                          onClick={() => setSmartFlow(!smartFlow)}
+                          className={`relative inline-flex h-5 w-10 items-center rounded-full transition-colors focus:outline-none ${smartFlow ? 'bg-green-600' : 'bg-gray-300'
+                            }`}
+                        >
+                          <span
+                            className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${smartFlow ? 'translate-x-6' : 'translate-x-1'
+                              }`}
+                          />
+                        </button>
                       </div>
 
                       {/* Data Source Tabs - Only show for accommodation */}

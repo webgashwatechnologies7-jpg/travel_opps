@@ -1,116 +1,70 @@
 import React from "react";
 import { Link } from "react-router-dom";
-import {
-  FileText,
-  Sparkles,
-  Clock,
-  XCircle,
-  CalendarRange,
-  CalendarDays,
-  Flame,
+import { 
+  Plus, 
+  Clock, 
+  CheckCircle2, 
+  FileText, 
+  TrendingUp, 
+  Target, 
+  Calendar, 
+  Users,
+  ChevronRight
 } from "lucide-react";
 
+/**
+ * High-Density Executive Stat Cards
+ * Strictly matched to Reference 24 (Ditoo/Paradise)
+ */
 const cardConfigs = [
-  {
-    name: "Total Queries",
-    dataKey: "totalQueries",
-    color: "#2D3192", // Logo Blue
-    bg: "#EEF0F9",
-    link: "/leads",
-    icon: FileText,
-  },
-  {
-    name: "New Query",
-    dataKey: "newQueries",
-    color: "#0891B2", // Cyan-600
-    bg: "#ECFEFF",
-    link: "/leads?status=new",
-    icon: Sparkles,
-  },
-  {
-    name: "Pending Queries",
-    dataKey: "pendingQueries",
-    color: "#D97706", // Amber-600
-    bg: "#FFFBEB",
-    link: "/leads?status=proposal",
-    icon: Clock,
-  },
-  {
-    name: "Closed Queries",
-    dataKey: "closedQueries",
-    color: "#475569", // Slate-600
-    bg: "#F8FAFC",
-    link: "/leads?status=cancelled",
-    icon: XCircle,
-  },
-  {
-    name: "Today Queries",
-    dataKey: "todayQueries",
-    color: "#2563EB", // Blue-600
-    bg: "#EFF6FF",
-    link: "/leads?today=1",
-    icon: Clock,
-  },
-  {
-    name: "Weekly Queries",
-    dataKey: "weeklyQueries",
-    color: "#7C3AED", // Violet-600
-    bg: "#F5F3FF",
-    link: "/leads?range=week",
-    icon: CalendarRange,
-  },
-  {
-    name: "Monthly Queries",
-    dataKey: "monthlyQueries",
-    color: "#1E3A8A", // Deep Blue
-    bg: "#EFF6FF",
-    link: "/leads?range=month",
-    icon: CalendarDays,
-  },
-  {
-    name: "Hot Queries",
-    dataKey: "hotQueries",
-    color: "#C42771", // Brand Magenta
-    bg: "#FDF2F8",
-    link: "/leads?priority=hot",
-    icon: Flame,
-  },
+  { name: "TOTAL QUERIES", dataKey: "totalQueries", color: "#3B82F6", bgColor: "bg-blue-50/60", borderColor: "border-blue-100", icon: FileText, link: "/leads" },
+  { name: "NEW QUERY", dataKey: "newQueries", color: "#10B981", bgColor: "bg-emerald-50/60", borderColor: "border-emerald-100", icon: Plus, link: "/leads?status=new" },
+  { name: "PENDING QUERI...", dataKey: "pendingQueries", color: "#F59E0B", bgColor: "bg-amber-50/60", borderColor: "border-amber-100", icon: Clock, link: "/leads?status=proposal" },
+  { name: "CLOSED QUERIES", dataKey: "closedQueries", color: "#64748B", bgColor: "bg-slate-50/60", borderColor: "border-slate-100", icon: CheckCircle2, link: "/leads?status=cancelled" },
+  { name: "TODAY QUERIES", dataKey: "todayQueries", color: "#007BFF", bgColor: "bg-blue-50/60", borderColor: "border-blue-100", icon: Calendar, link: "/leads?today=1" },
+  { name: "WEEKLY QUERIES", dataKey: "weeklyQueries", color: "#8B5CF6", bgColor: "bg-purple-50/60", borderColor: "border-purple-100", icon: Users, link: "/leads?period=weekly" },
+  { name: "MONTHLY QUE...", dataKey: "monthlyQueries", color: "#06B6D4", bgColor: "bg-cyan-50/60", borderColor: "border-cyan-100", icon: Target, link: "/leads?period=monthly" },
+  { name: "HOT QUERIES", dataKey: "hotQueries", color: "#EF4444", bgColor: "bg-red-50/60", borderColor: "border-red-100", icon: TrendingUp, link: "/leads?priority=hot" },
 ];
 
 const DashboardStatsCards = ({ stats = {} }) => {
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-4 gap-4">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 w-full h-[320px]">
       {cardConfigs.map((card, index) => {
         const Icon = card.icon;
         return (
           <Link
             key={index}
             to={card.link}
-            className="rounded-lg bg-white p-1.5 flex flex-col justify-between min-h-[115px] hover:shadow-md transition-shadow group"
+            className={`rounded-2xl ${card.bgColor} flex flex-col border ${card.borderColor} hover:shadow-md transition-all group overflow-hidden bg-white/40 shadow-sm`}
           >
-            <div style={{ backgroundColor: card.bg }} className="h-full w-full flex p-3 flex-col justify-between rounded-md">
-              <div className="flex items-center gap-3">
-                <div
-                  className="w-9 h-9 rounded-full flex items-center justify-center shrink-0 shadow-sm transition-transform group-hover:scale-110"
-                  style={{ backgroundColor: card.color }}
-                >
-                  <Icon className="h-4.5 w-4.5 text-white" />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-[12px] text-gray-600 font-bold uppercase tracking-tight truncate leading-tight">
-                    {card.name}
-                  </p>
-                  <p className="text-xl font-black leading-tight mt-0.5" style={{ color: card.color }}>
-                    {stats[card.dataKey] ?? 0}
-                  </p>
-                </div>
+            {/* Optimized Content Row - No Wasted Space */}
+            <div className="flex-1 px-4 py-3.5 flex items-center gap-3">
+              <div 
+                className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 shadow-md group-hover:scale-110 transition-transform duration-300"
+                style={{ backgroundColor: card.color, color: "#FFFFFF" }}
+              >
+                <Icon size={18} strokeWidth={2.5} />
               </div>
 
-              <div className="flex items-center justify-between mt-2 pt-1.5 border-t border-black/5">
-                <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: card.color }}>
-                  View All
-                </span>
-                <img src="/icons/menu.svg" alt="menu" className="w-3.5 h-3.5 opacity-50 grayscale" />
+              <div className="min-w-0">
+                <p className="text-[12px] font-semibold text-gray-600 uppercase tracking-tight leading-none mb-1 truncate group-hover:text-gray-900 transition-colors">
+                  {card.name}
+                </p>
+                <h3 className="text-[22px] font-semibold text-gray-800 leading-none tabular-nums tracking-tighter">
+                  {stats[card.dataKey] ?? 0}
+                </h3>
+              </div>
+            </div>
+
+            {/* Slimmer High-Gloss Footer */}
+            <div className="bg-white/60 border-t border-white/80 px-4 py-1.5 flex items-center justify-between">
+              <span className="text-[9px] font-black text-blue-600 uppercase tracking-[0.15em] opacity-80 group-hover:opacity-100">
+                VIEW ALL
+              </span>
+              <div className="flex items-center gap-0.5 opacity-30">
+                 <div className="w-1 h-1 rounded-full bg-slate-900"></div>
+                 <div className="w-1 h-1 rounded-full bg-slate-900"></div>
               </div>
             </div>
           </Link>

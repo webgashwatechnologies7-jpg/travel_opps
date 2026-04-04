@@ -1,7 +1,12 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { ChevronDown } from "lucide-react";
 import { paymentsAPI } from '../services/api';
 
+/**
+ * Premium Payment Collection Table
+ * High-Density Executive Suite Styling
+ */
 const PaymentCollectionTable = () => {
   const navigate = useNavigate();
   const [payments, setPayments] = useState([]);
@@ -9,129 +14,99 @@ const PaymentCollectionTable = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  // Format ID helper - formats ID as Q-0005, Q-0004, etc.
-  const formatLeadId = (id) => {
-    if (!id) return 'N/A';
-    return `Q-${String(id).padStart(4, '0')}`;
-  };
+  const formatLeadId = (id) => id ? `Q-${String(id).padStart(4, '0')}` : 'N/A';
 
   useEffect(() => {
+    const fetchPayments = async () => {
+      try {
+        const response = await paymentsAPI.dueToday();
+        const paymentsData = response.data.data?.payments || [];
+        setPayments(paymentsData);
+        setTotalAmount(paymentsData.reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0));
+      } catch (err) {
+        setError('Failed to load dues');
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
     fetchPayments();
   }, []);
 
-  const fetchPayments = async () => {
-    try {
-      const response = await paymentsAPI.dueToday();
-      const paymentsData = response.data.data?.payments || [];
-      setPayments(paymentsData);
-      // Calculate total
-      const total = paymentsData.reduce((sum, payment) => sum + (parseFloat(payment.amount) || 0), 0);
-      setTotalAmount(total);
-    } catch (err) {
-      setError('Failed to load payments');
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  if (loading) {
-    return (
-      <div className="bg-white rounded-lg shadow p-4">
-        <h2 className="text-lg font-semibold text-gray-800 mb-4">Payment Collection</h2>
-        <div className="flex items-center justify-center h-32">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="bg-white rounded-lg shadow p-4">
-        <h2 className="text-lg font-semibold text-gray-800 mb-4">Payment Collection</h2>
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded text-sm">
-          {error}
-        </div>
-      </div>
-    );
-  }
   return (
-    <div className="bg-[#F4F6FF] rounded-xl p-4 w-full h-full flex flex-col">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-3">
-        <h2 className="text-[13px] font-semibold text-gray-900">
-          Payment Collection{" "}
-          <span className="text-red-500 font-semibold">
-            ({totalAmount.toLocaleString('en-IN')} INR)
-          </span>
-        </h2>
-
+    <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 w-full h-full flex flex-col relative overflow-hidden" style={{ fontFamily: "'Poppins', sans-serif" }}>
+      <div className="flex items-center justify-between mb-4 flex-shrink-0">
+        <div>
+          <div className="flex items-center gap-2">
+            <h2 className="text-lg font-semibold text-gray-800 tracking-tight">Payment Collection</h2>
+            <span className="bg-rose-50 text-rose-500 text-[8px] font-black px-2 py-0.5 rounded-full shadow-sm animate-pulse border border-rose-100 flex items-center gap-1">
+              <div className="w-1 h-1 rounded-full bg-rose-500" /> LIVE
+            </span>
+          </div>
+          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Total: {totalAmount.toLocaleString('en-IN')} INR</p>
+        </div>
         <button
-          type="button"
           onClick={() => navigate("/payments")}
-          className="text-[#3B82F6] text-xs font-medium flex items-center gap-1"
+          className="text-[#2C55D4] text-[11px] font-bold uppercase tracking-widest flex items-center gap-1 hover:text-blue-700 transition-all group"
         >
-          View more
-          <span className="transition-transform duration-200">▼</span>
+          View More <ChevronDown size={12} strokeWidth={3} className="group-hover:translate-y-0.5 transition-transform" />
         </button>
       </div>
 
-      {/* Table Wrapper */}
-      <div
-        className="
-          border border-[#E5E7EB] rounded-lg bg-[#F7F8FF]
-          transition-all duration-300 flex-1 min-h-0 overflow-hidden flex flex-col
-        "
-      >
-        {/* Table Header */}
-        <div className="grid grid-cols-4 text-[#1E40AF] text-[12px] font-medium px-4 py-3 bg-[#F1F3FF] flex-shrink-0">
-          <div>Query ID</div>
-          <div>Customer Name</div>
-          <div>Amount</div>
-          <div>Status</div>
-        </div>
-
-        {/* Rows - Scrollable */}
-        <div className="flex-1 overflow-y-auto custom-scroll pr-2 -mr-2">
-          {payments.length === 0 ? (
-            <div className="text-center py-4 text-gray-500 text-xs">
-              No payments available
-            </div>
-          ) : (
-            payments.map((payment, index) => {
-              const paymentId = formatLeadId(payment.lead_id || payment.id);
-              const customerName = payment.lead?.client_name || payment.client_name || 'N/A';
-              const amount = parseFloat(payment.amount || 0).toLocaleString('en-IN');
-              const statusText = payment.status || 'Cleared';
-
-              return (
-                <div
-                  key={payment.id || index}
+      <div className="flex-1 overflow-y-auto custom-scroll pr-1 mt-2">
+        {loading ? (
+          <div className="flex items-center justify-center h-full">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+          </div>
+        ) : error ? (
+          <div className="flex items-center justify-center h-full text-red-500 text-xs font-bold">{error}</div>
+        ) : payments.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-full text-center py-10 opacity-30 grayscale saturate-0">
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest shadow-sm border border-slate-100 px-4 py-2 rounded-xl">
+              No payments due
+            </p>
+          </div>
+        ) : (
+          <table className="w-full">
+            <thead>
+              <tr className="text-[9px] font-bold text-slate-300 uppercase tracking-widest border-b border-gray-50 text-left">
+                <th className="pb-3 pr-2">ID</th>
+                <th className="pb-3 pr-2">NAME</th>
+                <th className="pb-3 pr-2 text-center">AMOUNT</th>
+                <th className="pb-3 text-center">STATUS</th>
+              </tr>
+            </thead>
+            <tbody>
+              {payments.map((p, index) => (
+                <tr
+                  key={p.id || index}
                   onClick={() => {
-                    const leadId = payment.lead_id || payment.lead?.id;
-                    if (leadId) {
-                      navigate(`/leads/${leadId}?tab=billing`);
-                    }
+                    const leadId = p.lead_id || p.lead?.id;
+                    if (leadId) navigate(`/leads/${leadId}?tab=billing`);
                   }}
-                  className="grid grid-cols-4 items-center px-4 py-3 border-t border-[#E5E7EB] text-[12px] cursor-pointer hover:bg-gray-50"
+                  className="border-b last:border-0 border-gray-50/50 group cursor-pointer hover:bg-slate-50 transition-all"
                 >
-                  <div className="flex items-center gap-2 font-semibold text-gray-900">
-                    {paymentId}
-                    <span className="text-green-500 text-lg leading-none">›</span>
-                  </div>
-                  <div className="text-gray-800">{customerName}</div>
-                  <div className="font-semibold text-[12px] text-gray-900">{amount} INR</div>
-                  <div>
-                    <span className="bg-[#2EA6A6] text-white px-2 py-1 rounded-md text-[10px] font-medium">
-                      {statusText}
+                  <td className="py-2.5 font-bold text-slate-400 text-[10px]">
+                    <span className="bg-slate-100 px-2 py-0.5 rounded-lg group-hover:bg-[#2C55D4] group-hover:text-white transition-colors">
+                      {formatLeadId(p.lead_id || p.id)}
                     </span>
-                  </div>
-                </div>
-              );
-            })
-          )}
-        </div>
+                  </td>
+                  <td className="py-2.5 text-slate-600 text-[11px] font-semibold truncate uppercase tracking-tight max-w-[120px]">
+                    {p.lead?.client_name || p.client_name || 'N/A'}
+                  </td>
+                  <td className="py-2.5 font-bold text-[11px] text-gray-800 text-center tabular-nums">
+                    ₹{parseFloat(p.amount || 0).toLocaleString('en-IN')}
+                  </td>
+                  <td className="py-2.5 text-center">
+                    <span className="bg-[#2EA6A6]/10 text-[#2EA6A6] px-2 py-0.5 rounded-lg text-[9px] font-bold uppercase tracking-tight shadow-sm border border-[#2EA6A6]/20">
+                      {p.status || 'Pending'}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
     </div>
   );

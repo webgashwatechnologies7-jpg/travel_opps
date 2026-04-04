@@ -62,6 +62,12 @@ api.interceptors.response.use(
       window.location.replace('/login');
     }
 
+    // Handle 403 Forbidden errors (permissions changed)
+    if (error.response?.status === 403) {
+      // Dispatch custom event to AuthContext to refresh user profile silently
+      window.dispatchEvent(new CustomEvent('refresh-user-profile'));
+    }
+
     // Handle single domain bypass being turned OFF by Super Admin
     if (error.response?.data?.code === 'SINGLE_DOMAIN_DISABLED') {
       sessionStorage.removeItem('auth_token');
@@ -148,6 +154,7 @@ export const dashboardAPI = {
   sourceRoi: (month) => api.get('/dashboard/source-roi', { params: { month } }),
   destinationPerformance: (month) => api.get('/dashboard/destination-performance', { params: { month } }),
   getPresenceStats: () => api.get('/dashboard/presence-stats'),
+  getCompanyPresenceStats: (period = 'today') => api.get(`/dashboard/company-presence-stats?period=${period}`),
 };
 
 // Leads APIs
@@ -630,8 +637,8 @@ export const itineraryPricingAPI = {
 export const destinationsAPI = {
   list: () => api.get('/destinations'),
   get: (id) => api.get(`/destinations/${id}`),
-  create: (data) => api.post('/destinations', data),
-  update: (id, data) => api.put(`/destinations/${id}`, data),
+  create: (data) => postWithFile('/destinations', data),
+  update: (id, data) => postWithFile(`/destinations/${id}`, data, 'PUT'),
   delete: (id) => api.delete(`/destinations/${id}`),
 };
 
@@ -639,8 +646,8 @@ export const destinationsAPI = {
 export const roomTypesAPI = {
   list: () => api.get('/room-types'),
   get: (id) => api.get(`/room-types/${id}`),
-  create: (data) => api.post('/room-types', data),
-  update: (id, data) => api.put(`/room-types/${id}`, data),
+  create: (data) => postWithFile('/room-types', data),
+  update: (id, data) => postWithFile(`/room-types/${id}`, data, 'PUT'),
   delete: (id) => api.delete(`/room-types/${id}`),
 };
 

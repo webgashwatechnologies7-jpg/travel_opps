@@ -47,3 +47,18 @@ export const capitalize = (str) => {
     if (!str) return '';
     return str.charAt(0).toUpperCase() + str.slice(1);
 };
+
+/**
+ * Format duration in seconds to a human readable string (e.g. 3h 42m or 2m 15s)
+ */
+export const formatDuration = (totalSeconds) => {
+    if (!totalSeconds || isNaN(totalSeconds)) return '0h 0m';
+    
+    const h = Math.floor(totalSeconds / 3600);
+    const m = Math.floor((totalSeconds % 3600) / 60);
+    const s = Math.floor(totalSeconds % 60);
+    
+    if (h > 0) return `${h}h ${m}m`;
+    if (m > 0) return `${m}m ${s}s`;
+    return `${s}s`;
+};

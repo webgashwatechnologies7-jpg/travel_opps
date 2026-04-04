@@ -1,141 +1,88 @@
 import React, { useState } from "react";
+import { ChevronDown } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
-const TopLeadSource = ({ leadData }) => {
+/**
+ * Top Lead Source Component
+ * High-Density Executive Suite Style
+ */
+const TopLeadSource = ({ leadData = [] }) => {
   const navigate = useNavigate();
-  const [open, setOpen] = useState(false);
   const [filter, setFilter] = useState("total");
 
-  const showConfirmedOnly = filter === "confirmed";
-  const filteredData = showConfirmedOnly
-    ? (leadData || []).filter((item) => (item.confirmed || 0) > 0)
-    : (leadData || []);
-  const maxTotal = Math.max(...filteredData.map(i => i.total), 0);
-  const maxConfirmed = Math.max(...filteredData.map(i => i.confirmed), 0);
+  // Get lead source counts from passed data 
+  const sourceStats = Array.isArray(leadData) ? leadData : [];
+  
+  const filteredData = [...sourceStats]
+    .sort((a, b) => (filter === "confirmed" ? (b.confirmed || 0) - (a.confirmed || 0) : (b.total || 0) - (a.total || 0)))
+    .slice(0, 10);
+
+  const maxTotal = Math.max(...sourceStats.map(i => i.total || 0), 1);
+  const maxConfirmed = Math.max(...sourceStats.map(i => i.confirmed || 0), 1);
 
   return (
-    <div className="bg-white rounded-xl shadow-sm p-4 h-full flex flex-col">
-      {/* Header */}
-      <div className="flex justify-between items-center mb-4">
-        <h2 className="text-base font-bold text-gray-900">
-          Top Lead Source
+    <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex flex-col w-full h-full relative overflow-hidden" style={{ fontFamily: "'Poppins', sans-serif" }}>
+      <div className="flex items-center justify-between mb-4 flex-shrink-0">
+        <h2 className="text-lg font-semibold text-gray-800 tracking-tight">
+          Top Lead <span className="text-blue-600">Source</span>
         </h2>
-        <button
-          type="button"
-          onClick={() => navigate("/masters/lead-source")}
-          className="text-xs font-semibold text-blue-600 hover:text-blue-700"
-        >
-          View more
-        </button>
-
-        {/* Dropdown */}
-        <div className="relative">
-          <div
-            onClick={() => setOpen(!open)}
-            className="flex items-center gap-1 cursor-pointer text-gray-400 text-xs hover:text-gray-600 transition-colors"
-          >
-            {filter === "total" ? "Total" : "Confirmed"}
-            <span>▾</span>
-          </div>
-
-          {open && (
-            <div className="absolute right-0 mt-2 bg-white border border-gray-100 rounded-md shadow-lg w-32 z-10 py-1">
-              <div
-                onClick={() => {
-                  setFilter("total");
-                  setOpen(false);
-                }}
-                className="px-4 py-2 text-xs hover:bg-gray-50 cursor-pointer text-gray-700"
-              >
-                Total
-              </div>
-              <div
-                onClick={() => {
-                  setFilter("confirmed");
-                  setOpen(false);
-                }}
-                className="px-4 py-2 text-xs hover:bg-gray-50 cursor-pointer text-gray-700"
-              >
-                Confirmed
-              </div>
+        <div className="flex items-center gap-4">
+          <div className="hidden sm:flex items-center gap-4 bg-slate-50/50 px-3 py-1 rounded-full border border-slate-50">
+            <div className="flex items-center gap-1.5 grayscale opacity-50">
+              <span className="w-2.5 h-2.5 rounded-sm bg-blue-500" />
+              <span className="text-[9px] font-black uppercase text-slate-400 font-mono">TOTAL</span>
             </div>
-          )}
+            <div className="flex items-center gap-1.5 grayscale opacity-50">
+              <span className="w-2.5 h-2.5 rounded-sm bg-emerald-500" />
+              <span className="text-[9px] font-black uppercase text-slate-400 font-mono">CONFIRMED</span>
+            </div>
+          </div>
+          <button 
+            onClick={() => navigate("/reports")}
+            className="text-[#2C55D4] text-[11px] font-bold uppercase tracking-widest flex items-center gap-1 hover:text-blue-700 transition-all group"
+          >
+            View All <ChevronDown size={12} strokeWidth={3} className="group-hover:translate-y-0.5 transition-transform" />
+          </button>
         </div>
       </div>
 
-      {/* Legend */}
-      <div className="flex gap-4 items-center mb-4">
-        {showConfirmedOnly ? (
-          <div className="flex items-center gap-2">
-            <span className="w-4 h-2 rounded-sm bg-[#2EA7A0]" />
-            <span className="text-gray-500 text-xs">Confirmed</span>
-          </div>
-        ) : (
-          <>
-            <div className="flex items-center gap-2">
-              <span className="w-4 h-2 rounded-sm bg-[#7AA7FF]" />
-              <span className="text-gray-500 text-xs">Total Queries</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="w-4 h-2 rounded-sm bg-[#2EA7A0]" />
-              <span className="text-gray-500 text-xs">Confirmed</span>
-            </div>
-          </>
-        )}
-      </div>
-
-      {/* Rows */}
-      <div className="space-y-2 flex-1 overflow-y-auto custom-scroll pr-2 -mr-2">
+      <div className="flex-1 overflow-y-auto custom-scroll pr-1 mt-2">
         {filteredData.length === 0 ? (
-          <div className="flex items-center justify-center h-40 text-xs text-gray-400">
-            No data available
+          <div className="flex flex-col items-center justify-center h-full text-center py-10 opacity-30 grayscale saturate-0">
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest shadow-sm border border-slate-100 px-4 py-2 rounded-xl">
+              No sources available
+            </p>
           </div>
         ) : (
-          filteredData.map((item, index) => {
-            const totalWidth = maxTotal ? (item.total / maxTotal) * 100 : 0;
-            const confirmedWidth = maxConfirmed ? (item.confirmed / maxConfirmed) * 100 : 0;
+          <div className="space-y-4">
+            {filteredData.map((item, index) => {
+              const totalWidth = (item.total / maxTotal) * 100;
+              const confirmedWidth = (item.confirmed / maxConfirmed) * 100;
 
-            return (
-              <div
-                key={index}
-                className={`rounded-lg p-3 ${index % 2 === 0 ? "bg-[#f8f9fc]" : "bg-white border border-gray-50"
-                  }`}
-              >
-                <div className="flex items-center gap-4">
-                  {/* Left */}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[#2C55D4] text-xs font-medium mb-2 truncate" title={item.source}>
-                      {item.source}
-                    </p>
-
-                    {/* Bars */}
-                    <div className="space-y-1.5">
-                      {!showConfirmedOnly && (
-                        <div
-                          className="h-2 rounded-full bg-[#7AA7FF] bg-opacity-90 transition-all duration-500"
-                          style={{ width: `${Math.max(totalWidth, 5)}%` }}
-                        />
-                      )}
-                      <div
-                        className="h-2 rounded-full bg-[#2EA7A0] bg-opacity-90 transition-all duration-500"
-                        style={{ width: `${Math.max(confirmedWidth, 5)}%` }}
-                      />
-                    </div>
-                  </div>
-
-                  {/* Right Numbers */}
-                  <div className="flex flex-col items-end gap-1 min-w-[30px]">
-                    {!showConfirmedOnly && (
-                      <span className="text-gray-400 text-xs">{item.total}</span>
-                    )}
-                    <span className="text-gray-900 font-bold text-xs">
-                      {item.confirmed}
+              return (
+                <div key={index} className="group">
+                  <div className="flex items-center justify-between py-1 px-1">
+                    <span className="text-[11px] font-semibold text-slate-600 uppercase tracking-tight truncate max-w-[150px] group-hover:text-blue-600 transition-colors">
+                      {item.label || item.source || "Other"}
+                    </span>
+                    <span className="text-[10px] font-black text-blue-600 tabular-nums bg-blue-50/50 px-2 py-0.5 rounded-lg border border-blue-50/50">
+                      {item.total}
                     </span>
                   </div>
+                  <div className="h-1.5 w-full bg-slate-50 rounded-full overflow-hidden mt-1 relative">
+                    <div
+                      className="absolute h-full rounded-full bg-blue-100 transition-all duration-700"
+                      style={{ width: `${totalWidth}%` }}
+                    />
+                    <div
+                      className="absolute h-full rounded-full bg-[#2C55D4] transition-all duration-1000 shadow-sm"
+                      style={{ width: `${confirmedWidth}%` }}
+                    />
+                  </div>
                 </div>
-              </div>
-            );
-          })
+              );
+            })}
+          </div>
         )}
       </div>
     </div>

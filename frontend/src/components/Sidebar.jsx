@@ -74,7 +74,7 @@ const Sidebar = ({
                                     <div key={item.label} className="relative">
                                         <button
                                             onClick={() => { if (checkFeatureAccess(item.feature)) toggleSubmenu(submenuKey); }}
-                                        className={`w-full flex items-center px-3 py-3 rounded-xl transition-all duration-300 ${hasActiveSubmenu ? 'bg-[#C42771] text-white shadow-lg shadow-[#C42771]/20' : 'text-blue-100/80 hover:bg-white/10 hover:text-white'}`}
+                                            className={`w-full flex items-center px-3 py-3 rounded-xl transition-all duration-300 ${hasActiveSubmenu ? 'bg-[#C42771] text-white shadow-lg shadow-[#C42771]/20' : 'text-blue-100/80 hover:bg-white/10 hover:text-white'}`}
                                         >
                                             <Icon className="h-6 w-6 flex-shrink-0 text-white" />
                                             <span className={`ml-3 text-sm font-medium whitespace-nowrap text-white transition-opacity duration-300 ${isSidebarOpen ? 'opacity-100' : 'opacity-0 w-0 overflow-hidden'}`}>
