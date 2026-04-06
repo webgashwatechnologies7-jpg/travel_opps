@@ -189,9 +189,8 @@ const SuperAdminTickets = () => {
 
     const filteredTickets = tickets.filter(t => statusFilter === 'all' || t.status === statusFilter);
 
-    return (
-        <SuperAdminLayout>
-            <div className="flex flex-col h-[calc(100vh-64px)] bg-gray-50">
+  return (
+    <div className="flex flex-col h-[calc(100vh-64px)] bg-gray-50">
                 <div className="flex flex-1 overflow-hidden shadow-sm">
                     {/* Sidebar / Ticket List */}
                     <div className="w-1/3 min-w-[320px] max-w-md border-r bg-white flex flex-col">
@@ -484,9 +483,8 @@ const SuperAdminTickets = () => {
                         )}
                     </div>
                 </div>
-            </div>
-        </SuperAdminLayout>
-    );
+    </div>
+  );
 };
 
 export default SuperAdminTickets;

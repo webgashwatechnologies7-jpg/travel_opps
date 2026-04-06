@@ -40,26 +40,25 @@ const SuperAdminDashboard = () => {
   }
 
   return (
-    <SuperAdminLayout>
-      <div className="min-h-screen">
-        {/* Header */}
-        <div className="bg-white shadow-sm border-b">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-            <div className="flex justify-between items-center">
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900">Super Admin Dashboard</h1>
-                <p className="text-sm text-gray-600 mt-1">Manage all companies and their subscriptions</p>
-              </div>
-              <button
-                onClick={() => navigate('/super-admin/companies')}
-                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2"
-              >
-                <Plus className="w-4 h-4" />
-                Manage Companies
-              </button>
+    <div className="min-h-screen">
+      {/* Header */}
+      <div className="bg-white shadow-sm border-b">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          <div className="flex justify-between items-center">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">Super Admin Dashboard</h1>
+              <p className="text-sm text-gray-600 mt-1">Manage all companies and their subscriptions</p>
             </div>
+            <button
+              onClick={() => navigate('/super-admin/companies')}
+              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2"
+            >
+              <Plus className="w-4 h-4" />
+              Manage Companies
+            </button>
           </div>
         </div>
+      </div>
 
       {/* Stats Cards */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -231,8 +230,7 @@ const SuperAdminDashboard = () => {
           </div>
         )}
       </div>
-      </div>
-    </SuperAdminLayout>
+    </div>
   );
 };
 

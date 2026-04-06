@@ -97,7 +97,7 @@ export const ContentProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   const loadContent = useCallback(async () => {
-    if (!user) {
+    if (!user || user.is_super_admin) {
       setLoading(false);
       return;
     }

@@ -82,19 +82,16 @@ const SuperAdminSettings = () => {
     // Find specific settings
     const singleDomainLogin = settings.find(s => s.key === 'allow_single_domain_login');
 
-    if (loading) {
-        return (
-            <SuperAdminLayout>
-                <div className="flex items-center justify-center min-h-screen">
-                    <LogoLoader text="Loading Settings..." />
-                </div>
-            </SuperAdminLayout>
-        );
-    }
-
+  if (loading) {
     return (
-        <SuperAdminLayout>
-            <div className="min-h-screen bg-gray-50">
+      <div className="flex items-center justify-center min-h-screen">
+        <LogoLoader text="Loading Settings..." />
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50">
                 <div className="bg-white shadow-sm border-b">
                     <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
                         <div className="flex items-center gap-2">
@@ -155,10 +152,9 @@ const SuperAdminSettings = () => {
                             </div>
                         </div>
                     </div>
-                </div>
-            </div>
-        </SuperAdminLayout>
-    );
+      </div>
+    </div>
+  );
 };
 
 export default SuperAdminSettings;

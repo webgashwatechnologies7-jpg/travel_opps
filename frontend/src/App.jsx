@@ -131,7 +131,8 @@ const AppRoutes = () => {
   }
 
   return (
-    <Routes>
+    <Suspense fallback={<PageLoader />}>
+      <Routes>
         {/* Public landing page - no auth required, must be before catch-all */}
         <Route path="/landing-page/:slug" element={<Suspense fallback={<PageLoader />}><PublicLandingPage /></Suspense>} />
         <Route
@@ -282,15 +283,8 @@ const AppRoutes = () => {
           <Route path="/super-admin/mail-status" element={<SuperAdminMailStatus />} />
           <Route path="/super-admin/settings" element={<SuperAdminSettings />} />
           <Route path="/super-admin/tickets" element={<SuperAdminTickets />} />
+          <Route path="/super-admin/tickets/:id" element={<SuperAdminTickets />} />
         </Route>
-        <Route
-          path="/super-admin/tickets/:id"
-          element={
-            <SuperAdminRoute>
-              <SuperAdminTickets />
-            </SuperAdminRoute>
-          }
-        />
         <Route
           path="/"
           element={
@@ -313,6 +307,7 @@ const AppRoutes = () => {
           }
         />
       </Routes>
+    </Suspense>
   );
 };
 

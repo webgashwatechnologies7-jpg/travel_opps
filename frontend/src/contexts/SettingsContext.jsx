@@ -130,7 +130,10 @@ export const SettingsProvider = ({ children }) => {
 
   // Load Menu Structure from API
   useEffect(() => {
-    if (!user) return;
+    if (!user || user.is_super_admin) {
+      if (!user) setMenuItems([]);
+      return;
+    }
 
     menuAPI.get()
       .then((res) => {
@@ -350,6 +353,7 @@ export const SettingsProvider = ({ children }) => {
   }, [user]);
 
   const loadPrimaryCurrency = async () => {
+    if (!user || user.is_super_admin) return;
     try {
       const res = await currenciesAPI.list();
       if (res.data?.success && Array.isArray(res.data.data)) {
@@ -365,6 +369,11 @@ export const SettingsProvider = ({ children }) => {
   };
 
   const loadSettings = async () => {
+    if (!user || user.is_super_admin) {
+      setLoading(false);
+      return;
+    }
+
     try {
       // Fetch settings from settings table
       const response = await settingsAPI.getAll();
@@ -373,7 +382,7 @@ export const SettingsProvider = ({ children }) => {
       const colorsResponse = await settingsAPI.get();
 
       // Fetch company details for logo/favicon from companies table (only for company users)
-      const companyResponse = !user.is_super_admin ? await settingsAPI.getCompany() : { data: { success: false } };
+      const companyResponse = await settingsAPI.getCompany();
 
       let obj = {};
 

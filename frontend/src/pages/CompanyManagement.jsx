@@ -239,7 +239,6 @@ const CompanyManagement = () => {
   };
 
   return (
-    <SuperAdminLayout>
     <div className={`relative page-transition ${loading && companies.length > 0 ? 'opacity-80' : ''}`}>
       {loading && <div className="side-progress-bar absolute top-0 left-0 right-0 h-1 z-50" />}
       
@@ -852,7 +851,6 @@ const CompanyManagement = () => {
         </>
       )}
     </div>
-    </SuperAdminLayout>
   );
 };
 

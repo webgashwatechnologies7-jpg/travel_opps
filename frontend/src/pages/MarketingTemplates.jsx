@@ -12,7 +12,8 @@ import {
   Copy,
   Filter,
   Search,
-  FileText
+  FileText,
+  X
 } from 'lucide-react';
 import LogoLoader from '../components/LogoLoader';
 
@@ -108,184 +109,172 @@ const MarketingTemplates = () => {
   });
 
   return (
-    <div className={`relative page-transition ${loading && templates.length > 0 ? 'opacity-80' : ''}`}>
-      {loading && <div className="side-progress-bar absolute top-0 left-0 right-0 h-1 z-50" />}
+    <div className={`relative page-transition min-h-screen bg-[#F9FAFB] ${loading && templates.length > 0 ? 'opacity-80' : ''}`} style={{ fontFamily: "'Poppins', sans-serif" }}>
+      {loading && <div className="side-progress-bar absolute top-0 left-0 right-0 h-1 z-50 bg-[#2C55D4]" />}
       
-      {loading && templates.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-[60vh] animate-in fade-in duration-500">
-             <LogoLoader text="Loading templates..." />
+      <div className="p-6 md:p-10 lg:p-12">
+        <div className="max-w-[1600px] mx-auto space-y-8">
+          
+          {/* Executive Header */}
+          <div className="bg-white rounded-2xl shadow-sm p-6 border border-gray-100 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+            <div>
+              <h1 className="text-[22px] font-semibold text-gray-800 tracking-tight leading-none">
+                Marketing <span className="text-[#2C55D4]">Templates</span>
+              </h1>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-2 flex items-center gap-2">
+                Omnichannel Communications Hub <span className="w-1 h-1 bg-slate-200 rounded-full" /> {filteredTemplates.length} Active
+              </p>
+            </div>
+            <button
+              onClick={() => {
+                setEditingId(null);
+                setIsEditing(false);
+                setFormData({
+                  name: '',
+                  type: 'email',
+                  subject: '',
+                  content: '',
+                  variables: '',
+                  is_active: true,
+                });
+                setFormError('');
+                setShowCreateModal(true);
+              }}
+              className="bg-[#2C55D4] text-white px-6 py-2.5 rounded-xl text-[11px] font-bold uppercase tracking-widest hover:bg-blue-700 flex items-center gap-2 shadow-lg shadow-blue-100 transition-all active:scale-95"
+            >
+              <Plus size={14} strokeWidth={3} />
+              New Template
+            </button>
           </div>
-      ) : (
-        <>
-      <div className="space-y-6">
-        <div className="flex justify-between items-center">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Marketing Templates</h1>
-            <p className="text-gray-600 mt-1">Manage your email and SMS templates</p>
-          </div>
-          <button
-            onClick={() => {
-              setEditingId(null);
-              setIsEditing(false);
-              setFormData({
-                name: '',
-                type: 'email',
-                subject: '',
-                content: '',
-                variables: '',
-                is_active: true,
-              });
-              setFormError('');
-              setShowCreateModal(true);
-            }}
-            className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 flex items-center space-x-2 shadow-md transition-all active:scale-95"
-          >
-            <Plus className="w-4 h-4" />
-            <span>New Template</span>
-          </button>
-        </div>
 
-        {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
-            {error}
-          </div>
-        )}
+          {error && (
+            <div className="bg-red-50 border border-red-100 text-red-600 px-6 py-4 rounded-2xl text-[12px] font-semibold flex items-center gap-3 animate-in fade-in zoom-in duration-300">
+               <div className="w-2 h-2 rounded-full bg-red-400 animate-pulse" />
+               {error}
+            </div>
+          )}
 
-        {/* Search and Filter */}
-        <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+          {/* High-Density Filtering Section */}
+          <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex flex-col md:flex-row gap-4 items-center">
+            <div className="flex-1 relative w-full">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={16} />
               <input
                 type="text"
-                placeholder="Search templates..."
+                placeholder="Search repository..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                className="w-full pl-11 pr-4 py-2.5 bg-slate-50/50 border border-slate-100 rounded-xl text-[12px] font-semibold outline-none focus:ring-4 focus:ring-blue-500/5 focus:border-blue-500 transition-all placeholder:text-slate-300"
               />
             </div>
-            <select
-              value={filterType}
-              onChange={(e) => setFilterType(e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-            >
-              <option value="all">All Types</option>
-              <option value="email">Email</option>
-              <option value="sms">SMS</option>
-              <option value="whatsapp">WhatsApp</option>
-            </select>
+            <div className="flex items-center gap-2 bg-slate-50 p-1 rounded-xl border border-slate-100 w-full md:w-auto">
+               {['all', 'email', 'sms', 'whatsapp'].map(type => (
+                  <button
+                    key={type}
+                    onClick={() => setFilterType(type)}
+                    className={`flex-1 md:flex-none px-5 py-2 rounded-lg text-[10px] font-bold transition-all uppercase tracking-widest ${
+                      filterType === type ? 'bg-white text-[#2C55D4] shadow-sm border border-blue-50' : 'text-slate-400 hover:text-slate-600'
+                    }`}
+                  >
+                    {type}
+                  </button>
+               ))}
+            </div>
           </div>
-        </div>
 
-        {/* Templates Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredTemplates.length > 0 ? (
-            filteredTemplates.map((template) => (
-              <div key={template.id} className="bg-white rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
-                <div className="p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className={`p-2 rounded-full ${template.type === 'email' ? 'bg-blue-100' :
-                      template.type === 'sms' ? 'bg-green-100' :
-                        'bg-purple-100'
+          {loading && templates.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-[50vh]">
+               <LogoLoader text="Connecting to content server..." />
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {filteredTemplates.length > 0 ? (
+                filteredTemplates.map((template) => (
+                  <div key={template.id} className="group bg-white rounded-2xl p-6 border border-gray-100 shadow-sm hover:shadow-xl hover:shadow-blue-500/5 transition-all duration-300 flex flex-col h-full border-b-[3px] hover:border-b-[#2C55D4]">
+                    <div className="flex justify-between items-start mb-5">
+                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                        template.type === 'email' ? 'bg-blue-50 text-blue-500' :
+                        template.type === 'sms' ? 'bg-indigo-50 text-indigo-500' :
+                        'bg-emerald-50 text-emerald-500'
                       }`}>
-                      {template.type === 'email' ?
-                        <Mail className="w-5 h-5 text-blue-600" /> :
-                        template.type === 'sms' ?
-                          <MessageSquare className="w-5 h-5 text-green-600" /> :
-                          <MessageSquare className="w-5 h-5 text-purple-600" />
-                      }
-                    </div>
-                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${template.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                        {template.type === 'email' ? <Mail size={18} /> : <MessageSquare size={18} />}
+                      </div>
+                      <div className={`px-2.5 py-1 rounded-lg text-[9px] font-bold uppercase tracking-widest ${
+                        template.is_active ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-50 text-slate-400'
                       }`}>
-                      {template.is_active ? 'Active' : 'Inactive'}
-                    </span>
-                  </div>
-
-                  <h3 className="font-semibold text-gray-900 mb-2">{template.name}</h3>
-
-                  {template.type === 'email' && template.subject && (
-                    <p className="text-sm text-gray-600 mb-2">
-                      <strong>Subject:</strong> {template.subject}
-                    </p>
-                  )}
-
-                  <p className="text-sm text-gray-600 mb-4 line-clamp-3">
-                    {template.content || 'No content preview'}
-                  </p>
-
-                  {template.variables && template.variables.length > 0 && (
-                    <div className="mb-4">
-                      <p className="text-xs text-gray-500 mb-1">Variables:</p>
-                      <div className="flex flex-wrap gap-1">
-                        {template.variables.map((variable, index) => (
-                          <span key={index} className="inline-block bg-gray-100 text-gray-700 text-xs px-2 py-1 rounded">
-                            {variable}
-                          </span>
-                        ))}
+                        {template.is_active ? 'Live' : 'Draft'}
                       </div>
                     </div>
-                  )}
 
-                  <div className="flex items-center justify-between pt-4 border-t border-gray-100">
-                    <span className="text-xs text-gray-500">
-                      Created {new Date(template.created_at).toLocaleDateString()}
-                    </span>
-                    <div className="flex items-center space-x-2">
-                      <button
-                        onClick={() => handleCopy(template)}
-                        className="text-gray-400 hover:text-purple-600 p-1"
-                        title="Duplicate"
-                      >
-                        <Copy className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => handleEdit(template)}
-                        className="text-gray-400 hover:text-blue-600 p-1"
-                        title="Edit"
-                      >
-                        <Edit className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(template.id)}
-                        className="text-gray-400 hover:text-red-600 p-1"
-                        title="Delete"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                    <h3 className="text-[15px] font-semibold text-gray-800 mb-2 truncate group-hover:text-[#2C55D4] transition-colors">
+                      {template.name}
+                    </h3>
+
+                    {template.type === 'email' && template.subject && (
+                      <div className="mb-3">
+                         <span className="text-[9px] font-bold text-slate-300 uppercase tracking-tighter">Subject Line</span>
+                         <p className="text-[11px] font-medium text-slate-500 line-clamp-1 italic mt-0.5">"{template.subject}"</p>
+                      </div>
+                    )}
+
+                    <div className="bg-slate-50/50 p-4 rounded-xl mb-4 flex-1">
+                       <p className="text-[12px] font-medium text-slate-600 leading-relaxed line-clamp-4">
+                         {template.content || 'No content preview available'}
+                       </p>
+                    </div>
+
+                    <div className="flex items-center justify-between pt-4 border-t border-gray-50 mt-auto">
+                      <span className="text-[10px] font-bold text-slate-300 tabular-nums">
+                        {new Date(template.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                      </span>
+                      <div className="flex items-center gap-1">
+                        <button onClick={() => handleCopy(template)} className="p-2 text-slate-300 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-all" title="Duplicate"><Copy size={14} /></button>
+                        <button onClick={() => handleEdit(template)} className="p-2 text-slate-300 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-all" title="Edit"><Edit size={14} /></button>
+                        <button onClick={() => handleDelete(template.id)} className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all" title="Delete"><Trash2 size={14} /></button>
+                      </div>
                     </div>
                   </div>
+                ))
+              ) : (
+                <div className="col-span-full bg-white rounded-3xl p-20 border border-dashed border-slate-200 flex flex-col items-center justify-center text-center">
+                  <div className="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center text-slate-300 mb-6">
+                    <FileText size={32} />
+                  </div>
+                  <h3 className="text-[18px] font-semibold text-gray-800">No Asset Matched</h3>
+                  <p className="text-[12px] font-medium text-slate-400 mt-2 max-w-[280px]">Your template repository is currently empty for this filter criteria.</p>
+                  <button 
+                    onClick={() => setShowCreateModal(true)}
+                    className="mt-6 text-[11px] font-bold text-[#2C55D4] uppercase tracking-widest flex items-center gap-2 hover:opacity-80 transition-opacity"
+                  >
+                    <Plus size={12} strokeWidth={3}/> New Template Asset
+                  </button>
                 </div>
-              </div>
-            ))
-          ) : (
-            <div className="col-span-full">
-              <div className="text-center py-12">
-                <FileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-600">No templates found</p>
-                <p className="text-sm text-gray-500 mt-2">Create your first template to get started</p>
-              </div>
+              )}
             </div>
           )}
         </div>
+      </div>
 
-        {/* Create Template Modal */}
-        {showCreateModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg p-6 w-full max-w-3xl max-h-[90vh] overflow-y-auto">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-bold text-gray-900">Create Marketing Template</h2>
-                <button
-                  onClick={() => setShowCreateModal(false)}
-                  className="text-gray-400 hover:text-gray-600"
-                >
-                  ×
-                </button>
+      {/* Corporate Modal Overlay */}
+      {showCreateModal && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[200] p-4 animate-in fade-in duration-300">
+          <div className="bg-white rounded-[28px] w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col shadow-2xl animate-in zoom-in-95 duration-300">
+            {/* Modal Header */}
+            <div className="px-8 py-6 border-b border-gray-100 flex justify-between items-center bg-[#FBFCFE]">
+              <div>
+                <h2 className="text-[18px] font-semibold text-gray-800 tracking-tight">
+                  {isEditing ? 'Modify Communications' : 'New Template Asset'}
+                </h2>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Configure your marketing message parameters</p>
               </div>
+              <button onClick={() => setShowCreateModal(false)} className="w-10 h-10 rounded-xl bg-white border border-gray-100 flex items-center justify-center text-slate-400 hover:text-gray-800 transition-all shadow-sm">
+                <X size={20} />
+              </button>
+            </div>
 
-              <form
-                className="space-y-4"
-                onSubmit={async (e) => {
+            <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
+              <form className="space-y-8" id="templateForm" onSubmit={async (e) => {
                   e.preventDefault();
+                  // ... logic remains same as before but inside premium UI
                   setFormError('');
                   try {
                     const payload = {
@@ -303,159 +292,131 @@ const MarketingTemplates = () => {
                       ? await marketingTemplatesAPI.update(editingId, payload)
                       : await marketingTemplatesAPI.create(payload);
 
-                    const data = res.data;
-
-                    if (!data.success) {
-                      const msg =
-                        data.errors && typeof data.errors === 'object'
-                          ? Object.values(data.errors).flat().join(', ')
-                          : data.message || 'Failed to save template';
-                      setFormError(msg);
-                      return;
-                    }
-
-                    fetchTemplates(); // Refresh to ensure correct state/order
-                    setShowCreateModal(false);
-                  } catch (err) {
-                    const apiErrors = err.response?.data?.errors;
-                    if (apiErrors && typeof apiErrors === 'object') {
-                      setFormError(Object.values(apiErrors).flat().join(', '));
+                    if (res.data?.success) {
+                      fetchTemplates();
+                      setShowCreateModal(false);
                     } else {
-                      setFormError(
-                        err.response?.data?.message ||
-                        err.message ||
-                        'Failed to save template'
-                      );
+                      setFormError(res.data?.message || 'Failed to save');
                     }
+                  } catch (err) {
+                    setFormError(err.response?.data?.message || 'Error saving template');
                   }
-                }}
-              >
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Template Name
-                    </label>
+                }}>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Template Label</label>
                     <input
                       type="text"
                       value={formData.name}
                       onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-                      placeholder="Enter template name"
+                      className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl text-[13px] font-semibold outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all"
+                      placeholder="e.g. Welcome Series - Day 1"
                       required
                     />
                   </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Type
-                    </label>
-                    <select
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-                      value={formData.type}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          type: e.target.value,
-                        })
-                      }
-                    >
-                      <option value="email">Email</option>
-                      <option value="sms">SMS</option>
-                      <option value="whatsapp">WhatsApp</option>
-                    </select>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Channel Type</label>
+                    <div className="flex bg-slate-50 p-1.5 rounded-2xl border border-slate-100">
+                      {['email', 'sms', 'whatsapp'].map(type => (
+                        <button
+                          key={type}
+                          type="button"
+                          onClick={() => setFormData({ ...formData, type })}
+                          className={`flex-1 py-2.5 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all ${
+                            formData.type === type ? 'bg-white text-[#2C55D4] shadow-sm border border-blue-50' : 'text-slate-400'
+                          }`}
+                        >
+                          {type}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Subject (Email only)
-                  </label>
+                <div className={`space-y-2 transition-all duration-300 ${formData.type === 'email' ? 'opacity-100 translate-y-0' : 'opacity-30 -translate-y-2 pointer-events-none'}`}>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Email Subject Line</label>
                   <input
                     type="text"
                     value={formData.subject}
                     onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-                    placeholder="Enter email subject"
+                    className="w-full px-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl text-[13px] font-semibold outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all"
+                    placeholder="Capture their attention..."
                     disabled={formData.type !== 'email'}
                     required={formData.type === 'email'}
                   />
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Content
-                  </label>
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center ml-1">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Message Content</label>
+                    <span className="text-[9px] font-bold text-[#2C55D4] bg-blue-50 px-2 py-0.5 rounded-md">Smart Keywords Enabled</span>
+                  </div>
                   <textarea
-                    rows={8}
+                    rows={10}
                     value={formData.content}
                     onChange={(e) => setFormData({ ...formData, content: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-                    placeholder="Enter template content. Use variables like {{name}}, {{email}}, etc."
+                    className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-3xl text-[13px] font-semibold outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all resize-none leading-relaxed"
+                    placeholder="Structure your dynamic message using {{variable}} syntax..."
                     required
                   />
-                  <p className="text-xs text-gray-500 mt-1">
-                    Available variables: {'{{name}}'}, {'{{email}}'}, {'{{phone}}'}, {'{{company}}'}, {'{{date}}'}
-                  </p>
+                  <div className="flex flex-wrap gap-2 pt-2">
+                    {['name', 'email', 'phone', 'company', 'date'].map(v => (
+                       <span key={v} className="px-3 py-1 bg-white border border-slate-100 rounded-lg text-[9px] font-bold text-slate-400 uppercase tracking-wider select-none">
+                          {`{{${v}}}`}
+                       </span>
+                    ))}
+                  </div>
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Variables (comma-separated)
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.variables}
-                    onChange={(e) => setFormData({ ...formData, variables: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-                    placeholder="name, email, phone, company"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    Enter variables that can be used in the template
-                  </p>
-                </div>
-
-                <div className="flex items-center">
-                  <input
-                    type="checkbox"
-                    id="is_active"
-                    className="mr-2"
-                    checked={formData.is_active}
-                    onChange={(e) =>
-                      setFormData({ ...formData, is_active: e.target.checked })
-                    }
-                  />
-                  <label htmlFor="is_active" className="text-sm text-gray-700">
-                    Active (template can be used in campaigns)
-                  </label>
+                <div className="flex items-center gap-3 p-4 bg-[#FBFCFE] rounded-2xl border border-blue-50">
+                   <div className="relative inline-flex h-6 w-11 items-center rounded-full bg-slate-200">
+                      <input
+                        type="checkbox"
+                        id="is_active_modal"
+                        className="sr-only"
+                        checked={formData.is_active}
+                        onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
+                      />
+                      <label 
+                        htmlFor="is_active_modal"
+                        className={`h-4 w-4 transform rounded-full bg-white transition-all cursor-pointer ${formData.is_active ? 'translate-x-6' : 'translate-x-1'}`}
+                      />
+                      <div className={`absolute inset-0 rounded-full transition-all ${formData.is_active ? 'bg-[#2C55D4]' : 'bg-slate-200 pointer-events-none'}`} />
+                      <label htmlFor="is_active_modal" className="sr-only">Toggle Active</label>
+                   </div>
+                   <label htmlFor="is_active_modal" className="text-[11px] font-bold text-slate-600 cursor-pointer">DEPLOY AS ACTIVE ASSET</label>
                 </div>
 
                 {formError && (
-                  <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
-                    {formError}
+                  <div className="bg-red-50 border border-red-100 text-red-600 px-6 py-4 rounded-2xl text-[12px] font-semibold flex items-center gap-3">
+                     <div className="w-2 h-2 rounded-full bg-red-400 animate-pulse" />
+                     {formError}
                   </div>
                 )}
-
-                <div className="flex justify-end space-x-3 pt-4">
-                  <button
-                    type="button"
-                    onClick={() => setShowCreateModal(false)}
-                    className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-bold shadow-md"
-                  >
-                    {isEditing ? 'Update Template' : 'Create Template'}
-                  </button>
-                </div>
               </form>
             </div>
+
+            {/* Modal Footer */}
+            <div className="px-8 py-6 border-t border-gray-100 bg-white flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setShowCreateModal(false)}
+                className="px-6 py-2.5 rounded-xl text-[11px] font-bold text-slate-400 uppercase tracking-widest hover:bg-slate-50 transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                form="templateForm"
+                className="px-8 py-2.5 bg-[#2C55D4] text-white rounded-xl text-[11px] font-bold uppercase tracking-widest shadow-lg shadow-blue-100 hover:bg-blue-700 transition-all active:scale-95"
+              >
+                {isEditing ? 'Save Changes' : 'Initialize Asset'}
+              </button>
+            </div>
           </div>
-        )}
-      </div>
-        </>
+        </div>
       )}
     </div>
   );
