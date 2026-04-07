@@ -78,7 +78,7 @@ class DashboardController extends Controller
                 for ($i = 1; $i <= 12; $i++) {
                     $revenueGrowthMonthly[] = [
                         'month' => $months[$i - 1],
-                        'amount' => (float) ($rawRevenue[$i] ?? 0),
+                        'revenue' => (float) ($rawRevenue[$i] ?? 0),
                     ];
                 }
                 \Illuminate\Support\Facades\Log::info('Dashboard Stats: revenueGrowthMonthly calculated');
@@ -301,7 +301,7 @@ class DashboardController extends Controller
             // Cache for 5 minutes per user — safe for multi-tenant
             $cacheKey = 'dashboard_stats_v6_' . $currentUser->id;
             try {
-                $stats = Cache::remember($cacheKey, 300, $calculateStats);
+                $stats = Cache::remember($cacheKey, 60, $calculateStats);
             } catch (\Exception $e) {
                 // Fallback to array cache if default cache fails
                 try {
@@ -564,7 +564,7 @@ class DashboardController extends Controller
             for ($month = 1; $month <= 12; $month++) {
                 $result[] = [
                     'month' => $months[$month - 1],
-                    'amount' => isset($revenueData[$month]) ? $revenueData[$month] : 0.0,
+                    'revenue' => isset($revenueData[$month]) ? $revenueData[$month] : 0.0,
                 ];
             }
 

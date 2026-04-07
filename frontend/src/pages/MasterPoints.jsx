@@ -6,7 +6,7 @@ import SimpleEditor from '../components/SimpleEditor';
 import { useAuth } from '../contexts/AuthContext';
 import { toast } from 'react-toastify';
 import LogoLoader from '../components/LogoLoader';
-
+import { Dialog } from 'primereact/dialog';
 const TABS = [
     { id: 'inclusion', label: 'Inclusions', color: 'green', colorClass: 'text-green-800 bg-green-100 border-green-200', btnClass: 'bg-green-600 hover:bg-green-700' },
     { id: 'exclusion', label: 'Exclusions', color: 'red', colorClass: 'text-red-800 bg-red-100 border-red-200', btnClass: 'bg-red-600 hover:bg-red-700' },
@@ -163,14 +163,15 @@ const MasterPoints = () => {
             </div>
 
             {/* MODAL */}
-            {isModalOpen && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-                    <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl mx-4 overflow-hidden flex flex-col max-h-[90vh]">
-                        <div className="flex justify-between items-center p-4 border-b bg-gray-50">
+            <Dialog style={{minWidth:'50vw'}} showCloseIcon={false} header={()=>(
+                 <div className="flex justify-between items-center p-4 border-b bg-gray-50">
                             <h3 className="font-bold text-lg">{editingId ? 'Edit Item' : 'Add New Item'}</h3>
                             <button onClick={() => setIsModalOpen(false)}><X size={20} className="text-gray-400 hover:text-gray-600" /></button>
                         </div>
-                        <form onSubmit={handleSave} className="p-4 flex flex-col gap-4 overflow-y-auto">
+            )} 
+            visible={isModalOpen}
+            >
+ <form onSubmit={handleSave} className="p-4 flex flex-col gap-4 overflow-y-auto">
                             <div>
                                 <label className="block text-sm font-medium mb-1">Content</label>
                                 <SimpleEditor
@@ -207,9 +208,8 @@ const MasterPoints = () => {
                                 </button>
                             </div>
                         </form>
-                    </div>
-                </div>
-            )}
+            </Dialog>
+           
         </div>
     );
 };

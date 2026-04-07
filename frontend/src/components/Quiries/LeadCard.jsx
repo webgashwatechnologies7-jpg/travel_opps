@@ -167,9 +167,9 @@ function LeadCard({
                   <span className="text-[11px] font-bold text-slate-500 tracking-tight whitespace-nowrap">{date}</span>
                </div>
                
-               <button
+                <button
                   onClick={(e) => { e.stopPropagation(); onStatusChange?.(id); }}
-                  className={`px-4 py-1.5 rounded-lg text-white text-[10px] font-bold uppercase tracking-wider shadow-md ${currentStatus.color} hover:brightness-110 active:scale-95 transition-all duration-300`}
+                  className={`px-4 py-1.5 rounded-lg text-white text-[10px] font-bold uppercase tracking-wider shadow-lg border border-white/20 backdrop-blur-md ${currentStatus.color} ${currentStatus.glow} hover:brightness-110 active:scale-95 transition-all duration-300`}
                 >
                   {currentStatus.label}
                 </button>

@@ -2,6 +2,24 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { ChevronDown, ChevronLeft, FileText } from 'lucide-react';
 
+// Helper function for logo resolution (Inlined to fix ReferenceError)
+const resolveLogoUrl = (url) => {
+  if (!url || typeof url !== 'string') return null;
+  if (url.startsWith('http')) return url;
+  if (url.startsWith('data:')) return url;
+  
+  // Globally remove all "storage/" occurrences and multiple slashes
+  let cleanPath = url.replace(/storage\//gi, '').replace(/\/+/g, '/').replace(/^\//, '');
+  
+  // If it's a public asset, return as root-relative
+  if (cleanPath.startsWith('assets/')) return '/' + cleanPath;
+  
+  // For everything else, ensure it has exactly one /storage/ prefix
+  return '/storage/' + cleanPath;
+};
+
+
+
 const MobileSidebar = ({
     settings,
     isOpen,
@@ -30,7 +48,7 @@ const MobileSidebar = ({
                         <Link to="/dashboard" onClick={onClose} className="flex items-center gap-3">
                             {settings?.company_logo ? (
                                 <img
-                                    src={settings.company_logo && window.location.protocol === 'https:' && settings.company_logo.startsWith('http://') ? settings.company_logo.replace('http://', 'https://') : settings.company_logo}
+                                    src={resolveLogoUrl(settings.company_logo)}
                                     alt="Logo"
                                     className="h-9 object-contain max-w-[160px]"
                                     onError={(e) => {

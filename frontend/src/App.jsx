@@ -13,7 +13,6 @@ import 'react-toastify/dist/ReactToastify.css';
 import Layout from './components/Layout';
 import SuperAdminLayout from './components/SuperAdminLayout';
 
-
 // --- AUTH PAGES ---
 const Login = lazy(() => import('./pages/Login'));
 const ForgotPassword = lazy(() => import('./pages/ForgotPassword'));
@@ -170,108 +169,108 @@ const AppRoutes = () => {
         <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
           <Route path="/dashboard" element={<Dashboard />} />
 
-        <Route path="/call-management" element={<CallManagement />} />
-        <Route path="/notifications" element={<Notifications />} />
-        <Route path="/leads" element={<Leads />} />
-        <Route path="/leads/:id" element={<LeadDetails />} />
-        <Route path="/accounts/clients" element={<Clients />} />
-        <Route path="/accounts/clients/:id" element={<ClientDetails />} />
-        <Route path="/accounts/clients/:id/reports" element={<ClientReports />} />
-        <Route path="/accounts/agents" element={<Agents />} />
-        <Route path="/accounts/corporate" element={<Corporate />} />
-        <Route path="/followups" element={<Followups />} />
-        <Route path="/payments" element={<Payments />} />
-        <Route path="/sales-reps" element={<FeatureGuard feature="analytics"><SalesReps /></FeatureGuard>} />
-        <Route path="/reports" element={<Reports />} />
-        <Route
-          path="/staff-management"
-          element={<Navigate to="/staff-management/dashboard" replace />}
-        />
-        <Route path="/staff-management/dashboard" element={<ManagementDashboard />} />
-        <Route
-          path="/staff-management/users"
-          element={<Navigate to="/company-settings/team-management?tab=users" replace />}
-        />
-        <Route
-          path="/staff-management/teams"
-          element={<Navigate to="/company-settings/team-management?tab=teams" replace />}
-        />
-        <Route
-          path="/staff-management/branches"
-          element={<Navigate to="/company-settings/team-management?tab=branches" replace />}
-        />
-        <Route
-          path="/staff-management/roles"
-          element={<Navigate to="/company-settings/team-management?tab=roles" replace />}
-        />
-        <Route path="/notes" element={<Notes />} />
-        <Route path="/itineraries" element={<FeatureGuard feature="itineraries"><Itineraries /></FeatureGuard>} />
-        <Route path="/services" element={<Services />} />
-        <Route path="/itineraries/:id" element={<FeatureGuard feature="itineraries"><ItineraryDetail /></FeatureGuard>} />
-        <Route path="/mail" element={<FeatureGuard feature="gmail_integration"><EmailInbox /></FeatureGuard>} />
-        <Route path="/whatsapp" element={<FeatureGuard feature="whatsapp"><WhatsAppInbox /></FeatureGuard>} />
-        <Route path="/whatsapp-web" element={<FeatureGuard feature="whatsapp"><WhatsAppWebPage /></FeatureGuard>} />
-        <Route path="/performance" element={<AdminRoute allowManager={true}><FeatureGuard feature="analytics"><Performance /></FeatureGuard></AdminRoute>} />
-        <Route path="/dashboard/employee-performance" element={<FeatureGuard feature="analytics"><Performance /></FeatureGuard>} />
-        <Route path="/analytics" element={<AdminRoute><FeatureGuard feature="analytics"><Analytics /></FeatureGuard></AdminRoute>} />
-        <Route path="/dashboard/source-roi" element={<AdminRoute><FeatureGuard feature="analytics"><Analytics /></FeatureGuard></AdminRoute>} />
-        <Route path="/dashboard/destination-performance" element={<AdminRoute><FeatureGuard feature="analytics"><Analytics /></FeatureGuard></AdminRoute>} />
-        <Route path="/users" element={<Users />} />
-        <Route path="/users/add" element={<AddUser />} />
-        <Route path="/client-groups" element={<ClientGroups />} />
-        <Route path="/targets" element={<AdminRoute><Targets /></AdminRoute>} />
-        <Route path="/permissions" element={<Permissions />} />
-        <Route path="/settings/subscription" element={<SubscriptionDetails />} />
-        <Route path="/profile" element={<Profile />} />
-        <Route path="/company-settings/team-management" element={<TeamManagement />} />
-        <Route path="/my-team" element={<MyTeam />} />
-        <Route path="/my-team/:id" element={<MyTeamDetails />} />
-        <Route path="/support" element={<Support />} />
-        <Route path="/support/tickets/:id" element={<Support />} />
-        <Route path="/company-settings/team-reports" element={<AdminRoute><TeamReports /></AdminRoute>} />
-        <Route path="/company-settings/users/:id" element={<UserDetails />} />
-        <Route path="/management" element={<ManagementDashboard />} />
-        <Route
-          path="/management/*"
-          element={<Navigate to="/staff-management/dashboard" replace />}
-        />
-        <Route path="/employee-management" element={<EmployeeManagement />} />
-        <Route path="/employee-dashboard/:id" element={<AdminRoute allowManager={true}><EmployeeManagement /></AdminRoute>} />
-        <Route path="/settings" element={<Settings />} />
-        <Route path="/attendance" element={<Attendance />} />
-        <Route path="/staff-attendance" element={<AdminRoute><StaffAttendance /></AdminRoute>} />
-        <Route path="/settings/whatsapp" element={<CompanyWhatsAppSettings />} />
-        <Route path="/settings/telephony" element={<CompanyTelephonySettings />} />
-        <Route path="/settings/mail" element={<CompanyMailSettings />} />
-        <Route path="/email-templates" element={<EmailTemplates />} />
-        <Route path="/settings/terms-conditions" element={<TermsConditions />} />
-        <Route path="/settings/policies" element={<Policies />} />
-        <Route path="/settings/account-details" element={<AccountDetails />} />
-        <Route path="/settings/company" element={<Settings />} />
-        <Route path="/masters/suppliers" element={<FeatureGuard feature="suppliers"><Suppliers /></FeatureGuard>} />
-        <Route path="/masters/hotel" element={<FeatureGuard feature="hotels"><Hotel /></FeatureGuard>} />
-        <Route path="/masters/activity" element={<FeatureGuard feature="activities"><Activity /></FeatureGuard>} />
-        <Route path="/masters/transfer" element={<FeatureGuard feature="transfers"><Transfer /></FeatureGuard>} />
-        <Route path="/masters/day-itinerary" element={<FeatureGuard feature="day_itineraries"><DayItinerary /></FeatureGuard>} />
-        <Route path="/masters/destinations" element={<FeatureGuard feature="destinations"><Destinations /></FeatureGuard>} />
-        <Route path="/masters/room-type" element={<FeatureGuard feature="hotels"><RoomType /></FeatureGuard>} />
-        <Route path="/masters/meal-plan" element={<FeatureGuard feature="hotels"><MealPlan /></FeatureGuard>} />
-        <Route path="/masters/lead-source" element={<LeadSource />} />
-        <Route path="/masters/expense-type" element={<ExpenseType />} />
-        <Route path="/masters/package-theme" element={<PackageTheme />} />
-        <Route path="/masters/currency" element={<Currency />} />
-        <Route path="/masters/points" element={<MasterPoints />} />
-        <Route path="/marketing" element={<FeatureGuard feature="campaigns"><MarketingDashboard /></FeatureGuard>} />
-        <Route path="/marketing/campaigns" element={<FeatureGuard feature="campaigns"><Campaigns /></FeatureGuard>} />
-        <Route path="/marketing/templates" element={<FeatureGuard feature="email_templates"><MarketingTemplates /></FeatureGuard>} />
-        <Route path="/marketing/whatsapp-templates" element={<FeatureGuard feature="whatsapp"><MarketingTemplates /></FeatureGuard>} />
-        <Route path="/marketing/analytics" element={<FeatureGuard feature="analytics"><MarketingAnalytics /></FeatureGuard>} />
-        <Route path="/marketing/automation" element={<FeatureGuard feature="marketing_automation"><MarketingAutomation /></FeatureGuard>} />
-        <Route path="/marketing/landing-pages" element={<FeatureGuard feature="landing_pages"><LandingPages /></FeatureGuard>} />
-        <Route path="/marketing/landing-pages/:id/edit" element={<FeatureGuard feature="landing_pages"><LandingPageEditor /></FeatureGuard>} />
-        {/* B2B Travel Search */}
-        <Route path="/flight-search" element={<FlightSearch />} />
-        <Route path="/hotel-search" element={<HotelSearch />} />
+          <Route path="/call-management" element={<CallManagement />} />
+          <Route path="/notifications" element={<Notifications />} />
+          <Route path="/leads" element={<Leads />} />
+          <Route path="/leads/:id" element={<LeadDetails />} />
+          <Route path="/accounts/clients" element={<Clients />} />
+          <Route path="/accounts/clients/:id" element={<ClientDetails />} />
+          <Route path="/accounts/clients/:id/reports" element={<ClientReports />} />
+          <Route path="/accounts/agents" element={<Agents />} />
+          <Route path="/accounts/corporate" element={<Corporate />} />
+          <Route path="/followups" element={<Followups />} />
+          <Route path="/payments" element={<Payments />} />
+          <Route path="/sales-reps" element={<FeatureGuard feature="analytics"><SalesReps /></FeatureGuard>} />
+          <Route path="/reports" element={<Reports />} />
+          <Route
+            path="/staff-management"
+            element={<Navigate to="/staff-management/dashboard" replace />}
+          />
+          <Route path="/staff-management/dashboard" element={<ManagementDashboard />} />
+          <Route
+            path="/staff-management/users"
+            element={<Navigate to="/company-settings/team-management?tab=users" replace />}
+          />
+          <Route
+            path="/staff-management/teams"
+            element={<Navigate to="/company-settings/team-management?tab=teams" replace />}
+          />
+          <Route
+            path="/staff-management/branches"
+            element={<Navigate to="/company-settings/team-management?tab=branches" replace />}
+          />
+          <Route
+            path="/staff-management/roles"
+            element={<Navigate to="/company-settings/team-management?tab=roles" replace />}
+          />
+          <Route path="/notes" element={<Notes />} />
+          <Route path="/itineraries" element={<FeatureGuard feature="itineraries"><Itineraries /></FeatureGuard>} />
+          <Route path="/services" element={<Services />} />
+          <Route path="/itineraries/:id" element={<FeatureGuard feature="itineraries"><ItineraryDetail /></FeatureGuard>} />
+          <Route path="/mail" element={<FeatureGuard feature="gmail_integration"><EmailInbox /></FeatureGuard>} />
+          <Route path="/whatsapp" element={<FeatureGuard feature="whatsapp"><WhatsAppInbox /></FeatureGuard>} />
+          <Route path="/whatsapp-web" element={<FeatureGuard feature="whatsapp"><WhatsAppWebPage /></FeatureGuard>} />
+          <Route path="/performance" element={<AdminRoute allowManager={true}><FeatureGuard feature="analytics"><Performance /></FeatureGuard></AdminRoute>} />
+          <Route path="/dashboard/employee-performance" element={<FeatureGuard feature="analytics"><Performance /></FeatureGuard>} />
+          <Route path="/analytics" element={<AdminRoute><FeatureGuard feature="analytics"><Analytics /></FeatureGuard></AdminRoute>} />
+          <Route path="/dashboard/source-roi" element={<AdminRoute><FeatureGuard feature="analytics"><Analytics /></FeatureGuard></AdminRoute>} />
+          <Route path="/dashboard/destination-performance" element={<AdminRoute><FeatureGuard feature="analytics"><Analytics /></FeatureGuard></AdminRoute>} />
+          <Route path="/users" element={<Users />} />
+          <Route path="/users/add" element={<AddUser />} />
+          <Route path="/client-groups" element={<ClientGroups />} />
+          <Route path="/targets" element={<AdminRoute><Targets /></AdminRoute>} />
+          <Route path="/permissions" element={<Permissions />} />
+          <Route path="/settings/subscription" element={<SubscriptionDetails />} />
+          <Route path="/profile" element={<Profile />} />
+          <Route path="/company-settings/team-management" element={<TeamManagement />} />
+          <Route path="/my-team" element={<MyTeam />} />
+          <Route path="/my-team/:id" element={<MyTeamDetails />} />
+          <Route path="/support" element={<Support />} />
+          <Route path="/support/tickets/:id" element={<Support />} />
+          <Route path="/company-settings/team-reports" element={<AdminRoute><TeamReports /></AdminRoute>} />
+          <Route path="/company-settings/users/:id" element={<UserDetails />} />
+          <Route path="/management" element={<ManagementDashboard />} />
+          <Route
+            path="/management/*"
+            element={<Navigate to="/staff-management/dashboard" replace />}
+          />
+          <Route path="/employee-management" element={<EmployeeManagement />} />
+          <Route path="/employee-dashboard/:id" element={<AdminRoute allowManager={true}><EmployeeManagement /></AdminRoute>} />
+          <Route path="/settings" element={<Settings />} />
+          <Route path="/attendance" element={<Attendance />} />
+          <Route path="/staff-attendance" element={<AdminRoute><StaffAttendance /></AdminRoute>} />
+          <Route path="/settings/whatsapp" element={<CompanyWhatsAppSettings />} />
+          <Route path="/settings/telephony" element={<CompanyTelephonySettings />} />
+          <Route path="/settings/mail" element={<CompanyMailSettings />} />
+          <Route path="/email-templates" element={<EmailTemplates />} />
+          <Route path="/settings/terms-conditions" element={<TermsConditions />} />
+          <Route path="/settings/policies" element={<Policies />} />
+          <Route path="/settings/account-details" element={<AccountDetails />} />
+          <Route path="/settings/company" element={<Settings />} />
+          <Route path="/masters/suppliers" element={<FeatureGuard feature="suppliers"><Suppliers /></FeatureGuard>} />
+          <Route path="/masters/hotel" element={<FeatureGuard feature="hotels"><Hotel /></FeatureGuard>} />
+          <Route path="/masters/activity" element={<FeatureGuard feature="activities"><Activity /></FeatureGuard>} />
+          <Route path="/masters/transfer" element={<FeatureGuard feature="transfers"><Transfer /></FeatureGuard>} />
+          <Route path="/masters/day-itinerary" element={<FeatureGuard feature="day_itineraries"><DayItinerary /></FeatureGuard>} />
+          <Route path="/masters/destinations" element={<FeatureGuard feature="destinations"><Destinations /></FeatureGuard>} />
+          <Route path="/masters/room-type" element={<FeatureGuard feature="hotels"><RoomType /></FeatureGuard>} />
+          <Route path="/masters/meal-plan" element={<FeatureGuard feature="hotels"><MealPlan /></FeatureGuard>} />
+          <Route path="/masters/lead-source" element={<LeadSource />} />
+          <Route path="/masters/expense-type" element={<ExpenseType />} />
+          <Route path="/masters/package-theme" element={<PackageTheme />} />
+          <Route path="/masters/currency" element={<Currency />} />
+          <Route path="/masters/points" element={<MasterPoints />} />
+          <Route path="/marketing" element={<FeatureGuard feature="campaigns"><MarketingDashboard /></FeatureGuard>} />
+          <Route path="/marketing/campaigns" element={<FeatureGuard feature="campaigns"><Campaigns /></FeatureGuard>} />
+          <Route path="/marketing/templates" element={<FeatureGuard feature="email_templates"><MarketingTemplates /></FeatureGuard>} />
+          <Route path="/marketing/whatsapp-templates" element={<FeatureGuard feature="whatsapp"><MarketingTemplates /></FeatureGuard>} />
+          <Route path="/marketing/analytics" element={<FeatureGuard feature="analytics"><MarketingAnalytics /></FeatureGuard>} />
+          <Route path="/marketing/automation" element={<FeatureGuard feature="marketing_automation"><MarketingAutomation /></FeatureGuard>} />
+          <Route path="/marketing/landing-pages" element={<FeatureGuard feature="landing_pages"><LandingPages /></FeatureGuard>} />
+          <Route path="/marketing/landing-pages/:id/edit" element={<FeatureGuard feature="landing_pages"><LandingPageEditor /></FeatureGuard>} />
+          {/* B2B Travel Search */}
+          <Route path="/flight-search" element={<FlightSearch />} />
+          <Route path="/hotel-search" element={<HotelSearch />} />
         </Route>
 
         {/* Super Admin Routes */}
@@ -329,6 +328,7 @@ function App() {
               draggable
               pauseOnHover
               theme="light"
+              style={{ zIndex: 100001 }}
             />
           </ContentProvider>
         </SettingsProvider>

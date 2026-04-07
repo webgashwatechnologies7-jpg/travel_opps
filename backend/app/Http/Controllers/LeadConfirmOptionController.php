@@ -127,11 +127,24 @@ class LeadConfirmOptionController extends Controller
                 ]);
             }
 
-            // 2) Log option confirmed
+            // 2) Update Lead status to 'confirmed' and log it
+            $oldStatus = $lead->status;
+            if ($oldStatus !== 'confirmed') {
+                $lead->update(['status' => 'confirmed']);
+                
+                \App\Modules\Leads\Domain\Entities\LeadStatusLog::create([
+                    'lead_id' => $lead->id,
+                    'old_status' => $oldStatus,
+                    'new_status' => 'confirmed',
+                    'changed_by' => $user->id,
+                ]);
+            }
+
+            // 3) Log option confirmed activity
             QueryHistoryLog::logActivity([
                 'lead_id' => $lead->id,
                 'activity_type' => 'option_confirmed',
-                'activity_description' => "Option {$optionNumber} confirmed" . ($itineraryName ? " - {$itineraryName}" : '') . ". Amount: ₹" . number_format($totalAmount, 2),
+                'activity_description' => "Option {$optionNumber} confirmed" . ($itineraryName ? " - {$itineraryName}" : '') . ". Status updated to CONFIRMED. Amount: ₹" . number_format($totalAmount, 2),
                 'module' => 'quotation',
                 'record_id' => $invoice->id,
                 'metadata' => [
@@ -140,6 +153,8 @@ class LeadConfirmOptionController extends Controller
                     'itinerary_name' => $itineraryName,
                     'invoice_id' => $invoice->id,
                     'invoice_number' => $invoice->invoice_number,
+                    'previous_status' => $oldStatus,
+                    'new_status' => 'confirmed',
                 ],
             ]);
 

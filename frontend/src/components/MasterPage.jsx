@@ -5,7 +5,7 @@ import { toast } from 'react-toastify';
 import useApi from '../hooks/useApi';
 import { useAuth } from '../contexts/AuthContext';
 import LogoLoader from './LogoLoader';
-
+import { Dialog } from 'primereact/dialog';
 /**
  * Generic Master Page component for CRUD operations on simple resources.
  */
@@ -253,13 +253,15 @@ const MasterPage = ({
                     </div>
                 </div>
 
-                {isModalOpen && (
-                    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                        <div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-4">
-                            <div className="flex justify-between items-center p-6 border-b border-gray-200">
+{/* Model Here  */}
+<Dialog style={{minWidth:'50vw'}} visible={isModalOpen} showCloseIcon={false} header={()=>(
+ <div className="flex justify-between items-center p-6 border-b border-gray-200">
                                 <h2 className="text-xl font-bold text-gray-800">{editingId ? `Edit ${title}` : `Add ${title}`}</h2>
                                 <button onClick={handleCloseModal} className="text-gray-400 hover:text-gray-600"><X className="h-6 w-6" /></button>
                             </div>
+)}>
+    <div className="bg-white rounded-lg shadow-xl w-full  ">
+                           
                             <form onSubmit={handleSave}>
                                 <div className="p-6 space-y-4">
                                     {fields.map(field => (
@@ -306,8 +308,8 @@ const MasterPage = ({
                                 </div>
                             </form>
                         </div>
-                    </div>
-                )}
+</Dialog>
+               
                 </div>
                 </>
             )}

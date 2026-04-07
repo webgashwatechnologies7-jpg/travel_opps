@@ -19,7 +19,7 @@ import {
 import { supportAPI, ASSET_URL } from '../services/api';
 import { toast } from 'react-toastify';
 import LogoLoader from '../components/LogoLoader';
-
+import { Dialog } from 'primereact/dialog';
 const Support = () => {
     const { user } = useAuth();
     const { id } = useParams();
@@ -212,7 +212,7 @@ const Support = () => {
     };
 
     return (
-        <div>
+        <div className='md:p-6 p-1'>
             <div className="flex flex-col h-[calc(100vh-140px)] bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
                 {/* Header */}
                 <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-white">
@@ -501,17 +501,15 @@ const Support = () => {
             </div>
 
             {/* New Ticket Modal */}
-            {isModalOpen && (
-                <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-                    <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
-                        <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-white">
+            <Dialog style={{minWidth:'50vw'}} showCloseIcon={false} header={()=>(
+ <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-white">
                             <h2 className="text-xl font-bold text-gray-800">New Support Ticket</h2>
                             <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-gray-600 p-1 rounded-full hover:bg-gray-100">
                                 <X size={20} />
                             </button>
                         </div>
-
-                        <form onSubmit={handleCreateTicket} className="p-6 space-y-4">
+            )} visible={isModalOpen}>
+   <form onSubmit={handleCreateTicket} className="p-6 space-y-4">
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Subject</label>
                                 <input
@@ -586,9 +584,8 @@ const Support = () => {
                                 </button>
                             </div>
                         </form>
-                    </div>
-                </div>
-            )}
+            </Dialog>
+         
         </div>
     );
 };

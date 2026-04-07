@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 import { accountsAPI } from '../services/api';
-
+import { Dialog } from 'primereact/dialog';
 const AddAgentModal = ({ isOpen, onClose, onSave, editMode = false, initialData = null }) => {
     const [formData, setFormData] = useState({
         name: '',
@@ -133,10 +133,8 @@ const AddAgentModal = ({ isOpen, onClose, onSave, editMode = false, initialData 
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-                {/* Header */}
-                <div className="flex items-center justify-between p-6 border-b">
+        <Dialog visible={isOpen} header={()=>(
+  <div className="flex items-center justify-between p-6 border-b">
                     <h2 className="text-xl font-semibold text-gray-800">
                         {editMode ? 'Edit Agent' : 'Add Agent'}
                     </h2>
@@ -147,9 +145,8 @@ const AddAgentModal = ({ isOpen, onClose, onSave, editMode = false, initialData 
                         <X className="h-5 w-5 text-gray-500" />
                     </button>
                 </div>
-
-                {/* Form */}
-                <form onSubmit={handleSubmit} className="p-6">
+        )} showCloseIcon={false}  className='bg-white rounded-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto'>
+ <form onSubmit={handleSubmit} className="p-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {/* Name */}
                         <div>
@@ -276,8 +273,8 @@ const AddAgentModal = ({ isOpen, onClose, onSave, editMode = false, initialData 
                         </button>
                     </div>
                 </form>
-            </div>
-        </div>
+        </Dialog>
+        
     );
 };
 

@@ -6,7 +6,7 @@ import { toast } from 'react-toastify';
 import AddClientModal from '../components/AddClientModal';
 import { Edit2, Trash2, Eye, TrendingUp, MoreVertical, Download, FileText, Plus } from 'lucide-react';
 import LogoLoader from '../components/LogoLoader';
-
+import { Dialog } from 'primereact/dialog';
 const Clients = () => {
   const navigate = useNavigate();
   const [clients, setClients] = useState([]);

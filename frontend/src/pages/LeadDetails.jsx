@@ -13,6 +13,7 @@ import html2pdf from 'html2pdf.js';
 import { WhatsAppTab, MailsTab, FollowupsTab, BillingTab, HistoryTab, SuppCommTab, PostSalesTab, VoucherTab, DocsTab, InvoiceTab, CallsTab } from '../components/LeadTabs';
 import { callsAPI } from '../services/api';
 import LogoLoader from '../components/LogoLoader';
+import { Dialog } from 'primereact/dialog';
 
 const LeadDetails = () => {
   const { id } = useParams();
@@ -291,11 +292,11 @@ const LeadDetails = () => {
 
   // Prevent background scroll when any modal is open
   useEffect(() => {
-    const isAnyModalOpen = 
-      showItineraryModal || showInsertItineraryModal || showQuotationModal || 
-      showFollowupModal || showPaymentModal || showComposeModal || 
-      showWaConnectModal || showPdfPriceOptionModal || showPaxModal || 
-      showEditLeadModal || showEditQueryModal || showVoucherPopup || 
+    const isAnyModalOpen =
+      showItineraryModal || showInsertItineraryModal || showQuotationModal ||
+      showFollowupModal || showPaymentModal || showComposeModal ||
+      showWaConnectModal || showPdfPriceOptionModal || showPaxModal ||
+      showEditLeadModal || showEditQueryModal || showVoucherPopup ||
       showInvoicePreview || showItineraryLibraryModal;
 
     if (isAnyModalOpen) {
@@ -307,10 +308,10 @@ const LeadDetails = () => {
       document.body.style.overflow = 'unset';
     };
   }, [
-    showItineraryModal, showInsertItineraryModal, showQuotationModal, 
-    showFollowupModal, showPaymentModal, showComposeModal, 
-    showWaConnectModal, showPdfPriceOptionModal, showPaxModal, 
-    showEditLeadModal, showEditQueryModal, showVoucherPopup, 
+    showItineraryModal, showInsertItineraryModal, showQuotationModal,
+    showFollowupModal, showPaymentModal, showComposeModal,
+    showWaConnectModal, showPdfPriceOptionModal, showPaxModal,
+    showEditLeadModal, showEditQueryModal, showVoucherPopup,
     showInvoicePreview, showItineraryLibraryModal
   ]);
 
@@ -386,7 +387,7 @@ const LeadDetails = () => {
           dayEvents = response?.data?.data?.day_events;
 
           if (!dayEvents) return;
-          
+
           Object.keys(dayEvents).sort((a, b) => parseInt(a) - parseInt(b)).forEach((day) => {
             const events = dayEvents[day] || [];
             events.forEach((event) => {
@@ -526,11 +527,11 @@ const LeadDetails = () => {
   // Helper to reconstruct proposals from server data (used when localstorage is empty)
   const reconstructOptionsFromServerData = (itinerary, pricingData, existingBaseProposal) => {
     if (!itinerary || !itinerary.day_events) return [];
-    
+
     const dayEvents = itinerary.day_events;
     const finalPrices = pricingData?.final_client_prices || {};
     const optionNumbersFromEvents = new Set();
-    
+
     Object.keys(dayEvents || {}).forEach(day => {
       (dayEvents[day] || []).forEach(event => {
         if (event.eventType === 'accommodation' && event.hotelOptions) {
@@ -590,7 +591,7 @@ const LeadDetails = () => {
         // 1. Try to fetch from server first
         const serverRes = await queryProposalsAPI.list(id);
         const serverData = serverRes?.data?.data || [];
-        
+
         let list = [];
         if (serverData.length > 0) {
           // metadata contains the full proposal object we use in frontend
@@ -652,7 +653,7 @@ const LeadDetails = () => {
 
         const result = [];
         const processedItineraryIds = new Set();
-        
+
         list.forEach((p) => {
           const tid = p.itinerary_id;
           if (!tid) {
@@ -661,12 +662,12 @@ const LeadDetails = () => {
           }
           if (processedItineraryIds.has(tid)) return;
           processedItineraryIds.add(tid);
-          
+
           // Primary source: Server Data (Packages options_data field) - ELIMINATING LOCAL STORAGE RELIANCE
           const pkgData = packageMap[tid];
           // Always use Database data
           let latestOptions = (pkgData && Array.isArray(pkgData.options_data) && pkgData.options_data.length > 0) ? pkgData.options_data : [];
-          
+
           // Re-Sync/Reconstruct from Server if LocalStorage is empty
           // Special Rule: If server-side list for this ITINERARY only has 1 item and it's 'base' (no option number),
           // AND we found actual options in the package data, then we expand it.
@@ -697,7 +698,7 @@ const LeadDetails = () => {
             existingOfThisTid.forEach((x) => result.push(x));
           }
         });
-        
+
         if (!cancelled) setProposals(result);
       } catch (err) {
         if (!cancelled) {
@@ -804,6 +805,7 @@ const LeadDetails = () => {
       }
 
       fetchPayments();
+      fetchLeadDetails();
       if (activeTab === 'history' || activeTab === 'invoice') fetchQueryDetail();
     } else {
       showToastNotification('success', 'Confirmed', 'Option confirmed successfully! You can now share the final itinerary.');
@@ -2155,11 +2157,11 @@ const LeadDetails = () => {
   const handleSelectItinerary = async (itinerary) => {
     const tid = itinerary.id;
     const itineraryName = itinerary.title || itinerary.itinerary_name || 'Untitled Itinerary';
-    
+
     setLoadingItineraries(true);
     let fullPackage = null;
     let pricingDataFromServer = null;
-    
+
     try {
       // Fetch FULL package details to ensure day_events and days are cloned
       const [pkgRes, prRes] = await Promise.all([
@@ -4328,2528 +4330,1513 @@ const LeadDetails = () => {
   return (
     <div className={`relative page-transition ${loading && lead ? 'opacity-80' : ''}`}>
       {loading && <div className="side-progress-bar absolute top-0 left-0 right-0 h-1 z-50" />}
-      
+
       {loading && !lead ? (
-          <div className="flex flex-col items-center justify-center h-[90vh] animate-in fade-in duration-500 bg-white/50 backdrop-blur-sm">
-             <LogoLoader text="Loading detailed query..." />
-          </div>
+        <div className="flex flex-col items-center justify-center h-[90vh] animate-in fade-in duration-500 bg-white/50 backdrop-blur-sm">
+          <LogoLoader text="Loading detailed query..." />
+        </div>
       ) : !lead || (lead && typeof lead.id === 'undefined') ? (
-          <div className="flex flex-col items-center justify-center h-[90vh] animate-in fade-in duration-500 bg-[#D8DEF5]">
-             <div className="text-center">
-                <h2 className="text-2xl font-semibold text-gray-900 mb-2">Query Not Found</h2>
-                <p className="text-gray-600">The query you're looking for doesn't exist.</p>
-                <button
-                  onClick={() => navigate('/leads')}
-                  className="mt-6 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 shadow-lg active:scale-95 transition-all"
-                >
-                  Back to Queries
-                </button>
-             </div>
+        <div className="flex flex-col items-center justify-center h-[90vh] animate-in fade-in duration-500 bg-[#D8DEF5]">
+          <div className="text-center">
+            <h2 className="text-2xl font-semibold text-gray-900 mb-2">Query Not Found</h2>
+            <p className="text-gray-600">The query you're looking for doesn't exist.</p>
+            <button
+              onClick={() => navigate('/leads')}
+              className="mt-6 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 shadow-lg active:scale-95 transition-all"
+            >
+              Back to Queries
+            </button>
           </div>
+        </div>
       ) : (
         <>
-      <div className="p-4 sm:p-6" style={{ backgroundColor: settings?.dashboard_background_color || '#D8DEF5', minHeight: '100vh' }}>
-        {/* Header */}
-        <div className="mb-4 rounded-xl bg-white p-4 sm:p-6 shadow-sm border border-gray-100">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-            <div className="flex items-center gap-4">
-              <button
-                onClick={() => navigate('/leads')}
-                className="p-2.5 hover:bg-gray-100 rounded-full transition-colors text-gray-600 border border-gray-100"
-                title="Back to Queries"
-              >
-                <ArrowLeft className="h-5 w-5" />
-              </button>
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900 leading-tight">Query: #{formatLeadId(lead.id)}</h1>
-                <div className="text-xs text-gray-500 mt-1 flex items-center gap-2">
-                  <span className="font-medium">Created:</span> {formatDate(lead.created_at)}
-                  <span className="text-gray-300">•</span>
-                  <span className="font-medium">Updated:</span> {formatDateTime(lead.updated_at)}
+          <div className="p-4 sm:p-6" style={{ backgroundColor: settings?.dashboard_background_color || '#D8DEF5', minHeight: '100vh' }}>
+            {/* Header */}
+            <div className="mb-4 rounded-xl bg-white p-4 sm:p-6 shadow-sm border border-gray-100">
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                <div className="flex items-center gap-4">
+                  <button
+                    onClick={() => navigate('/leads')}
+                    className="p-2.5 hover:bg-gray-100 rounded-full transition-colors text-gray-600 border border-gray-100"
+                    title="Back to Queries"
+                  >
+                    <ArrowLeft className="h-5 w-5" />
+                  </button>
+                  <div>
+                    <h1 className="text-2xl font-bold text-gray-900 leading-tight">Query: #{formatLeadId(lead.id)}</h1>
+                    <div className="text-xs text-gray-500 mt-1 flex items-center gap-2">
+                      <span className="font-medium">Created:</span> {formatDate(lead.created_at)}
+                      <span className="text-gray-300">•</span>
+                      <span className="font-medium">Updated:</span> {formatDateTime(lead.updated_at)}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  {lead.priority === 'hot' && (
+                    <span className="px-3 py-1 text-xs font-bold bg-red-100 text-red-600 rounded-full border border-red-200 uppercase tracking-wider">Hot Lead</span>
+                  )}
                 </div>
               </div>
             </div>
 
-            <div className="flex items-center gap-3">
-              {lead.priority === 'hot' && (
-                <span className="px-3 py-1 text-xs font-bold bg-red-100 text-red-600 rounded-full border border-red-200 uppercase tracking-wider">Hot Lead</span>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Main Content */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          {/* Left Column (Sidebar Info) - 4 cols on laptop, stack on tablet/mobile */}
-          <div className="lg:col-span-4 space-y-6">
-            {/* Query Information */}
-            <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
-              <div className="flex justify-between items-center mb-5">
-                <h2 className="text-xl font-bold text-gray-900">Query Information</h2>
-                <button
-                  onClick={() => {
-                    setEditQueryFormData({
-                      destination: lead.destination || '',
-                      travel_start_date: lead.travel_start_date ? lead.travel_start_date.split('T')[0] : '',
-                      travel_end_date: lead.travel_end_date ? lead.travel_end_date.split('T')[0] : '',
-                      source: lead.source || '',
-                      service: lead.service || '',
-                      adult: lead.adult || 1,
-                      child: lead.child || 0,
-                      infant: lead.infant || 0,
-                      assigned_to: lead.assigned_to || '',
-                      remark: lead.remark || ''
-                    });
-                    setShowEditQueryModal(true);
-                  }}
-                  className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                  title="Edit Query"
-                >
-                  <Pencil className="w-4 h-4" />
-                </button>
-              </div>
-              <div
-                className="rounded-2xl border border-gray-200 p-4 space-y-4 text-sm"
-                style={{
-                  background: `
+            {/* Main Content */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+              {/* Left Column (Sidebar Info) - 4 cols on laptop, stack on tablet/mobile */}
+              <div className="lg:col-span-4 space-y-6">
+                {/* Query Information */}
+                <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
+                  <div className="flex justify-between items-center mb-5">
+                    <h2 className="text-xl font-bold text-gray-900">Query Information</h2>
+                    <button
+                      onClick={() => {
+                        setEditQueryFormData({
+                          destination: lead.destination || '',
+                          travel_start_date: lead.travel_start_date ? lead.travel_start_date.split('T')[0] : '',
+                          travel_end_date: lead.travel_end_date ? lead.travel_end_date.split('T')[0] : '',
+                          source: lead.source || '',
+                          service: lead.service || '',
+                          adult: lead.adult || 1,
+                          child: lead.child || 0,
+                          infant: lead.infant || 0,
+                          assigned_to: lead.assigned_to || '',
+                          remark: lead.remark || ''
+                        });
+                        setShowEditQueryModal(true);
+                      }}
+                      className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                      title="Edit Query"
+                    >
+                      <Pencil className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <div
+                    className="rounded-2xl border border-gray-200 p-4 space-y-4 text-sm"
+                    style={{
+                      background: `
           linear-gradient(rgba(255,255,255,0.8), rgba(255,255,255,0.8)),
           url(/images/quiries/detailsback.png)
         `,
-                  backgroundRepeat: "no-repeat",
-                  backgroundSize: "cover",
-                  backdropFilter: "blur(6px)"
-                }}
-              >
-                {/* ROW */}
-                <DetailRow
-                  icon={<MapPin className="text-yellow-500" size={18} />}
-                  label="Destination"
-                  value={lead.destination || "N/A"}
-                />
+                      backgroundRepeat: "no-repeat",
+                      backgroundSize: "cover",
+                      backdropFilter: "blur(6px)"
+                    }}
+                  >
+                    {/* ROW */}
+                    <DetailRow
+                      icon={<MapPin className="text-yellow-500" size={18} />}
+                      label="Destination"
+                      value={lead.destination || "N/A"}
+                    />
 
-                <DetailRow
-                  icon={<Calendar className="text-sky-500" size={18} />}
-                  label="From Date"
-                  value={
-                    lead.travel_start_date
-                      ? formatDate(lead.travel_start_date)
-                      : "N/A"
-                  }
-                />
+                    <DetailRow
+                      icon={<Calendar className="text-sky-500" size={18} />}
+                      label="From Date"
+                      value={
+                        lead.travel_start_date
+                          ? formatDate(lead.travel_start_date)
+                          : "N/A"
+                      }
+                    />
 
-                <DetailRow
-                  icon={<CalendarDays className="text-red-500" size={18} />}
-                  label="To Date"
-                  value={
-                    lead.travel_end_date
-                      ? formatDate(lead.travel_end_date)
-                      : lead.travel_start_date
-                        ? formatDate(lead.travel_start_date)
-                        : "N/A"
-                  }
-                />
+                    <DetailRow
+                      icon={<CalendarDays className="text-red-500" size={18} />}
+                      label="To Date"
+                      value={
+                        lead.travel_end_date
+                          ? formatDate(lead.travel_end_date)
+                          : lead.travel_start_date
+                            ? formatDate(lead.travel_start_date)
+                            : "N/A"
+                      }
+                    />
 
-                <DetailRow
-                  icon={<Calendar className="text-teal-600" size={18} />}
-                  label="Travel Month"
-                  value={
-                    lead.travel_start_date
-                      ? getTravelMonth(lead.travel_start_date)
-                      : "N/A"
-                  }
-                />
+                    <DetailRow
+                      icon={<Calendar className="text-teal-600" size={18} />}
+                      label="Travel Month"
+                      value={
+                        lead.travel_start_date
+                          ? getTravelMonth(lead.travel_start_date)
+                          : "N/A"
+                      }
+                    />
 
-                <DetailRow
-                  icon={<Leaf className="text-green-600" size={18} />}
-                  label="Lead Source"
-                  value={lead.source || "N/A"}
-                />
+                    <DetailRow
+                      icon={<Leaf className="text-green-600" size={18} />}
+                      label="Lead Source"
+                      value={lead.source || "N/A"}
+                    />
 
-                <DetailRow
-                  icon={<Briefcase className="text-purple-600" size={18} />}
-                  label="Services"
-                  value={lead.service || "Activities only"}
-                />
+                    <DetailRow
+                      icon={<Briefcase className="text-purple-600" size={18} />}
+                      label="Services"
+                      value={lead.service || "Activities only"}
+                    />
 
-                {/* Pax */}
-                <div className="flex items-start gap-3">
-                  <Users className="text-black mt-[2px]" size={18} />
-                  <div className="flex gap-2 flex-wrap">
-                    <span className="text-blue-600 font-medium">Pax:</span>
-                    <span className="text-gray-900">
-                      Adult: {lead.adult || 1}
-                    </span>
-                    <span className="text-blue-600">
-                      Child: {lead.child || 0}
-                    </span>
-                    <span className="text-blue-600">
-                      Infant: {lead.infant || 0}
-                    </span>
-                  </div>
-                </div>
-
-                <DetailRow
-                  icon={<UserCheck className="text-orange-500" size={18} />}
-                  label="Assign To"
-                  value={lead.assigned_user?.name || assignedUser?.name || "N/A"}
-                />
-
-                {lead.remark && (
-                  <DetailRow
-                    icon={<Briefcase className="text-gray-600" size={18} />}
-                    label="Description"
-                    value={lead.remark}
-                  />
-                )}
-              </div>
-            </div>
-
-            {/* Related Customer */}
-
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-              <div className="flex justify-between items-center mb-5">
-                <h2 className="text-lg font-bold text-gray-900">
-                  Travellers (Pax)
-                </h2>
-                <button
-                  onClick={handlePaxModalOpen}
-                  className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                  title="Edit Travellers"
-                >
-                  <Pencil className="w-4 h-4" />
-                </button>
-              </div>
-
-              {lead?.pax_details && Array.isArray(lead.pax_details) && lead.pax_details.length > 0 ? (
-                <div className="space-y-3">
-                  {lead.pax_details.map((pax, idx) => (
-                    <div key={idx} className="flex flex-col sm:flex-row sm:justify-between sm:items-center text-sm border-b border-gray-100 last:border-0 pb-2 last:pb-0 gap-1">
-                      <div>
-                        <span className="font-medium text-gray-700 block">{pax.name || `Person ${idx + 1}`}</span>
-                        <div className="text-xs text-gray-500 flex gap-2">
-                          {pax.phone && <span className="flex items-center gap-1"><Smartphone className="w-3 h-3" />{pax.phone}</span>}
-                          {pax.email && <span className="flex items-center gap-1"><Mail className="w-3 h-3" />{pax.email}</span>}
-                        </div>
-                      </div>
-                      <div className="flex gap-3 text-gray-500">
-                        <span>{pax.gender || '-'}</span>
-                        {pax.age && <span>{pax.age} yrs</span>}
+                    {/* Pax */}
+                    <div className="flex items-start gap-3">
+                      <Users className="text-black mt-[2px]" size={18} />
+                      <div className="flex gap-2 flex-wrap">
+                        <span className="text-blue-600 font-medium">Pax:</span>
+                        <span className="text-gray-900">
+                          Adult: {lead.adult || 1}
+                        </span>
+                        <span className="text-blue-600">
+                          Child: {lead.child || 0}
+                        </span>
+                        <span className="text-blue-600">
+                          Infant: {lead.infant || 0}
+                        </span>
                       </div>
                     </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-sm text-gray-500 italic">
-                  No traveller details added.
-                </div>
-              )}
-            </div>
 
-            {/* Related Customer */}
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-              <div className="flex justify-between items-center mb-5">
-                <h2 className="text-lg font-bold text-gray-900">
-                  Related Customer
-                </h2>
-                <button
-                  onClick={() => {
-                    setEditLeadFormData({
-                      client_name: lead.client_name || '',
-                      client_title: lead.client_title || '',
-                      email: lead.email || '',
-                      phone: lead.phone || '',
-                      date_of_birth: lead.date_of_birth ? lead.date_of_birth.split('T')[0] : '',
-                      marriage_anniversary: lead.marriage_anniversary ? lead.marriage_anniversary.split('T')[0] : '',
-                    });
-                    setShowEditLeadModal(true);
-                  }}
-                  className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                  title="Edit Customer"
-                >
-                  <Pencil className="w-4 h-4" />
-                </button>
-              </div>
+                    <DetailRow
+                      icon={<UserCheck className="text-orange-500" size={18} />}
+                      label="Assign To"
+                      value={lead.assigned_user?.name || assignedUser?.name || "N/A"}
+                    />
 
-              <div className="grid grid-cols-1 md:grid-cols-1 gap-6">
-                {/* INFO SECTION */}
-                <div className="space-y-3">
-                  <div className="text-lg font-bold text-gray-900">
-                    {lead.client_title ? `${lead.client_title} ` : ''}
-                    {lead.client_name}
-                  </div>
-
-                  <div className="flex items-center gap-3 text-sm text-gray-600">
-                    <div className="p-2 bg-blue-50 rounded-full">
-                      <Smartphone className="w-4 h-4 text-blue-600" />
-                    </div>
-                    <span className="font-medium">{lead.phone || 'N/A'}</span>
-                  </div>
-
-                  <div className="flex items-center gap-3 text-sm text-gray-600">
-                    <div className="p-2 bg-pink-50 rounded-full">
-                      <Mail className="w-4 h-4 text-[#E78175]" />
-                    </div>
-                    <span className="font-medium truncate">{lead.email || 'N/A'}</span>
-                  </div>
-
-                  {(lead.date_of_birth || lead.marriage_anniversary) && (
-                    <div className="mt-4 pt-4 border-t border-gray-100 flex flex-wrap gap-4">
-                      {lead.date_of_birth && (
-                        <div className="flex items-center gap-2 text-xs text-gray-600 bg-yellow-50 px-3 py-1.5 rounded-full border border-yellow-100">
-                          <Gift className="w-3.5 h-3.5 text-yellow-600" />
-                          <span>DOB: <span className="font-semibold">{formatDate(lead.date_of_birth)}</span></span>
-                        </div>
-                      )}
-                      {lead.marriage_anniversary && (
-                        <div className="flex items-center gap-2 text-xs text-gray-600 bg-red-50 px-3 py-1.5 rounded-full border border-red-100">
-                          <Heart className="w-3.5 h-3.5 text-red-600" />
-                          <span>Anniv: <span className="font-semibold">{formatDate(lead.marriage_anniversary)}</span></span>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                {/* ACTIONS SECTION */}
-                <div className="flex flex-col sm:flex-row lg:flex-col gap-3 pt-2">
-                  <a
-                    href={lead.phone ? `tel:${lead.phone}` : '#'}
-                    className="flex-1 flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold py-3 px-4 rounded-xl transition-all shadow-sm"
-                  >
-                    <Smartphone className="w-4 h-4" />
-                    Call
-                  </a>
-
-                  <a
-                    href={lead.email ? `mailto:${lead.email}` : '#'}
-                    className="flex-1 flex items-center justify-center gap-2 bg-[#E78175] hover:bg-[#d67067] text-white text-sm font-bold py-3 px-4 rounded-xl transition-all shadow-sm"
-                  >
-                    <Mail className="w-4 h-4" />
-                    Email
-                  </a>
-                </div>
-              </div>
-            </div>
-
-            {/* Notes */}
-            <div className={`rounded-xl border shadow-sm p-5 ${showNoteInput ? 'bg-gray-50' : 'bg-white'}`}>
-              {/* TITLE */}
-              <h2 className="text-lg font-semibold text-gray-800 mb-4">
-                Notes
-              </h2>
-
-              <div className="flex justify-between items-start">
-                {/* LEFT SIDE */}
-                <div className="space-y-6">
-                  {/* COMPANY NAME */}
-                  <div className="text-sm font-medium text-black">
-                    {lead.company_name || 'Triplive b2b'}
-                  </div>
-
-                  {/* NOTES LABEL + ADD BUTTON - at top */}
-                  <div className="flex items-center gap-4">
-                    <span className="text-sm text-black">Notes :</span>
-
-                    {!showNoteInput && (
-                      <button
-                        onClick={() => setShowNoteInput(true)}
-                        className="flex items-center gap-2 bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-full text-sm font-medium transition"
-                      >
-                        <Plus className="w-5 h-5" />
-                        Add Note
-                      </button>
+                    {lead.remark && (
+                      <DetailRow
+                        icon={<Briefcase className="text-gray-600" size={18} />}
+                        label="Description"
+                        value={lead.remark}
+                      />
                     )}
                   </div>
-
-                  {/* NOTES LIST */}
-                  {notes.length > 0 && (
-                    <div className="space-y-3 mt-3">
-                      {notes
-                        .slice()
-                        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-                        .map((note) => (
-                          <div
-                            key={note.id}
-                            className="bg-gray-50 border border-gray-200 rounded-lg p-3 text-sm"
-                          >
-                            <div className="flex items-start justify-between gap-3">
-                              <p className="text-gray-800 whitespace-pre-wrap flex-1">{note.content}</p>
-                              <div className="flex items-center gap-2">
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setEditingNoteId(note.id);
-                                    setNoteText(note.content || '');
-                                    setShowNoteInput(true);
-                                  }}
-                                  className="text-gray-500 hover:text-gray-800"
-                                  title="Edit"
-                                >
-                                  <Pencil className="h-4 w-4" />
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => handleDeleteFollowup(note.id)}
-                                  className="text-red-500 hover:text-red-700"
-                                  title="Delete"
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </button>
-                              </div>
-                            </div>
-                            <p className="text-gray-500 text-xs mt-2">
-                              {note.created_by} • {note.created_at ? new Date(note.created_at).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''}
-                            </p>
-                          </div>
-                        ))}
-                    </div>
-                  )}
-
-                  {/* NOTE INPUT */}
-                  {showNoteInput && (
-                    <div className="w-full mt-4">
-                      <textarea
-                        value={noteText}
-                        onChange={(e) => setNoteText(e.target.value)}
-                        placeholder="Type Note Here..."
-                        rows={3}
-                        className="w-full border border-gray-300 rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-inner"
-                      />
-
-                      <div className="flex justify-end gap-3 mt-2">
-                        <button
-                          onClick={() => {
-                            setShowNoteInput(false);
-                            setNoteText('');
-                            setEditingNoteId(null);
-                          }}
-                          className="text-gray-500 hover:text-gray-700 text-sm font-medium"
-                        >
-                          Cancel
-                        </button>
-
-                        <button
-                          onClick={handleAddNote}
-                          disabled={addingNote}
-                          className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-1.5 rounded-full text-sm font-medium disabled:opacity-50 shadow-sm transition-all"
-                        >
-                          {addingNote ? 'Saving...' : (editingNoteId ? 'Update Note' : 'Add Note')}
-                        </button>
-                      </div>
-                    </div>
-                  )}
                 </div>
 
-                {/* RIGHT SIDE */}
-                <div className="hidden sm:block text-right shrink-0">
-                  {/* NOTES STATUS */}
-                  <div className="text-sm text-gray-500 font-medium bg-gray-100 px-3 py-1 rounded-full">
-                    {notes.length === 0 ? '0 Notes' : `${notes.length} Notes`}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
+                {/* Related Customer */}
 
-          {/* Right Column (Tabs Content) - 8 cols on laptop, stack on tablet/mobile */}
-          <div className="lg:col-span-8 space-y-6">
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 min-w-0">
-
-              <div className="flex justify-start border-b border-gray-100 sticky top-0 bg-white z-10 px-2 overflow-x-auto no-scrollbar">
-                <div className="flex space-x-1 p-1">
-                  {[
-                    { key: 'proposals', label: 'Proposals' },
-                    { key: 'mails', label: 'Mails' },
-                    { key: 'whatsapp', label: 'WhatsApp' },
-                    { key: 'followups', label: "Followup's" },
-                    { key: 'suppComm', label: 'Supp. Comm.' },
-                    { key: 'postSales', label: 'Post Sales' },
-                    { key: 'voucher', label: 'Voucher' },
-                    { key: 'docs', label: 'Docs.' },
-                    { key: 'invoice', label: 'Invoice' },
-                    { key: 'billing', label: 'Billing' },
-                    { key: 'calls', label: 'Calls' },
-                    { key: 'history', label: 'History' }
-                  ].map(({ key, label }, index) => (
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+                  <div className="flex justify-between items-center mb-5">
+                    <h2 className="text-lg font-bold text-gray-900">
+                      Travellers (Pax)
+                    </h2>
                     <button
-                      key={key}
-                      onClick={() => setActiveTab(key)}
-                      className={`px-4 py-2.5 rounded-lg text-sm font-semibold whitespace-nowrap transition-all ${activeTab === key
-                        ? 'bg-blue-600 text-white shadow-sm'
-                        : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50'
-                        }`}
+                      onClick={handlePaxModalOpen}
+                      className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                      title="Edit Travellers"
                     >
-                      {label}
+                      <Pencil className="w-4 h-4" />
                     </button>
-                  ))}
-                </div>
-              </div>
+                  </div>
 
-              {/* Tab Content */}
-              <div className="p-6">
-                {activeTab === 'proposals' ? (
-                  <div className="flex flex-col gap-6 w-full max-w-4xl">
-                    {/* Confirmed Option Banner – full width, no overlap */}
-                    {getConfirmedOption() && (() => {
-                      const confirmedOption = getConfirmedOption();
-                      return (
-                        <div className="w-full bg-green-50 border-l-4 border-green-500 rounded-r-xl p-4 sm:p-5 shadow-sm">
-                          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                            <div className="flex items-center gap-3 sm:gap-4">
-                              <div className="flex-shrink-0 bg-green-500 rounded-full p-2.5 sm:p-3">
-                                <CheckCircle className="h-6 w-6 sm:h-7 sm:w-7 text-white" />
-                              </div>
-                              <div className="min-w-0">
-                                <div className="flex flex-wrap items-center gap-2 mb-0.5">
-                                  <h3 className="font-bold text-green-800 text-lg sm:text-xl">
-                                    Option {confirmedOption.optionNumber} Confirmed
-                                  </h3>
-                                  <span className="px-2.5 py-0.5 bg-green-500 text-white text-xs font-bold rounded-full">
-                                    CONFIRMED
-                                  </span>
-                                </div>
-                                <p className="text-sm text-green-700">
-                                  Final itinerary is ready to share with the client
-                                </p>
-                              </div>
+                  {lead?.pax_details && Array.isArray(lead.pax_details) && lead.pax_details.length > 0 ? (
+                    <div className="space-y-3">
+                      {lead.pax_details.map((pax, idx) => (
+                        <div key={idx} className="flex flex-col sm:flex-row sm:justify-between sm:items-center text-sm border-b border-gray-100 last:border-0 pb-2 last:pb-0 gap-1">
+                          <div>
+                            <span className="font-medium text-gray-700 block">{pax.name || `Person ${idx + 1}`}</span>
+                            <div className="text-xs text-gray-500 flex gap-2">
+                              {pax.phone && <span className="flex items-center gap-1"><Smartphone className="w-3 h-3" />{pax.phone}</span>}
+                              {pax.email && <span className="flex items-center gap-1"><Mail className="w-3 h-3" />{pax.email}</span>}
                             </div>
+                          </div>
+                          <div className="flex gap-3 text-gray-500">
+                            <span>{pax.gender || '-'}</span>
+                            {pax.age && <span>{pax.age} yrs</span>}
                           </div>
                         </div>
-                      );
-                    })()}
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-sm text-gray-500 italic">
+                      No traveller details added.
+                    </div>
+                  )}
+                </div>
 
+                {/* Related Customer */}
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+                  <div className="flex justify-between items-center mb-5">
+                    <h2 className="text-lg font-bold text-gray-900">
+                      Related Customer
+                    </h2>
+                    <button
+                      onClick={() => {
+                        setEditLeadFormData({
+                          client_name: lead.client_name || '',
+                          client_title: lead.client_title || '',
+                          email: lead.email || '',
+                          phone: lead.phone || '',
+                          date_of_birth: lead.date_of_birth ? lead.date_of_birth.split('T')[0] : '',
+                          marriage_anniversary: lead.marriage_anniversary ? lead.marriage_anniversary.split('T')[0] : '',
+                        });
+                        setShowEditLeadModal(true);
+                      }}
+                      className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                      title="Edit Customer"
+                    >
+                      <Pencil className="w-4 h-4" />
+                    </button>
+                  </div>
 
-
-                    {/* Proposals List – single card with all options inside */}
-                    {visibleProposals.length === 0 ? (
-                      <div className="text-center w-full py-12 text-gray-500 bg-gray-50 rounded-lg border border-gray-200">
-                        <p className="mb-2">No proposals added yet</p>
-                        <p className="text-sm">Click "Insert itinerary" to add an itinerary as a proposal</p>
+                  <div className="grid grid-cols-1 md:grid-cols-1 gap-6">
+                    {/* INFO SECTION */}
+                    <div className="space-y-3">
+                      <div className="text-lg font-bold text-gray-900">
+                        {lead.client_title ? `${lead.client_title} ` : ''}
+                        {lead.client_name}
                       </div>
-                    ) : (() => {
-                      const first = visibleProposals[0] || proposals[0];
-                      const cardTitle = (lead?.destination || first?.itinerary_name || 'Proposals').toString().trim() || 'Proposals';
-                      const cardImage = getDisplayImageUrl(first?.image) || first?.image || null;
-                      const cardDestination = first?.destination || lead?.destination || '';
 
-                      return (
-                        <div className="w-full">
-                          <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow">
-                            {/* Card header – one image/title block (click to edit itinerary) */}
-                            <div
-                              className="relative h-48 sm:h-60 w-full overflow-hidden rounded-t-xl cursor-pointer"
-                              onClick={() => {
-                                if (first?.itinerary_id) {
-                                  navigate(`/itineraries/${first.itinerary_id}?fromLead=${id}`, { state: { fromLeadId: id } });
-                                } else if (proposals[0]?.itinerary_id) {
-                                  navigate(`/itineraries/${proposals[0].itinerary_id}?fromLead=${id}`, { state: { fromLeadId: id } });
-                                } else {
-                                  showToastNotification('error', 'Error', 'Itinerary ID not found for this proposal.');
-                                }
-                              }}
-                            >
-                              {cardImage ? (
-                                <img src={cardImage} alt={cardTitle} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                              ) : (
-                                <div className="w-full h-full bg-gray-200 flex items-center justify-center">
-                                  <span className="text-gray-500 font-semibold">Proposals</span>
-                                </div>
-                              )}
-                              <div className="absolute bottom-0 left-0 right-0 bg-black/55 p-4">
-                                <h3 className="text-xl font-semibold text-white">{cardTitle}</h3>
-                                {cardDestination && (
-                                  <p className="text-sm text-gray-200">{cardDestination}</p>
-                                )}
-                              </div>
+                      <div className="flex items-center gap-3 text-sm text-gray-600">
+                        <div className="p-2 bg-blue-50 rounded-full">
+                          <Smartphone className="w-4 h-4 text-blue-600" />
+                        </div>
+                        <span className="font-medium">{lead.phone || 'N/A'}</span>
+                      </div>
+
+                      <div className="flex items-center gap-3 text-sm text-gray-600">
+                        <div className="p-2 bg-pink-50 rounded-full">
+                          <Mail className="w-4 h-4 text-[#E78175]" />
+                        </div>
+                        <span className="font-medium truncate">{lead.email || 'N/A'}</span>
+                      </div>
+
+                      {(lead.date_of_birth || lead.marriage_anniversary) && (
+                        <div className="mt-4 pt-4 border-t border-gray-100 flex flex-wrap gap-4">
+                          {lead.date_of_birth && (
+                            <div className="flex items-center gap-2 text-xs text-gray-600 bg-yellow-50 px-3 py-1.5 rounded-full border border-yellow-100">
+                              <Gift className="w-3.5 h-3.5 text-yellow-600" />
+                              <span>DOB: <span className="font-semibold">{formatDate(lead.date_of_birth)}</span></span>
                             </div>
+                          )}
+                          {lead.marriage_anniversary && (
+                            <div className="flex items-center gap-2 text-xs text-gray-600 bg-red-50 px-3 py-1.5 rounded-full border border-red-100">
+                              <Heart className="w-3.5 h-3.5 text-red-600" />
+                              <span>Anniv: <span className="font-semibold">{formatDate(lead.marriage_anniversary)}</span></span>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
 
-                            {/* Single card body – all options inside */}
-                            <div className="p-5">
-                              <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
-                                <div>
-                                  <div className="text-lg text-blue-500 font-medium">
-                                    Pax: <span className="font-semibold">{lead?.adult ?? 1}</span> Adult(s) – <span className="font-semibold">{lead?.child ?? 0}</span> Child(s)
-                                  </div>
-                                  <div className="text-sm text-gray-700 mt-0.5">
-                                    <strong>Date:</strong> {lead?.travel_start_date ? formatDateForDisplay(lead.travel_start_date) : 'N/A'} &nbsp;
-                                    <strong>Till:</strong> {lead?.travel_end_date ? formatDateForDisplay(lead.travel_end_date) : 'N/A'}
-                                  </div>
-                                </div>
-                                <div className="flex flex-wrap items-center gap-2">
-                                  <button
-                                    type="button"
-                                    onClick={refreshProposalPricesFromServer}
-                                    disabled={refreshingProposalPrices || !proposals.some((p) => p.itinerary_id)}
-                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 rounded-lg border border-blue-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                    title="Load latest prices from server"
-                                  >
-                                    <RefreshCw className={`h-4 w-4 ${refreshingProposalPrices ? 'animate-spin' : ''}`} />
-                                    {refreshingProposalPrices ? 'Refreshing…' : 'Refresh prices'}
-                                  </button>
-                                  <div className="relative" onClick={(e) => e.stopPropagation()}>
+                    {/* ACTIONS SECTION */}
+                    <div className="flex flex-col sm:flex-row lg:flex-col gap-3 pt-2">
+                      <a
+                        href={lead.phone ? `tel:${lead.phone}` : '#'}
+                        className="flex-1 flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold py-3 px-4 rounded-xl transition-all shadow-sm"
+                      >
+                        <Smartphone className="w-4 h-4" />
+                        Call
+                      </a>
+
+                      <a
+                        href={lead.email ? `mailto:${lead.email}` : '#'}
+                        className="flex-1 flex items-center justify-center gap-2 bg-[#E78175] hover:bg-[#d67067] text-white text-sm font-bold py-3 px-4 rounded-xl transition-all shadow-sm"
+                      >
+                        <Mail className="w-4 h-4" />
+                        Email
+                      </a>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Notes */}
+                <div className={`rounded-xl border shadow-sm p-5 ${showNoteInput ? 'bg-gray-50' : 'bg-white'}`}>
+                  {/* TITLE */}
+                  <h2 className="text-lg font-semibold text-gray-800 mb-4">
+                    Notes
+                  </h2>
+
+                  <div className="flex justify-between items-start">
+                    {/* LEFT SIDE */}
+                    <div className="space-y-6">
+                      {/* COMPANY NAME */}
+                      <div className="text-sm font-medium text-black">
+                        {lead.company_name || 'Triplive b2b'}
+                      </div>
+
+                      {/* NOTES LABEL + ADD BUTTON - at top */}
+                      <div className="flex items-center gap-4">
+                        <span className="text-sm text-black">Notes :</span>
+
+                        {!showNoteInput && (
+                          <button
+                            onClick={() => setShowNoteInput(true)}
+                            className="flex items-center gap-2 bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-full text-sm font-medium transition"
+                          >
+                            <Plus className="w-5 h-5" />
+                            Add Note
+                          </button>
+                        )}
+                      </div>
+
+                      {/* NOTES LIST */}
+                      {notes.length > 0 && (
+                        <div className="space-y-3 mt-3">
+                          {notes
+                            .slice()
+                            .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+                            .map((note) => (
+                              <div
+                                key={note.id}
+                                className="bg-gray-50 border border-gray-200 rounded-lg p-3 text-sm"
+                              >
+                                <div className="flex items-start justify-between gap-3">
+                                  <p className="text-gray-800 whitespace-pre-wrap flex-1">{note.content}</p>
+                                  <div className="flex items-center gap-2">
                                     <button
                                       type="button"
-                                      onClick={() => setSendAllDropdownOpen(!sendAllDropdownOpen)}
-                                      disabled={sendingOptionChannel || !visibleProposals.length}
-                                      className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-semibold text-white bg-green-600 hover:bg-green-700 rounded-lg border border-green-700 transition-colors disabled:opacity-50"
-                                      title="Send all options via Email / WhatsApp"
+                                      onClick={() => {
+                                        setEditingNoteId(note.id);
+                                        setNoteText(note.content || '');
+                                        setShowNoteInput(true);
+                                      }}
+                                      className="text-gray-500 hover:text-gray-800"
+                                      title="Edit"
                                     >
-                                      <Send className="h-4 w-4" />
-                                      {sendingOptionChannel ? 'Sending…' : 'Send'}
-                                      <ChevronDown className="h-4 w-4" />
+                                      <Pencil className="h-4 w-4" />
                                     </button>
-                                    {sendAllDropdownOpen && (
-                                      <div className="absolute top-full right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-20 py-1 min-w-[180px]">
-                                        <button type="button" onClick={() => handleSendAllOptions('email')} className="w-full text-left px-3 py-2 hover:bg-gray-100 flex items-center gap-2 text-sm">
-                                          <Mail className="h-4 w-4 text-blue-600" /> Email (Both Options)
-                                        </button>
-                                        <button type="button" onClick={() => handleSendAllOptions('whatsapp')} className="w-full text-left px-3 py-2 hover:bg-gray-100 flex items-center gap-2 text-sm">
-                                          <MessageCircle className="h-4 w-4 text-green-600" /> WhatsApp (Both Options)
-                                        </button>
-                                        <button type="button" onClick={() => handleSendAllOptions('both')} className="w-full text-left px-3 py-2 hover:bg-gray-100 flex items-center gap-2 text-sm">
-                                          <Send className="h-4 w-4" /> Send on Both (Email + WhatsApp)
-                                        </button>
-                                      </div>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDeleteFollowup(note.id)}
+                                      className="text-red-500 hover:text-red-700"
+                                      title="Delete"
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </button>
+                                  </div>
+                                </div>
+                                <p className="text-gray-500 text-xs mt-2">
+                                  {note.created_by} • {note.created_at ? new Date(note.created_at).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''}
+                                </p>
+                              </div>
+                            ))}
+                        </div>
+                      )}
+
+                      {/* NOTE INPUT */}
+                      {showNoteInput && (
+                        <div className="w-full mt-4">
+                          <textarea
+                            value={noteText}
+                            onChange={(e) => setNoteText(e.target.value)}
+                            placeholder="Type Note Here..."
+                            rows={3}
+                            className="w-full border border-gray-300 rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-inner"
+                          />
+
+                          <div className="flex justify-end gap-3 mt-2">
+                            <button
+                              onClick={() => {
+                                setShowNoteInput(false);
+                                setNoteText('');
+                                setEditingNoteId(null);
+                              }}
+                              className="text-gray-500 hover:text-gray-700 text-sm font-medium"
+                            >
+                              Cancel
+                            </button>
+
+                            <button
+                              onClick={handleAddNote}
+                              disabled={addingNote}
+                              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-1.5 rounded-full text-sm font-medium disabled:opacity-50 shadow-sm transition-all"
+                            >
+                              {addingNote ? 'Saving...' : (editingNoteId ? 'Update Note' : 'Add Note')}
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* RIGHT SIDE */}
+                    <div className="hidden sm:block text-right shrink-0">
+                      {/* NOTES STATUS */}
+                      <div className="text-sm text-gray-500 font-medium bg-gray-100 px-3 py-1 rounded-full">
+                        {notes.length === 0 ? '0 Notes' : `${notes.length} Notes`}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Right Column (Tabs Content) - 8 cols on laptop, stack on tablet/mobile */}
+              <div className="lg:col-span-8 space-y-6">
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 min-w-0">
+
+                  <div className="flex justify-start border-b border-gray-100 sticky top-0 bg-white z-10 px-2 overflow-x-auto no-scrollbar">
+                    <div className="flex space-x-1 p-1">
+                      {[
+                        { key: 'proposals', label: 'Proposals' },
+                        { key: 'mails', label: 'Mails' },
+                        { key: 'whatsapp', label: 'WhatsApp' },
+                        { key: 'followups', label: "Followup's" },
+                        { key: 'suppComm', label: 'Supp. Comm.' },
+                        { key: 'postSales', label: 'Post Sales' },
+                        { key: 'voucher', label: 'Voucher' },
+                        { key: 'docs', label: 'Docs.' },
+                        { key: 'invoice', label: 'Invoice' },
+                        { key: 'billing', label: 'Billing' },
+                        { key: 'calls', label: 'Calls' },
+                        { key: 'history', label: 'History' }
+                      ].map(({ key, label }, index) => (
+                        <button
+                          key={key}
+                          onClick={() => setActiveTab(key)}
+                          className={`px-4 py-2.5 rounded-lg text-sm font-semibold whitespace-nowrap transition-all ${activeTab === key
+                            ? 'bg-blue-600 text-white shadow-sm'
+                            : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50'
+                            }`}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Tab Content */}
+                  <div className="p-6">
+                    {activeTab === 'proposals' ? (
+                      <div className="flex flex-col gap-6 w-full max-w-4xl">
+                        {/* Confirmed Option Banner – full width, no overlap */}
+                        {getConfirmedOption() && (() => {
+                          const confirmedOption = getConfirmedOption();
+                          return (
+                            <div className="w-full bg-green-50 border-l-4 border-green-500 rounded-r-xl p-4 sm:p-5 shadow-sm">
+                              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                                <div className="flex items-center gap-3 sm:gap-4">
+                                  <div className="flex-shrink-0 bg-green-500 rounded-full p-2.5 sm:p-3">
+                                    <CheckCircle className="h-6 w-6 sm:h-7 sm:w-7 text-white" />
+                                  </div>
+                                  <div className="min-w-0">
+                                    <div className="flex flex-wrap items-center gap-2 mb-0.5">
+                                      <h3 className="font-bold text-green-800 text-lg sm:text-xl">
+                                        Option {confirmedOption.optionNumber} Confirmed
+                                      </h3>
+                                      <span className="px-2.5 py-0.5 bg-green-500 text-white text-xs font-bold rounded-full">
+                                        CONFIRMED
+                                      </span>
+                                    </div>
+                                    <p className="text-sm text-green-700">
+                                      Final itinerary is ready to share with the client
+                                    </p>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })()}
+
+
+
+                        {/* Proposals List – single card with all options inside */}
+                        {visibleProposals.length === 0 ? (
+                          <div className="text-center w-full py-12 text-gray-500 bg-gray-50 rounded-lg border border-gray-200">
+                            <p className="mb-2">No proposals added yet</p>
+                            <p className="text-sm">Click "Insert itinerary" to add an itinerary as a proposal</p>
+                          </div>
+                        ) : (() => {
+                          const first = visibleProposals[0] || proposals[0];
+                          const cardTitle = (lead?.destination || first?.itinerary_name || 'Proposals').toString().trim() || 'Proposals';
+                          const cardImage = getDisplayImageUrl(first?.image) || first?.image || null;
+                          const cardDestination = first?.destination || lead?.destination || '';
+
+                          return (
+                            <div className="w-full">
+                              <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+                                {/* Card header – one image/title block (click to edit itinerary) */}
+                                <div
+                                  className="relative h-48 sm:h-60 w-full overflow-hidden rounded-t-xl cursor-pointer"
+                                  onClick={() => {
+                                    if (first?.itinerary_id) {
+                                      navigate(`/itineraries/${first.itinerary_id}?fromLead=${id}`, { state: { fromLeadId: id } });
+                                    } else if (proposals[0]?.itinerary_id) {
+                                      navigate(`/itineraries/${proposals[0].itinerary_id}?fromLead=${id}`, { state: { fromLeadId: id } });
+                                    } else {
+                                      showToastNotification('error', 'Error', 'Itinerary ID not found for this proposal.');
+                                    }
+                                  }}
+                                >
+                                  {cardImage ? (
+                                    <img src={cardImage} alt={cardTitle} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                                  ) : (
+                                    <div className="w-full h-full bg-gray-200 flex items-center justify-center">
+                                      <span className="text-gray-500 font-semibold">Proposals</span>
+                                    </div>
+                                  )}
+                                  <div className="absolute bottom-0 left-0 right-0 bg-black/55 p-4">
+                                    <h3 className="text-xl font-semibold text-white">{cardTitle}</h3>
+                                    {cardDestination && (
+                                      <p className="text-sm text-gray-200">{cardDestination}</p>
                                     )}
                                   </div>
-                                  <button
-                                    type="button"
-                                    onClick={handleDownloadAllOptionsPdf}
-                                    disabled={!visibleProposals.length}
-                                    className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-semibold text-white bg-purple-600 hover:bg-purple-700 rounded-lg border border-purple-700 transition-colors disabled:opacity-50"
-                                    title="Download a single PDF for both options"
-                                  >
-                                    <Download className="h-4 w-4" />
-                                    Download PDF
-                                  </button>
                                 </div>
-                              </div>
-                              <hr className="my-4" />
 
-                              {/* Package options – professional card layout */}
-                              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 mb-4">
-                                {visibleProposals.map((opt) => {
-                                  const displayPrice = opt.price ?? opt.pricing?.finalClientPrice ?? 0;
-                                  return (
-                                    <div
-                                      key={opt.id}
-                                      className={`rounded-xl border-2 overflow-hidden shadow-sm transition-all ${opt.confirmed ? 'border-green-500 bg-green-50/50 shadow-green-100' : 'border-gray-200 bg-white hover:shadow-md'}`}
-                                    >
-                                      {/* Card header */}
-                                      <div className="bg-blue-600 px-4 py-2.5 flex items-center justify-between">
-                                        <span className="text-white font-semibold">
-                                          {opt.optionNumber != null ? `Option ${opt.optionNumber}` : (opt.itinerary_name || 'Itinerary')}
-                                        </span>
-                                        {opt.confirmed && (
-                                          <span className="px-2 py-0.5 bg-green-500 text-white text-xs font-semibold rounded-full">Confirmed</span>
-                                        )}
+                                {/* Single card body – all options inside */}
+                                <div className="p-5">
+                                  <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                                    <div>
+                                      <div className="text-lg text-blue-500 font-medium">
+                                        Pax: <span className="font-semibold">{lead?.adult ?? 1}</span> Adult(s) – <span className="font-semibold">{lead?.child ?? 0}</span> Child(s)
                                       </div>
-                                      {/* Card body */}
-                                      <div className="p-4">
-                                        <div className="mb-4">
-                                          {/* Breakdown: Base + Tax - Discount */}
-                                          {opt.pricing && (opt.pricing.totalGross > 0 || opt.pricing.totalTax > 0) && (
-                                            <div className="mb-2 space-y-1 bg-gray-50 p-2 rounded text-xs">
-                                              {opt.pricing.totalGross > 0 && (
-                                                <div className="flex justify-between text-gray-600">
-                                                  <span>Base Price:</span>
-                                                  <span>₹{Math.round(opt.pricing.totalGross).toLocaleString('en-IN')}</span>
-                                                </div>
-                                              )}
-                                              {(opt.pricing.totalTax > 0) && (
-                                                <div className="flex justify-between text-gray-600">
-                                                  <span>Taxes (GST/TCS):</span>
-                                                  <span>+ ₹{Math.round(opt.pricing.totalTax).toLocaleString('en-IN')}</span>
-                                                </div>
-                                              )}
-                                              {(opt.pricing.discountAmount > 0) && (
-                                                <div className="flex justify-between text-green-600 font-medium">
-                                                  <span>Discount ({opt.pricing.discount}%):</span>
-                                                  <span>- ₹{Math.round(opt.pricing.discountAmount).toLocaleString('en-IN')}</span>
-                                                </div>
-                                              )}
-                                            </div>
-                                          )}
-                                          <p className="text-xs text-gray-500 uppercase tracking-wide font-medium mb-0.5">Total Price</p>
-                                          <p className="text-2xl font-bold text-gray-900">₹{Number(displayPrice).toLocaleString('en-IN')}</p>
-                                        </div>
-                                        <div className="flex flex-col gap-2">
-                                          {opt.confirmed ? (
-                                            <span className="w-full text-center px-3 py-2 bg-green-100 text-green-700 text-sm font-semibold rounded-lg border border-green-300">
-                                              Confirmed
-                                            </span>
-                                          ) : (
-                                            <button
-                                              type="button"
-                                              onClick={(e) => { e.stopPropagation(); handleConfirmOption(opt.id); }}
-                                              className="w-full bg-orange-500 hover:bg-orange-600 text-white text-sm font-semibold px-3 py-2 rounded-lg transition-colors"
-                                            >
-                                              Make Confirm
-                                            </button>
-                                          )}
-                                          <button
-                                            type="button"
-                                            onClick={(e) => { e.stopPropagation(); handleViewQuotation(opt); }}
-                                            className="w-full bg-blue-500 hover:bg-blue-600 text-white text-sm font-semibold px-3 py-2 rounded-lg transition-colors"
-                                          >
-                                            View Quotation
-                                          </button>
-                                          {opt.itinerary_id && (
-                                            <button
-                                              type="button"
-                                              onClick={(e) => { e.stopPropagation(); navigate(`/itineraries/${opt.itinerary_id}?fromLead=${id}`, { state: { fromLeadId: id } }); }}
-                                              className="w-full text-gray-600 hover:text-gray-800 hover:bg-gray-100 text-sm font-medium px-3 py-2 rounded-lg border border-gray-300 transition-colors"
-                                            >
-                                              Edit
-                                            </button>
-                                          )}
-                                          {/* Duplicate Option button removed for now */}
-                                        </div>
+                                      <div className="text-sm text-gray-700 mt-0.5">
+                                        <strong>Date:</strong> {lead?.travel_start_date ? formatDateForDisplay(lead.travel_start_date) : 'N/A'} &nbsp;
+                                        <strong>Till:</strong> {lead?.travel_end_date ? formatDateForDisplay(lead.travel_end_date) : 'N/A'}
                                       </div>
                                     </div>
-                                  );
-                                })}
-                              </div>
+                                    <div className="flex flex-wrap items-center gap-2">
+                                      <button
+                                        type="button"
+                                        onClick={refreshProposalPricesFromServer}
+                                        disabled={refreshingProposalPrices || !proposals.some((p) => p.itinerary_id)}
+                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 rounded-lg border border-blue-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                        title="Load latest prices from server"
+                                      >
+                                        <RefreshCw className={`h-4 w-4 ${refreshingProposalPrices ? 'animate-spin' : ''}`} />
+                                        {refreshingProposalPrices ? 'Refreshing…' : 'Refresh prices'}
+                                      </button>
+                                      <div className="relative" onClick={(e) => e.stopPropagation()}>
+                                        <button
+                                          type="button"
+                                          onClick={() => setSendAllDropdownOpen(!sendAllDropdownOpen)}
+                                          disabled={sendingOptionChannel || !visibleProposals.length}
+                                          className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-semibold text-white bg-green-600 hover:bg-green-700 rounded-lg border border-green-700 transition-colors disabled:opacity-50"
+                                          title="Send all options via Email / WhatsApp"
+                                        >
+                                          <Send className="h-4 w-4" />
+                                          {sendingOptionChannel ? 'Sending…' : 'Send'}
+                                          <ChevronDown className="h-4 w-4" />
+                                        </button>
+                                        {sendAllDropdownOpen && (
+                                          <div className="absolute top-full right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-20 py-1 min-w-[180px]">
+                                            <button type="button" onClick={() => handleSendAllOptions('email')} className="w-full text-left px-3 py-2 hover:bg-gray-100 flex items-center gap-2 text-sm">
+                                              <Mail className="h-4 w-4 text-blue-600" /> Email (Both Options)
+                                            </button>
+                                            <button type="button" onClick={() => handleSendAllOptions('whatsapp')} className="w-full text-left px-3 py-2 hover:bg-gray-100 flex items-center gap-2 text-sm">
+                                              <MessageCircle className="h-4 w-4 text-green-600" /> WhatsApp (Both Options)
+                                            </button>
+                                            <button type="button" onClick={() => handleSendAllOptions('both')} className="w-full text-left px-3 py-2 hover:bg-gray-100 flex items-center gap-2 text-sm">
+                                              <Send className="h-4 w-4" /> Send on Both (Email + WhatsApp)
+                                            </button>
+                                          </div>
+                                        )}
+                                      </div>
+                                      <button
+                                        type="button"
+                                        onClick={handleDownloadAllOptionsPdf}
+                                        disabled={!visibleProposals.length}
+                                        className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-semibold text-white bg-purple-600 hover:bg-purple-700 rounded-lg border border-purple-700 transition-colors disabled:opacity-50"
+                                        title="Download a single PDF for both options"
+                                      >
+                                        <Download className="h-4 w-4" />
+                                        Download PDF
+                                      </button>
+                                    </div>
+                                  </div>
+                                  <hr className="my-4" />
 
-                              {/* Delete all proposals for this lead (only when nothing is confirmed) */}
-                              {!hasConfirmedProposal && (
-                                <div className="flex justify-end">
-                                  <button
-                                    onClick={() => {
-                                      if (window.confirm('Remove all proposals from this lead?')) {
-                                        saveProposals([]);
-                                      }
-                                    }}
-                                    className="text-red-600 hover:text-red-700 text-sm font-medium"
-                                  >
-                                    Remove all proposals
-                                  </button>
+                                  {/* Package options – professional card layout */}
+                                  <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 mb-4">
+                                    {visibleProposals.map((opt) => {
+                                      const displayPrice = opt.price ?? opt.pricing?.finalClientPrice ?? 0;
+                                      return (
+                                        <div
+                                          key={opt.id}
+                                          className={`rounded-xl border-2 overflow-hidden shadow-sm transition-all ${opt.confirmed ? 'border-green-500 bg-green-50/50 shadow-green-100' : 'border-gray-200 bg-white hover:shadow-md'}`}
+                                        >
+                                          {/* Card header */}
+                                          <div className="bg-blue-600 px-4 py-2.5 flex items-center justify-between">
+                                            <span className="text-white font-semibold">
+                                              {opt.optionNumber != null ? `Option ${opt.optionNumber}` : (opt.itinerary_name || 'Itinerary')}
+                                            </span>
+                                            {opt.confirmed && (
+                                              <span className="px-2 py-0.5 bg-green-500 text-white text-xs font-semibold rounded-full">Confirmed</span>
+                                            )}
+                                          </div>
+                                          {/* Card body */}
+                                          <div className="p-4">
+                                            <div className="mb-4">
+                                              {/* Breakdown: Base + Tax - Discount */}
+                                              {opt.pricing && (opt.pricing.totalGross > 0 || opt.pricing.totalTax > 0) && (
+                                                <div className="mb-2 space-y-1 bg-gray-50 p-2 rounded text-xs">
+                                                  {opt.pricing.totalGross > 0 && (
+                                                    <div className="flex justify-between text-gray-600">
+                                                      <span>Base Price:</span>
+                                                      <span>₹{Math.round(opt.pricing.totalGross).toLocaleString('en-IN')}</span>
+                                                    </div>
+                                                  )}
+                                                  {(opt.pricing.totalTax > 0) && (
+                                                    <div className="flex justify-between text-gray-600">
+                                                      <span>Taxes (GST/TCS):</span>
+                                                      <span>+ ₹{Math.round(opt.pricing.totalTax).toLocaleString('en-IN')}</span>
+                                                    </div>
+                                                  )}
+                                                  {(opt.pricing.discountAmount > 0) && (
+                                                    <div className="flex justify-between text-green-600 font-medium">
+                                                      <span>Discount ({opt.pricing.discount}%):</span>
+                                                      <span>- ₹{Math.round(opt.pricing.discountAmount).toLocaleString('en-IN')}</span>
+                                                    </div>
+                                                  )}
+                                                </div>
+                                              )}
+                                              <p className="text-xs text-gray-500 uppercase tracking-wide font-medium mb-0.5">Total Price</p>
+                                              <p className="text-2xl font-bold text-gray-900">₹{Number(displayPrice).toLocaleString('en-IN')}</p>
+                                            </div>
+                                            <div className="flex flex-col gap-2">
+                                              {opt.confirmed ? (
+                                                <span className="w-full text-center px-3 py-2 bg-green-100 text-green-700 text-sm font-semibold rounded-lg border border-green-300">
+                                                  Confirmed
+                                                </span>
+                                              ) : (
+                                                <button
+                                                  type="button"
+                                                  onClick={(e) => { e.stopPropagation(); handleConfirmOption(opt.id); }}
+                                                  className="w-full bg-orange-500 hover:bg-orange-600 text-white text-sm font-semibold px-3 py-2 rounded-lg transition-colors"
+                                                >
+                                                  Make Confirm
+                                                </button>
+                                              )}
+                                              <button
+                                                type="button"
+                                                onClick={(e) => { e.stopPropagation(); handleViewQuotation(opt); }}
+                                                className="w-full bg-blue-500 hover:bg-blue-600 text-white text-sm font-semibold px-3 py-2 rounded-lg transition-colors"
+                                              >
+                                                View Quotation
+                                              </button>
+                                              {opt.itinerary_id && (
+                                                <button
+                                                  type="button"
+                                                  onClick={(e) => { e.stopPropagation(); navigate(`/itineraries/${opt.itinerary_id}?fromLead=${id}`, { state: { fromLeadId: id } }); }}
+                                                  className="w-full text-gray-600 hover:text-gray-800 hover:bg-gray-100 text-sm font-medium px-3 py-2 rounded-lg border border-gray-300 transition-colors"
+                                                >
+                                                  Edit
+                                                </button>
+                                              )}
+                                              {/* Duplicate Option button removed for now */}
+                                            </div>
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+
+                                  {/* Delete all proposals for this lead (only when nothing is confirmed) */}
+                                  {!hasConfirmedProposal && (
+                                    <div className="flex justify-end">
+                                      <button
+                                        onClick={() => {
+                                          if (window.confirm('Remove all proposals from this lead?')) {
+                                            saveProposals([]);
+                                          }
+                                        }}
+                                        className="text-red-600 hover:text-red-700 text-sm font-medium"
+                                      >
+                                        Remove all proposals
+                                      </button>
+                                    </div>
+                                  )}
                                 </div>
-                              )}
+                              </div>
                             </div>
-                          </div>
-                        </div>
-                      );
-                    })()}
+                          );
+                        })()}
 
-                    {/* Create / Insert buttons – full width row, no overlap */}
-                    <div className="flex flex-wrap items-center gap-3 pt-2">
-                      <button
-                        onClick={handleCreateItinerary}
-                        className="bg-[#3F8CFF] text-white px-6 py-2.5 rounded-lg hover:bg-[#2d7ae8] flex items-center gap-2 font-medium text-sm"
-                      >
-                        <Plus className="h-4 w-4" />
-                        Create itinerary
-                      </button>
-                      <button
-                        onClick={handleInsertItinerary}
-                        className="bg-[#E78175] text-white px-6 py-2.5 rounded-lg hover:bg-[#d9706a] flex items-center gap-2 font-medium text-sm"
-                      >
-                        <Upload className="h-4 w-4" />
-                        Insert itinerary
-                      </button>
-                    </div>
-                  </div>
-                ) :
-                  activeTab === 'mails' ? (
-                    <MailsTab
-                      lead={lead}
-                      user={user}
-                      loadingEmails={loadingEmails}
-                      loadingGmail={loadingGmail}
-                      leadEmails={leadEmails}
-                      gmailEmails={gmailEmails}
-                      syncingInbox={syncingInbox}
-                      openComposeModal={openComposeModal}
-                      handleSyncInbox={handleSyncInbox}
-                      openReplyModal={openReplyModal}
-                      rewriteHtmlImageUrls={rewriteHtmlImageUrls}
-                      sanitizeEmailHtmlForDisplay={sanitizeEmailHtmlForDisplay}
-                    />
-                  )
-                    : activeTab === 'whatsapp' ? (
-                      <WhatsAppTab
-                        lead={lead}
-                        whatsappMessages={whatsappMessages}
-                        whatsappInput={whatsappInput}
-                        setWhatsappInput={setWhatsappInput}
-                        whatsappAttachment={whatsappAttachment}
-                        setWhatsappAttachment={setWhatsappAttachment}
-                        sendingWhatsapp={sendingWhatsapp}
-                        loadingMessages={loadingWhatsappMessages}
-                        fetchWhatsAppMessages={fetchWhatsAppMessages}
-                        handleSendWhatsAppFromTab={handleSendWhatsAppFromTab}
-                        profilePicUrl={profilePicUrl}
-                      />
-                    )
-                      : activeTab === 'followups' ? (
-                        <FollowupsTab
-                          followups={followups}
-                          setEditingFollowupId={setEditingFollowupId}
-                          setFollowupFormData={setFollowupFormData}
-                          setShowFollowupModal={setShowFollowupModal}
-                          handleDeleteFollowup={handleDeleteFollowup}
-                          convertTo12Hour={convertTo12Hour}
-                          followupsAPI={followupsAPI}
-                          fetchLeadDetails={fetchLeadDetails}
-                          showToastNotification={showToastNotification}
-                        />
-                      )
-                        : activeTab === 'suppComm' ? (
-                          <SuppCommTab
-                            lead={lead}
-                            id={id}
-                            getConfirmedOption={getConfirmedOption}
-                            formatDateForDisplay={formatDateForDisplay}
-                            supplierEmailForm={supplierEmailForm}
-                            setSupplierEmailForm={setSupplierEmailForm}
-                            handleSendSupplierEmail={handleSendSupplierEmail}
-                            sendingEmail={sendingEmail}
-                            suppliers={suppliers}
-                            selectedSuppliers={selectedSuppliers}
-                            handleSelectSupplier={handleSelectSupplier}
-                            handleSelectAllSuppliers={handleSelectAllSuppliers}
-                            selectAllSuppliers={selectAllSuppliers}
-                            hotelsFromConfirmedOption={hotelsFromConfirmedOption}
-                            selectedHotels={selectedHotels}
-                            handleSelectHotel={handleSelectHotel}
-                            handleSelectAllHotels={handleSelectAllHotels}
-                            selectAllHotels={selectAllHotels}
-                            vehiclesFromProposals={vehiclesFromProposals}
-                            selectedVehicles={selectedVehicles}
-                            handleSelectVehicle={handleSelectVehicle}
-                            handleSelectAllVehicles={handleSelectAllVehicles}
-                            selectAllVehicles={selectAllVehicles}
-                          />
-                        ) :
-                          activeTab === 'postSales' ? (
-                            <PostSalesTab />
-                          ) :
-                            activeTab === 'voucher' ? (
-                              <VoucherTab
-                                lead={lead}
-                                getConfirmedOption={getConfirmedOption}
-                                quotationData={quotationData}
-                                handleVoucherPreview={handleVoucherPreview}
-                                handleVoucherDownload={handleVoucherDownload}
-                                handleVoucherSend={handleVoucherSend}
-                                voucherActionLoading={voucherActionLoading}
-                              />
-                            ) :
-                              activeTab === 'docs' ? (
-                                <DocsTab />
-                              ) :
-                                activeTab === 'invoice' ? (
-                                  <InvoiceTab
-                                    loadingHistory={loadingHistory}
-                                    queryDetailInvoices={queryDetailInvoices}
-                                    handleInvoicePreview={handleInvoicePreview}
-                                    handleInvoiceDownload={handleInvoiceDownload}
-                                    handleInvoiceSend={handleInvoiceSend}
-                                    invoiceActionLoading={invoiceActionLoading}
-                                  />
-                                ) :
-                                  activeTab === 'billing' ? (
-                                    <BillingTab
-                                      lead={lead}
-                                      getConfirmedOption={getConfirmedOption}
-                                      quotationData={quotationData}
-                                      paymentSummary={paymentSummary}
-                                      payments={payments}
-                                      loadingPayments={loadingPayments}
-                                      setPaymentFormData={setPaymentFormData}
-                                      setShowPaymentModal={setShowPaymentModal}
-                                      formatDateForDisplay={formatDateForDisplay}
-                                    />
-                                  ) : activeTab === 'calls' ? (
-                                    <CallsTab
-                                      calls={leadCalls}
-                                      loading={loadingCalls}
-                                      onPlayRecording={handlePlayRecording}
-                                      onDeleteCall={handleDeleteCall}
-                                      recordingUrls={recordingUrls}
-                                      activeRecordingId={activeRecordingId}
-                                    />
-
-                                  )
-                                    :
-                                    activeTab === 'history' && (
-                                      <HistoryTab
-                                        loadingHistory={loadingHistory}
-                                        activityTimeline={activityTimeline}
-                                      />
-                                    )}
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Voucher Preview Popup */}
-      {
-        showVoucherPopup && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 overflow-y-auto py-8" onClick={() => setShowVoucherPopup(false)}>
-            <div className="bg-white rounded-lg shadow-xl w-full max-w-3xl mx-4 my-auto max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
-              <div className="flex justify-between items-center p-4 border-b border-gray-200 shrink-0">
-                <h2 className="text-lg font-bold text-gray-800">Voucher Preview</h2>
-                <button type="button" onClick={() => setShowVoucherPopup(false)} className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
-                  <X className="h-5 w-5" />
-                </button>
-              </div>
-              <div className="overflow-auto flex-1 p-4 min-h-0">
-                <iframe title="Voucher preview" srcDoc={voucherPopupHtml} className="w-full border border-gray-200 rounded-lg bg-white" style={{ minHeight: '60vh' }} />
-              </div>
-            </div>
-          </div>
-        )
-      }
-
-      {/* Invoice Preview Popup */}
-      {
-        showInvoicePreview && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 overflow-y-auto py-8" onClick={() => setShowInvoicePreview(false)}>
-            <div className="bg-white rounded-lg shadow-xl w-full max-w-3xl mx-4 my-auto max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
-              <div className="flex justify-between items-center p-4 border-b border-gray-200 shrink-0">
-                <h2 className="text-lg font-bold text-gray-800">Invoice Preview</h2>
-                <button type="button" onClick={() => setShowInvoicePreview(false)} className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
-                  <X className="h-5 w-5" />
-                </button>
-              </div>
-              <div className="overflow-auto flex-1 p-4 min-h-0">
-                <iframe title="Invoice preview" srcDoc={invoicePreviewHtml} className="w-full border border-gray-200 rounded-lg bg-white" style={{ minHeight: '60vh' }} />
-              </div>
-            </div>
-          </div>
-        )
-      }
-
-      {/* Itinerary Setup Modal */}
-      {
-        showItineraryModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 overflow-y-auto py-8">
-            <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl mx-4 my-auto">
-              {/* Modal Header */}
-              <div className="flex justify-between items-center p-6 border-b border-gray-200">
-                <h2 className="text-xl font-bold text-gray-800">Itinerary setup</h2>
-                <button
-                  onClick={() => setShowItineraryModal(false)}
-                  className="text-gray-400 hover:text-gray-600 transition-colors"
-                >
-                  <X className="h-6 w-6" />
-                </button>
-              </div>
-
-              {/* Modal Body */}
-              <form onSubmit={handleItinerarySave}>
-                <div className="p-6 grid grid-cols-2 gap-6 max-h-[70vh] overflow-y-auto">
-                  {/* Itinerary setup section */}
-                  <div className="col-span-2">
-                    <h3 className="text-lg font-semibold text-gray-800 mb-4">Itinerary setup</h3>
-                  </div>
-
-                  {/* Itinerary Name */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Itinerary Name
-                    </label>
-                    <input
-                      type="text"
-                      value={itineraryFormData.itinerary_name}
-                      onChange={(e) => setItineraryFormData({ ...itineraryFormData, itinerary_name: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="Enter itinerary name"
-                    />
-                  </div>
-
-                  {/* Duration (days) */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Duration (Days)
-                    </label>
-                    <input
-                      type="number"
-                      value={itineraryFormData.duration}
-                      onChange={(e) => setItineraryFormData({ ...itineraryFormData, duration: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      min="1"
-                      placeholder="e.g. 3"
-                    />
-                  </div>
-
-                  {/* Destinations */}
-                  <div className="col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Destinations
-                    </label>
-                    <input
-                      type="text"
-                      value={itineraryFormData.destinations}
-                      onChange={(e) => setItineraryFormData({ ...itineraryFormData, destinations: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="Enter Destination"
-                    />
-                  </div>
-
-                  {/* Notes */}
-                  <div className="col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Notes
-                    </label>
-                    <textarea
-                      value={itineraryFormData.notes}
-                      onChange={(e) => setItineraryFormData({ ...itineraryFormData, notes: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="Notes"
-                      rows="3"
-                    />
-                  </div>
-
-                  {/* Status - Active / Inactive (Visible / Hidden) */}
-                  <div className="col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Status
-                    </label>
-                    <div className="flex items-center gap-4">
-                      <label className="flex items-center gap-2 cursor-pointer">
-                        <input
-                          type="radio"
-                          name="itinerary_status"
-                          checked={itineraryFormData.show_on_website === true}
-                          onChange={() => setItineraryFormData(prev => ({ ...prev, show_on_website: true }))}
-                          className="text-blue-600 focus:ring-blue-500"
-                        />
-                        <span className="text-sm font-medium text-gray-700">Active (Visible)</span>
-                      </label>
-                      <label className="flex items-center gap-2 cursor-pointer">
-                        <input
-                          type="radio"
-                          name="itinerary_status"
-                          checked={itineraryFormData.show_on_website === false}
-                          onChange={() => setItineraryFormData(prev => ({ ...prev, show_on_website: false }))}
-                          className="text-blue-600 focus:ring-blue-500"
-                        />
-                        <span className="text-sm font-medium text-gray-700">Inactive (Hidden)</span>
-                      </label>
-                    </div>
-                  </div>
-
-                  {/* Image */}
-                  <div className="col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Image
-                    </label>
-                    <div className="space-y-3">
-                      <div className="flex gap-2">
-                        <label className="flex-1 cursor-pointer">
-                          <input
-                            type="file"
-                            accept="image/*"
-                            onChange={handleItineraryFileChange}
-                            className="hidden"
-                          />
-                          <div className="flex items-center justify-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors border border-gray-300">
-                            <Upload className="h-4 w-4" />
-                            <span className="text-sm font-medium">Upload Image</span>
-                          </div>
-                        </label>
-                        <button
-                          type="button"
-                          onClick={() => setShowItineraryLibraryModal(true)}
-                          className="flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded-lg transition-colors"
-                        >
-                          <Camera className="h-4 w-4" />
-                          <span className="text-sm font-medium">Choose from Library</span>
-                        </button>
-                      </div>
-                      {(itineraryImagePreview || itineraryFormData.image) && (
-                        <div className="mt-2">
-                          <div className="relative w-32 h-32 border border-gray-300 rounded-lg overflow-hidden bg-gray-50">
-                            <img
-                              src={itineraryImagePreview || (itineraryFormData.image instanceof File ? URL.createObjectURL(itineraryFormData.image) : itineraryFormData.image?.url)}
-                              alt="Preview"
-                              className="w-full h-full object-cover"
-                            />
-                          </div>
-                        </div>
-                      )}
-                      {!itineraryImagePreview && !itineraryFormData.image && (
-                        <p className="text-xs text-gray-500">No image selected. Upload or choose from library.</p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Modal Footer */}
-                <div className="flex justify-end p-6 border-t border-gray-200">
-                  <button
-                    type="button"
-                    onClick={() => setShowItineraryModal(false)}
-                    className="px-4 py-2 text-gray-700 hover:text-gray-900 mr-3"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={savingItinerary}
-                    className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {savingItinerary ? 'Saving...' : 'Save'}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )
-      }
-
-      {/* Choose from Library modal (for Itinerary setup) */}
-      {
-        showItineraryLibraryModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60]">
-            <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl mx-4 max-h-[90vh] overflow-hidden flex flex-col">
-              <div className="flex justify-between items-center p-4 border-b border-gray-200">
-                <h2 className="text-xl font-bold text-gray-800">Choose Image</h2>
-                <button
-                  type="button"
-                  onClick={() => { setShowItineraryLibraryModal(false); setItineraryLibrarySearchTerm(''); setItineraryFreeStockPhotos([]); setItineraryLibraryPackages([]); }}
-                  className="text-gray-400 hover:text-gray-600 p-1"
-                >
-                  <X className="h-6 w-6" />
-                </button>
-              </div>
-              <div className="flex border-b border-gray-200">
-                <button
-                  type="button"
-                  onClick={() => setItineraryLibraryTab('free')}
-                  className={`px-4 py-3 text-sm font-medium border-b-2 ${itineraryLibraryTab === 'free' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500'}`}
-                >
-                  Free stock images
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setItineraryLibraryTab('your')}
-                  className={`px-4 py-3 text-sm font-medium border-b-2 ${itineraryLibraryTab === 'your' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500'}`}
-                >
-                  Your itineraries
-                </button>
-              </div>
-              <div className="p-4 border-b border-gray-200">
-                <div className="flex gap-2">
-                  <div className="relative flex-1">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-4 w-4" />
-                    <input
-                      type="text"
-                      value={itineraryLibrarySearchTerm}
-                      onChange={(e) => setItineraryLibrarySearchTerm(e.target.value)}
-                      onKeyDown={(e) => e.key === 'Enter' && (itineraryLibraryTab === 'free' ? fetchItineraryFreeStockImages() : null)}
-                      placeholder={itineraryLibraryTab === 'free' ? 'Search e.g. Shimla, Kufri...' : 'Search your itineraries...'}
-                      className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                  {itineraryLibraryTab === 'free' && (
-                    <button
-                      type="button"
-                      onClick={fetchItineraryFreeStockImages}
-                      disabled={(itineraryLibrarySearchTerm || '').trim().length < 2 || itineraryFreeStockLoading}
-                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
-                    >
-                      Search
-                    </button>
-                  )}
-                </div>
-              </div>
-              <div className="flex-1 overflow-y-auto p-4">
-                {itineraryLibraryTab === 'free' ? (
-                  itineraryFreeStockLoading ? (
-                    <div className="flex justify-center h-48"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" /></div>
-                  ) : (itineraryLibrarySearchTerm || '').trim().length < 2 ? (
-                    <p className="text-center py-8 text-gray-500">Type location (e.g. Shimla, Kufri) and click Search.</p>
-                  ) : itineraryFreeStockPhotos.length === 0 ? (
-                    <div className="text-center py-8 px-4">
-                      {itineraryFreeStockError === 'no_api_key' ? (
-                        <>
-                          <p className="text-gray-600 mb-2">Pexels API key is required for free stock images.</p>
-                          <p className="text-sm text-gray-500">On the live server add <code className="bg-gray-100 px-1 rounded">VITE_PEXELS_API_KEY</code> to .env, then run <code className="bg-gray-100 px-1 rounded">npm run build</code> again. Or use <strong>Upload Image</strong>.</p>
-                          <p className="text-xs text-gray-400 mt-2">Free key: pexels.com/api</p>
-                        </>
-                      ) : (
-                        <p className="text-gray-500">No images found. Try another search.</p>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-4 gap-2">
-                      {itineraryFreeStockPhotos.map((p) => (
-                        <button key={p.id} type="button" onClick={() => handleSelectItineraryFreeStockImage(p.url)} className="aspect-square rounded-lg overflow-hidden border-2 border-gray-200 hover:border-blue-500">
-                          <img src={p.thumb || p.url} alt={p.alt} className="w-full h-full object-cover" />
-                        </button>
-                      ))}
-                    </div>
-                  )
-                ) : (
-                  itineraryLibrarySearch.length < 2 ? (
-                    <p className="text-center py-8 text-gray-500">Type at least 2 characters to see your itinerary images.</p>
-                  ) : itineraryLibraryImages.length === 0 ? (
-                    <p className="text-center py-8 text-gray-500">No images for this search. Use Free stock images tab.</p>
-                  ) : (
-                    <div className="grid grid-cols-4 gap-2">
-                      {itineraryLibraryImages.map((p) => (
-                        <button key={p.id} type="button" onClick={() => handleSelectItineraryLibraryImage(p)} className="aspect-square rounded-lg overflow-hidden border-2 border-gray-200 hover:border-blue-500">
-                          <img src={p.image} alt={p.itinerary_name || p.title || 'Select'} className="w-full h-full object-cover" />
-                        </button>
-                      ))}
-                    </div>
-                  )
-                )}
-              </div>
-            </div>
-          </div>
-        )
-      }
-
-      {/* Insert Itinerary Modal */}
-      {
-        showInsertItineraryModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 overflow-y-auto py-8">
-            <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl mx-4 my-auto">
-              {/* Modal Header */}
-              <div className="flex justify-between items-center p-6 border-b border-gray-200">
-                <h2 className="text-xl font-bold text-gray-800">Select Itinerary</h2>
-                <button
-                  onClick={() => {
-                    setShowInsertItineraryModal(false);
-                    setItinerarySearchTerm('');
-                  }}
-                  className="text-gray-400 hover:text-gray-600 transition-colors"
-                >
-                  <X className="h-6 w-6" />
-                </button>
-              </div>
-
-              {/* Modal Body */}
-              <div className="p-6">
-                {/* Trip duration hint when From/To dates set */}
-                {leadTripDays != null && (
-                  <div className="mb-3 px-3 py-2 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-800">
-                    Showing itineraries for <strong>{leadTripDays} day{leadTripDays !== 1 ? 's' : ''}</strong> ({leadTripDays} days / {Math.max(0, leadTripDays - 1)} nights) only — based on this query&apos;s From & To dates.
-                  </div>
-                )}
-                {/* Search Bar */}
-                <div className="mb-4">
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
-                    <input
-                      type="text"
-                      placeholder="Search itineraries..."
-                      value={itinerarySearchTerm}
-                      onChange={(e) => setItinerarySearchTerm(e.target.value)}
-                      className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                </div>
-
-                {/* Itineraries List */}
-                {loadingItineraries ? (
-                  <div className="flex items-center justify-center py-12">
-                    <div className="transform scale-75">
-                      <LogoLoader text="Searching itineraries..." />
-                    </div>
-                  </div>
-                ) : filteredItineraries.length === 0 ? (
-                  <div className="text-center py-12 text-gray-500">
-                    {itinerarySearchTerm
-                      ? 'No itineraries found matching your search'
-                      : leadTripDays != null
-                        ? `No itineraries for ${leadTripDays} day${leadTripDays !== 1 ? 's' : ''} (${leadTripDays} days / ${Math.max(0, leadTripDays - 1)} nights). Create an itinerary with ${leadTripDays} days duration to see it here.`
-                        : 'No itineraries available'}
-                  </div>
-                ) : (
-                  <div className="max-h-[60vh] overflow-y-auto space-y-3">
-                    {filteredItineraries.map((itinerary) => (
-                      <div
-                        key={itinerary.id}
-                        onClick={() => handleSelectItinerary(itinerary)}
-                        className="border border-gray-200 rounded-lg p-4 hover:bg-blue-50 hover:border-blue-300 cursor-pointer transition-colors"
-                      >
-                        <div className="flex justify-between items-start gap-4">
-                          {/* Image */}
-                          <div className="w-24 h-24 bg-gray-100 rounded-lg flex items-center justify-center overflow-hidden border border-gray-200 flex-shrink-0">
-                            {itinerary.image ? (
-                              <img
-                                src={itinerary.image}
-                                alt={itinerary.title || itinerary.itinerary_name || 'Itinerary'}
-                                className="w-full h-full object-cover"
-                                onError={(e) => {
-                                  e.target.style.display = 'none';
-                                  const parent = e.target.parentElement;
-                                  if (parent && !parent.querySelector('.no-photo-text')) {
-                                    const span = document.createElement('span');
-                                    span.className = 'no-photo-text text-xs text-gray-400 font-medium';
-                                    span.textContent = 'NO PHOTO';
-                                    parent.appendChild(span);
-                                  }
-                                }}
-                              />
-                            ) : (
-                              <span className="text-xs text-gray-400 font-medium">NO PHOTO</span>
-                            )}
-                          </div>
-
-                          <div className="flex-1">
-                            <h3 className="text-lg font-semibold text-gray-800 mb-1">
-                              {itinerary.title || itinerary.itinerary_name || 'Untitled Itinerary'}
-                            </h3>
-                            {(itinerary.destination || itinerary.destinations) && (
-                              <p className="text-sm text-gray-600 mb-2">
-                                <span className="font-medium">Destination:</span> {itinerary.destination || itinerary.destinations}
-                              </p>
-                            )}
-                            {itinerary.duration && (
-                              <p className="text-sm text-gray-600 mb-1">
-                                <span className="font-medium">Duration:</span> {itinerary.duration} Days
-                              </p>
-                            )}
-                            {(itinerary.details || itinerary.notes) && (
-                              <p className="text-sm text-gray-600 line-clamp-2">
-                                {itinerary.details || itinerary.notes}
-                              </p>
-                            )}
-                            <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
-                              {itinerary.created_by_name && (
-                                <span>Created by: {itinerary.created_by_name}</span>
-                              )}
-                              {(itinerary.last_update || itinerary.last_updated) && (
-                                <span>Last updated: {itinerary.last_update || itinerary.last_updated}</span>
-                              )}
-                              {itinerary.show_on_website !== undefined && (
-                                <span className={`px-2 py-1 rounded ${itinerary.show_on_website
-                                  ? 'bg-green-100 text-green-700'
-                                  : 'bg-gray-100 text-gray-700'
-                                  }`}>
-                                  {itinerary.show_on_website ? 'Active' : 'Inactive'}
-                                </span>
-                              )}
-                            </div>
-                          </div>
+                        {/* Create / Insert buttons – full width row, no overlap */}
+                        <div className="flex flex-wrap items-center gap-3 pt-2">
                           <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleSelectItinerary(itinerary);
-                            }}
-                            className="ml-4 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 text-sm font-medium"
+                            onClick={handleCreateItinerary}
+                            className="bg-[#3F8CFF] text-white px-6 py-2.5 rounded-lg hover:bg-[#2d7ae8] flex items-center gap-2 font-medium text-sm"
                           >
-                            Insert
+                            <Plus className="h-4 w-4" />
+                            Create itinerary
+                          </button>
+                          <button
+                            onClick={handleInsertItinerary}
+                            className="bg-[#E78175] text-white px-6 py-2.5 rounded-lg hover:bg-[#d9706a] flex items-center gap-2 font-medium text-sm"
+                          >
+                            <Upload className="h-4 w-4" />
+                            Insert itinerary
                           </button>
                         </div>
                       </div>
-                    ))}
+                    ) :
+                      activeTab === 'mails' ? (
+                        <MailsTab
+                          lead={lead}
+                          user={user}
+                          loadingEmails={loadingEmails}
+                          loadingGmail={loadingGmail}
+                          leadEmails={leadEmails}
+                          gmailEmails={gmailEmails}
+                          syncingInbox={syncingInbox}
+                          openComposeModal={openComposeModal}
+                          handleSyncInbox={handleSyncInbox}
+                          openReplyModal={openReplyModal}
+                          rewriteHtmlImageUrls={rewriteHtmlImageUrls}
+                          sanitizeEmailHtmlForDisplay={sanitizeEmailHtmlForDisplay}
+                        />
+                      )
+                        : activeTab === 'whatsapp' ? (
+                          <WhatsAppTab
+                            lead={lead}
+                            whatsappMessages={whatsappMessages}
+                            whatsappInput={whatsappInput}
+                            setWhatsappInput={setWhatsappInput}
+                            whatsappAttachment={whatsappAttachment}
+                            setWhatsappAttachment={setWhatsappAttachment}
+                            sendingWhatsapp={sendingWhatsapp}
+                            loadingMessages={loadingWhatsappMessages}
+                            fetchWhatsAppMessages={fetchWhatsAppMessages}
+                            handleSendWhatsAppFromTab={handleSendWhatsAppFromTab}
+                            profilePicUrl={profilePicUrl}
+                          />
+                        )
+                          : activeTab === 'followups' ? (
+                            <FollowupsTab
+                              followups={followups}
+                              setEditingFollowupId={setEditingFollowupId}
+                              setFollowupFormData={setFollowupFormData}
+                              setShowFollowupModal={setShowFollowupModal}
+                              handleDeleteFollowup={handleDeleteFollowup}
+                              convertTo12Hour={convertTo12Hour}
+                              followupsAPI={followupsAPI}
+                              fetchLeadDetails={fetchLeadDetails}
+                              showToastNotification={showToastNotification}
+                            />
+                          )
+                            : activeTab === 'suppComm' ? (
+                              <SuppCommTab
+                                lead={lead}
+                                id={id}
+                                getConfirmedOption={getConfirmedOption}
+                                formatDateForDisplay={formatDateForDisplay}
+                                supplierEmailForm={supplierEmailForm}
+                                setSupplierEmailForm={setSupplierEmailForm}
+                                handleSendSupplierEmail={handleSendSupplierEmail}
+                                sendingEmail={sendingEmail}
+                                suppliers={suppliers}
+                                selectedSuppliers={selectedSuppliers}
+                                handleSelectSupplier={handleSelectSupplier}
+                                handleSelectAllSuppliers={handleSelectAllSuppliers}
+                                selectAllSuppliers={selectAllSuppliers}
+                                hotelsFromConfirmedOption={hotelsFromConfirmedOption}
+                                selectedHotels={selectedHotels}
+                                handleSelectHotel={handleSelectHotel}
+                                handleSelectAllHotels={handleSelectAllHotels}
+                                selectAllHotels={selectAllHotels}
+                                vehiclesFromProposals={vehiclesFromProposals}
+                                selectedVehicles={selectedVehicles}
+                                handleSelectVehicle={handleSelectVehicle}
+                                handleSelectAllVehicles={handleSelectAllVehicles}
+                                selectAllVehicles={selectAllVehicles}
+                              />
+                            ) :
+                              activeTab === 'postSales' ? (
+                                <PostSalesTab />
+                              ) :
+                                activeTab === 'voucher' ? (
+                                  <VoucherTab
+                                    lead={lead}
+                                    getConfirmedOption={getConfirmedOption}
+                                    quotationData={quotationData}
+                                    handleVoucherPreview={handleVoucherPreview}
+                                    handleVoucherDownload={handleVoucherDownload}
+                                    handleVoucherSend={handleVoucherSend}
+                                    voucherActionLoading={voucherActionLoading}
+                                  />
+                                ) :
+                                  activeTab === 'docs' ? (
+                                    <DocsTab />
+                                  ) :
+                                    activeTab === 'invoice' ? (
+                                      <InvoiceTab
+                                        loadingHistory={loadingHistory}
+                                        queryDetailInvoices={queryDetailInvoices}
+                                        handleInvoicePreview={handleInvoicePreview}
+                                        handleInvoiceDownload={handleInvoiceDownload}
+                                        handleInvoiceSend={handleInvoiceSend}
+                                        invoiceActionLoading={invoiceActionLoading}
+                                      />
+                                    ) :
+                                      activeTab === 'billing' ? (
+                                        <BillingTab
+                                          lead={lead}
+                                          getConfirmedOption={getConfirmedOption}
+                                          quotationData={quotationData}
+                                          paymentSummary={paymentSummary}
+                                          payments={payments}
+                                          loadingPayments={loadingPayments}
+                                          setPaymentFormData={setPaymentFormData}
+                                          setShowPaymentModal={setShowPaymentModal}
+                                          formatDateForDisplay={formatDateForDisplay}
+                                        />
+                                      ) : activeTab === 'calls' ? (
+                                        <CallsTab
+                                          calls={leadCalls}
+                                          loading={loadingCalls}
+                                          onPlayRecording={handlePlayRecording}
+                                          onDeleteCall={handleDeleteCall}
+                                          recordingUrls={recordingUrls}
+                                          activeRecordingId={activeRecordingId}
+                                        />
+
+                                      )
+                                        :
+                                        activeTab === 'history' && (
+                                          <HistoryTab
+                                            loadingHistory={loadingHistory}
+                                            activityTimeline={activityTimeline}
+                                          />
+                                        )}
                   </div>
-                )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Voucher Preview Popup */}
+          <Dialog visible={showVoucherPopup} style={{ width: '80vw' }} onHide={() => setShowVoucherPopup(false)} showCloseIcon={false} header={() => (
+            <div className="flex justify-between items-center p-4 border-b border-gray-100 shrink-0 bg-gray-50/50">
+              <h2 className="text-xl font-bold text-gray-800">Voucher Preview</h2>
+              <button type="button" onClick={() => setShowVoucherPopup(false)} className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors">
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+          )}>
+            <div className="p-0 bg-gray-100">
+              <iframe title="Voucher preview" srcDoc={voucherPopupHtml} className="w-full min-h-[75vh] border-0" />
+            </div>
+          </Dialog>
+
+
+
+
+
+
+          {/* Invoice Preview Popup */}
+          <Dialog visible={showInvoicePreview} style={{ width: '80vw' }} onHide={() => setShowInvoicePreview(false)} showCloseIcon={false} header={() => (
+            <div className="flex justify-between items-center p-4 border-b border-gray-100 shrink-0 bg-gray-50/50">
+              <h2 className="text-xl font-bold text-gray-800">Invoice Preview</h2>
+              <button type="button" onClick={() => setShowInvoicePreview(false)} className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors">
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+          )}>
+            <div className="p-0 bg-gray-100">
+              <iframe title="Invoice preview" srcDoc={invoicePreviewHtml} className="w-full min-h-[75vh] border-0" />
+            </div>
+          </Dialog>
+
+
+
+
+
+
+          {/* Itinerary Setup Modal */}
+
+
+          <Dialog showCloseIcon={false} header={() => (
+            <div className="flex justify-between items-center p-6 border-b border-gray-200 shrink-0">
+              <h2 className="text-xl font-bold text-gray-800">Itinerary setup</h2>
+              <button
+                onClick={() => setShowItineraryModal(false)}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+          )}
+            style={{ minWidth: '60vw' }}
+            visible={showItineraryModal}
+          >
+            <form onSubmit={handleItinerarySave} className="flex flex-col overflow-hidden">
+              <div className="p-6 grid grid-cols-2 gap-6 overflow-y-auto flex-1">
+                {/* Itinerary setup section */}
+                <div className="col-span-2">
+                  <h3 className="text-lg font-semibold text-gray-800 mb-4">Itinerary setup</h3>
+                </div>
+
+                {/* Itinerary Name */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Itinerary Name
+                  </label>
+                  <input
+                    type="text"
+                    value={itineraryFormData.itinerary_name}
+                    onChange={(e) => setItineraryFormData({ ...itineraryFormData, itinerary_name: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Enter itinerary name"
+                  />
+                </div>
+
+                {/* Duration (days) */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Duration (Days)
+                  </label>
+                  <input
+                    type="number"
+                    value={itineraryFormData.duration}
+                    onChange={(e) => setItineraryFormData({ ...itineraryFormData, duration: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    min="1"
+                    placeholder="e.g. 3"
+                  />
+                </div>
+
+                {/* Destinations */}
+                <div className="col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Destinations
+                  </label>
+                  <input
+                    type="text"
+                    value={itineraryFormData.destinations}
+                    onChange={(e) => setItineraryFormData({ ...itineraryFormData, destinations: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Enter Destination"
+                  />
+                </div>
+
+                {/* Notes */}
+                <div className="col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Notes
+                  </label>
+                  <textarea
+                    value={itineraryFormData.notes}
+                    onChange={(e) => setItineraryFormData({ ...itineraryFormData, notes: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Notes"
+                    rows="3"
+                  />
+                </div>
+
+                {/* Status - Active / Inactive (Visible / Hidden) */}
+                <div className="col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Status
+                  </label>
+                  <div className="flex items-center gap-4">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="itinerary_status"
+                        checked={itineraryFormData.show_on_website === true}
+                        onChange={() => setItineraryFormData(prev => ({ ...prev, show_on_website: true }))}
+                        className="text-blue-600 focus:ring-blue-500"
+                      />
+                      <span className="text-sm font-medium text-gray-700">Active (Visible)</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="itinerary_status"
+                        checked={itineraryFormData.show_on_website === false}
+                        onChange={() => setItineraryFormData(prev => ({ ...prev, show_on_website: false }))}
+                        className="text-blue-600 focus:ring-blue-500"
+                      />
+                      <span className="text-sm font-medium text-gray-700">Inactive (Hidden)</span>
+                    </label>
+                  </div>
+                </div>
+
+                {/* Image */}
+                <div className="col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Image
+                  </label>
+                  <div className="space-y-3">
+                    <div className="flex gap-2">
+                      <label className="flex-1 cursor-pointer">
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={handleItineraryFileChange}
+                          className="hidden"
+                        />
+                        <div className="flex items-center justify-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors border border-gray-300">
+                          <Upload className="h-4 w-4" />
+                          <span className="text-sm font-medium">Upload Image</span>
+                        </div>
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => setShowItineraryLibraryModal(true)}
+                        className="flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded-lg transition-colors"
+                      >
+                        <Camera className="h-4 w-4" />
+                        <span className="text-sm font-medium">Choose from Library</span>
+                      </button>
+                    </div>
+                    {(itineraryImagePreview || itineraryFormData.image) && (
+                      <div className="mt-2">
+                        <div className="relative w-32 h-32 border border-gray-300 rounded-lg overflow-hidden bg-gray-50">
+                          <img
+                            src={itineraryImagePreview || (itineraryFormData.image instanceof File ? URL.createObjectURL(itineraryFormData.image) : itineraryFormData.image?.url)}
+                            alt="Preview"
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                      </div>
+                    )}
+                    {!itineraryImagePreview && !itineraryFormData.image && (
+                      <p className="text-xs text-gray-500">No image selected. Upload or choose from library.</p>
+                    )}
+                  </div>
+                </div>
               </div>
 
               {/* Modal Footer */}
-              <div className="flex justify-end p-6 border-t border-gray-200">
+              <div className="flex justify-end p-6 border-t border-gray-200 shrink-0">
                 <button
-                  onClick={() => {
-                    setShowInsertItineraryModal(false);
-                    setItinerarySearchTerm('');
-                  }}
-                  className="px-4 py-2 text-gray-700 hover:text-gray-900"
-                >
-                  Close
-                </button>
-              </div>
-            </div>
-          </div>
-        )
-      }
-
-      {/* Add Follow-up Modal */}
-      {
-        showFollowupModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 overflow-y-auto py-8">
-            <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl mx-4 my-auto">
-              {/* Modal Header */}
-              <div className="flex justify-between items-center p-6 border-b border-gray-200">
-                <h2 className="text-xl font-bold text-gray-800">{editingFollowupId ? 'Edit Followup / Task' : 'Add Followup / Task'}</h2>
-                <button
-                  onClick={() => {
-                    setShowFollowupModal(false);
-                    setFollowupFormData({
-                      type: 'Task',
-                      description: '',
-                      reminder_date: '',
-                      reminder_time: '',
-                      set_reminder: 'Yes'
-                    });
-                    setEditingFollowupId(null);
-                  }}
-                  className="text-gray-400 hover:text-gray-600 transition-colors"
-                >
-                  <X className="h-6 w-6" />
-                </button>
-              </div>
-
-              {/* Modal Body */}
-              <form onSubmit={handleAddFollowup}>
-                <div className="p-6 space-y-5">
-                  {/* Type */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Type
-                    </label>
-                    <div className="relative">
-                      <select
-                        value={followupFormData.type}
-                        onChange={(e) => setFollowupFormData({ ...followupFormData, type: e.target.value })}
-                        className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none bg-white text-gray-900 cursor-pointer"
-                      >
-                        <option value="Task">Task</option>
-                        <option value="Followup">Followup</option>
-                      </select>
-                      <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                        <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                        </svg>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Description */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Description
-                    </label>
-                    <textarea
-                      value={followupFormData.description}
-                      onChange={(e) => setFollowupFormData({ ...followupFormData, description: e.target.value })}
-                      className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
-                      placeholder="Enter description..."
-                      rows="4"
-                    />
-                  </div>
-
-                  {/* Reminder Date */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Reminder Date
-                    </label>
-                    <div className="relative">
-                      <input
-                        type="date"
-                        value={followupFormData.reminder_date ? (() => {
-                          // Convert DD-MM-YYYY to YYYY-MM-DD for date input
-                          const parts = followupFormData.reminder_date.split('-');
-                          if (parts.length === 3) {
-                            return `${parts[2]}-${parts[1]}-${parts[0]}`;
-                          }
-                          return followupFormData.reminder_date;
-                        })() : ''}
-                        onChange={(e) => {
-                          // Convert YYYY-MM-DD to DD-MM-YYYY for display
-                          if (e.target.value) {
-                            const parts = e.target.value.split('-');
-                            const formattedDate = `${parts[2]}-${parts[1]}-${parts[0]}`;
-                            setFollowupFormData({ ...followupFormData, reminder_date: formattedDate });
-                          } else {
-                            setFollowupFormData({ ...followupFormData, reminder_date: '' });
-                          }
-                        }}
-                        min={new Date().toISOString().split('T')[0]}
-                        className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 cursor-pointer"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Time */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Time
-                    </label>
-                    <div className="relative">
-                      <select
-                        value={followupFormData.reminder_time}
-                        onChange={(e) => setFollowupFormData({ ...followupFormData, reminder_time: e.target.value })}
-                        className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none bg-white text-gray-900 cursor-pointer"
-                      >
-                        {generateTimeSlots().map((time) => (
-                          <option key={time} value={time}>{time}</option>
-                        ))}
-                      </select>
-                      <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                        <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                        </svg>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Set Reminder */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Set Reminder
-                    </label>
-                    <div className="relative">
-                      <select
-                        value={followupFormData.set_reminder}
-                        onChange={(e) => setFollowupFormData({ ...followupFormData, set_reminder: e.target.value })}
-                        className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none bg-white text-gray-900 cursor-pointer"
-                      >
-                        <option value="Yes">Yes</option>
-                        <option value="No">No</option>
-                      </select>
-                      <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                        <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                        </svg>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Company/Client */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Company/Client
-                    </label>
-                    <input
-                      type="text"
-                      value={lead?.client_name ? `${lead.client_title || ''} ${lead.client_name}`.trim() : 'Travbizz Travel IT Solutions'}
-                      className="w-full px-3 py-2.5 border border-gray-300 rounded-lg bg-gray-50 text-gray-600 cursor-not-allowed"
-                      disabled
-                      readOnly
-                    />
-                  </div>
-                </div>
-
-                {/* Modal Footer */}
-                <div className="flex justify-end gap-3 p-6 border-t border-gray-200 bg-gray-50">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowFollowupModal(false);
-                      setFollowupFormData({
-                        type: 'Task',
-                        description: '',
-                        reminder_date: '',
-                        reminder_time: '',
-                        set_reminder: 'Yes'
-                      });
-                    }}
-                    className="px-5 py-2.5 text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors font-medium"
-                    disabled={addingFollowup}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="bg-blue-600 text-white px-6 py-2.5 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 font-semibold shadow-sm transition-colors"
-                    disabled={addingFollowup}
-                  >
-                    <Plus className="h-4 w-4" />
-                    {addingFollowup ? 'Saving...' : (editingFollowupId ? 'Update' : 'Save')}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )
-      }
-
-      {/* Quotation Modal */}
-      {
-        showQuotationModal && selectedProposal && quotationData && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl mx-4 max-h-[90vh] overflow-hidden flex flex-col">
-              {/* Modal Header */}
-              <div className="flex justify-between items-center p-6 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-white">
-                <h2 className="text-2xl font-bold text-gray-800">View Quotation</h2>
-                <div className="flex items-center gap-2 flex-wrap">
-                  {selectedOption && quotationData && (
-                    <>
-                      <button
-                        onClick={() => handleSendMail(selectedOption)}
-                        className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium"
-                        title="Send Mail (Current Option)"
-                      >
-                        <Mail className="h-4 w-4" />
-                        Send Mail
-                      </button>
-                      <button
-                        onClick={async () => {
-                          // Send all options via email
-                          const emailContent = await generateEmailContent();
-                          const subject = encodeURIComponent(`Complete Travel Quotation - ${quotationData.itinerary.itinerary_name || 'Itinerary'} - ${formatLeadId(lead.id)}`);
-
-                          navigator.clipboard.writeText(emailContent).then(() => {
-                            const mailtoLink = `mailto:${lead.email || ''}?subject=${subject}&body=${encodeURIComponent('Please find the complete travel quotation with all options attached.')}`;
-                            window.open(mailtoLink);
-                            showToastNotification('success', 'Copied', 'Complete quotation (all options) copied to clipboard! Paste it in your email client.');
-                          }).catch(() => {
-                            showToastNotification('warning', 'Clipboards Failed', 'Please use Print option to generate PDF with all options');
-                          });
-                        }}
-                        className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 text-sm font-medium"
-                        title="Send All Options via Email"
-                      >
-                        <Mail className="h-4 w-4" />
-                        Send All Options
-                      </button>
-                      <button
-                        onClick={() => triggerPdfDownloadWithOptions(selectedOption, quotationData)}
-                        className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 text-sm font-medium"
-                        title="Download PDF (all options)"
-                      >
-                        <Download className="h-4 w-4" />
-                        Download PDF
-                      </button>
-                      <button
-                        onClick={() => handlePrint(selectedOption)}
-                        className="flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 text-sm font-medium"
-                        title="Print"
-                      >
-                        <Printer className="h-4 w-4" />
-                        Print
-                      </button>
-                      <button
-                        onClick={() => handleSendWhatsApp(selectedOption)}
-                        className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium"
-                        title="Send WhatsApp (All Options)"
-                      >
-                        <MessageCircle className="h-4 w-4" />
-                        Send WhatsApp
-                      </button>
-                    </>
-                  )}
-                  <button
-                    onClick={() => {
-                      setShowQuotationModal(false);
-                      setSelectedProposal(null);
-                      setQuotationData(null);
-                      setSelectedOption(null);
-                    }}
-                    className="text-gray-400 hover:text-gray-600 transition-colors ml-2"
-                  >
-                    <X className="h-6 w-6" />
-                  </button>
-                </div>
-              </div>
-
-              {/* Modal Body */}
-              <div className="p-6 overflow-y-auto flex-1">
-                {loadingQuotation ? (
-                  <div className="flex items-center justify-center py-12">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-                  </div>
-                ) : (
-                  <>
-                    {/* Option Selector */}
-                    {quotationData.hotelOptions && quotationOptionNumbers.length > 0 && (
-                      <div className="mb-6">
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Select Option:
-                        </label>
-                        <div className="flex gap-2 flex-wrap">
-                          {quotationOptionNumbers.map((optionNum) => (
-                            <button
-                              key={optionNum}
-                              onClick={() => setSelectedOption(optionNum)}
-                              className={`px-4 py-2 rounded-lg font-medium transition-colors ${selectedOption === optionNum
-                                ? 'bg-blue-600 text-white'
-                                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                                }`}
-                            >
-                              Option {optionNum}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Quotation Content */}
-                    {selectedOption && quotationData.hotelOptions[selectedOption] && (
-                      <div className="quotation-content">
-                        {/* Company Header */}
-                        <div className="text-center mb-6">
-                          <h1 className="text-3xl font-bold text-blue-600 mb-2">TravelFusion CRM</h1>
-                          <div className="text-sm text-gray-600">
-                            <p>Delhi India</p>
-                            <p>Email: info@travelops.com</p>
-                            <p>Mobile: +91-9871023004</p>
-                          </div>
-                        </div>
-
-                        {/* Itinerary Image */}
-                        {quotationData.itinerary.image && (
-                          <div className="mb-6">
-                            <div className="w-full h-64 bg-gray-100 rounded-lg overflow-hidden border border-gray-200">
-                              <img
-                                src={quotationData.itinerary.image}
-                                alt={quotationData.itinerary.itinerary_name || quotationData.itinerary.title || 'Itinerary'}
-                                className="w-full h-full object-cover"
-                                onError={(e) => {
-                                  e.target.style.display = 'none';
-                                  const parent = e.target.parentElement;
-                                  if (parent && !parent.querySelector('.no-photo-text')) {
-                                    const span = document.createElement('span');
-                                    span.className = 'no-photo-text text-sm text-gray-400 font-medium absolute inset-0 flex items-center justify-center';
-                                    span.textContent = 'NO PHOTO';
-                                    parent.appendChild(span);
-                                  }
-                                }}
-                              />
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Quote Details */}
-                        <div className="bg-gray-50 p-4 rounded-lg mb-6">
-                          <h2 className="text-xl font-semibold mb-3">Quote Details</h2>
-                          <div className="grid grid-cols-2 gap-2 text-sm">
-                            <p><span className="font-medium">Ref. Query ID:</span> {formatLeadId(lead?.id)}</p>
-                            <p><span className="font-medium">Query ID:</span> {formatLeadId(lead?.id)}</p>
-                            <p><span className="font-medium">Adult(s):</span> {lead?.adult || 1}</p>
-                            <p><span className="font-medium">Child(s):</span> {lead?.child || 0}</p>
-                            <p><span className="font-medium">Nights:</span> {quotationData.itinerary.duration || 0} Nights & {(quotationData.itinerary.duration || 0) + 1} Days</p>
-                            <p><span className="font-medium">Destination Covered:</span> {quotationData.itinerary.destinations || 'N/A'}</p>
-                            <p><span className="font-medium">Start Date:</span> {quotationData.itinerary.start_date || 'N/A'}</p>
-                            <p><span className="font-medium">End Date:</span> {quotationData.itinerary.end_date || 'N/A'}</p>
-                            <p><span className="font-medium">Query Date:</span> {new Date(lead?.created_at).toLocaleDateString('en-GB')}</p>
-                          </div>
-                        </div>
-
-                        {/* Hotel Details for Selected Option */}
-                        <div className="mb-6">
-                          <h2 className="text-xl font-semibold mb-3">Hotel Details - Option {selectedOption}</h2>
-                          {quotationData.hotelOptions[selectedOption].map((option, idx) => (
-                            <div key={idx} className="border border-gray-200 rounded-lg p-4 mb-3">
-                              <div className="flex gap-4">
-                                {/* Hotel Image */}
-                                {option.image && (
-                                  <div className="flex-shrink-0">
-                                    <div className="w-32 h-32 bg-gray-100 rounded-lg overflow-hidden border border-gray-200">
-                                      <img
-                                        src={option.image}
-                                        alt={option.hotelName || 'Hotel'}
-                                        className="w-full h-full object-cover"
-                                        onError={(e) => {
-                                          e.target.style.display = 'none';
-                                          const parent = e.target.parentElement;
-                                          if (parent && !parent.querySelector('.no-photo-text')) {
-                                            const span = document.createElement('span');
-                                            span.className = 'no-photo-text text-xs text-gray-400 font-medium absolute inset-0 flex items-center justify-center';
-                                            span.textContent = 'NO PHOTO';
-                                            parent.appendChild(span);
-                                          }
-                                        }}
-                                      />
-                                    </div>
-                                  </div>
-                                )}
-
-                                {/* Hotel Details */}
-                                <div className="flex-1">
-                                  <h3 className="font-semibold text-lg mb-2">{option.hotelName || 'Hotel'}</h3>
-                                  <div className="grid grid-cols-2 gap-2 text-sm text-gray-700">
-                                    <p><span className="font-medium">Day:</span> {option.day || 'N/A'}</p>
-                                    <p><span className="font-medium">Room:</span> {option.roomName || 'N/A'}</p>
-                                    <p><span className="font-medium">Meal Plan:</span> {option.mealPlan || 'N/A'}</p>
-                                    <p><span className="font-medium">Category:</span> {option.category ? `${option.category} Star` : 'N/A'}</p>
-                                    <p><span className="font-medium">Check In:</span> {option.checkIn || 'N/A'} {option.checkInTime || ''}</p>
-                                    <p><span className="font-medium">Check Out:</span> {option.checkOut || 'N/A'} {option.checkOutTime || ''}</p>
-                                    {option.single && <p><span className="font-medium">Single:</span> {option.single}</p>}
-                                    {option.double && <p><span className="font-medium">Double:</span> {option.double}</p>}
-                                    {option.triple && <p><span className="font-medium">Triple:</span> {option.triple}</p>}
-                                    {option.quad && <p><span className="font-medium">Quad:</span> {option.quad}</p>}
-                                    {option.price && (
-                                      <p className="col-span-2">
-                                        <span className="font-medium">Price:</span> ₹{parseFloat(option.price).toLocaleString('en-IN')}
-                                      </p>
-                                    )}
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-
-                        {/* Total Price */}
-                        <div className="bg-red-600 text-white p-4 rounded-lg text-center mb-6">
-                          <p className="text-2xl font-bold">
-                            Total Package Price: ₹{
-                              quotationData.hotelOptions[selectedOption]
-                                .reduce((sum, opt) => sum + (parseFloat(opt.price) || 0), 0)
-                                .toLocaleString('en-IN')
-                            }
-                          </p>
-                        </div>
-
-                        {/* Terms and Conditions */}
-                        {quotationData.itinerary.terms_conditions && (
-                          <div className="mb-4">
-                            <h3 className="text-lg font-semibold mb-2">Terms and Conditions</h3>
-                            <div className="text-sm text-gray-700 whitespace-pre-wrap">
-                              {quotationData.itinerary.terms_conditions}
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Refund Policy */}
-                        {quotationData.itinerary.refund_policy && (
-                          <div className="mb-4">
-                            <h3 className="text-lg font-semibold mb-2">Refund Policy</h3>
-                            <div className="text-sm text-gray-700 whitespace-pre-wrap">
-                              {quotationData.itinerary.refund_policy}
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Package Description */}
-                        {quotationData.itinerary.package_description && (
-                          <div className="mb-4">
-                            <h3 className="text-lg font-semibold mb-2">Package Description</h3>
-                            <div className="text-sm text-gray-700 whitespace-pre-wrap">
-                              {quotationData.itinerary.package_description}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    {!selectedOption && (
-                      <div className="text-center py-12 text-gray-500">
-                        <p>No hotel options found for this itinerary.</p>
-                      </div>
-                    )}
-                  </>
-                )}
-              </div>
-            </div>
-          </div>
-        )
-      }
-
-      {/* Payment Modal */}
-      {
-        showPaymentModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 overflow-y-auto py-8">
-            <div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-4 my-auto">
-              {/* Modal Header */}
-              <div className="flex justify-between items-center p-6 border-b border-gray-200">
-                <h2 className="text-xl font-bold text-gray-800">Add Payment</h2>
-                <button
-                  onClick={() => {
-                    setShowPaymentModal(false);
-                    setPaymentFormData({ amount: '', paid_amount: '', due_date: '' });
-                  }}
-                  className="text-gray-400 hover:text-gray-600"
-                >
-                  <X className="h-5 w-5" />
-                </button>
-              </div>
-
-              {/* Modal Body */}
-              <form onSubmit={handleAddPayment} className="p-6 space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Total Amount <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    required
-                    value={paymentFormData.amount}
-                    onChange={(e) => setPaymentFormData({ ...paymentFormData, amount: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="Enter total amount"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Paid Amount
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={paymentFormData.paid_amount}
-                    onChange={(e) => setPaymentFormData({ ...paymentFormData, paid_amount: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="Enter paid amount (optional)"
-                  />
-                  <p className="mt-1 text-xs text-gray-500">Leave empty if no payment received yet</p>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Due Date
-                  </label>
-                  <input
-                    type="date"
-                    value={paymentFormData.due_date}
-                    onChange={(e) => setPaymentFormData({ ...paymentFormData, due_date: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  />
-                  <p className="mt-1 text-xs text-gray-500">Optional: Set due date for payment</p>
-                </div>
-
-                {/* Modal Footer */}
-                <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowPaymentModal(false);
-                      setPaymentFormData({ amount: '', paid_amount: '', due_date: '' });
-                    }}
-                    className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={addingPayment}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {addingPayment ? 'Adding...' : 'Add Payment'}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )
-      }
-
-      {/* Compose Email Modal */}
-      {
-        showComposeModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 overflow-y-auto py-8">
-            <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl mx-4 my-auto">
-              {/* Modal Header */}
-              <div className="flex justify-between items-center p-4 border-b border-gray-200">
-                <h2 className="text-lg font-semibold text-gray-800">{replyThreadId ? 'Reply to Mail' : 'Compose Mail'}</h2>
-                <button
-                  onClick={() => {
-                    setShowComposeModal(false);
-                    setReplyThreadId(null);
-                    setEmailFormData({ to_email: '', cc_email: '', subject: '', body: '' });
-                    setEmailAttachment(null);
-                  }}
-                  className="text-gray-400 hover:text-gray-600 transition-colors"
-                >
-                  <X className="h-6 w-6" />
-                </button>
-              </div>
-
-              {/* Modal Body */}
-              <form onSubmit={handleSendClientEmail} className="p-6 space-y-4">
-                {/* From Email - Company Email */}
-                <div className="text-sm text-gray-600">
-                  <span className="text-gray-500">From</span>{' '}
-                  <span className="text-gray-800 font-medium">{companySettings?.company_email || 'noreply@company.com'}</span>
-                </div>
-
-                {/* To - Customer Name & Email */}
-                <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
-                  <div className="font-semibold text-gray-800">{lead?.client_name || 'Customer'}</div>
-                  <div className="text-sm text-gray-600">{emailFormData.to_email || lead?.email}</div>
-                </div>
-
-                {/* CC Email */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-600 mb-1">CC</label>
-                  <input
-                    type="email"
-                    value={emailFormData.cc_email}
-                    onChange={(e) => setEmailFormData({ ...emailFormData, cc_email: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="Enter CC email (optional)"
-                  />
-                </div>
-
-                {/* Subject */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-600 mb-1">Subject</label>
-                  <input
-                    type="text"
-                    value={emailFormData.subject}
-                    onChange={(e) => setEmailFormData({ ...emailFormData, subject: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="Enter email subject"
-                    required
-                  />
-                </div>
-
-                {/* Mail Body with Toolbar */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-600 mb-1">Mail Body</label>
-                  <div className="border border-gray-300 rounded-lg overflow-hidden">
-                    {/* Simple Toolbar */}
-                    <div className="flex items-center gap-1 p-2 bg-gray-50 border-b border-gray-200 flex-wrap">
-                      <button type="button" className="p-1.5 hover:bg-gray-200 rounded text-gray-600" title="Undo">
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" /></svg>
-                      </button>
-                      <button type="button" className="p-1.5 hover:bg-gray-200 rounded text-gray-600" title="Redo">
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 10h-10a8 8 0 00-8 8v2M21 10l-6 6m6-6l-6-6" /></svg>
-                      </button>
-                      <span className="w-px h-5 bg-gray-300 mx-1"></span>
-                      <select className="text-sm border-0 bg-transparent text-gray-600 focus:ring-0 cursor-pointer">
-                        <option>Formats</option>
-                        <option>Paragraph</option>
-                        <option>Heading 1</option>
-                        <option>Heading 2</option>
-                      </select>
-                      <span className="w-px h-5 bg-gray-300 mx-1"></span>
-                      <button type="button" className="p-1.5 hover:bg-gray-200 rounded font-bold text-gray-700" title="Bold">B</button>
-                      <button type="button" className="p-1.5 hover:bg-gray-200 rounded italic text-gray-700" title="Italic">I</button>
-                      <span className="w-px h-5 bg-gray-300 mx-1"></span>
-                      <button type="button" className="p-1.5 hover:bg-gray-200 rounded text-gray-600" title="Align Left">
-                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M2 4.75A.75.75 0 012.75 4h14.5a.75.75 0 010 1.5H2.75A.75.75 0 012 4.75zm0 5A.75.75 0 012.75 9h9.5a.75.75 0 010 1.5h-9.5A.75.75 0 012 9.75zm0 5A.75.75 0 012.75 14h14.5a.75.75 0 010 1.5H2.75a.75.75 0 01-.75-.75z" clipRule="evenodd" /></svg>
-                      </button>
-                      <button type="button" className="p-1.5 hover:bg-gray-200 rounded text-gray-600" title="Align Center">
-                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M4 4.75A.75.75 0 014.75 4h10.5a.75.75 0 010 1.5H4.75A.75.75 0 014 4.75zm-2 5A.75.75 0 012.75 9h14.5a.75.75 0 010 1.5H2.75A.75.75 0 012 9.75zm2 5A.75.75 0 014.75 14h10.5a.75.75 0 010 1.5H4.75a.75.75 0 01-.75-.75z" clipRule="evenodd" /></svg>
-                      </button>
-                      <button type="button" className="p-1.5 hover:bg-gray-200 rounded text-gray-600" title="Align Right">
-                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M2 4.75A.75.75 0 012.75 4h14.5a.75.75 0 010 1.5H2.75A.75.75 0 012 4.75zm4 5A.75.75 0 016.75 9h10.5a.75.75 0 010 1.5H6.75A.75.75 0 016 9.75zm-4 5A.75.75 0 012.75 14h14.5a.75.75 0 010 1.5H2.75a.75.75 0 01-.75-.75z" clipRule="evenodd" /></svg>
-                      </button>
-                      <button type="button" className="p-1.5 hover:bg-gray-200 rounded text-gray-600" title="Justify">
-                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M2 4.75A.75.75 0 012.75 4h14.5a.75.75 0 010 1.5H2.75A.75.75 0 012 4.75zm0 5A.75.75 0 012.75 9h14.5a.75.75 0 010 1.5H2.75A.75.75 0 012 9.75zm0 5A.75.75 0 012.75 14h14.5a.75.75 0 010 1.5H2.75a.75.75 0 01-.75-.75z" clipRule="evenodd" /></svg>
-                      </button>
-                      <span className="w-px h-5 bg-gray-300 mx-1"></span>
-                      <button type="button" className="p-1.5 hover:bg-gray-200 rounded text-gray-600" title="Bullet List">
-                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M3 4a1 1 0 100 2 1 1 0 000-2zm4 0a1 1 0 000 2h10a1 1 0 100-2H7zm0 5a1 1 0 000 2h10a1 1 0 100-2H7zm0 5a1 1 0 000 2h10a1 1 0 100-2H7zM3 9a1 1 0 100 2 1 1 0 000-2zm0 5a1 1 0 100 2 1 1 0 000-2z" clipRule="evenodd" /></svg>
-                      </button>
-                      <button type="button" className="p-1.5 hover:bg-gray-200 rounded text-gray-600" title="Numbered List">
-                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 5a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 5a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" /></svg>
-                      </button>
-                    </div>
-                    {/* Text Area */}
-                    <textarea
-                      value={emailFormData.body}
-                      onChange={(e) => setEmailFormData({ ...emailFormData, body: e.target.value })}
-                      className="w-full px-3 py-3 border-0 focus:ring-0 min-h-[200px] resize-y"
-                      placeholder="Type your message here..."
-                      required
-                    />
-                  </div>
-                </div>
-
-                {/* Attachment */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-600 mb-1">Attachment</label>
-                  <div className="flex items-center gap-3">
-                    <label className="cursor-pointer">
-                      <span className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors inline-block">
-                        Choose File
-                      </span>
-                      <input
-                        type="file"
-                        className="hidden"
-                        onChange={(e) => setEmailAttachment(e.target.files[0] || null)}
-                      />
-                    </label>
-                    <span className="text-sm text-gray-500">
-                      {emailAttachment ? emailAttachment.name : 'No file chosen'}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Modal Footer */}
-                <div className="flex justify-end pt-4">
-                  <button
-                    type="submit"
-                    disabled={sendingClientEmail}
-                    className="px-6 py-2.5 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 font-medium"
-                  >
-                    {sendingClientEmail ? (
-                      <>
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                        Sending...
-                      </>
-                    ) : (
-                      'Send Mail'
-                    )}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )
-      }
-      {/* Pax Details Modal */}
-      {
-        showPaxModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-            <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
-              <div className="p-4 border-b flex justify-between items-center bg-gray-50">
-                <h3 className="text-lg font-bold text-gray-800">Manage Travellers</h3>
-                <button
-                  onClick={() => setShowPaxModal(false)}
-                  className="text-gray-500 hover:text-gray-700 p-1 hover:bg-gray-200 rounded-full transition"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-
-              <div className="p-4 overflow-y-auto flex-1">
-                <div className="mb-4 bg-blue-50 text-blue-800 p-3 rounded-lg text-sm flex gap-2">
-                  <Users className="w-5 h-5 shrink-0" />
-                  <div>
-                    <p className="font-semibold">Total Pax Count: {((lead?.adult || 0) + (lead?.child || 0) + (lead?.infant || 0))}</p>
-                    <p>Adult: {lead?.adult || 0}, Child: {lead?.child || 0}, Infant: {lead?.infant || 0}</p>
-                  </div>
-                </div>
-
-                <div className="space-y-3">
-                  {paxTempList.map((pax, index) => (
-                    <div key={index} className="flex flex-col gap-2 border p-3 rounded-lg bg-gray-50">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-bold text-gray-500">Traveller #{index + 1}</span>
-                      </div>
-
-                      <div className="flex flex-wrap sm:flex-nowrap gap-3 items-start">
-                        <div className="flex-1 min-w-[120px]">
-                          <label className="block text-xs font-medium text-gray-700 mb-1">Name</label>
-                          <input
-                            type="text"
-                            value={pax.name || ''}
-                            onChange={(e) => handlePaxChange(index, 'name', e.target.value)}
-                            className="w-full border rounded-md px-3 py-2 text-sm"
-                            placeholder="Full Name"
-                          />
-                        </div>
-                        <div className="w-24">
-                          <label className="block text-xs font-medium text-gray-700 mb-1">Age</label>
-                          <input
-                            type="number"
-                            value={pax.age || ''}
-                            onChange={(e) => handlePaxChange(index, 'age', e.target.value)}
-                            className="w-full border rounded-md px-3 py-2 text-sm"
-                            placeholder="Age"
-                          />
-                        </div>
-                        <div className="w-32">
-                          <label className="block text-xs font-medium text-gray-700 mb-1">Gender/Type</label>
-                          <select
-                            value={pax.gender || ''}
-                            onChange={(e) => handlePaxChange(index, 'gender', e.target.value)}
-                            className="w-full border rounded-md px-3 py-2 text-sm"
-                          >
-                            <option value="">Select</option>
-                            <option value="Male">Male</option>
-                            <option value="Female">Female</option>
-                            <option value="Child">Child</option>
-                            <option value="Infant">Infant</option>
-                          </select>
-                        </div>
-                      </div>
-
-                      <div className="flex flex-wrap sm:flex-nowrap gap-3 items-start">
-                        <div className="flex-1">
-                          <label className="block text-xs font-medium text-gray-700 mb-1">Phone</label>
-                          <input
-                            type="text"
-                            value={pax.phone || ''}
-                            onChange={(e) => handlePaxChange(index, 'phone', e.target.value)}
-                            className="w-full border rounded-md px-3 py-2 text-sm"
-                            placeholder="Phone Number"
-                          />
-                        </div>
-                        <div className="flex-1">
-                          <label className="block text-xs font-medium text-gray-700 mb-1">Email</label>
-                          <input
-                            type="email"
-                            value={pax.email || ''}
-                            onChange={(e) => handlePaxChange(index, 'email', e.target.value)}
-                            className="w-full border rounded-md px-3 py-2 text-sm"
-                            placeholder="Email Address"
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="mt-4 p-3 bg-yellow-50 text-yellow-800 text-sm rounded-lg">
-                  <p className="flex items-center gap-2">
-                    <Info className="w-4 h-4" />
-                    <span>The number of travellers is fixed based on Adults ({lead?.adult || 0}) + Children ({lead?.child || 0}) + Infants ({lead?.infant || 0}). To add more travellers, please update the lead's pax counts first.</span>
-                  </p>
-                </div>
-              </div>
-
-              <div className="p-4 border-t bg-gray-50 flex justify-end gap-3">
-                <button
-                  onClick={() => setShowPaxModal(false)}
-                  className="px-4 py-2 text-gray-600 hover:text-gray-800 font-medium"
+                  type="button"
+                  onClick={() => setShowItineraryModal(false)}
+                  className="px-4 py-2 text-gray-700 hover:text-gray-900 mr-3"
                 >
                   Cancel
                 </button>
                 <button
-                  onClick={handleSavePaxDetails}
-                  disabled={savingPax}
-                  className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium disabled:opacity-50 flex items-center gap-2"
+                  type="submit"
+                  disabled={savingItinerary}
+                  className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {savingPax ? 'Saving...' : 'Save Changes'}
+                  {savingItinerary ? 'Saving...' : 'Save'}
                 </button>
               </div>
-            </div>
-          </div>
-        )
-      }
+            </form>
+          </Dialog>
 
-      {/* Edit Lead Modal */}
-      {showEditLeadModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100] p-4 animate-fadeIn">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden animate-slideUp">
-            <div className="p-6 border-b flex justify-between items-center bg-gray-50">
-              <h3 className="text-xl font-bold text-gray-800">Edit Customer Information</h3>
-              <button onClick={() => setShowEditLeadModal(false)} className="text-gray-400 hover:text-gray-600 transition-colors">
-                <X className="w-6 h-6" />
+          {/* Choose from Library modal (for Itinerary setup) */}
+          <Dialog visible={showItineraryLibraryModal} style={{ width: '80vw' }} onHide={() => { setShowItineraryLibraryModal(false); setItineraryLibrarySearchTerm(''); }} showCloseIcon={false} header={() => (
+            <div className="flex justify-between items-center p-4 border-b border-gray-100 shrink-0 bg-gray-50/50">
+              <h2 className="text-xl font-bold text-gray-800">Choose Image</h2>
+              <button type="button" onClick={() => { setShowItineraryLibraryModal(false); setItineraryLibrarySearchTerm(''); setItineraryFreeStockPhotos([]); setItineraryLibraryPackages([]); }} className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors">
+                <X className="h-6 w-6" />
               </button>
             </div>
-
-            <div className="p-6">
-              <form onSubmit={handleSaveLead} className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="col-span-1 md:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Title & Full Name</label>
-                    <div className="flex gap-2">
-                      <select
-                        value={editLeadFormData.client_title}
-                        onChange={(e) => setEditLeadFormData({ ...editLeadFormData, client_title: e.target.value })}
-                        className="w-24 border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                      >
-                        <option value="">Title</option>
-                        <option value="Mr.">Mr.</option>
-                        <option value="Mrs.">Mrs.</option>
-                        <option value="Ms.">Ms.</option>
-                        <option value="Dr.">Dr.</option>
-                      </select>
-                      <input
-                        type="text"
-                        value={editLeadFormData.client_name}
-                        onChange={(e) => setEditLeadFormData({ ...editLeadFormData, client_name: e.target.value })}
-                        className="flex-1 border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                        placeholder="Customer Name"
-                        required
-                      />
-                    </div>
+          )}>
+            <div className="flex flex-col h-[75vh]">
+              <div className="flex border-b border-gray-200 shrink-0">
+                <button type="button" onClick={() => setItineraryLibraryTab('free')} className={`px-4 py-3 text-sm font-medium border-b-2 ${itineraryLibraryTab === 'free' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500'}`}>Free stock images</button>
+                <button type="button" onClick={() => setItineraryLibraryTab('your')} className={`px-4 py-3 text-sm font-medium border-b-2 ${itineraryLibraryTab === 'your' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500'}`}>Your itineraries</button>
+              </div>
+              <div className="p-4 border-b border-gray-200 shrink-0">
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-4 w-4" />
+                    <input type="text" value={itineraryLibrarySearchTerm} onChange={(e) => setItineraryLibrarySearchTerm(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && (itineraryLibraryTab === 'free' ? fetchItineraryFreeStockImages() : null)} placeholder={itineraryLibraryTab === 'free' ? 'Search e.g. Shimla, Kufri...' : 'Search your itineraries...'} className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" />
                   </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                    <input
-                      type="email"
-                      value={editLeadFormData.email}
-                      onChange={(e) => setEditLeadFormData({ ...editLeadFormData, email: e.target.value })}
-                      className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                      placeholder="Email Address"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
-                    <input
-                      type="text"
-                      value={editLeadFormData.phone}
-                      onChange={(e) => setEditLeadFormData({ ...editLeadFormData, phone: e.target.value })}
-                      className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                      placeholder="Phone Number"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Date of Birth</label>
-                    <input
-                      type="date"
-                      value={editLeadFormData.date_of_birth}
-                      onChange={(e) => setEditLeadFormData({ ...editLeadFormData, date_of_birth: e.target.value })}
-                      className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Marriage Anniversary</label>
-                    <input
-                      type="date"
-                      value={editLeadFormData.marriage_anniversary}
-                      onChange={(e) => setEditLeadFormData({ ...editLeadFormData, marriage_anniversary: e.target.value })}
-                      className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                    />
-                  </div>
+                  {itineraryLibraryTab === 'free' && (
+                    <button type="button" onClick={fetchItineraryFreeStockImages} disabled={(itineraryLibrarySearchTerm || '').trim().length < 2 || itineraryFreeStockLoading} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors">Search</button>
+                  )}
                 </div>
-
-                <div className="pt-4 flex justify-end gap-3 border-t">
-                  <button
-                    type="button"
-                    onClick={() => setShowEditLeadModal(false)}
-                    className="px-6 py-2 text-gray-600 hover:text-gray-800 font-medium transition-colors"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={savingLead}
-                    className="px-8 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold shadow-lg shadow-blue-200 disabled:opacity-50 transition-all active:scale-95"
-                  >
-                    {savingLead ? 'Saving...' : 'Update Information'}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Edit Query Modal */}
-      {showEditQueryModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100] p-4 animate-fadeIn">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden animate-slideUp">
-            <div className="p-6 border-b flex justify-between items-center bg-gray-50">
-              <h3 className="text-xl font-bold text-gray-800">Edit Query Information</h3>
-              <button onClick={() => setShowEditQueryModal(false)} className="text-gray-400 hover:text-gray-600 transition-colors">
-                <X className="w-6 h-6" />
-              </button>
-            </div>
-
-            <div className="p-6 max-h-[70vh] overflow-y-auto">
-              <form onSubmit={handleSaveQuery} className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Destination</label>
-                    <input
-                      type="text"
-                      value={editQueryFormData.destination}
-                      onChange={(e) => setEditQueryFormData({ ...editQueryFormData, destination: e.target.value })}
-                      className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                      placeholder="Enter destination"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Lead Source</label>
-                    <select
-                      value={editQueryFormData.source}
-                      onChange={(e) => setEditQueryFormData({ ...editQueryFormData, source: e.target.value })}
-                      className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                    >
-                      <option value="">Select Source</option>
-                      <option value="Google Sheet">Google Sheet</option>
-                      <option value="Website">Website</option>
-                      <option value="Facebook">Facebook</option>
-                      <option value="Instagram">Instagram</option>
-                      <option value="WhatsApp">WhatsApp</option>
-                      <option value="Direct Call">Direct Call</option>
-                      <option value="Reference">Reference</option>
-                      <option value="Other">Other</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">From Date</label>
-                    <input
-                      type="date"
-                      value={editQueryFormData.travel_start_date}
-                      onChange={(e) => setEditQueryFormData({ ...editQueryFormData, travel_start_date: e.target.value })}
-                      className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">To Date</label>
-                    <input
-                      type="date"
-                      value={editQueryFormData.travel_end_date}
-                      onChange={(e) => setEditQueryFormData({ ...editQueryFormData, travel_end_date: e.target.value })}
-                      className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Services</label>
-                    <input
-                      type="text"
-                      value={editQueryFormData.service}
-                      onChange={(e) => setEditQueryFormData({ ...editQueryFormData, service: e.target.value })}
-                      className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                      placeholder="e.g. Flight + Hotel"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Assign To</label>
-                    <select
-                      value={editQueryFormData.assigned_to}
-                      onChange={(e) => setEditQueryFormData({ ...editQueryFormData, assigned_to: e.target.value })}
-                      className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                    >
-                      <option value="">Unassigned</option>
-                      {users.map(u => (
-                        <option key={u.id} value={u.id}>{u.name}</option>
+              </div>
+              <div className="flex-1 overflow-y-auto p-4 bg-gray-50/30">
+                {itineraryLibraryTab === 'free' ? (
+                  itineraryFreeStockLoading ? (
+                    <div className="flex flex-col items-center justify-center h-48 gap-3"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" /><p className="text-sm text-gray-500 font-medium">Searching Pexels Photos...</p></div>
+                  ) : (itineraryLibrarySearchTerm || '').trim().length < 2 ? (
+                    <div className="text-center py-12 text-gray-500"><div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-4 text-blue-500"><Camera className="h-8 w-8" /></div><p className="font-medium">Type location (e.g. Maldives, Shimla) and click Search.</p></div>
+                  ) : (
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      {itineraryFreeStockPhotos.map((p) => (
+                        <button key={p.id} type="button" onClick={() => handleSelectItineraryFreeStockImage(p.url)} className="group relative aspect-square rounded-xl overflow-hidden border-2 border-transparent hover:border-blue-500 transition-all shadow-sm">
+                          <img src={p.thumb || p.url} alt={p.alt} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+                          <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-bold">SELECT IMAGE</div>
+                        </button>
                       ))}
-                    </select>
-                  </div>
-
-                  <div className="md:col-span-2 grid grid-cols-3 gap-3">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Adult</label>
-                      <input
-                        type="number"
-                        min="1"
-                        value={editQueryFormData.adult}
-                        onChange={(e) => setEditQueryFormData({ ...editQueryFormData, adult: parseInt(e.target.value) || 1 })}
-                        className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                      />
                     </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Child</label>
-                      <input
-                        type="number"
-                        min="0"
-                        value={editQueryFormData.child}
-                        onChange={(e) => setEditQueryFormData({ ...editQueryFormData, child: parseInt(e.target.value) || 0 })}
-                        className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Infant</label>
-                      <input
-                        type="number"
-                        min="0"
-                        value={editQueryFormData.infant}
-                        onChange={(e) => setEditQueryFormData({ ...editQueryFormData, infant: parseInt(e.target.value) || 0 })}
-                        className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                      />
-                    </div>
+                  )
+                ) : (
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    {itineraryLibraryImages.map((p) => (
+                      <button key={p.id} type="button" onClick={() => handleSelectItineraryLibraryImage(p)} className="group relative aspect-square rounded-xl overflow-hidden border-2 border-transparent hover:border-blue-500 transition-all shadow-sm">
+                        <img src={p.image} alt={p.itinerary_name || p.title || 'Select'} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+                        <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-bold p-2 text-center">{p.title || p.itinerary_name || 'SELECT'}</div>
+                      </button>
+                    ))}
                   </div>
-
-                  <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Remark / Description</label>
-                    <textarea
-                      rows={3}
-                      value={editQueryFormData.remark}
-                      onChange={(e) => setEditQueryFormData({ ...editQueryFormData, remark: e.target.value })}
-                      className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none resize-none"
-                      placeholder="Enter any additional details or requirements"
-                    />
-                  </div>
-                </div>
-
-                <div className="flex justify-end gap-3 pt-4 border-t mt-4">
-                  <button
-                    type="button"
-                    onClick={() => setShowEditQueryModal(false)}
-                    className="px-6 py-2.5 text-gray-700 hover:bg-gray-100 rounded-xl transition-colors font-semibold"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={savingQuery}
-                    className="px-8 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors font-bold shadow-lg shadow-blue-200 disabled:opacity-50"
-                  >
-                    {savingQuery ? 'Saving...' : 'Save Changes'}
-                  </button>
-                </div>
-              </form>
+                )}
+              </div>
             </div>
-          </div>
-        </div>
-      )}
-      {/* WhatsApp Connection Warning Modal */}
-      {showWaConnectModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100] transition-all duration-300">
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md mx-4 overflow-hidden transform transition-all scale-100 border border-gray-100">
-            {/* Top Accent Gradient overlay */}
-            <div className="h-2 bg-gradient-to-r from-orange-500 via-red-500 to-pink-500"></div>
-            
-            <div className="p-8">
-              <div className="flex justify-center mb-6">
-                <div className="bg-orange-100 p-5 rounded-full ring-8 ring-orange-50 animate-bounce">
-                  <Smartphone className="h-12 w-12 text-orange-600" />
-                </div>
-              </div>
+          </Dialog>
 
-              <div className="text-center mb-8">
-                <h3 className="text-2xl font-black text-gray-900 mb-Subtle tracking-tight uppercase">
-                   WhatsApp Disconnected
-                </h3>
-                <p className="text-gray-500 font-medium leading-relaxed mt-4">
-                  Please connect your WhatsApp from the <span className="text-blue-600 font-bold underline cursor-pointer" onClick={() => navigate('/whatsapp-web')}>WhatsApp Menu</span> to send messages.
-                </p>
-              </div>
 
-              <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-2xl p-6 border border-gray-200 shadow-inner mb-8">
-                <div className="flex items-start gap-4">
-                  <div className="bg-blue-600 p-2 rounded-lg mt-1 shadow-lg shadow-blue-200">
-                    <Info className="h-5 w-5 text-white" />
-                  </div>
-                  <div>
-                    <h4 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-1">Authorization Notice</h4>
-                    <p className="text-sm text-gray-700 font-semibold leading-relaxed">
-                      You MUST login using your registered number:<br/>
-                      <span className="text-blue-600 text-lg font-black underline tracking-wide bg-blue-50 px-2 py-0.5 rounded">
-                        {user?.phone || 'Your Registered Number'}
-                      </span>
-                    </p>
-                  </div>
-                </div>
-              </div>
+          {/* Insert Itinerary Modal */}
 
-              <button
-                onClick={() => setShowWaConnectModal(false)}
-                className="w-full bg-gray-900 hover:bg-black text-white font-black py-4 rounded-2xl transition-all duration-200 shadow-xl hover:shadow-2xl active:scale-95 flex items-center justify-center gap-2 uppercase tracking-widest text-sm"
-              >
-                Okay, I Understand
+
+          <Dialog style={{ width: '50vw' }} header={() => (
+            <div className="flex justify-between items-center p-6 border-b border-gray-200 shrink-0">
+              <h2 className="text-xl font-bold text-gray-800">Select Itinerary</h2>
+              <button onClick={() => { setShowInsertItineraryModal(false); setItinerarySearchTerm(''); }} className="text-gray-400 hover:text-gray-600">
+                <X className="h-6 w-6" />
               </button>
-              
-              <p className="text-center mt-4 text-[10px] text-gray-400 font-bold uppercase tracking-tighter">
-                Security Enforced Mode
-              </p>
             </div>
-          </div>
-        </div>
-      )}
-      {/* PDF Price Option Modal */}
-      {showPdfPriceOptionModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[110] transition-all duration-300">
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-sm mx-4 overflow-hidden transform transition-all scale-100 border border-gray-100">
-            <div className="h-2 bg-gradient-to-r from-purple-500 via-blue-500 to-indigo-500"></div>
-            <div className="p-8">
-              <div className="flex justify-center mb-6">
-                <div className="bg-purple-100 p-5 rounded-full ring-8 ring-purple-50">
-                  <Download className="h-10 w-10 text-purple-600" />
+          )} visible={showInsertItineraryModal}
+
+            showCloseIcon={false}
+            onHide={() => setShowInsertItineraryModal(false)}>
+            <div className="p-6">
+              {leadTripDays != null && (
+                <div className="mb-3 px-3 py-2 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-800">
+                  Showing itineraries for <strong>{leadTripDays} day{leadTripDays !== 1 ? 's' : ''}</strong>
                 </div>
-              </div>
-              <div className="text-center mb-8">
-                <h3 className="text-xl font-black text-gray-900 mb-2 tracking-tight">
-                  Download PDF
-                </h3>
-                <p className="text-gray-500 font-medium">
-                  Do you want to include the price in the PDF?
-                </p>
+              )}
+              <div className="mb-4">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-5 w-5" />
+                  <input type="text" placeholder="Search..." value={itinerarySearchTerm} onChange={(e) => setItinerarySearchTerm(e.target.value)} className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg" />
+                </div>
               </div>
               <div className="space-y-3">
-                <button
-                  onClick={() => {
-                    setShowPdfPriceOptionModal(false);
-                    handleDownloadSingleOptionPdf(pdfDownloadParams.optionNum, pdfDownloadParams.quotationDataOverride, pdfDownloadParams.itineraryIdForPricing, true);
-                  }}
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 rounded-2xl transition-all shadow-lg hover:shadow-blue-200 flex items-center justify-center gap-2"
-                >
-                  <Info className="h-4 w-4" />
-                  With Price
-                </button>
-                <button
-                  onClick={() => {
-                    setShowPdfPriceOptionModal(false);
-                    handleDownloadSingleOptionPdf(pdfDownloadParams.optionNum, pdfDownloadParams.quotationDataOverride, pdfDownloadParams.itineraryIdForPricing, false);
-                  }}
-                  className="w-full bg-white hover:bg-gray-50 text-gray-800 border-2 border-gray-200 font-bold py-3.5 rounded-2xl transition-all flex items-center justify-center gap-2"
-                >
-                  <X className="h-4 w-4" />
-                  Without Price
-                </button>
+                {loadingItineraries ? (
+                  <LogoLoader text="Loading..." />
+                ) : filteredItineraries.length === 0 ? (
+                  <div className="text-center py-8 text-gray-500">No itineraries found.</div>
+                ) : filteredItineraries.map((it) => (
+                  <div key={it.id} onClick={() => handleSelectItinerary(it)} className="border border-gray-200 rounded-lg p-4 hover:bg-blue-50 cursor-pointer flex justify-between items-center">
+                    <div>
+                      <h3 className="font-bold">{it.title || it.itinerary_name}</h3>
+                      <p className="text-sm text-gray-500">{it.duration} Days - {it.destination}</p>
+                    </div>
+                    <button className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm">Insert</button>
+                  </div>
+                ))}
               </div>
             </div>
-          </div>
-        </div>
-      )}
+
+          </Dialog>
+
+
+
+          {/* Add Follow-up Modal */}
+          <Dialog visible={showFollowupModal} style={{ width: 'min(95vw, 600px)' }} onHide={() => {
+            setShowFollowupModal(false);
+            setFollowupFormData({ type: 'Task', description: '', reminder_date: '', reminder_time: '', set_reminder: 'Yes' });
+            setEditingFollowupId(null);
+          }} showCloseIcon={false} header={() => (
+            <div className="flex justify-between items-center p-6 border-b border-gray-100 bg-gray-50/50">
+              <h2 className="text-xl font-bold text-gray-800">{editingFollowupId ? 'Edit Followup / Task' : 'Add Followup / Task'}</h2>
+              <button onClick={() => { setShowFollowupModal(false); setEditingFollowupId(null); }} className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"><X className="h-6 w-6" /></button>
+            </div>
+          )}>
+            <form onSubmit={handleAddFollowup} className="p-6 space-y-5">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Type</label>
+                <select value={followupFormData.type} onChange={(e) => setFollowupFormData({ ...followupFormData, type: e.target.value })} className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white">
+                  <option value="Task">Task</option>
+                  <option value="Followup">Followup</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
+                <textarea value={followupFormData.description} onChange={(e) => setFollowupFormData({ ...followupFormData, description: e.target.value })} className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none resize-none" placeholder="Enter description..." rows="4" required />
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Reminder Date</label>
+                  <input type="date" value={followupFormData.reminder_date ? (() => {
+                    const parts = followupFormData.reminder_date.split('-');
+                    return parts.length === 3 ? `${parts[2]}-${parts[1]}-${parts[0]}` : followupFormData.reminder_date;
+                  })() : ''} onChange={(e) => {
+                    if (e.target.value) {
+                      const parts = e.target.value.split('-');
+                      setFollowupFormData({ ...followupFormData, reminder_date: `${parts[2]}-${parts[1]}-${parts[0]}` });
+                    } else { setFollowupFormData({ ...followupFormData, reminder_date: '' }); }
+                  }} min={new Date().toISOString().split('T')[0]} className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Time</label>
+                  <select value={followupFormData.reminder_time} onChange={(e) => setFollowupFormData({ ...followupFormData, reminder_time: e.target.value })} className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white">
+                    {generateTimeSlots().map((time) => (<option key={time} value={time}>{time}</option>))}
+                  </select>
+                </div>
+              </div>
+              <div className="flex justify-end gap-3 p-6 border-t border-gray-100 mt-6 bg-gray-50/50 -mx-6 -mb-6 rounded-b-xl">
+                <button type="button" onClick={() => setShowFollowupModal(false)} className="px-5 py-2.5 text-gray-600 font-medium hover:text-gray-900">Cancel</button>
+                <button type="submit" disabled={addingFollowup} className="bg-blue-600 text-white px-8 py-2.5 rounded-lg font-bold shadow-md hover:bg-blue-700 disabled:opacity-50 transition-all">{addingFollowup ? 'Saving...' : (editingFollowupId ? 'Update' : 'Save')}</button>
+              </div>
+            </form>
+          </Dialog>
+
+          {/* Quotation Modal */}
+          <Dialog visible={showQuotationModal && !!selectedProposal && !!quotationData} style={{ width: 'min(98vw, 1100px)' }} onHide={() => {
+            setShowQuotationModal(false);
+            setSelectedProposal(null);
+            setQuotationData(null);
+            setSelectedOption(null);
+          }} showCloseIcon={false} header={() => (
+            <div className="flex justify-between items-center p-6 border-b border-gray-100 bg-gray-50/50">
+              <h2 className="text-2xl font-black text-gray-800 tracking-tight">View Quotation</h2>
+              <div className="flex items-center gap-2">
+                {selectedOption && quotationData && (
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <button onClick={() => handleSendMail(selectedOption)} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 text-sm font-bold shadow-lg shadow-blue-100 transition-all active:scale-95"><Mail className="h-4 w-4" /> Email</button>
+                    <button onClick={() => triggerPdfDownloadWithOptions(selectedOption, quotationData)} className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-xl hover:bg-purple-700 text-sm font-bold shadow-lg shadow-purple-100 transition-all active:scale-95"><Download className="h-4 w-4" /> PDF</button>
+                    <button onClick={() => handleSendWhatsApp(selectedOption)} className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-xl hover:bg-green-700 text-sm font-bold shadow-lg shadow-green-100 transition-all active:scale-95"><MessageCircle className="h-4 w-4" /> WhatsApp</button>
+                  </div>
+                )}
+                <button onClick={() => setShowQuotationModal(false)} className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors ml-4"><X className="h-6 w-6" /></button>
+              </div>
+            </div>
+          )}>
+            <div className="p-6 overflow-y-auto max-h-[80vh] text-slate-900">
+              {loadingQuotation ? (
+                <div className="flex items-center justify-center py-20"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div></div>
+              ) : quotationData && (
+                <>
+                  {/* Option Selector */}
+                  {quotationData.hotelOptions && (
+                    <div className="mb-8 p-6 bg-blue-50/50 rounded-3xl border border-blue-100 flex flex-col md:flex-row md:items-center gap-6">
+                      <div><p className="text-[10px] font-black text-blue-600 uppercase tracking-widest mb-1">Package Versions</p><p className="text-lg font-black text-gray-800">Select an Option</p></div>
+                      <div className="flex gap-3 flex-wrap">
+                        {Object.keys(quotationData.hotelOptions).map((optionNum) => (
+                          <button key={optionNum} onClick={() => setSelectedOption(optionNum)} className={`px-6 py-3 rounded-2xl font-black transition-all ${selectedOption === optionNum ? 'bg-blue-600 text-white shadow-xl shadow-blue-100 scale-105' : 'bg-white text-gray-400 hover:bg-gray-100 border border-gray-100'}`}>Option {optionNum}</button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {selectedOption && quotationData.hotelOptions[selectedOption] && (
+                    <div className="space-y-8">
+                      {/* Header Info */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="p-6 bg-white border border-gray-100 shadow-sm rounded-3xl">
+                          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-4">Query Details</p>
+                          <div className="space-y-2 text-sm font-medium">
+                            <div className="flex justify-between border-b border-gray-50 pb-2"><span>Ref ID:</span><span className="font-black text-gray-800">#{formatLeadId(lead?.id)}</span></div>
+                            <div className="flex justify-between border-b border-gray-50 pb-2"><span>Adults/Children:</span><span className="font-black text-gray-800">{lead?.adult}A / {lead?.child}C</span></div>
+                            <div className="flex justify-between border-b border-gray-50 pb-2"><span>Destinations:</span><span className="font-black text-gray-800">{quotationData.itinerary?.destinations}</span></div>
+                            <div className="flex justify-between"><span>Duration:</span><span className="font-black text-gray-800">{quotationData.itinerary?.duration} N / {(parseInt(quotationData.itinerary?.duration) || 0) + 1} D</span></div>
+                          </div>
+                        </div>
+                        <div className="p-6 bg-gray-900 text-white rounded-3xl shadow-xl shadow-gray-200 flex flex-col justify-center text-center">
+                          <p className="text-[10px] font-black text-white/40 uppercase tracking-widest mb-2">Package Investment</p>
+                          <p className="text-4xl font-black">₹{quotationData.hotelOptions[selectedOption].reduce((sum, opt) => sum + (parseFloat(opt.price) || 0), 0).toLocaleString('en-IN')}</p>
+                          <p className="text-xs text-white/60 mt-2 font-medium">Inclusive of all hotels & primary services</p>
+                        </div>
+                      </div>
+
+                      {/* Hotel Timeline/Grid */}
+                      <div className="space-y-4">
+                        <h3 className="text-lg font-black text-gray-800 flex items-center gap-2"><Briefcase className="w-5 h-5 text-blue-600" /> Accommodation Summary</h3>
+                        {quotationData.hotelOptions[selectedOption].map((hotel, idx) => (
+                          <div key={idx} className="p-5 bg-white border-2 border-gray-50 rounded-3xl flex flex-col md:flex-row gap-6 hover:border-blue-100 transition-colors group">
+                            {hotel.image && <div className="w-full md:w-48 h-32 rounded-2xl overflow-hidden shadow-inner"><img src={hotel.image} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" alt="Hotel" /></div>}
+                            <div className="flex-1">
+                              <div className="flex justify-between items-start mb-2">
+                                <h4 className="text-xl font-black text-gray-800">{hotel.hotelName}</h4>
+                                <span className="px-3 py-1 bg-blue-50 text-blue-600 text-[10px] font-black rounded-lg uppercase tracking-widest">Day {hotel.day}</span>
+                              </div>
+                              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs font-bold text-gray-500">
+                                <div><p className="text-[8px] uppercase tracking-widest text-gray-400 mb-1">Room Category</p><p className="text-gray-700">{hotel.roomName}</p></div>
+                                <div><p className="text-[8px] uppercase tracking-widest text-gray-400 mb-1">Meal Plan</p><p className="text-gray-700">{hotel.mealPlan}</p></div>
+                                <div><p className="text-[8px] uppercase tracking-widest text-gray-400 mb-1">Category</p><p className="text-gray-700">{hotel.category} Star</p></div>
+                                <div><p className="text-[8px] uppercase tracking-widest text-gray-400 mb-1">Costing</p><p className="text-blue-600">₹{parseFloat(hotel.price).toLocaleString('en-IN')}</p></div>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* T&C etc */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 opacity-60">
+                        {quotationData.itinerary?.terms_conditions && (
+                          <div className="p-6 bg-gray-50 rounded-3xl border border-gray-100">
+                            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">Terms & Conditions</p>
+                            <div className="text-xs leading-relaxed whitespace-pre-wrap">{quotationData.itinerary.terms_conditions}</div>
+                          </div>
+                        )}
+                        {quotationData.itinerary?.refund_policy && (
+                          <div className="p-6 bg-gray-50 rounded-3xl border border-gray-100">
+                            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">Refund Policy</p>
+                            <div className="text-xs leading-relaxed whitespace-pre-wrap">{quotationData.itinerary.refund_policy}</div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          </Dialog>
+
+
+
+          {/* Payment Modal */}
+          <Dialog visible={showPaymentModal} style={{ width: '450px' }} onHide={() => setShowPaymentModal(false)} showCloseIcon={false} header={() => (
+            <div className="flex justify-between items-center p-4 border-b border-gray-100 bg-gray-50/50">
+              <h2 className="text-xl font-bold text-gray-800">Add Payment</h2>
+              <button type="button" onClick={() => setShowPaymentModal(false)} className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"><X className="h-6 w-6" /></button>
+            </div>
+          )}>
+            <form onSubmit={handleAddPayment} className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Total Amount</label>
+                <input type="number" step="0.01" required value={paymentFormData.amount} onChange={(e) => setPaymentFormData({ ...paymentFormData, amount: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500" placeholder="Enter amount" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Due Date</label>
+                <input type="date" value={paymentFormData.due_date} onChange={(e) => setPaymentFormData({ ...paymentFormData, due_date: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none" />
+              </div>
+              <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
+                <button type="button" onClick={() => setShowPaymentModal(false)} className="px-4 py-2 text-gray-600">Cancel</button>
+                <button type="submit" disabled={addingPayment} className="bg-blue-600 text-white px-6 py-2 rounded-lg font-bold shadow-md">{addingPayment ? 'Adding...' : 'Add Payment'}</button>
+              </div>
+            </form>
+          </Dialog>
+
+          {/* Compose Email Modal */}
+          <Dialog visible={showComposeModal} style={{ width: 'min(90vw, 700px)' }} onHide={() => { setShowComposeModal(false); setReplyThreadId(null); }} showCloseIcon={false} header={() => (
+            <div className="flex justify-between items-center p-4 border-b border-gray-200 bg-gray-50/50">
+              <h2 className="text-lg font-semibold text-gray-800">{replyThreadId ? 'Reply to Mail' : 'Compose Mail'}</h2>
+              <button onClick={() => setShowComposeModal(false)} className="text-gray-400 hover:text-gray-600 p-2 rounded-full hover:bg-gray-100 transition-colors"><X className="h-6 w-6" /></button>
+            </div>
+          )}>
+            <form onSubmit={handleSendClientEmail} className="p-6 space-y-4">
+              <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
+                <div className="font-bold text-gray-800">{lead?.client_name || 'Customer'}</div>
+                <div className="text-sm text-gray-600">{emailFormData.to_email || lead?.email}</div>
+              </div>
+              <div>
+                <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-1.5">Subject</label>
+                <input type="text" value={emailFormData.subject} onChange={(e) => setEmailFormData({ ...emailFormData, subject: e.target.value })} className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-4 focus:ring-blue-50/50 outline-none transition-all" required />
+              </div>
+              <div>
+                <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-1.5">Message Body</label>
+                <textarea value={emailFormData.body} onChange={(e) => setEmailFormData({ ...emailFormData, body: e.target.value })} className="w-full px-4 py-3 border border-gray-200 rounded-xl min-h-[250px] outline-none focus:ring-4 focus:ring-blue-50/50 transition-all font-medium text-gray-700" required />
+              </div>
+              <div className="pt-4 flex justify-between items-center">
+                <input type="file" onChange={(e) => setEmailAttachment(e.target.files[0] || null)} />
+                <button type="submit" disabled={sendingClientEmail} className="px-8 py-3 bg-blue-600 text-white rounded-2xl hover:bg-blue-700 font-black shadow-xl shadow-blue-100 transition-all active:scale-95 disabled:opacity-50">
+                  {sendingClientEmail ? 'Sending...' : 'Send Now'}
+                </button>
+              </div>
+            </form>
+          </Dialog>
+
+          {/* Pax Details Modal */}
+          <Dialog visible={showPaxModal} style={{ width: 'min(95vw, 650px)' }} onHide={() => setShowPaxModal(false)} showCloseIcon={false} header={() => (
+            <div className="flex justify-between items-center p-4 border-b border-gray-100 bg-gray-50/50">
+              <h3 className="text-lg font-black text-gray-800 uppercase tracking-tight">Travellers</h3>
+              <button onClick={() => setShowPaxModal(false)} className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"><X className="h-6 w-6" /></button>
+            </div>
+          )}>
+            <div className="p-6 overflow-y-auto max-h-[70vh]">
+              <div className="bg-indigo-600 text-white p-6 rounded-3xl mb-6 shadow-xl shadow-indigo-100 flex items-center gap-4 relative overflow-hidden">
+                <Users className="w-10 h-10 text-white/50" />
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-60 mb-1">Guests List</p>
+                  <p className="text-2xl font-black">{((lead?.adult || 0) + (lead?.child || 0) + (lead?.infant || 0))} Guests Total</p>
+                </div>
+              </div>
+              <div className="space-y-4">
+                {paxTempList.map((pax, index) => (
+                  <div key={index} className="p-4 rounded-3xl bg-white border border-gray-100 shadow-sm space-y-4 group">
+                    <span className="px-3 py-1 bg-gray-100 text-[10px] font-black text-gray-500 rounded-lg uppercase tracking-widest">Guest #{index + 1}</span>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <input type="text" value={pax.name || ''} onChange={(e) => handlePaxChange(index, 'name', e.target.value)} className="w-full border-gray-200 border rounded-xl px-4 py-3 text-sm outline-none" placeholder="Enter Full Name" />
+                      <div className="flex gap-2">
+                        <input type="number" value={pax.age || ''} onChange={(e) => handlePaxChange(index, 'age', e.target.value)} className="w-20 border-gray-200 border rounded-xl px-4 py-3 text-sm outline-none" placeholder="Age" />
+                        <select value={pax.gender || ''} onChange={(e) => handlePaxChange(index, 'gender', e.target.value)} className="flex-1 border-gray-200 border rounded-xl px-4 py-3 text-sm outline-none">
+                          <option value="">Status</option><option value="Male">Male</option><option value="Female">Female</option><option value="Child">Child</option><option value="Infant">Infant</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="p-6 border-t bg-gray-50/50 flex justify-end gap-3 rounded-b-3xl">
+              <button onClick={() => setShowPaxModal(false)} className="px-6 py-2 text-gray-500 font-bold hover:text-gray-800 transition-colors">Dismiss</button>
+              <button onClick={handleSavePaxDetails} disabled={savingPax} className="px-10 py-3 bg-gray-900 text-white rounded-2xl font-black text-sm shadow-xl shadow-gray-200 hover:scale-[1.05] active:scale-95 transition-all disabled:opacity-50">{savingPax ? 'SAVING...' : 'SAVE CHANGES'}</button>
+            </div>
+          </Dialog>
+
+          {/* Edit Lead Modal */}
+          <Dialog visible={showEditLeadModal} style={{ width: 'min(90vw, 550px)' }} onHide={() => setShowEditLeadModal(false)} showCloseIcon={false} header={() => (
+            <div className="flex justify-between items-center p-4 border-b border-gray-100 bg-gray-50/50">
+              <h3 className="text-xl font-black text-gray-800 uppercase tracking-tight">Lead Profile</h3>
+              <button onClick={() => setShowEditLeadModal(false)} className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"><X className="h-6 w-6" /></button>
+            </div>
+          )}>
+            <form onSubmit={handleSaveLead} className="p-8 space-y-6">
+              <div className="space-y-4">
+                <div className="flex gap-3">
+                  <select value={editLeadFormData.client_title} onChange={(e) => setEditLeadFormData({ ...editLeadFormData, client_title: e.target.value })} className="w-24 border border-gray-200 rounded-2xl px-4 py-3 bg-gray-50 font-bold text-gray-700 outline-none">
+                    <option value="">Title</option><option value="Mr.">Mr.</option><option value="Mrs.">Mrs.</option><option value="Ms.">Ms.</option>
+                  </select>
+                  <input type="text" value={editLeadFormData.client_name} onChange={(e) => setEditLeadFormData({ ...editLeadFormData, client_name: e.target.value })} className="flex-1 border border-gray-200 rounded-2xl px-4 py-3 outline-none focus:ring-4 focus:ring-blue-50/50 font-bold" placeholder="Full Name" required />
+                </div>
+                <input type="email" value={editLeadFormData.email} onChange={(e) => setEditLeadFormData({ ...editLeadFormData, email: e.target.value })} className="w-full border border-gray-200 rounded-2xl px-4 py-3 outline-none focus:ring-4 focus:ring-blue-50/50" placeholder="Primary Email" />
+                <input type="text" value={editLeadFormData.phone} onChange={(e) => setEditLeadFormData({ ...editLeadFormData, phone: e.target.value })} className="w-full border border-gray-200 rounded-2xl px-4 py-3 outline-none focus:ring-4 focus:ring-blue-50/50" placeholder="Primary Phone" />
+              </div>
+              <div className="flex justify-end pt-4 gap-3">
+                <button type="button" onClick={() => setShowEditLeadModal(false)} className="px-6 text-gray-400 font-bold">Cancel</button>
+                <button type="submit" disabled={savingLead} className="px-10 py-3 bg-blue-600 text-white rounded-2xl font-black shadow-xl shadow-blue-100 hover:scale-[1.05] active:scale-95 transition-all">{savingLead ? 'WRITING...' : 'COMMIT CHANGES'}</button>
+              </div>
+            </form>
+          </Dialog>
+
+          {/* Edit Query Modal */}
+          <Dialog visible={showEditQueryModal} style={{ width: 'min(95vw, 750px)' }} onHide={() => setShowEditQueryModal(false)} showCloseIcon={false} header={() => (
+            <div className="flex justify-between items-center p-4 border-b border-gray-100 bg-gray-50/50">
+              <h3 className="text-xl font-black text-gray-800 uppercase tracking-tight">Configuration</h3>
+              <button onClick={() => setShowEditQueryModal(false)} className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"><X className="h-6 w-6" /></button>
+            </div>
+          )}>
+            <form onSubmit={handleSaveQuery} className="p-8 space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Destinations</label>
+                  <input type="text" value={editQueryFormData.destination} onChange={(e) => setEditQueryFormData({ ...editQueryFormData, destination: e.target.value })} className="w-full border border-gray-200 rounded-2xl px-4 py-3 outline-none focus:ring-4 focus:ring-blue-50/50 font-bold" />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Service</label>
+                  <input type="text" value={editQueryFormData.service} onChange={(e) => setEditQueryFormData({ ...editQueryFormData, service: e.target.value })} className="w-full border border-gray-200 rounded-2xl px-4 py-3 outline-none focus:ring-4 focus:ring-blue-50/50 font-bold" />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Travel Window (Start)</label>
+                  <input type="date" value={editQueryFormData.travel_start_date} onChange={(e) => setEditQueryFormData({ ...editQueryFormData, travel_start_date: e.target.value })} className="w-full border border-gray-200 rounded-2xl px-4 py-3 outline-none" />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Travel Window (End)</label>
+                  <input type="date" value={editQueryFormData.travel_end_date} onChange={(e) => setEditQueryFormData({ ...editQueryFormData, travel_end_date: e.target.value })} className="w-full border border-gray-200 rounded-2xl px-4 py-3 outline-none" />
+                </div>
+              </div>
+              <div className="flex justify-end gap-3 items-center">
+                <button type="button" onClick={() => setShowEditQueryModal(false)} className="px-6 text-gray-400 font-bold">Dismiss</button>
+                <button type="submit" disabled={savingQuery} className="px-12 py-4 bg-indigo-600 text-white rounded-3xl font-black shadow-2xl shadow-indigo-100 hover:scale-[1.05] active:scale-95 transition-all">{savingQuery ? 'SYNCING...' : 'UPDATE TRIP'}</button>
+              </div>
+            </form>
+          </Dialog>
+
+          {/* WhatsApp Connection Warning Modal */}
+          <Dialog visible={showWaConnectModal} style={{ width: '400px' }} onHide={() => setShowWaConnectModal(false)} showCloseIcon={false} header={() => (
+            <div className="flex justify-between items-center p-4 border-b border-orange-100 bg-orange-50/50">
+              <h3 className="text-sm font-black text-orange-600 uppercase tracking-widest">WhatsApp Notice</h3>
+              <button onClick={() => setShowWaConnectModal(false)} className="p-2 text-orange-300 hover:text-orange-500"><X className="h-6 w-6" /></button>
+            </div>
+          )}>
+            <div className="p-8 text-center space-y-6">
+              <div className="mx-auto w-20 h-20 bg-orange-100 rounded-full flex items-center justify-center ring-8 ring-orange-50"><Smartphone className="h-10 w-10 text-orange-600" /></div>
+              <div><h2 className="text-xl font-black text-gray-800 mb-2">WhatsApp Offline</h2><p className="text-gray-500 font-medium">Please connect your device from the WhatsApp menu to enable messaging services.</p></div>
+              <button onClick={() => setShowWaConnectModal(false)} className="w-full py-4 bg-gray-900 text-white rounded-2xl font-black shadow-xl hover:bg-black transition-all">Okay</button>
+            </div>
+          </Dialog>
+
+          {/* PDF Price Option Modal */}
+          <Dialog visible={showPdfPriceOptionModal} style={{ width: '400px' }} onHide={() => setShowPdfPriceOptionModal(false)} showCloseIcon={false} header={() => (
+            <div className="flex justify-between items-center p-4 border-b border-purple-100 bg-purple-50/50">
+              <h3 className="text-sm font-black text-purple-600 uppercase tracking-widest">Document Export</h3>
+              <button onClick={() => setShowPdfPriceOptionModal(false)} className="p-2 text-purple-300 hover:text-purple-500"><X className="h-6 w-6" /></button>
+            </div>
+          )}>
+            <div className="p-8 text-center space-y-6">
+              <div className="mx-auto w-20 h-20 bg-purple-100 rounded-full flex items-center justify-center ring-8 ring-purple-50"><Download className="h-10 w-10 text-purple-600" /></div>
+              <div><h2 className="text-xl font-black text-gray-800">Include Pricing?</h2><p className="text-gray-500 font-medium">Choose whether to reveal the final package cost in this PDF export.</p></div>
+              <div className="grid grid-cols-2 gap-3">
+                <button onClick={() => { setShowPdfPriceOptionModal(false); handleDownloadSingleOptionPdf(pdfDownloadParams.optionNum, pdfDownloadParams.quotationDataOverride, pdfDownloadParams.itineraryIdForPricing, true); }} className="py-4 bg-blue-600 text-white rounded-2xl font-black shadow-lg shadow-blue-100 transition-all active:scale-95">WITH PRICE</button>
+                <button onClick={() => { setShowPdfPriceOptionModal(false); handleDownloadSingleOptionPdf(pdfDownloadParams.optionNum, pdfDownloadParams.quotationDataOverride, pdfDownloadParams.itineraryIdForPricing, false); }} className="py-4 bg-white border-2 border-gray-100 text-gray-500 rounded-2xl font-black transition-all active:scale-95">WITHOUT</button>
+              </div>
+            </div>
+          </Dialog>
+
         </>
       )}
     </div>
@@ -6857,4 +5844,5 @@ const LeadDetails = () => {
 };
 
 export default LeadDetails;
+
 

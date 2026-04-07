@@ -125,13 +125,14 @@ const Dashboard = () => {
         })));
 
         setLeadStats({
-          total: leads.length,
+          total: statsRes.data.data?.total_queries || leads.length,
           new: leads.filter(l => l.status === 'new').length,
-          pending: leads.filter(l => l.status === 'proposal').length,
-          closed: leads.filter(l => l.status === 'cancelled').length,
-          hot: leads.filter(l => l.priority === 'hot').length,
+          pending: statsRes.data.data?.proposal_sent || leads.filter(l => l.status === 'proposal').length,
+          closed: statsRes.data.data?.cancelled || leads.filter(l => l.status === 'cancelled').length,
+          hot: statsRes.data.data?.hot_leads || leads.filter(l => l.priority === 'hot').length,
+          confirmed: statsRes.data.data?.confirmed || 0,
           unassigned: leads.filter(l => !l.assigned_to && !l.assigned_to_id).length,
-          today: todayL.length,
+          today: statsRes.data.data?.today_queries || todayL.length,
         });
       }
     } catch (err) {
@@ -159,6 +160,7 @@ const Dashboard = () => {
       { label: 'Proposal Sent', value: toPct(stats?.proposal_sent || 0) },
       { label: 'Hot Lead', value: toPct(stats?.hot_leads || 0) },
       { label: 'Cancel', value: toPct(stats?.cancelled || 0) },
+      { label: 'Confirmed', value: toPct(stats?.confirmed || 0) },
       { label: 'Proposal Conv.', value: toPct(stats?.proposal_confirmed || 0) },
     ];
   }, [stats]);
@@ -218,7 +220,7 @@ const Dashboard = () => {
               <TodayQueriesCard queries={todayQueries} loading={loading} onViewAll={() => navigate("/leads?today=1")} onQueryClick={(q) => q?.id && navigate(`/leads/${q.id}`)} />
             </div>
             <div className="col-span-12 lg:col-span-6 h-[320px]">
-              <DashboardStatsCards stats={{ ...leadStats, totalQueries: leadStats.total, newQueries: leadStats.new, pendingQueries: leadStats.pending, closedQueries: leadStats.closed, hotQueries: leadStats.hot, todayQueries: leadStats.today }} />
+              <DashboardStatsCards stats={{ ...leadStats, totalQueries: leadStats.total, newQueries: leadStats.new, pendingQueries: leadStats.pending, confirmedQueries: leadStats.confirmed, hotQueries: leadStats.hot, todayQueries: leadStats.today }} />
             </div>
             <div className="col-span-12 lg:col-span-3 h-[320px]">
               <TaskFollowups followups={followups} onViewMore={() => navigate("/followups")} onFollowupClick={(i) => i?.leadId && navigate(`/leads/${i.leadId}?tab=followups`)} />
@@ -226,7 +228,7 @@ const Dashboard = () => {
           </div>
             <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-stretch mb-4">
               <div className="col-span-12 md:col-span-6 lg:col-span-3 h-[340px]">
-                <UpcomingTours data={upcomingTours} />
+                <UpcomingTours data={stats} />
               </div>
               <div className="col-span-12 lg:col-span-6 h-[340px]">
                 <RevenueChart revenueData={revenueData} />

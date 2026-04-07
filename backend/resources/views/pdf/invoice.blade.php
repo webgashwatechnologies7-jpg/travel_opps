@@ -47,7 +47,7 @@
         }
 
         .container {
-            padding: 40px 50px;
+            padding: 40px 50px 150px 50px;
         }
 
         /* HEADER */
@@ -225,15 +225,16 @@
 
         .footer-icon {
             display: inline-block;
-            width: 16px;
-            height: 16px;
+            width: 18px;
+            height: 18px;
             background-color: #2D3192;
             color: #fff;
             border-radius: 50%;
             text-align: center;
-            line-height: 16px;
+            line-height: 18px;
             margin-right: 8px;
-            font-size: 10px;
+            font-size: 9px;
+            font-weight: bold;
         }
     </style>
 </head>

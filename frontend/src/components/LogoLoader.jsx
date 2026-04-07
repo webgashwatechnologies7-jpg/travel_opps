@@ -6,12 +6,24 @@ const LogoLoader = ({ text = "Loading...", compact = false }) => {
     <div className={`flex flex-col items-center justify-center w-full ${compact ? 'py-4' : 'h-full min-h-[50vh]'} bg-transparent`}>
       <style>
         {`
-          @keyframes logo-flip-spin {
-            0% { transform: perspective(400px) rotateY(0deg); }
-            100% { transform: perspective(400px) rotateY(360deg); }
+          @keyframes logo-pulse {
+            0% { transform: scale(1); opacity: 0.9; }
+            50% { transform: scale(1.05); opacity: 1; }
+            100% { transform: scale(1); opacity: 0.9; }
           }
-          .animate-logo-flip {
-            animation: logo-flip-spin 2.5s infinite ease-in-out;
+          @keyframes shimmer {
+            0% { background-position: -200% 0; }
+            100% { background-position: 200% 0; }
+          }
+          .animate-logo-prime {
+            animation: logo-pulse 3s infinite ease-in-out;
+          }
+          .shimmer-text {
+            background: linear-gradient(90deg, #1e40af 25%, #3b82f6 50%, #1e40af 75%);
+            background-size: 200% 100%;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            animation: shimmer 2s infinite linear;
           }
           .bouncing-dots span {
             display: inline-block;
@@ -33,7 +45,7 @@ const LogoLoader = ({ text = "Loading...", compact = false }) => {
 
       {/* Natively transparent logo wrapper */}
       <div className={`${compact ? 'mb-2' : 'mb-6'}`}>
-        <div className={`${compact ? 'h-12 w-12' : 'h-28 w-28'} relative animate-logo-flip flex items-center justify-center`}>
+        <div className={`${compact ? 'h-12 w-12' : 'h-28 w-28'} relative animate-logo-prime flex items-center justify-center`}>
           <img
             src={tfLogo}
             alt="Loading"
@@ -48,7 +60,7 @@ const LogoLoader = ({ text = "Loading...", compact = false }) => {
       </div>
 
       <div className="flex items-center">
-        <p className={`text-blue-700/70 font-bold uppercase tracking-[0.2em] ${compact ? 'text-[8px]' : 'text-[10px]'}`}>
+        <p className={`shimmer-text font-bold uppercase tracking-[0.2em] ${compact ? 'text-[8px]' : 'text-[10px]'}`}>
           {text}
         </p>
         <div className="bouncing-dots flex items-center ml-1">

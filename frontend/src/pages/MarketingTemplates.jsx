@@ -16,6 +16,7 @@ import {
   X
 } from 'lucide-react';
 import LogoLoader from '../components/LogoLoader';
+import { Dialog } from 'primereact/dialog';
 
 const MarketingTemplates = () => {
   const [templates, setTemplates] = useState([]);
@@ -255,11 +256,8 @@ const MarketingTemplates = () => {
       </div>
 
       {/* Corporate Modal Overlay */}
-      {showCreateModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[200] p-4 animate-in fade-in duration-300">
-          <div className="bg-white rounded-[28px] w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col shadow-2xl animate-in zoom-in-95 duration-300">
-            {/* Modal Header */}
-            <div className="px-8 py-6 border-b border-gray-100 flex justify-between items-center bg-[#FBFCFE]">
+      <Dialog className='bg-white rounded-[28px] w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col shadow-2xl animate-in zoom-in-95 duration-300' showCloseIcon={false} visible={showCreateModal} header={()=>(
+  <div className="px-8 py-6 border-b border-gray-100 flex justify-between items-center bg-[#FBFCFE]">
               <div>
                 <h2 className="text-[18px] font-semibold text-gray-800 tracking-tight">
                   {isEditing ? 'Modify Communications' : 'New Template Asset'}
@@ -270,8 +268,27 @@ const MarketingTemplates = () => {
                 <X size={20} />
               </button>
             </div>
-
-            <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
+      )}
+      footer={()=>(
+        <div className="px-8 py-6 border-t border-gray-100 bg-white flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setShowCreateModal(false)}
+                className="px-6 py-2.5 rounded-xl text-[11px] font-bold text-slate-400 uppercase tracking-widest hover:bg-slate-50 transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                form="templateForm"
+                className="px-8 py-2.5 bg-[#2C55D4] text-white rounded-xl text-[11px] font-bold uppercase tracking-widest shadow-lg shadow-blue-100 hover:bg-blue-700 transition-all active:scale-95"
+              >
+                {isEditing ? 'Save Changes' : 'Initialize Asset'}
+              </button>
+            </div>
+      )}
+      >
+ <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
               <form className="space-y-8" id="templateForm" onSubmit={async (e) => {
                   e.preventDefault();
                   // ... logic remains same as before but inside premium UI
@@ -397,27 +414,8 @@ const MarketingTemplates = () => {
                 )}
               </form>
             </div>
-
-            {/* Modal Footer */}
-            <div className="px-8 py-6 border-t border-gray-100 bg-white flex justify-end gap-3">
-              <button
-                type="button"
-                onClick={() => setShowCreateModal(false)}
-                className="px-6 py-2.5 rounded-xl text-[11px] font-bold text-slate-400 uppercase tracking-widest hover:bg-slate-50 transition-all"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                form="templateForm"
-                className="px-8 py-2.5 bg-[#2C55D4] text-white rounded-xl text-[11px] font-bold uppercase tracking-widest shadow-lg shadow-blue-100 hover:bg-blue-700 transition-all active:scale-95"
-              >
-                {isEditing ? 'Save Changes' : 'Initialize Asset'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      </Dialog>
+     
     </div>
   );
 };

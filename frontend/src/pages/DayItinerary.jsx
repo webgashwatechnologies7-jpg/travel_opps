@@ -7,7 +7,7 @@ import { Search, Plus, Edit, X, Image as ImageIcon, Trash2, Camera, Upload, Eye,
 import { dayItinerariesAPI, packagesAPI } from '../services/api';
 import { searchPexelsPhotos } from '../services/pexels';
 import LogoLoader from '../components/LogoLoader';
-
+import { Dialog } from 'primereact/dialog';
 // Helper for checking permissions
 const hasPermission = (user, permission) => {
   if (!user) return false;
@@ -344,14 +344,13 @@ const DayItinerary = () => {
       )}
 
       {/* ADD/EDIT MODAL */}
-      {isModalOpen && createPortal(
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[9999] p-4 font-poppins">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl overflow-hidden">
-            <div className="flex justify-between items-center p-6 border-b bg-gray-50">
+      <Dialog header={()=>(
+         <div className="flex justify-between items-center p-6 border-b bg-gray-50">
               <h2 className="text-xl font-bold">{editingItineraryId ? 'Edit Day Itinerary' : 'Add Day Itinerary'}</h2>
               <button onClick={handleCloseModal}><X size={24} /></button>
             </div>
-            <form onSubmit={handleSave} className="p-6 space-y-4 max-h-[75vh] overflow-y-auto">
+      )} visible={isModalOpen} showCloseIcon={false}>
+ <form onSubmit={handleSave} className="p-6 space-y-4 max-h-[75vh] overflow-y-auto">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
                   <label className="text-sm font-medium text-gray-700">Destination</label>
@@ -391,15 +390,20 @@ const DayItinerary = () => {
                 <button type="submit" disabled={saving} className="px-8 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700">{saving ? 'Saving...' : 'Save'}</button>
               </div>
             </form>
-          </div>
-        </div>, document.body
-      )}
+      </Dialog>
+     
 
       {/* --- IMAGE LIBRARY MODAL --- */}
-      {showImageModal && createPortal(
-         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[9999] p-4 font-poppins">
-            <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
-               <div className="flex justify-between items-center p-4 border-b bg-gray-50"><h2 className="text-lg font-bold">Image Library</h2><button onClick={() => setShowImageModal(false)}><X size={24}/></button></div>
+      <Dialog header={()=>(
+         <div className="flex justify-between items-center p-4 border-b bg-gray-50">
+                <h2 className="text-lg font-bold">Image Library</h2><button onClick={() => setShowImageModal(false)}><X size={24}/></button></div>
+      )} 
+      showCloseIcon={false}
+      visible={showImageModal}
+      
+      >
+  <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+              
                <div className="flex border-b text-sm font-medium">
                   <button onClick={() => setLibraryTab('free')} className={`px-6 py-3 ${libraryTab === 'free' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500'}`}>Stock Images</button>
                   <button onClick={() => setLibraryTab('your')} className={`px-6 py-3 ${libraryTab === 'your' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-500'}`}>Your Collection</button>
@@ -407,14 +411,14 @@ const DayItinerary = () => {
                <div className="p-4 border-b"><div className="flex gap-2"><input type="text" value={librarySearchTerm} onChange={e => setLibrarySearchTerm(e.target.value)} className="flex-1 border p-2 rounded-lg outline-none text-sm" placeholder="Search (e.g. Manali)"/><button onClick={() => libraryTab === 'free' ? fetchFreeStockImages() : null} className="px-6 bg-blue-600 text-white rounded-lg text-sm">Search</button></div></div>
                <div className="flex-1 overflow-y-auto p-6 grid grid-cols-3 gap-4">
                   {(libraryTab === 'free' ? freeStockPhotos : libraryPackages).map((img, i) => (
-                     <div key={i} onClick={() => libraryTab === 'free' ? handleSelectFreeStockImage(img.url) : handleImageSelect(img.image)} className="aspect-video relative rounded-lg overflow-hidden border-2 hover:border-blue-500 cursor-pointer group">
-                        <img src={img.thumb || img.url || img.image} className="w-full h-full object-cover"/><div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-xs font-bold">SELECT</div>
+                     <div key={i} style={{backgroundImage:`url(${img.thumb || img.url || img.image})`,backgroundSize:'cover'}} onClick={() => libraryTab === 'free' ? handleSelectFreeStockImage(img.url) : handleImageSelect(img.image)} className="aspect-video relative rounded-lg overflow-hidden border-2 hover:border-blue-500 cursor-pointer group">
+                   <div className="absolute left-0 right-0 top-0 bottom-0 w-full h-full inset-0 bg-black/20 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-xs font-bold">SELECT</div>
                      </div>
                   ))}
                </div>
             </div>
-         </div>, document.body
-      )}
+      </Dialog>
+     
     </div>
   );
 };

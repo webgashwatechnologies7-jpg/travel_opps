@@ -20,7 +20,7 @@ const cardConfigs = [
   { name: "TOTAL QUERIES", dataKey: "totalQueries", color: "#3B82F6", bgColor: "bg-blue-50/60", borderColor: "border-blue-100", icon: FileText, link: "/leads" },
   { name: "NEW QUERY", dataKey: "newQueries", color: "#10B981", bgColor: "bg-emerald-50/60", borderColor: "border-emerald-100", icon: Plus, link: "/leads?status=new" },
   { name: "PENDING QUERI...", dataKey: "pendingQueries", color: "#F59E0B", bgColor: "bg-amber-50/60", borderColor: "border-amber-100", icon: Clock, link: "/leads?status=proposal" },
-  { name: "CLOSED QUERIES", dataKey: "closedQueries", color: "#64748B", bgColor: "bg-slate-50/60", borderColor: "border-slate-100", icon: CheckCircle2, link: "/leads?status=cancelled" },
+  { name: "CONFIRMED", dataKey: "confirmedQueries", color: "#10B981", bgColor: "bg-emerald-50/60", borderColor: "border-emerald-100", icon: CheckCircle2, link: "/leads?status=confirmed" },
   { name: "TODAY QUERIES", dataKey: "todayQueries", color: "#007BFF", bgColor: "bg-blue-50/60", borderColor: "border-blue-100", icon: Calendar, link: "/leads?today=1" },
   { name: "WEEKLY QUERIES", dataKey: "weeklyQueries", color: "#8B5CF6", bgColor: "bg-purple-50/60", borderColor: "border-purple-100", icon: Users, link: "/leads?period=weekly" },
   { name: "MONTHLY QUE...", dataKey: "monthlyQueries", color: "#06B6D4", bgColor: "bg-cyan-50/60", borderColor: "border-cyan-100", icon: Target, link: "/leads?period=monthly" },

@@ -6,7 +6,7 @@ import { Search, Plus, Edit, X, Trash2, MapPin, Image as ImageIcon, Camera, Uplo
 import { destinationsAPI, packagesAPI } from '../services/api';
 import { searchPexelsPhotos } from '../services/pexels';
 import LogoLoader from '../components/LogoLoader';
-
+import { Dialog } from 'primereact/dialog';
 // Helper for checking permissions
 const hasPermission = (user, permission) => {
   if (!user) return false;
@@ -265,14 +265,22 @@ const Destinations = () => {
       </div>
 
       {/* ADD/EDIT MODAL */}
-      {isModalOpen && createPortal(
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[9999] p-4 font-poppins font-medium">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-lg overflow-hidden animate-in-scale">
-            <div className="flex justify-between items-center p-6 border-b bg-gray-50 font-bold uppercase tracking-widest text-gray-800 text-xs">
-              <h2>{editingId ? 'Modify Geographic Identity' : 'Fresh Destination Entry'}</h2>
-              <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-black"><X size={24} /></button>
+      <Dialog visible={isModalOpen} showCloseIcon={false} header={()=>(
+         <div className="flex justify-between items-center p-6 border-b bg-gray-50/50 font-bold uppercase tracking-widest text-gray-800 text-xs">
+              <h2 className="flex items-center gap-2">
+                <div className="w-2 h-2 bg-blue-600 rounded-full animate-pulse"></div>
+                {editingId ? 'Modify Geographic Identity' : 'Fresh Destination Entry'}
+              </h2>
+              <button 
+                onClick={() => setIsModalOpen(false)} 
+                className="text-gray-400 hover:text-red-500 transition-colors p-2 hover:bg-red-50 rounded-full"
+              >
+                <X size={20} />
+              </button>
             </div>
-            <form onSubmit={handleSave} className="p-6 space-y-5">
+      )}>
+
+  <form onSubmit={handleSave} className="p-8 space-y-6">
               <div>
                 <label className="block text-sm font-bold text-gray-700 mb-2 uppercase tracking-widest text-[10px]">Location Title *</label>
                 <input type="text" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} className="w-full border p-3 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm font-medium bg-gray-50" placeholder="e.g. Switzerland, Dubai" required />
@@ -310,15 +318,26 @@ const Destinations = () => {
                 <button type="submit" disabled={saving} className="px-12 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-all shadow-xl text-[10px] active:scale-95">{saving ? 'Processing...' : 'Seal Identity'}</button>
               </div>
             </form>
-          </div>
-        </div>, document.body
-      )}
+      </Dialog>
+      
 
       {/* --- UNIVERSAL IMAGE LIBRARY --- */}
-      {showImageModal && createPortal(
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[9999] p-4 font-poppins font-medium">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col animate-in-scale">
-            <div className="flex justify-between items-center p-4 border-b bg-gray-50 px-8"><h2 className="text-lg font-bold uppercase tracking-widest text-xs">Universal Identity Bank</h2><button onClick={() => setShowImageModal(false)} className="text-gray-400 hover:text-black"><X size={24} /></button></div>
+      <Dialog visible={showImageModal} showCloseIcon={false} header={()=>(
+   <div className="flex justify-between items-center p-6 border-b bg-gray-50/50 px-10">
+              <h2 className="text-lg font-black uppercase tracking-[0.2em] text-xs text-gray-800">Internal Identity Bank (Pexels Integrated)</h2>
+              <button 
+                onClick={() => setShowImageModal(false)} 
+                className="text-gray-400 hover:text-red-500 p-2 hover:bg-white rounded-full transition-all shadow-sm"
+              >
+                <X size={20} />
+              </button>
+            </div>
+      )}>
+ <div 
+            className="bg-white w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col animate-in-scale" 
+            style={{ borderRadius: '32px', boxShadow: '0 30px 70px rgba(0,0,0,0.5)' }}
+          >
+         
             <div className="flex border-b text-[10px] font-black uppercase tracking-[0.3em]">
               <button onClick={() => setLibraryTab('free')} className={`px-12 py-6 transition-all ${libraryTab === 'free' ? 'border-b-4 border-blue-600 text-blue-600 bg-white' : 'text-gray-400 hover:text-gray-600'}`}>Global Stock Search</button>
               <button onClick={() => setLibraryTab('your')} className={`px-12 py-6 transition-all ${libraryTab === 'your' ? 'border-b-4 border-blue-600 text-blue-600 bg-white' : 'text-gray-400 hover:text-gray-600'}`}>Localized Archive</button>
@@ -334,14 +353,14 @@ const Destinations = () => {
             </div>
             <div className="flex-1 overflow-y-auto p-8 grid grid-cols-4 gap-6 bg-gray-50">
               {(libraryTab === 'free' ? freeStockPhotos : libraryPackages).map((img, i) => (
-                <div key={i} onClick={() => libraryTab === 'free' ? handleSelectFreeStockImage(img.url) : handleImageSelectFromLibrary(img.image)} className="aspect-square relative rounded-2xl overflow-hidden border-2 bg-white hover:border-blue-600 cursor-pointer group shadow-lg transition-all duration-300">
-                  <img src={img.thumb || img.url || img.image} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" /><div className="absolute inset-0 bg-blue-600/60 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-[10px] font-black tracking-[0.2em] uppercase">Inject Identity</div>
+                <div key={i}  style={{backgroundImage:`url(${img.thumb || img.url || img.image})`,backgroundSize:'cover'}} onClick={() => libraryTab === 'free' ? handleSelectFreeStockImage(img.url) : handleImageSelectFromLibrary(img.image)} className="aspect-square relative rounded-2xl overflow-hidden border-2 bg-white hover:border-blue-600 cursor-pointer group shadow-lg transition-all duration-300">
+                 <div className="absolute left-0 right-0 top-0 bottom-0 w-full h-full inset-0 bg-blue-600/60 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-[10px] font-black tracking-[0.2em] uppercase">Inject Identity</div>
                 </div>
               ))}
             </div>
           </div>
-        </div>, document.body
-      )}
+      </Dialog>
+   
     </div>
   );
 };

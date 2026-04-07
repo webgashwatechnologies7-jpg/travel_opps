@@ -6,6 +6,8 @@ import { Search, Plus, Edit, X, Trash2, Eye, MapPin, Truck, Calendar, DollarSign
 import { transfersAPI, packagesAPI } from '../services/api';
 import { searchPexelsPhotos } from '../services/pexels';
 import LogoLoader from '../components/LogoLoader';
+import { Dialog } from 'primereact/dialog';
+
 
 // Helper for checking permissions
 const hasPermission = (user, permission) => {
@@ -370,14 +372,13 @@ const Transfer = () => {
       )}
 
       {/* ADD/EDIT MODAL WITH IMAGE LIBRARY */}
-      {isModalOpen && createPortal(
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[9999] p-4 font-poppins font-medium">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl overflow-hidden animate-in-scale">
-            <div className="flex justify-between items-center p-6 border-b bg-gray-50 font-bold uppercase tracking-widest text-gray-800">
+      <Dialog visible={isModalOpen} showCloseIcon={false} header={()=>(
+ <div className="flex justify-between items-center p-6 border-b bg-gray-50 font-bold uppercase tracking-widest text-gray-800">
               <h2 className="text-xl">{editingTransferId ? 'Modify Transport Hub' : 'Fresh Transport Registry'}</h2>
               <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-gray-600"><X size={24} /></button>
             </div>
-            <form onSubmit={handleSave} className="p-6 space-y-4 max-h-[75vh] overflow-y-auto">
+      )} style={{ width: '50vw' }}>
+  <form onSubmit={handleSave} className="p-6 space-y-4 max-h-[75vh] overflow-y-auto">
               <div className="grid grid-cols-2 gap-4 text-sm font-medium">
                 <div className="space-y-1">
                   <label className="block text-gray-700">Transport Title *</label>
@@ -426,15 +427,18 @@ const Transfer = () => {
                 <button type="submit" disabled={saving} className="px-12 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 transition-all shadow-xl text-[10px] font-black uppercase tracking-[0.2em]">{saving ? 'Processing...' : 'Seal Registry'}</button>
               </div>
             </form>
-          </div>
-        </div>, document.body
-      )}
+      </Dialog>
+    
 
       {/* --- SHARED UNIVERSAL IMAGE LIBRARY --- */}
-      {showImageModal && createPortal(
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[9999] p-4 font-poppins font-medium">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col animate-in-scale">
-            <div className="flex justify-between items-center p-4 border-b bg-gray-50 font-bold uppercase tracking-widest text-[10px]"><h2 className="text-lg">Universal Transport Asset Bank</h2><button onClick={() => setShowImageModal(false)}><X size={24} /></button></div>
+      <Dialog header={()=>(
+         <div className="flex justify-between items-center p-4 border-b bg-gray-50 font-bold uppercase tracking-widest text-[10px]">
+              <h2 className="text-lg">Universal Transport Asset Bank</h2>
+              <button onClick={() => setShowImageModal(false)}><X size={24} /></button>
+              </div>
+      )} visible={showImageModal} showCloseIcon={false}>
+  <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col animate-in-scale">
+           
             <div className="flex border-b text-[10px] font-black uppercase tracking-[0.2em]">
               <button onClick={() => setLibraryTab('free')} className={`px-10 py-5 transition-all ${libraryTab === 'free' ? 'border-b-4 border-blue-600 text-blue-600 bg-white shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}>Fleet Search</button>
               <button onClick={() => setLibraryTab('your')} className={`px-10 py-5 transition-all ${libraryTab === 'your' ? 'border-b-4 border-blue-600 text-blue-600 bg-white shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}>Archive Storage</button>
@@ -450,14 +454,14 @@ const Transfer = () => {
             </div>
             <div className="flex-1 overflow-y-auto p-6 grid grid-cols-4 gap-4 bg-gray-100">
               {(libraryTab === 'free' ? freeStockPhotos : libraryPackages).map((img, i) => (
-                <div key={i} onClick={() => libraryTab === 'free' ? handleSelectFreeStockImage(img.url) : handleImageSelectFromLibrary(img.image)} className="aspect-square relative rounded-xl overflow-hidden border-2 bg-white hover:border-blue-600 cursor-pointer group shadow-md transition-all duration-300">
-                  <img src={img.thumb || img.url || img.image} className="w-full h-full object-cover transition-transform group-hover:scale-110" /><div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-[10px] font-black tracking-widest uppercase">Inject Photo</div>
+                <div key={i} style={{backgroundImage:`url(${img.thumb || img.url || img.image})`,backgroundSize:'cover'}} onClick={() => libraryTab === 'free' ? handleSelectFreeStockImage(img.url) : handleImageSelectFromLibrary(img.image)} className="aspect-square relative rounded-xl overflow-hidden border-2 bg-white hover:border-blue-600 cursor-pointer group shadow-md transition-all duration-300">
+                  <div className="absolute left-0 right-0 top-0 bottom-0 w-full h-full inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-[10px] font-black tracking-widest uppercase">Inject Photo</div>
                 </div>
               ))}
             </div>
           </div>
-        </div>, document.body
-      )}
+      </Dialog>
+     
     </div>
   );
 };

@@ -20,6 +20,7 @@ class Destination extends Model
         'name',
         'photo',
         'status',
+        'created_by',
     ];
 
     /**

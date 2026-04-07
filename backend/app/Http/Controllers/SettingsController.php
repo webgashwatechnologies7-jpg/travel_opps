@@ -448,15 +448,20 @@ class SettingsController extends Controller
      */
     public function uploadLogo(Request $request): JsonResponse
     {
+        \Log::debug('Logo Upload Attempt', ['files' => $request->allFiles()]);
         try {
             $validator = Validator::make($request->all(), [
-                'logo' => 'required|image|mimes:jpeg,png,jpg,gif,svg,webp|max:2048',
+                'logo' => 'required|image|mimes:jpeg,png,jpg,gif,svg,webp|max:10240',
             ]);
 
             if ($validator->fails()) {
+                \Log::warning('Logo upload validation failed', [
+                    'errors' => $validator->errors()->toArray(),
+                    'user_id' => auth()->id()
+                ]);
                 return response()->json([
                     'success' => false,
-                    'message' => 'Validation failed',
+                    'message' => 'Validation failed: ' . implode(', ', $validator->errors()->all()),
                     'errors' => $validator->errors(),
                 ], 422);
             }
@@ -588,8 +593,24 @@ class SettingsController extends Controller
                 ], 404);
             }
 
-            // Validate request
-            $validated = $request->validate([
+            // Normalize request data: map company_ prefixed fields to backend expected keys
+            $data = $request->all();
+            $mappings = [
+                'company_name' => 'name',
+                'company_address' => 'address',
+                'company_phone' => 'phone',
+                'company_email' => 'email',
+                'company_website' => 'website',
+            ];
+            
+            foreach ($mappings as $prefixed => $direct) {
+                if ($request->has($prefixed) && !$request->has($direct)) {
+                    $data[$direct] = $request->input($prefixed);
+                }
+            }
+            
+            // Re-validate with normalized data
+            $validator = Validator::make($data, [
                 'name' => 'nullable|string|max:255',
                 'email' => 'nullable|email|max:255',
                 'phone' => 'nullable|string|max:20',
@@ -607,6 +628,34 @@ class SettingsController extends Controller
                 'default_punch_in_time' => 'nullable|string|max:10',
                 'default_punch_out_time' => 'nullable|string|max:10',
             ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Validation failed: ' . implode(', ', $validator->errors()->all()),
+                    'errors' => $validator->errors(),
+                ], 422);
+            }
+
+            $validated = $validator->validated();
+
+            // Robustly strip any full URL or /storage/ prefix to save only the relative path
+            $stripUrlPrefix = function($url) {
+                if (empty($url)) return $url;
+                // Remove protocol and host if present
+                $url = preg_replace('/^https?:\/\/[^\/]+/', '', $url);
+                // Remove leading slash and storage prefix to get just the path after storage/
+                $url = preg_replace('/^\/?storage\//', '', $url);
+                $url = ltrim($url, '/');
+                return $url;
+            };
+
+            if (!empty($validated['logo'])) {
+                $validated['logo'] = $stripUrlPrefix($validated['logo']);
+            }
+            if (!empty($validated['favicon'])) {
+                $validated['favicon'] = $stripUrlPrefix($validated['favicon']);
+            }
 
             // Separate company and theme settings
             $companyData = array_intersect_key($validated, array_flip(['name', 'email', 'phone', 'address', 'logo', 'favicon', 'website', 'fb_page_id', 'fb_page_access_token']));

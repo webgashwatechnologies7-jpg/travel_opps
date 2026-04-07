@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { landingPagesAPI } from '../services/api';
 import { Globe, Plus, Edit, Trash2, Eye, Copy, ExternalLink, Users, TrendingUp } from 'lucide-react';
 import LogoLoader from '../components/LogoLoader';
+import { Dialog } from 'primereact/dialog';
 
 const LandingPages = () => {
   const [pages, setPages] = useState([]);
@@ -176,7 +177,7 @@ const LandingPages = () => {
   }
 
   return (
-    <div>
+    <div className='md:p-4 p-1'>
       <div className="space-y-6">
         <div className="flex justify-between items-center">
           <div>
@@ -362,16 +363,17 @@ const LandingPages = () => {
         </div>
 
         {/* Create Modal */}
-        {showCreateModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-bold text-gray-900">Create Landing Page</h2>
-                <button onClick={() => setShowCreateModal(false)} className="text-gray-400 hover:text-gray-600">
-                  ×
-                </button>
-              </div>
-              {formError && (
+        <Dialog visible={showCreateModal}  showCloseIcon={false}
+        className='bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto'
+        header={()=>(
+           <div className="flex justify-between items-center mb-4">
+                  <h2 className="text-xl font-bold text-gray-900">Create Landing Page</h2>
+                  <button onClick={() => setShowCreateModal(false)} className="text-gray-400 hover:text-gray-600">
+                    ×
+                  </button>
+                </div>
+        )}>
+   {formError && (
                 <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded">{formError}</div>
               )}
               <form onSubmit={handleCreateSubmit} className="space-y-4">
@@ -453,15 +455,13 @@ const LandingPages = () => {
                   </button>
                 </div>
               </form>
-            </div>
-          </div>
-        )}
+        </Dialog>
+        
 
         {/* Edit Modal */}
-        {showEditModal && editingPage && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-              <div className="flex justify-between items-center mb-4">
+        <Dialog className='bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto'
+         visible={showEditModal} header={()=>(
+ <div className="flex justify-between items-center mb-4">
                 <h2 className="text-xl font-bold text-gray-900">Edit Landing Page</h2>
                 <button
                   onClick={() => {
@@ -473,7 +473,8 @@ const LandingPages = () => {
                   ×
                 </button>
               </div>
-              {formError && (
+        )}>
+  {formError && (
                 <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded">{formError}</div>
               )}
               <form onSubmit={handleEditSubmit} className="space-y-4">
@@ -537,9 +538,8 @@ const LandingPages = () => {
                   </button>
                 </div>
               </form>
-            </div>
-          </div>
-        )}
+        </Dialog>
+       
       </div>
     </div>
   );

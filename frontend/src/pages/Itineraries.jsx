@@ -8,7 +8,7 @@ import { Search, Plus, Edit, Eye, X, Image as ImageIcon, Hash, MapPin, CalendarD
 import { packagesAPI } from '../services/api';
 import { searchPexelsPhotos } from '../services/pexels';
 import LogoLoader from '../components/LogoLoader';
-
+import { Dialog } from 'primereact/dialog';
 // Helper for checking permissions
 const hasPermission = (user, permission) => {
   if (!user) return false;
@@ -562,11 +562,8 @@ const Itineraries = () => {
 
 
       {/* Create Itinerary Modal */}
-      {showModal && typeof document !== 'undefined' && document.body && createPortal(
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[9999] p-4 overflow-y-auto">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl mx-auto my-auto animate-in-scale">
-            {/* Modal Header */}
-            <div className="flex justify-between items-center p-6 border-b">
+      <Dialog visible={showModal} style={{minWidth:'50vw'}} header={()=>(
+ <div className="flex justify-between items-center p-6 border-b">
               <h2 className="text-xl font-bold text-gray-800 tracking-tight">
                 {editingItineraryId ? 'Edit Itinerary' : 'Create Itinerary'}
               </h2>
@@ -578,9 +575,8 @@ const Itineraries = () => {
                 <X className="h-6 w-6" />
               </button>
             </div>
-
-            {/* Modal Body */}
-            <form onSubmit={handleSave} className="p-6">
+      )} showCloseIcon={false}>
+ <form onSubmit={handleSave} className="p-6">
               <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-2 custom-scrollbar">
 
 
@@ -687,16 +683,12 @@ const Itineraries = () => {
                 </button>
               </div>
             </form>
-          </div>
-        </div>,
-        document.body
-      )}
+      </Dialog>
+    
 
       {/* Choose from Library Modal */}
-      {showLibraryModal && typeof document !== 'undefined' && document.body && createPortal(
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[10000] p-4 overflow-y-auto">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col animate-in-scale">
-            <div className="flex justify-between items-center p-6 border-b">
+      <Dialog visible={showLibraryModal} style={{minWidth:"50vw"}} header={()=>(
+  <div className="flex justify-between items-center p-6 border-b">
               <h2 className="text-xl font-bold text-gray-800">Choose from Library</h2>
               <button
                 onClick={() => { setShowLibraryModal(false); setLibrarySearchTerm(''); setFreeStockPhotos([]); }}
@@ -705,8 +697,8 @@ const Itineraries = () => {
                 <X className="h-6 w-6" />
               </button>
             </div>
-            {/* Tabs: Free stock images | Your itineraries */}
-            <div className="flex border-b border-gray-200">
+      )}>
+  <div className="flex border-b border-gray-200">
               <button
                 type="button"
                 onClick={() => setLibraryTab('free')}
@@ -823,44 +815,53 @@ const Itineraries = () => {
                 )
               )}
             </div>
-          </div>
-        </div>,
-        document.body
-      )}
+      </Dialog>
+   
 
       {/* View Itinerary Modal */}
-      {showViewModal && viewingItinerary && typeof document !== 'undefined' && document.body && createPortal(
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[9999] p-4 overflow-y-auto">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl mx-auto my-auto animate-in-scale flex flex-col overflow-hidden">
-            {/* Modal Header */}
-            <div className="flex justify-between items-center p-6 border-b">
+      <Dialog className="bg-white rounded-lg shadow-xl w-full max-w-4xl mx-auto my-auto animate-in-scale flex flex-col overflow-hidden" 
+      showCloseIcon={false} visible={showViewModal}  header={()=>(
+ <div className="flex justify-between items-center p-6 border-b">
               <h2 className="text-xl font-bold text-gray-800">Itinerary Overview</h2>
               <button
-                onClick={() => { setShowViewModal(false); setViewingItinerary(null); }}
+                onClick={() => { setShowViewModal(false)}}
                 className="text-gray-400 hover:text-gray-600 transition-colors"
               >
                 <X className="h-6 w-6" />
               </button>
             </div>
-
-            {/* Modal Body */}
-            <div className="p-8 overflow-y-auto custom-scrollbar flex-1">
+      )}
+      footer={()=>(
+        <div className="p-8 border-t flex items-center justify-between">
+               <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                  Package ID: {viewingItinerary.id}
+               </div>
+               <button
+                onClick={() => { setShowViewModal(false)}}
+                className="px-10 py-2.5 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-700 transition-all active:scale-[0.98] text-sm"
+              >
+                GOT IT
+              </button>
+            </div>
+      )}
+      >
+    <div className="p-8 overflow-y-auto custom-scrollbar flex-1">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 {/* Image Section */}
                 <div className="md:col-span-2">
-                  {viewingItinerary.image ? (
+                  {viewingItinerary?.image ? (
                     <div className="relative w-full h-72 rounded-xl overflow-hidden border shadow-sm cursor-pointer">
                       <img
-                        src={viewingItinerary.image}
-                        alt={viewingItinerary.itinerary_name || 'Itinerary'}
+                        src={viewingItinerary?.image}
+                        alt={viewingItinerary?.itinerary_name || 'Itinerary'}
                         className="w-full h-full object-cover"
                       />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent"></div>
                       <div className="absolute bottom-6 left-6 pr-6">
                          <span className="bg-blue-600 text-white px-3 py-1 rounded-md text-[10px] font-bold uppercase tracking-widest mb-1.5 inline-block">
-                             {viewingItinerary.duration ? `${viewingItinerary.duration} Days` : 'N/A'}
+                             {viewingItinerary?.duration ? `${viewingItinerary?.duration} Days` : 'N/A'}
                          </span>
-                         <h3 className="text-white text-2xl font-bold tracking-tight">{viewingItinerary.itinerary_name || 'Untitled'}</h3>
+                         <h3 className="text-white text-2xl font-bold tracking-tight">{viewingItinerary?.itinerary_name || 'Untitled'}</h3>
                       </div>
                     </div>
                   ) : (
@@ -876,17 +877,17 @@ const Itineraries = () => {
                          <MapPin className="w-3 h-3" /> Destinations
                       </h4>
                       <p className="text-sm font-medium text-gray-700 bg-gray-50 p-4 rounded-xl border border-gray-100">
-                         {viewingItinerary.destinations || 'No destinations listed'}
+                         {viewingItinerary?.destinations || 'No destinations listed'}
                       </p>
                    </div>
                    <div className="grid grid-cols-2 gap-3">
                       <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
                          <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Standard Cost</span>
-                         <span className="text-lg font-bold text-gray-800">{formatPrice(viewingItinerary.price || 0)}</span>
+                         <span className="text-lg font-bold text-gray-800">{formatPrice(viewingItinerary?.price || 0)}</span>
                       </div>
                       <div className="bg-blue-50/50 p-4 rounded-xl border border-blue-100/50">
                          <span className="text-[10px] font-bold text-blue-600 uppercase tracking-widest block mb-1">Website Price</span>
-                         <span className="text-lg font-bold text-blue-800">{formatPrice(viewingItinerary.website_cost || 0)}</span>
+                         <span className="text-lg font-bold text-blue-800">{formatPrice(viewingItinerary?.website_cost || 0)}</span>
                       </div>
                    </div>
                 </div>
@@ -899,51 +900,36 @@ const Itineraries = () => {
                       <div className="bg-gray-50 p-6 rounded-xl border border-gray-100 space-y-3">
                          <div className="flex justify-between items-center text-sm">
                             <span className="font-semibold text-gray-500">Adults</span>
-                            <span className="font-bold text-gray-800">{viewingItinerary.adult || 0}</span>
+                            <span className="font-bold text-gray-800">{viewingItinerary?.adult || 0}</span>
                          </div>
                          <div className="flex justify-between items-center text-sm border-t pt-3">
                             <span className="font-semibold text-gray-500">Children</span>
-                            <span className="font-bold text-gray-800">{viewingItinerary.child || 0}</span>
+                            <span className="font-bold text-gray-800">{viewingItinerary?.child || 0}</span>
                          </div>
                          <div className="flex justify-between items-center text-sm border-t pt-3">
                             <span className="font-semibold text-gray-500">Website Status</span>
-                            <span className={`text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full ${viewingItinerary.show_on_website ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                               {viewingItinerary.show_on_website ? 'Visible' : 'Hidden'}
+                            <span className={`text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full ${viewingItinerary?.show_on_website ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                               {viewingItinerary?.show_on_website ? 'Visible' : 'Hidden'}
                             </span>
                          </div>
                       </div>
                    </div>
                 </div>
 
-                {viewingItinerary.notes && (
+                {viewingItinerary?.notes && (
                   <div className="md:col-span-2 space-y-2">
                     <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest flex items-center gap-2">
                        <Hash className="w-3 h-3" /> Description
                     </h4>
                     <div className="bg-gray-50 p-6 rounded-xl border border-gray-100 text-sm font-medium text-gray-600 whitespace-pre-wrap leading-relaxed">
-                       {viewingItinerary.notes}
+                       {viewingItinerary?.notes}
                     </div>
                   </div>
                 )}
               </div>
             </div>
-
-            {/* Modal Footer */}
-            <div className="p-8 border-t flex items-center justify-between">
-               <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
-                  Package ID: {viewingItinerary.id}
-               </div>
-               <button
-                onClick={() => { setShowViewModal(false); setViewingItinerary(null); }}
-                className="px-10 py-2.5 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-700 transition-all active:scale-[0.98] text-sm"
-              >
-                GOT IT
-              </button>
-            </div>
-          </div>
-        </div>,
-        document.body
-      )}
+      </Dialog>
+   
         </>
       )}
     </div>

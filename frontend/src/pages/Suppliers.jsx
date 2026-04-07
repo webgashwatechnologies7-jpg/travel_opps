@@ -5,6 +5,7 @@ import { toast } from 'react-toastify';
 import { Search, Plus, Edit, X, RefreshCw, Trash2, Eye, MapPin, Mail, Phone, Briefcase, Building, Wallet, TrendingUp, Calendar, ExternalLink } from 'lucide-react';
 import { suppliersAPI } from '../services/api';
 import LogoLoader from '../components/LogoLoader';
+import { Dialog } from 'primereact/dialog';
 
 // Helper for checking permissions
 const hasPermission = (user, permission) => {
@@ -60,7 +61,10 @@ const Suppliers = () => {
 
   const handleOpenView = async (supplier) => {
     setSelectedSupplier(supplier);
+    if(supplier){
     setIsDetailsModalOpen(true);
+
+    }
     await loadFinancialData(supplier.id, detailsPeriod);
   };
 
@@ -181,7 +185,7 @@ const Suppliers = () => {
                   <div className="flex items-center gap-2">
                     <button onClick={() => handleOpenView(s)} className="text-blue-600 hover:text-blue-900 p-2 hover:bg-blue-50 rounded-full" title="View"><Eye size={18} /></button>
                     {hasPermission(user, 'suppliers.edit') && <button onClick={() => handleEdit(s)} className="text-green-600 hover:text-green-900 p-2 hover:bg-green-50 rounded-full" title="Edit"><Edit size={18} /></button>}
-                    {hasPermission(user, 'suppliers.delete') && <button onClick={async () => { if(window.confirm('Delete?')) { await suppliersAPI.delete(s.id); fetchSuppliers(); } }} className="text-red-600 hover:text-red-900 p-2 hover:bg-red-50 rounded-full" title="Delete"><Trash2 size={18} /></button>}
+                    {hasPermission(user, 'suppliers.delete') && <button onClick={async () => { if (window.confirm('Delete?')) { await suppliersAPI.delete(s.id); fetchSuppliers(); } }} className="text-red-600 hover:text-red-900 p-2 hover:bg-red-50 rounded-full" title="Delete"><Trash2 size={18} /></button>}
                   </div>
                 </td>
               </tr>
@@ -191,116 +195,112 @@ const Suppliers = () => {
       </div>
 
       {/* VIEW MODAL (MATCHING DAY ITINERARY STYLE) */}
-      {isDetailsModalOpen && selectedSupplier && createPortal(
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[9999] p-4 font-poppins">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl overflow-hidden animate-in-scale">
-            <div className="flex justify-between items-center p-6 border-b bg-gray-50">
-               <h2 className="text-xl font-bold text-gray-800">{`${selectedSupplier.first_name || ''} ${selectedSupplier.last_name || ''}`}</h2>
-               <button onClick={() => setIsDetailsModalOpen(false)} className="text-gray-400 hover:text-black"><X size={24} /></button>
+      <Dialog header={(
+          <div className="flex justify-between items-center p-6 border-b bg-gray-50 w-full">
+              <h2 className="text-xl font-bold text-gray-800">{`${selectedSupplier?.first_name || ''} ${selectedSupplier?.last_name || ''}`}</h2>
+              <button onClick={() => setIsDetailsModalOpen(false)} className="text-gray-400 hover:text-black"><X size={24} /></button>
             </div>
+      )} visible={isDetailsModalOpen} showCloseIcon={false} className="w-[95vw] md:w-[600px]">
             <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
-               <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div><label className="text-xs font-medium text-gray-500 uppercase tracking-wider block">Company</label><p className="font-medium">{selectedSupplier.company_name || 'N/A'}</p></div>
-                  <div><label className="text-xs font-medium text-gray-500 uppercase tracking-wider block">City</label><p className="font-medium">{selectedSupplier.city || 'N/A'}</p></div>
-                  <div><label className="text-xs font-medium text-gray-500 uppercase tracking-wider block">Email</label><p className="font-medium text-blue-600">{selectedSupplier.email || 'N/A'}</p></div>
-                  <div><label className="text-xs font-medium text-gray-500 uppercase tracking-wider block">Mobile</label><p className="font-medium">{selectedSupplier.mobile || 'N/A'}</p></div>
-                  <div className="col-span-2"><label className="text-xs font-medium text-gray-500 uppercase tracking-wider block">Address</label><p className="font-medium">{selectedSupplier.address || 'N/A'}</p></div>
-               </div>
-               
-               {/* Financial Summary */}
-               <div className="border rounded-lg overflow-hidden mt-6">
-                   <div className="bg-gray-50 px-4 py-2 flex justify-between items-center border-b font-medium">
-                      <span className="text-xs text-gray-500 uppercase tracking-wider">Financial Snapshot</span>
-                      <select value={detailsPeriod} onChange={e => { setDetailsPeriod(e.target.value); loadFinancialData(selectedSupplier.id, e.target.value); }} className="text-xs border rounded p-1">
-                         <option value="weekly">This Week</option>
-                         <option value="monthly">This Month</option>
-                         <option value="yearly">This Year</option>
-                      </select>
-                   </div>
-                   <div className="p-4">
-                      {detailsLoading ? <LogoLoader text="Syncing..."/> : (
-                        financialSummary ? (
-                          <div className="grid grid-cols-3 gap-4 text-center">
-                             <div className="p-2 bg-blue-50 rounded"><p className="text-[10px] text-blue-500 font-bold uppercase">Revenue</p><p className="text-lg font-bold">₹{financialSummary.revenue || 0}</p></div>
-                             <div className="p-2 bg-rose-50 rounded"><p className="text-[10px] text-rose-500 font-bold uppercase">Cost</p><p className="text-lg font-bold">₹{financialSummary.cost || 0}</p></div>
-                             <div className="p-2 bg-emerald-50 rounded"><p className="text-[10px] text-emerald-500 font-bold uppercase">Profit</p><p className="text-lg font-bold">₹{financialSummary.profit || 0}</p></div>
-                          </div>
-                        ) : <div className="p-4 text-center text-gray-400 text-xs">No financial data.</div>
-                      )}
-                   </div>
-               </div>
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div><label className="text-xs font-medium text-gray-500 uppercase tracking-wider block">Company</label><p className="font-medium">{selectedSupplier?.company_name || 'N/A'}</p></div>
+                <div><label className="text-xs font-medium text-gray-500 uppercase tracking-wider block">City</label><p className="font-medium">{selectedSupplier?.city || 'N/A'}</p></div>
+                <div><label className="text-xs font-medium text-gray-500 uppercase tracking-wider block">Email</label><p className="font-medium text-blue-600">{selectedSupplier?.email || 'N/A'}</p></div>
+                <div><label className="text-xs font-medium text-gray-500 uppercase tracking-wider block">Mobile</label><p className="font-medium">{selectedSupplier?.mobile || 'N/A'}</p></div>
+                <div className="col-span-2"><label className="text-xs font-medium text-gray-500 uppercase tracking-wider block">Address</label><p className="font-medium">{selectedSupplier?.address || 'N/A'}</p></div>
+              </div>
+
+              {/* Financial Summary */}
+              <div className="border rounded-lg overflow-hidden mt-6">
+                <div className="bg-gray-50 px-4 py-2 flex justify-between items-center border-b font-medium">
+                  <span className="text-xs text-gray-500 uppercase tracking-wider">Financial Snapshot</span>
+                  <select value={detailsPeriod} onChange={e => { setDetailsPeriod(e.target.value); if(selectedSupplier) loadFinancialData(selectedSupplier.id, e.target.value); }} className="text-xs border rounded p-1">
+                    <option value="weekly">This Week</option>
+                    <option value="monthly">This Month</option>
+                    <option value="yearly">This Year</option>
+                  </select>
+                </div>
+                <div className="p-4">
+                  {detailsLoading ? <LogoLoader text="Syncing..." /> : (
+                    financialSummary ? (
+                      <div className="grid grid-cols-3 gap-4 text-center">
+                        <div className="p-2 bg-blue-50 rounded"><p className="text-[10px] text-blue-500 font-bold uppercase">Revenue</p><p className="text-lg font-bold">₹{financialSummary.revenue || 0}</p></div>
+                        <div className="p-2 bg-rose-50 rounded"><p className="text-[10px] text-rose-500 font-bold uppercase">Cost</p><p className="text-lg font-bold">₹{financialSummary.cost || 0}</p></div>
+                        <div className="p-2 bg-emerald-50 rounded"><p className="text-[10px] text-emerald-500 font-bold uppercase">Profit</p><p className="text-lg font-bold">₹{financialSummary.profit || 0}</p></div>
+                      </div>
+                    ) : <div className="p-4 text-center text-gray-400 text-xs">No financial data.</div>
+                  )}
+                </div>
+              </div>
             </div>
             <div className="p-6 border-t flex justify-end bg-gray-50 font-medium">
-               <button onClick={() => setIsDetailsModalOpen(false)} className="px-8 py-2 bg-gray-800 text-white rounded-lg">Close</button>
+              <button onClick={() => setIsDetailsModalOpen(false)} className="px-8 py-2 bg-gray-800 text-white rounded-lg">Close</button>
             </div>
-          </div>
-        </div>, document.body
-      )}
+      </Dialog>
+                  
 
       {/* ADD/EDIT FORM FOR SUPPLIER */}
-      {isModalOpen && createPortal(
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[9999] p-4 font-poppins">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl overflow-hidden animate-in-scale">
-            <div className="flex justify-between items-center p-6 border-b bg-gray-50">
-              <h2 className="text-xl font-bold">{editingSupplierId ? 'Edit Supplier' : 'Add Supplier'}</h2>
-              <button onClick={() => setIsModalOpen(false)}><X size={24} /></button>
+      <Dialog visible={isModalOpen} showCloseIcon={false} header={(
+        <div className="flex justify-between items-center p-6 border-b bg-gray-50 w-full">
+          <h2 className="text-xl font-bold text-black">{editingSupplierId ? 'Edit Supplier' : 'Add Supplier'}</h2>
+          <button onClick={() => setIsModalOpen(false)}><X size={24} /></button>
+        </div>
+      )} className="w-[95vw] md:w-[600px]">
+        <form onSubmit={handleSave} className="p-6 space-y-4 max-h-[75vh] overflow-y-auto">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1">
+              <label className="text-sm font-medium text-gray-700">Company Name *</label>
+              <input placeholder="Enter company name" value={formData.company_name} onChange={e => setFormData({ ...formData, company_name: e.target.value })} className="w-full border p-2 rounded focus:ring-2 focus:ring-blue-500 outline-none text-sm" required />
             </div>
-            <form onSubmit={handleSave} className="p-6 space-y-4 max-h-[75vh] overflow-y-auto">
-               <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1">
-                     <label className="text-sm font-medium text-gray-700">Company Name *</label>
-                     <input placeholder="Enter company name" value={formData.company_name} onChange={e => setFormData({...formData, company_name: e.target.value})} className="w-full border p-2 rounded focus:ring-2 focus:ring-blue-500 outline-none text-sm" required />
-                  </div>
-                  <div className="space-y-1">
-                     <label className="text-sm font-medium text-gray-700">City</label>
-                     <input placeholder="City" value={formData.city} onChange={e => setFormData({...formData, city: e.target.value})} className="w-full border p-2 rounded focus:ring-2 focus:ring-blue-500 outline-none text-sm" />
-                  </div>
-               </div>
-               <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1">
-                     <label className="text-sm font-medium text-gray-700">First Name *</label>
-                     <input placeholder="First name" value={formData.first_name} onChange={e => setFormData({...formData, first_name: e.target.value})} className="w-full border p-2 rounded focus:ring-2 focus:ring-blue-500 outline-none text-sm" required />
-                  </div>
-                  <div className="space-y-1">
-                     <label className="text-sm font-medium text-gray-700">Last Name</label>
-                     <input placeholder="Last name" value={formData.last_name} onChange={e => setFormData({...formData, last_name: e.target.value})} className="w-full border p-2 rounded focus:ring-2 focus:ring-blue-500 outline-none text-sm" />
-                  </div>
-               </div>
-               <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1">
-                     <label className="text-sm font-medium text-gray-700">Email Address *</label>
-                     <input placeholder="Email" type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className="w-full border p-2 rounded focus:ring-2 focus:ring-blue-500 outline-none text-sm" required />
-                  </div>
-                  <div className="space-y-1">
-                     <label className="text-sm font-medium text-gray-700">Status</label>
-                     <select value={formData.status || 'active'} onChange={e => setFormData({...formData, status: e.target.value})} className="w-full border p-2 rounded focus:ring-2 focus:ring-blue-500 outline-none text-sm">
-                        <option value="active">Active</option>
-                        <option value="inactive">Inactive</option>
-                     </select>
-                  </div>
-               </div>
-               <div className="grid grid-cols-12 gap-4">
-                  <div className="col-span-3 space-y-1">
-                     <label className="text-sm font-medium text-gray-700">Code</label>
-                     <input value={formData.code} onChange={e => setFormData({...formData, code: e.target.value})} className="w-full border p-2 rounded focus:ring-2 focus:ring-blue-500 outline-none text-sm" />
-                  </div>
-                  <div className="col-span-9 space-y-1">
-                     <label className="text-sm font-medium text-gray-700">Mobile</label>
-                     <input value={formData.mobile} onChange={e => setFormData({...formData, mobile: e.target.value})} className="w-full border p-2 rounded focus:ring-2 focus:ring-blue-500 outline-none text-sm" />
-                  </div>
-               </div>
-               <div className="space-y-1">
-                  <label className="text-sm font-medium text-gray-700">Full Address</label>
-                  <input placeholder="Enter address" value={formData.address} onChange={e => setFormData({...formData, address: e.target.value})} className="w-full border p-2 rounded focus:ring-2 focus:ring-blue-500 outline-none text-sm" />
-               </div>
-               <div className="flex justify-end gap-3 pt-6 border-t font-medium">
-                  <button type="button" onClick={() => setIsModalOpen(false)} className="px-6 py-2 border rounded text-sm bg-gray-50">Cancel</button>
-                  <button type="submit" disabled={saving} className="px-8 py-2 bg-blue-600 text-white rounded text-sm hover:bg-blue-700">{saving ? 'Saving...' : 'Save Supplier'}</button>
-               </div>
-            </form>
+            <div className="space-y-1">
+              <label className="text-sm font-medium text-gray-700">City</label>
+              <input placeholder="City" value={formData.city} onChange={e => setFormData({ ...formData, city: e.target.value })} className="w-full border p-2 rounded focus:ring-2 focus:ring-blue-500 outline-none text-sm" />
+            </div>
           </div>
-        </div>, document.body
-      )}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1">
+              <label className="text-sm font-medium text-gray-700">First Name *</label>
+              <input placeholder="First name" value={formData.first_name} onChange={e => setFormData({ ...formData, first_name: e.target.value })} className="w-full border p-2 rounded focus:ring-2 focus:ring-blue-500 outline-none text-sm" required />
+            </div>
+            <div className="space-y-1">
+              <label className="text-sm font-medium text-gray-700">Last Name</label>
+              <input placeholder="Last name" value={formData.last_name} onChange={e => setFormData({ ...formData, last_name: e.target.value })} className="w-full border p-2 rounded focus:ring-2 focus:ring-blue-500 outline-none text-sm" />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1">
+              <label className="text-sm font-medium text-gray-700">Email Address *</label>
+              <input placeholder="Email" type="email" value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} className="w-full border p-2 rounded focus:ring-2 focus:ring-blue-500 outline-none text-sm" required />
+            </div>
+            <div className="space-y-1">
+              <label className="text-sm font-medium text-gray-700">Status</label>
+              <select value={formData.status || 'active'} onChange={e => setFormData({ ...formData, status: e.target.value })} className="w-full border p-2 rounded focus:ring-2 focus:ring-blue-500 outline-none text-sm">
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+              </select>
+            </div>
+          </div>
+          <div className="grid grid-cols-12 gap-4">
+            <div className="col-span-3 space-y-1">
+              <label className="text-sm font-medium text-gray-700">Code</label>
+              <input value={formData.code} onChange={e => setFormData({ ...formData, code: e.target.value })} className="w-full border p-2 rounded focus:ring-2 focus:ring-blue-500 outline-none text-sm" />
+            </div>
+            <div className="col-span-9 space-y-1">
+              <label className="text-sm font-medium text-gray-700">Mobile</label>
+              <input value={formData.mobile} onChange={e => setFormData({ ...formData, mobile: e.target.value })} className="w-full border p-2 rounded focus:ring-2 focus:ring-blue-500 outline-none text-sm" />
+            </div>
+          </div>
+          <div className="space-y-1">
+            <label className="text-sm font-medium text-gray-700">Full Address</label>
+            <input placeholder="Enter address" value={formData.address} onChange={e => setFormData({ ...formData, address: e.target.value })} className="w-full border p-2 rounded focus:ring-2 focus:ring-blue-500 outline-none text-sm" />
+          </div>
+          <div className="flex justify-end gap-3 pt-6 border-t font-medium">
+            <button type="button" onClick={() => setIsModalOpen(false)} className="px-6 py-2 border rounded text-sm bg-gray-50">Cancel</button>
+            <button type="submit" disabled={saving} className="px-8 py-2 bg-blue-600 text-white rounded text-sm hover:bg-blue-700">{saving ? 'Saving...' : 'Save Supplier'}</button>
+          </div>
+        </form>
+      </Dialog>
+
     </div>
   );
 };

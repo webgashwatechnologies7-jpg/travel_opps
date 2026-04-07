@@ -26,6 +26,7 @@ import {
   AlertCircle,
   TrendingUp
 } from 'lucide-react';
+import { Dialog } from 'primereact/dialog';
 
 const ClientGroups = () => {
   const [groups, setGroups] = useState([]);
@@ -601,14 +602,16 @@ const ClientGroups = () => {
       )}
 
       {/* Create Group Modal */}
-      {showCreateModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
+      <Dialog visible={showCreateModal} header={()=>(
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-bold text-gray-900">Create Client Group</h2>
-              <button onClick={() => setShowCreateModal(false)} className="text-gray-400 hover:text-gray-600">×</button>
-            </div>
-            <div className="space-y-4">
+                <h2 className="text-xl font-bold text-gray-900">Create Client Group</h2>
+                <button onClick={() => setShowCreateModal(false)} className="text-gray-400 hover:text-gray-600">×</button>
+              </div>
+      )} 
+      className="bg-white rounded-lg p-6 w-full max-w-md max-h-[90vh] overflow-y-auto"
+      showCloseIcon={false}
+      >
+ <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Group Name *</label>
                 <input
@@ -661,16 +664,13 @@ const ClientGroups = () => {
                 </button>
               </div>
             </div>
-          </div>
-        </div>
-      )}
+      </Dialog>
+    
 
       {/* View Group Modal */}
-      {showViewModal && selectedGroup && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-bold text-gray-900">{selectedGroup.name}</h2>
+      <Dialog visible={showViewModal} showCloseIcon={false} header={()=>(
+   <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold text-gray-900">{selectedGroup?.name}</h2>
               <button
                 onClick={() => setShowViewModal(false)}
                 className="text-gray-400 hover:text-gray-600"
@@ -678,40 +678,42 @@ const ClientGroups = () => {
                 ×
               </button>
             </div>
-
-            <div className="space-y-6">
+      )} 
+      
+      style={{minWidth:'45vw'}}>
+  <div className="space-y-6">
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <p className="text-sm text-gray-600">Type</p>
-                  <p className="font-medium">{selectedGroup.type}</p>
+                  <p className="font-medium">{selectedGroup?.type}</p>
                 </div>
                 <div>
                   <p className="text-sm text-gray-600">Status</p>
-                  <p className="font-medium">{selectedGroup.status}</p>
+                  <p className="font-medium">{selectedGroup?.status}</p>
                 </div>
                 <div>
                   <p className="text-sm text-gray-600">Total Clients</p>
-                  <p className="font-medium">{selectedGroup.client_count}</p>
+                  <p className="font-medium">{selectedGroup?.client_count}</p>
                 </div>
                 <div>
                   <p className="text-sm text-gray-600">Created By</p>
-                  <p className="font-medium">{selectedGroup.created_by}</p>
+                  <p className="font-medium">{selectedGroup?.created_by}</p>
                 </div>
               </div>
 
               <div>
                 <p className="text-sm text-gray-600 mb-2">Description</p>
-                <p className="text-gray-900">{selectedGroup.description || '—'}</p>
+                <p className="text-gray-900">{selectedGroup?.description || '—'}</p>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="bg-blue-50 p-4 rounded-lg">
                   <p className="text-sm text-blue-600 mb-1">Total Revenue</p>
-                  <p className="text-2xl font-bold text-blue-900">₹{(selectedGroup.total_revenue || 0).toLocaleString()}</p>
+                  <p className="text-2xl font-bold text-blue-900">₹{(selectedGroup?.total_revenue || 0).toLocaleString()}</p>
                 </div>
                 <div className="bg-green-50 p-4 rounded-lg">
                   <p className="text-sm text-green-600 mb-1">Average Booking</p>
-                  <p className="text-2xl font-bold text-green-900">₹{(selectedGroup.avg_booking_value || 0).toLocaleString()}</p>
+                  <p className="text-2xl font-bold text-green-900">₹{(selectedGroup?.avg_booking_value || 0).toLocaleString()}</p>
                 </div>
               </div>
 
@@ -749,12 +751,12 @@ const ClientGroups = () => {
                             </div>
                           </td>
                         </tr>
-                      ) : groupMembers.length > 0 ? (
-                        groupMembers.map(member => (
+                      ) : groupMembers?.length > 0 ? (
+                        groupMembers?.map(member => (
                           <tr key={member.id} className="text-sm">
-                            <td className="px-4 py-2 whitespace-nowrap">{member.name}</td>
-                            <td className="px-4 py-2 whitespace-nowrap">{member.email}</td>
-                            <td className="px-4 py-2 whitespace-nowrap">{member.mobile}</td>
+                            <td className="px-4 py-2 whitespace-nowrap">{member?.name}</td>
+                            <td className="px-4 py-2 whitespace-nowrap">{member?.email}</td>
+                            <td className="px-4 py-2 whitespace-nowrap">{member?.mobile}</td>
                           </tr>
                         ))
                       ) : (
@@ -785,20 +787,20 @@ const ClientGroups = () => {
                 </button>
               </div>
             </div>
-          </div>
-        </div>
-      )}
+      </Dialog>
+   
 
       {/* Add Members Modal */}
-      {showAddMembersModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60]">
-          <div className="bg-white rounded-lg p-6 w-full max-w-xl max-h-[90vh] flex flex-col">
-            <div className="flex justify-between items-center mb-4">
+      <Dialog visible={showAddMembersModal} showCloseIcon={false}
+      header={()=>(
+ <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-bold text-gray-900">Add Members to {selectedGroup?.name}</h2>
               <button onClick={() => setShowAddMembersModal(false)} className="text-gray-400 hover:text-gray-600">×</button>
             </div>
+      )} className='bg-white rounded-lg p-6 w-full max-w-xl max-h-[90vh] flex flex-col'>
+   <div className="mb-4 space-y-3">
 
-            <div className="mb-4 space-y-3">
+    
               <div className="flex flex-wrap gap-2">
                 <div className="flex-1 min-w-[200px] relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
@@ -817,7 +819,7 @@ const ClientGroups = () => {
                     className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 bg-white"
                   >
                     <option value="">Birthday Month</option>
-                    {months.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
+                    {months.map(m => <option key={m?.value} value={m?.value}>{m?.label}</option>)}
                   </select>
                 </div>
                 <div className="w-36">
@@ -827,17 +829,17 @@ const ClientGroups = () => {
                     className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 bg-white"
                   >
                     <option value="">Anniv. Month</option>
-                    {months.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
+                    {months.map(m => <option key={m?.value} value={m?.value}>{m?.label}</option>)}
                   </select>
                 </div>
               </div>
 
               <div className="flex justify-between items-center bg-blue-50 p-2 rounded-lg text-xs">
-                <span className="text-blue-800 font-medium">Showing {filteredClientsInModal.length} filtered clients</span>
+                <span className="text-blue-800 font-medium">Showing {filteredClientsInModal?.length} filtered clients</span>
                 <button
                   onClick={() => {
-                    const filteredIds = filteredClientsInModal.map(c => c.id);
-                    const allSelected = filteredIds.every(id => selectedClientIds.includes(id));
+                    const filteredIds = filteredClientsInModal?.map(c => c?.id);
+                    const allSelected = filteredIds?.every(id => selectedClientIds?.includes(id));
                     if (allSelected) {
                       setSelectedClientIds(selectedClientIds.filter(id => !filteredIds.includes(id)));
                     } else {
@@ -846,7 +848,7 @@ const ClientGroups = () => {
                   }}
                   className="text-blue-600 hover:text-blue-800 font-bold underline"
                 >
-                  {filteredClientsInModal.every(id => selectedClientIds.includes(id.id)) && filteredClientsInModal.length > 0 ? 'Deselect Filtered' : 'Select All Filtered'}
+                  {filteredClientsInModal.every(id => selectedClientIds.includes(id.id)) && filteredClientsInModal?.length > 0 ? 'Deselect Filtered' : 'Select All Filtered'}
                 </button>
               </div>
             </div>
@@ -859,13 +861,13 @@ const ClientGroups = () => {
                       <th className="px-4 py-2 text-left w-10">
                         <input
                           type="checkbox"
-                          checked={filteredClientsInModal.length > 0 && filteredClientsInModal.every(c => selectedClientIds.includes(c.id))}
+                          checked={filteredClientsInModal?.length > 0 && filteredClientsInModal?.every(c => selectedClientIds?.includes(c.id))}
                           onChange={(e) => {
                             const filteredIds = filteredClientsInModal.map(c => c.id);
                             if (e.target.checked) {
                               setSelectedClientIds([...new Set([...selectedClientIds, ...filteredIds])]);
                             } else {
-                              setSelectedClientIds(selectedClientIds.filter(id => !filteredIds.includes(id)));
+                              setSelectedClientIds(selectedClientIds?.filter(id => !filteredIds?.includes(id)));
                             }
                           }}
                         />
@@ -877,41 +879,41 @@ const ClientGroups = () => {
                   <tbody className="bg-white divide-y divide-gray-200">
                     {searchingClients ? (
                       <tr><td colSpan="3" className="p-4 text-center">Loading clients...</td></tr>
-                    ) : filteredClientsInModal.length > 0 ? (
-                      filteredClientsInModal.map(client => (
+                    ) : filteredClientsInModal?.length > 0 ? (
+                      filteredClientsInModal?.map(client => (
                         <tr key={client.id} className="hover:bg-gray-50">
                           <td className="px-4 py-2">
                             <input
                               type="checkbox"
-                              checked={selectedClientIds.includes(client.id)}
+                              checked={selectedClientIds?.includes(client.id)}
                               onChange={(e) => {
                                 if (e.target.checked) {
                                   setSelectedClientIds([...selectedClientIds, client.id]);
                                 } else {
-                                  setSelectedClientIds(selectedClientIds.filter(id => id !== client.id));
+                                  setSelectedClientIds(selectedClientIds?.filter(id => id !== client.id));
                                 }
                               }}
                             />
                           </td>
                           <td className="px-4 py-2 text-sm">
-                            <div className="font-medium">{client.name}</div>
-                            {(client.date_of_birth || client.marriage_anniversary) && (
+                            <div className="font-medium">{client?.name}</div>
+                            {(client?.date_of_birth || client?.marriage_anniversary) && (
                               <div className="flex gap-2 mt-0.5">
-                                {client.date_of_birth && (
+                                {client?.date_of_birth && (
                                   <span className="text-[10px] bg-yellow-100 text-yellow-700 px-1 rounded flex items-center gap-0.5">
-                                    <Calendar className="w-2.5 h-2.5" /> DOB: {client.date_of_birth}
+                                    <Calendar className="w-2.5 h-2.5" /> DOB: {client?.date_of_birth}
                                   </span>
                                 )}
-                                {client.marriage_anniversary && (
+                                {client?.marriage_anniversary && (
                                   <span className="text-[10px] bg-red-100 text-red-700 px-1 rounded flex items-center gap-0.5">
-                                    <Calendar className="w-2.5 h-2.5" /> Anniv: {client.marriage_anniversary}
+                                    <Calendar className="w-2.5 h-2.5" /> Anniv: {client?.marriage_anniversary}
                                   </span>
                                 )}
                               </div>
                             )}
                           </td>
                           <td className="px-4 py-2 text-xs text-gray-500">
-                            {client.email} <br /> {client.mobile}
+                            {client?.email} <br /> {client?.mobile}
                           </td>
                         </tr>
                       ))
@@ -924,7 +926,7 @@ const ClientGroups = () => {
             </div>
 
             <div className="flex justify-between items-center pt-4 border-t mt-4">
-              <span className="text-sm text-gray-600 font-medium">{selectedClientIds.length} clients selected</span>
+              <span className="text-sm text-gray-600 font-medium">{selectedClientIds?.length} clients selected</span>
               <div className="flex space-x-3">
                 <button
                   onClick={() => setShowAddMembersModal(false)}
@@ -934,7 +936,7 @@ const ClientGroups = () => {
                 </button>
                 <button
                   onClick={handleAddMembers}
-                  disabled={saving || selectedClientIds.length === 0}
+                  disabled={saving || selectedClientIds?.length === 0}
                   className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 text-sm font-medium flex items-center space-x-2"
                 >
                   {saving && <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></div>}
@@ -942,9 +944,8 @@ const ClientGroups = () => {
                 </button>
               </div>
             </div>
-          </div>
-        </div>
-      )}
+      </Dialog>
+      
     </div>
   );
 };

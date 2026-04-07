@@ -2,6 +2,23 @@ import { createContext, useContext, useState, useEffect } from 'react';
 import { useAuth } from './AuthContext';
 import { settingsAPI, menuAPI, currenciesAPI, ASSET_URL } from '../services/api';
 
+// Helper function for URL resolution (Inlined to fix ReferenceError)
+const resolveUrl = (url) => {
+  if (!url || typeof url !== 'string') return null;
+  if (url.startsWith('http')) return url;
+  if (url.startsWith('data:')) return url;
+  
+  // Globally remove all "storage/" occurrences and multiple slashes
+  let cleanPath = url.replace(/storage\//gi, '').replace(/\/+/g, '/').replace(/^\//, '');
+  
+  // If it's a public asset, return as root-relative
+  if (cleanPath.startsWith('assets/')) return '/' + cleanPath;
+  
+  // For everything else, ensure it has exactly one /storage/ prefix
+  return '/storage/' + cleanPath;
+};
+
+
 const SettingsContext = createContext(null);
 
 export const useSettings = () => {
@@ -40,10 +57,7 @@ export const SettingsProvider = ({ children }) => {
     if (initialSettings.company_favicon) {
       const faviconEl = document.getElementById('favicon');
       if (faviconEl) {
-        let faviconUrl = initialSettings.company_favicon;
-        if (window.location.protocol === 'https:' && faviconUrl.startsWith('http://')) {
-          faviconUrl = faviconUrl.replace('http://', 'https://');
-        }
+        let faviconUrl = resolveUrl(initialSettings.company_favicon);
         faviconEl.href = faviconUrl;
       }
     }
@@ -430,10 +444,7 @@ export const SettingsProvider = ({ children }) => {
         const faviconUrl = obj.company_favicon;
         const faviconEl = document.getElementById('favicon');
         if (faviconEl) {
-          let finalFaviconUrl = faviconUrl;
-          if (window.location.protocol === 'https:' && finalFaviconUrl.startsWith('http://')) {
-            finalFaviconUrl = finalFaviconUrl.replace('http://', 'https://');
-          }
+          const finalFaviconUrl = resolveUrl(faviconUrl);
           faviconEl.href = finalFaviconUrl;
         }
 

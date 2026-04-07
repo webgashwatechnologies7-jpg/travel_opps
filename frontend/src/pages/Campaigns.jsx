@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import CampaignProgressModal from '../components/CampaignProgressModal';
 import LogoLoader from '../components/LogoLoader';
+import { Dialog } from 'primereact/dialog';
 
 const Campaigns = () => {
     const { error, loading, setError, handleError, clearError, executeWithErrorHandling } = useErrorHandler();
@@ -349,17 +350,15 @@ const Campaigns = () => {
                 </div>
 
             {/* Shared Modal */}
-            {showCreateModal && (
-                <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4 transition-all animate-in fade-in">
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden animate-in slide-in-from-bottom-4">
-                        <div className={`${activeTab === 'email' ? 'bg-blue-600' : 'bg-green-600'} px-6 py-4 flex justify-between items-center`}>
+            <Dialog visible={showCreateModal} showCloseIcon={false} header={()=>(
+ <div className={`${activeTab === 'email' ? 'bg-blue-600' : 'bg-green-600'} px-6 py-4 flex justify-between items-center`}>
                             <h2 className="text-xl font-bold text-white">{selectedCampaign ? 'Edit' : 'Create'} {activeTab === 'email' ? 'Email' : 'WhatsApp'} Campaign</h2>
                             <button onClick={() => setShowCreateModal(false)} className="text-white hover:bg-white/20 rounded-full p-1 transition-colors">
                                 &times;
                             </button>
                         </div>
-
-                        <form onSubmit={(e) => { e.preventDefault(); handleSave(); }} className="p-6 space-y-5">
+            )} className='bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden animate-in slide-in-from-bottom-4'>
+   <form onSubmit={(e) => { e.preventDefault(); handleSave(); }} className="p-6 space-y-5">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                                 <div>
                                     <label className="block text-sm font-semibold text-gray-700 mb-1.5">Campaign Name *</label>
@@ -504,9 +503,8 @@ const Campaigns = () => {
                                 </button>
                             </div>
                         </form>
-                    </div>
-                </div>
-            )}
+            </Dialog>
+        
 
             {/* Campaign Progress Modal */}
             <CampaignProgressModal

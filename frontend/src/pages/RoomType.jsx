@@ -2,11 +2,11 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { toast } from 'react-toastify';
-import { Search, Plus, Edit, X, Trash2, MapPin, Image as ImageIcon, Camera, Upload, BedDouble } from 'lucide-react';
+import { Search, Plus, Edit, X, Trash2, MapPin, Image as ImageIcon, Camera, Upload, BedDouble, Flag } from 'lucide-react';
 import { roomTypesAPI, packagesAPI } from '../services/api';
 import { searchPexelsPhotos } from '../services/pexels';
 import LogoLoader from '../components/LogoLoader';
-
+import { Dialog } from 'primereact/dialog';
 // Helper for checking permissions
 const hasPermission = (user, permission) => {
   if (!user) return false;
@@ -257,13 +257,16 @@ const RoomType = () => {
       </div>
 
       {/* ADD/EDIT MODAL */}
-      {isModalOpen && createPortal(
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[9999] p-4 font-poppins font-medium">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-lg overflow-hidden animate-in-scale">
-            <div className="flex justify-between items-center p-6 border-b bg-gray-50 font-black uppercase tracking-widest text-gray-800 text-xs">
+      <Dialog style={{minWidth:"50vw"}} showCloseIcon={false} header={()=>(
+ <div className="flex justify-between items-center p-6 border-b bg-gray-50 font-black uppercase tracking-widest text-gray-800 text-xs">
               <h2>{editingId ? 'Modify Room Identity' : 'New Room Type Registry'}</h2>
               <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-black transition-all"><X size={24} /></button>
             </div>
+      )}
+      visible={isModalOpen}
+      >
+  <div className="bg-white rounded-lg shadow-xl w-full  overflow-hidden animate-in-scale">
+           
             <form onSubmit={handleSave} className="p-6 space-y-5">
                <div>
                   <label className="block text-sm font-bold text-gray-700 mb-2 uppercase tracking-widest text-[10px]">Room Type Name *</label>
@@ -303,14 +306,17 @@ const RoomType = () => {
                </div>
             </form>
           </div>
-        </div>, document.body
-      )}
+      </Dialog>
+     
 
       {/* --- UNIVERSAL IMAGE LIBRARY --- */}
-      {showImageModal && createPortal(
-         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[9999] p-4 font-poppins font-medium">
-            <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col animate-in-scale">
-               <div className="flex justify-between items-center p-4 border-b bg-gray-50 px-8"><h2 className="text-lg font-bold uppercase tracking-widest text-xs tracking-[0.2em] text-gray-800">Global Lifestyle Identity</h2><button onClick={() => setShowImageModal(false)} className="text-gray-400 hover:text-black"><X size={24}/></button></div>
+      <Dialog style={{minWidth:"40vw"}} showCloseIcon={false}  header={()=>(
+               <div className="flex justify-between items-center p-4 border-b bg-gray-50 px-8">
+                    <h2 className="text-lg font-bold uppercase tracking-widest text-xs tracking-[0.2em] text-gray-800">Global Lifestyle Identity</h2>
+                    <button onClick={() => setShowImageModal(false)} className="text-gray-400 hover:text-black"><X size={24}/></button>
+                </div>
+      )} visible={showImageModal}>
+ <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col animate-in-scale">
                <div className="flex border-b text-[10px] font-black uppercase tracking-[0.3em]">
                   <button onClick={() => setLibraryTab('free')} className={`px-12 py-6 transition-all ${libraryTab === 'free' ? 'border-b-4 border-blue-600 text-blue-600 bg-white' : 'text-gray-400 hover:text-gray-600'}`}>Stock Market Search</button>
                   <button onClick={() => setLibraryTab('your')} className={`px-12 py-6 transition-all ${libraryTab === 'your' ? 'border-b-4 border-blue-600 text-blue-600 bg-white' : 'text-gray-400 hover:text-gray-600'}`}>Internal Archive</button>
@@ -326,14 +332,14 @@ const RoomType = () => {
                </div>
                <div className="flex-1 overflow-y-auto p-8 grid grid-cols-4 gap-6 bg-gray-50">
                   {(libraryTab === 'free' ? freeStockPhotos : libraryPackages).map((img, i) => (
-                     <div key={i} onClick={() => libraryTab === 'free' ? handleSelectFreeStockImage(img.url) : handleImageSelectFromLibrary(img.image)} className="aspect-square relative rounded-2xl overflow-hidden border-2 bg-white hover:border-blue-600 cursor-pointer group shadow-lg transition-all duration-300 hover:-translate-y-1">
-                        <img src={img.thumb || img.url || img.image} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"/><div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-[10px] font-black tracking-[0.2em] uppercase">Inject Representative</div>
+                     <div key={i}  style={{backgroundImage:`url(${img.thumb || img.url || img.image})`,backgroundSize:'cover'}} onClick={() => libraryTab === 'free' ? handleSelectFreeStockImage(img.url) : handleImageSelectFromLibrary(img.image)} className="aspect-square relative rounded-2xl overflow-hidden border-2 bg-white hover:border-blue-600 cursor-pointer group shadow-lg transition-all duration-300 hover:-translate-y-1">
+                      <div className="absolute left-0 right-0 top-0 bottom-0 w-full h-full inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-[10px] font-black tracking-[0.2em] uppercase">Inject Representative</div>
                      </div>
                   ))}
                </div>
             </div>
-         </div>, document.body
-      )}
+      </Dialog>
+   
     </div>
   );
 };

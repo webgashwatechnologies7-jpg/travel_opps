@@ -6,7 +6,7 @@ import { Search, Plus, Edit, X, Trash2, Eye, Star, MapPin, Building, Calendar, D
 import { hotelsAPI, suppliersAPI, packagesAPI } from '../services/api';
 import { searchPexelsPhotos } from '../services/pexels';
 import LogoLoader from '../components/LogoLoader';
-
+import { Dialog } from 'primereact/dialog';
 // Helper for checking permissions
 const hasPermission = (user, permission) => {
   if (!user) return false;
@@ -332,7 +332,21 @@ const Hotel = () => {
 
       {/* VIEW MODAL - Executive Suite Redesign */}
       {isViewModalOpen && viewingHotel && createPortal(
-        <div className="fixed inset-0 bg-[#0F172A]/40 backdrop-blur-md flex items-center justify-center z-[9999] p-4 animate-in fade-in duration-300">
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 99999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '16px',
+            backgroundColor: 'rgba(15, 23, 42, 0.6)',
+            backdropFilter: 'blur(8px)',
+            WebkitBackdropFilter: 'blur(8px)',
+          }}
+          className="animate-in fade-in duration-300"
+        >
           <div className="bg-white rounded-[32px] shadow-2xl w-full max-w-2xl overflow-hidden animate-in zoom-in-95 duration-300 border border-white/20" style={{ fontFamily: "'Poppins', sans-serif" }}>
             {/* Modal Header */}
             <div className="px-8 py-6 border-b border-slate-50 flex justify-between items-center bg-white sticky top-0 z-10">
@@ -425,22 +439,21 @@ const Hotel = () => {
       )}
 
       {/* ADD/EDIT MODAL */}
-      {isModalOpen && createPortal(
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[9999] p-4 font-poppins">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl overflow-hidden animate-in-scale">
-            <div className="flex justify-between items-center p-6 border-b bg-gray-50">
-              <h2 className="text-xl font-bold">{editingHotelId ? 'Edit Hotel' : 'New Hotel Entry'}</h2>
-              <button onClick={() => setIsModalOpen(false)}><X size={24} /></button>
+      <Dialog header={()=>(
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 24px', borderBottom: '1px solid #f1f5f9', backgroundColor: '#f8fafc', flexShrink: 0 }}>
+              <h2 style={{ fontSize: '18px', fontWeight: 700, color: '#1e293b', margin: 0 }}>{editingHotelId ? 'Edit Hotel' : 'New Hotel Entry'}</h2>
+              <button onClick={() => setIsModalOpen(false)} style={{ background: '#f1f5f9', border: 'none', borderRadius: '50%', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#64748b' }}><X size={20} /></button>
             </div>
-            <form onSubmit={handleSave} className="p-6 space-y-4 max-h-[75vh] overflow-y-auto font-medium">
+      )} showCloseIcon={false} visible={isModalOpen}>
+            <form onSubmit={handleSave} style={{ padding: '20px 24px', overflowY: 'auto', flexGrow: 1, display: 'flex', flexDirection: 'column', gap: '16px' }}>
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div className="space-y-1">
-                  <label className="text-gray-700 block">Hotel name *</label>
-                  <input placeholder="Hotel title" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} className="w-full border p-2 rounded focus:ring-2 focus:ring-blue-500 outline-none" required />
+                  <label className="text-gray-700 block text-sm font-medium">Hotel name *</label>
+                  <input placeholder="Hotel title" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} className="w-full border border-gray-200 p-2.5 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm" required />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-gray-700 block">Category *</label>
-                  <select value={formData.category} onChange={e => setFormData({ ...formData, category: e.target.value })} className="w-full border p-2 rounded focus:ring-2 focus:ring-blue-500 outline-none" required>
+                  <label className="text-gray-700 block text-sm font-medium">Category *</label>
+                  <select value={formData.category} onChange={e => setFormData({ ...formData, category: e.target.value })} className="w-full border border-gray-200 p-2.5 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm" required>
                     <option value="">Select Category</option>
                     {[1, 2, 3, 4, 5].map(v => <option key={v} value={v}>{v} Star Rating</option>)}
                   </select>
@@ -448,76 +461,78 @@ const Hotel = () => {
               </div>
               <div className="grid grid-cols-2 gap-4 items-end text-sm">
                 <div className="space-y-1">
-                  <label className="text-gray-700 block">Location *</label>
-                  <input placeholder="City" value={formData.destination} onChange={e => setFormData({ ...formData, destination: e.target.value })} className="w-full border p-2 rounded focus:ring-2 focus:ring-blue-500 outline-none" required />
+                  <label className="text-gray-700 block text-sm font-medium">Location *</label>
+                  <input placeholder="City" value={formData.destination} onChange={e => setFormData({ ...formData, destination: e.target.value })} className="w-full border border-gray-200 p-2.5 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm" required />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-gray-700 mb-1 block">Hotel Photo (Library/Upload)</label>
+                  <label className="text-gray-700 mb-1 block text-sm font-medium">Hotel Photo (Library/Upload)</label>
                   <div className="flex gap-2">
-                    <label className="flex-1 flex items-center justify-center gap-2 p-2 border border-dashed rounded bg-blue-50 cursor-pointer hover:bg-blue-100 transition-all">
-                      <Upload size={16} className="text-blue-600" /><span className="text-[10px] font-bold text-blue-600 uppercase tracking-widest leading-none">Upload</span>
+                    <label className="flex-1 flex items-center justify-center gap-2 p-2.5 border border-dashed border-blue-300 rounded-lg bg-blue-50 cursor-pointer hover:bg-blue-100 transition-all">
+                      <Upload size={15} className="text-blue-600" /><span className="text-[10px] font-bold text-blue-600 uppercase tracking-widest leading-none">Upload</span>
                       <input type="file" className="hidden" onChange={handleImageFileChange} />
                     </label>
-                    <button type="button" onClick={() => { setImageSource('library'); setShowImageModal(true); }} className="flex-1 flex items-center justify-center gap-2 p-2 border border-emerald-200 rounded bg-emerald-50 text-emerald-600 hover:bg-emerald-100 transition-all">
-                      <Camera size={16} /><span className="text-[10px] font-bold uppercase tracking-widest leading-none">Library</span>
+                    <button type="button" onClick={() => { setImageSource('library'); setShowImageModal(true); }} className="flex-1 flex items-center justify-center gap-2 p-2.5 border border-emerald-200 rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-100 transition-all">
+                      <Camera size={15} /><span className="text-[10px] font-bold uppercase tracking-widest leading-none">Library</span>
                     </button>
                   </div>
                 </div>
               </div>
 
               {imagePreview && (
-                <div className="relative w-full h-32 rounded-lg overflow-hidden border group">
+                <div className="relative w-full h-32 rounded-xl overflow-hidden border border-gray-200 group shadow-sm">
                   <img src={imagePreview} className="w-full h-full object-cover" />
                   <button type="button" onClick={() => { setImagePreview(null); setFormData({ ...formData, image: null }); }} className="absolute top-2 right-2 bg-red-600 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"><X size={14} /></button>
                 </div>
               )}
 
               <div className="space-y-1 text-sm">
-                <label className="text-gray-700 block">Hotel Synopsis / Details</label>
-                <textarea rows="3" placeholder="Hotel overview and amenities" value={formData.description} onChange={e => setFormData({ ...formData, description: e.target.value })} className="w-full border p-2 rounded focus:ring-2 focus:ring-blue-500 outline-none resize-none font-normal" />
+                <label className="text-gray-700 block text-sm font-medium">Hotel Synopsis / Details</label>
+                <textarea rows="3" placeholder="Hotel overview and amenities" value={formData.description} onChange={e => setFormData({ ...formData, description: e.target.value })} className="w-full border border-gray-200 p-2.5 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none resize-none text-sm font-normal" />
               </div>
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div className="space-y-1">
-                  <label className="text-gray-700 block">Contact Person</label>
-                  <input placeholder="Name" value={formData.contact_person} onChange={e => setFormData({ ...formData, contact_person: e.target.value })} className="w-full border p-2 rounded focus:ring-2 focus:ring-blue-500 outline-none" />
+                  <label className="text-gray-700 block text-sm font-medium">Contact Person</label>
+                  <input placeholder="Name" value={formData.contact_person} onChange={e => setFormData({ ...formData, contact_person: e.target.value })} className="w-full border border-gray-200 p-2.5 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm" />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-gray-700 block">Contact Phone</label>
-                  <input placeholder="Phone" value={formData.phone} onChange={e => setFormData({ ...formData, phone: e.target.value })} className="w-full border p-2 rounded focus:ring-2 focus:ring-blue-500 outline-none" />
+                  <label className="text-gray-700 block text-sm font-medium">Contact Phone</label>
+                  <input placeholder="Phone" value={formData.phone} onChange={e => setFormData({ ...formData, phone: e.target.value })} className="w-full border border-gray-200 p-2.5 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm" />
                 </div>
               </div>
-              <div className="space-y-1 text-sm text-sm">
-                <label className="text-gray-700 block">Full Address *</label>
-                <input placeholder="Postal Address" value={formData.address} onChange={e => setFormData({ ...formData, address: e.target.value })} className="w-full border p-2 rounded focus:ring-2 focus:ring-blue-500 outline-none" required />
+              <div className="space-y-1 text-sm">
+                <label className="text-gray-700 block text-sm font-medium">Full Address *</label>
+                <input placeholder="Postal Address" value={formData.address} onChange={e => setFormData({ ...formData, address: e.target.value })} className="w-full border border-gray-200 p-2.5 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm" required />
               </div>
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div className="space-y-1">
-                  <label className="text-gray-700 block">Digital Link</label>
-                  <input placeholder="Website URL" value={formData.hotel_link} onChange={e => setFormData({ ...formData, hotel_link: e.target.value })} className="w-full border p-2 rounded focus:ring-2 focus:ring-blue-500 outline-none" />
+                  <label className="text-gray-700 block text-sm font-medium">Digital Link</label>
+                  <input placeholder="Website URL" value={formData.hotel_link} onChange={e => setFormData({ ...formData, hotel_link: e.target.value })} className="w-full border border-gray-200 p-2.5 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm" />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-gray-700 block">Registry Status</label>
-                  <select value={formData.status} onChange={e => setFormData({ ...formData, status: e.target.value })} className="w-full border p-2 rounded focus:ring-2 focus:ring-blue-500 outline-none">
+                  <label className="text-gray-700 block text-sm font-medium">Registry Status</label>
+                  <select value={formData.status} onChange={e => setFormData({ ...formData, status: e.target.value })} className="w-full border border-gray-200 p-2.5 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm">
                     <option value="active">Active</option>
                     <option value="inactive">Inactive</option>
                   </select>
                 </div>
               </div>
-              <div className="flex justify-end gap-3 pt-6 border-t">
-                <button type="button" onClick={() => setIsModalOpen(false)} className="px-6 py-2 text-gray-400 font-bold uppercase tracking-widest text-xs hover:bg-gray-50">Dismiss</button>
-                <button type="submit" disabled={saving} className="px-10 py-2 bg-blue-600 text-white rounded font-bold uppercase tracking-widest text-[10px] hover:bg-blue-700 shadow-lg">{saving ? 'Syncing...' : 'Complete Registry'}</button>
+
+              {/* Footer inside form, pushed to bottom */}
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', paddingTop: '16px', borderTop: '1px solid #f1f5f9', marginTop: '4px', flexShrink: 0 }}>
+                <button type="button" onClick={() => setIsModalOpen(false)} style={{ padding: '9px 20px', background: 'transparent', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '12px', fontWeight: 700, color: '#64748b', cursor: 'pointer', letterSpacing: '0.08em', textTransform: 'uppercase' }}>Dismiss</button>
+                <button type="submit" disabled={saving} style={{ padding: '9px 28px', background: '#2563eb', border: 'none', borderRadius: '8px', fontSize: '11px', fontWeight: 700, color: '#fff', cursor: 'pointer', letterSpacing: '0.08em', textTransform: 'uppercase', boxShadow: '0 4px 12px rgba(37,99,235,0.35)' }}>{saving ? 'Syncing...' : 'Complete Registry'}</button>
               </div>
             </form>
-          </div>
-        </div>, document.body
-      )}
-
-      {/* SHARED IMAGE LIBRARY */}
-      {showImageModal && createPortal(
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[9999] p-4 font-poppins font-medium">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col animate-in-scale">
-            <div className="flex justify-between items-center p-4 border-b bg-gray-50"><h2 className="text-lg font-bold">Hotel Visual Library</h2><button onClick={() => setShowImageModal(false)}><X size={24} /></button></div>
-            <div className="flex border-b text-[10px] font-bold uppercase tracking-widest">
+      </Dialog>
+      
+{/* Image Model  */}
+<Dialog style={{minWidth:'50vw'}} showCloseIcon={false} visible={showImageModal} header={()=>(
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 24px', borderBottom: '1px solid #f1f5f9', backgroundColor: '#f8fafc' }}>
+              <h2 style={{ fontSize: '18px', fontWeight: 700, color: '#1e293b', margin: 0 }}>Hotel Visual Library</h2>
+              <button onClick={() => setShowImageModal(false)} style={{ background: '#f1f5f9', border: 'none', borderRadius: '50%', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#64748b' }}><X size={20} /></button>
+            </div>
+)}>
+<div className="flex border-b text-[10px] font-bold uppercase tracking-widest">
               <button onClick={() => setLibraryTab('free')} className={`px-8 py-4 transition-all ${libraryTab === 'free' ? 'border-b-4 border-blue-600 text-blue-600' : 'text-gray-400 hover:text-gray-600'}`}>Global Photo Stock</button>
               <button onClick={() => setLibraryTab('your')} className={`px-8 py-4 transition-all ${libraryTab === 'your' ? 'border-b-4 border-blue-600 text-blue-600' : 'text-gray-400 hover:text-gray-600'}`}>My Gallery</button>
             </div>
@@ -530,26 +545,24 @@ const Hotel = () => {
                 <button onClick={() => libraryTab === 'free' ? fetchFreeStockImages() : null} className="px-8 bg-blue-600 text-white rounded-lg text-xs font-bold uppercase tracking-widest leading-none">Search</button>
               </div>
             </div>
-            <div className="flex-1 overflow-y-auto p-6 grid grid-cols-4 gap-4 bg-gray-50">
-              {(libraryTab === 'free' ? freeStockPhotos : libraryPackages).map((img, i) => (
-                <div key={i} onClick={() => libraryTab === 'free' ? handleSelectFreeStockImage(img.url) : handleImageSelectFromLibrary(img.image)} className="aspect-square relative rounded-xl overflow-hidden border-2 bg-white hover:border-blue-500 cursor-pointer group shadow-sm transition-all duration-300">
-                  <img src={img.thumb || img.url || img.image} className="w-full h-full object-cover" /><div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-[10px] font-bold tracking-widest uppercase">SELECT</div>
-                </div>
-              ))}
+            <div  className="   overflow-y-auto p-6 grid grid-cols-2 md:grid-cols-6 gap-4 bg-gray-50">
+                {(libraryTab === 'free' ? freeStockPhotos : libraryPackages).map((img, i) => (
+                  <div style={{backgroundImage:`url(${img.thumb || img.url || img.image})`,backgroundSize:"cover"}} key={i} onClick={() => libraryTab === 'free' ? handleSelectFreeStockImage(img.url) : handleImageSelectFromLibrary(img.image)} className="aspect-square  relative rounded-xl overflow-hidden border-2 bg-white hover:border-blue-500 cursor-pointer group shadow-sm transition-all duration-300">
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-[10px] font-bold tracking-widest uppercase">SELECT</div>
+                  </div>
+                ))}
             </div>
-          </div>
-        </div>, document.body
-      )}
+</Dialog>
+     
 
       {/* PRICING MODAL */}
-      {isPriceModalOpen && pricingHotel && createPortal(
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[9999] p-4 font-poppins font-medium">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-lg overflow-hidden animate-in-scale">
-            <div className="p-6 border-b flex justify-between items-center bg-amber-50">
-              <h2 className="text-xl font-bold text-amber-900 flex items-center gap-2"><DollarSign size={24} /> Rate Index: {pricingHotel.name}</h2>
-              <button onClick={() => setIsPriceModalOpen(false)}><X size={24} /></button>
+      <Dialog showCloseIcon={false} visible={isPriceModalOpen} onHide={() => setIsPriceModalOpen(false)} style={{minWidth:'40vw'}} header={()=>(
+   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 24px', borderBottom: '1px solid #fef3c7', backgroundColor: '#fffbeb' }}>
+              <h2 style={{ fontSize: '18px', fontWeight: 700, color: '#92400e', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}><DollarSign size={20} /> Rate Index: {pricingHotel.name}</h2>
+              <button onClick={() => setIsPriceModalOpen(false)} style={{ background: '#fef3c7', border: 'none', borderRadius: '50%', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#92400e' }}><X size={20} /></button>
             </div>
-            <div className="p-6">
+      )}>
+  <div className="p-6">
               {loadingRates ? <LogoLoader text="Syncing..." /> : (
                 <div className="space-y-4">
                   {rates.length > 0 ? (
@@ -566,9 +579,8 @@ const Hotel = () => {
                 </div>
               )}
             </div>
-          </div>
-        </div>, document.body
-      )}
+      </Dialog>
+     
     </div>
   );
 };

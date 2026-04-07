@@ -30,6 +30,7 @@ import {
   Calendar
 } from 'lucide-react';
 import { companySettingsAPI } from '../services/api';
+import { Dialog } from 'primereact/dialog';
 
 const TeamManagement = () => {
   const { user } = useAuth();
@@ -1215,10 +1216,8 @@ const TeamManagement = () => {
         )}
 
         {/* Modal */}
-        {showModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto">
-              <div className="flex justify-between items-center p-6 border-b border-gray-200">
+        <Dialog visible={showModal} className='bg-white rounded-lg shadow-xl w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto' header={()=>(
+  <div className="flex justify-between items-center p-6 border-b border-gray-200">
                 <h2 className="text-xl font-bold text-gray-800 uppercase tracking-tight flex items-center gap-2">
                   {modalType === 'login-logs' ? (
                     <><Clock className="h-5 w-5 text-amber-500" /> User Login History</>
@@ -1235,8 +1234,11 @@ const TeamManagement = () => {
                   <X className="h-6 w-6" />
                 </button>
               </div>
-
-              {modalType === 'login-logs' ? (
+        )} 
+        
+        showCloseIcon={false}
+        >
+ {modalType === 'login-logs' ? (
                 <div className="p-6">
                   <div className="mb-6 flex flex-col gap-4 bg-amber-50 p-4 rounded-xl border border-amber-100">
                     <div className="flex items-center justify-between">
@@ -1987,9 +1989,8 @@ const TeamManagement = () => {
                   </div>
                 </form>
               )}
-            </div>
-          </div>
-        )}
+        </Dialog>
+      
       </div>
         </>
       )}
