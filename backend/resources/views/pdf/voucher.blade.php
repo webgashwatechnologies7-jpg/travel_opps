@@ -335,6 +335,13 @@
                         <td class="info-separator">:</td>
                         <td>{{ ($lead->adult + $lead->child + $lead->infant) }}</td>
                     </tr>
+                    @if($quotation && !empty($quotation->itinerary['routing']))
+                    <tr>
+                        <td class="info-label">Routing</td>
+                        <td class="info-separator">:</td>
+                        <td style="color: #2D3192; font-weight: bold;">{{ $quotation->itinerary['routing'] }}</td>
+                    </tr>
+                    @endif
                     <tr>
                         <td class="info-label">Adult : {{ $lead->adult }}, Child : {{ $lead->child }}, Infant :
                             {{ $lead->infant }}</td>

@@ -6,7 +6,8 @@ import { useAuth } from '../contexts/AuthContext';
 import { getDisplayImageUrl } from '../utils/imageUrl';
 import { packagesAPI, dayItinerariesAPI, hotelsAPI, activitiesAPI, settingsAPI, destinationsAPI, itineraryPricingAPI, transfersAPI, mealPlansAPI, roomTypesAPI, queryProposalsAPI, leadsAPI } from '../services/api';
 import { searchPexelsPhotos } from '../services/pexels';
-import { ArrowLeft, Camera, Edit, Plus, ChevronRight, FileText, Search, X, Bed, Image as ImageIcon, Car, FileText as PassportIcon, UtensilsCrossed, Plane, User, Ship, Star, Calendar, CalendarDays, Hash, Building2, Upload, Clock } from 'lucide-react';
+import { getRoadDistance } from '../utils/distanceHelper';
+import { ArrowLeft, Camera, Edit, Plus, ChevronRight, FileText, Search, X, Bed, Image as ImageIcon, Car, FileText as PassportIcon, UtensilsCrossed, Plane, User, Ship, Star, Calendar, CalendarDays, Hash, Building2, Upload, Clock, RefreshCw } from 'lucide-react';
 import PricingTab from '../components/PricingTab';
 import FinalTab from '../components/FinalTab';
 
@@ -33,78 +34,79 @@ const ItineraryDetail = () => {
   const [syncedWithLead, setSyncedWithLead] = useState(false);
   const legacyMigrationAttemptedRef = useRef(false);
 
+  const manualSyncWithLead = async (silent = false) => {
+    if (!fromLeadId || !itinerary || !itinerary.id) return;
+    
+    try {
+      if (!silent) setSyncedWithLead(false);
+      const res = await leadsAPI.get(fromLeadId);
+      const leadData = res.data.data.lead || res.data.data;
+      
+      if (leadData) {
+        const currentAdult = parseInt(itinerary.adult || 1);
+        const currentChild = parseInt(itinerary.child || 0);
+        const currentInfant = parseInt(itinerary.infant || 0);
+        const currentDuration = parseInt(itinerary.duration || 0);
+        
+        const leadAdult = parseInt(leadData.adult || 1);
+        const leadChild = parseInt(leadData.child || 0);
+        const leadInfant = parseInt(leadData.infant || 0);
+
+        // Calculate duration (days) from lead dates: (end - start) + 1
+        let leadDuration = currentDuration;
+        if (leadData.travel_start_date && leadData.travel_end_date) {
+          const start = new Date(leadData.travel_start_date);
+          const end = new Date(leadData.travel_end_date);
+          const diffTime = Math.abs(end - start);
+          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+          leadDuration = diffDays;
+        }
+
+        if (currentAdult !== leadAdult || currentChild !== leadChild || currentInfant !== leadInfant || currentDuration !== leadDuration) {
+          console.log('Syncing pax and duration from lead:', leadData.adult, leadData.child, leadData.infant, leadDuration);
+          
+          const updateData = {
+            adult: leadAdult,
+            child: leadChild,
+            infant: leadInfant
+          };
+          if (currentDuration !== leadDuration) {
+            updateData.duration = leadDuration;
+          }
+
+          await packagesAPI.update(id, updateData);
+
+          setItinerary(prev => ({
+            ...prev,
+            adult: leadAdult,
+            child: leadChild,
+            infant: leadInfant,
+            duration: leadDuration
+          }));
+          
+          if (currentDuration !== leadDuration) {
+            if (!silent) toast.info(`Duration updated from lead: ${leadDuration} Days`);
+            fetchItinerary();
+          } else {
+            if (!silent) toast.info(`Pax updated from lead: ${leadAdult} Adult${leadAdult > 1 ? 's' : ''}`);
+          }
+        } else if (!silent) {
+          toast.success('Itinerary is already in sync with lead');
+        }
+        setSyncedWithLead(true);
+      }
+    } catch (err) {
+      console.error('Failed to sync pax from lead:', err);
+      if (!silent) toast.error('Failed to sync with lead');
+      setSyncedWithLead(true);
+    }
+  };
+
   useEffect(() => {
     if (fromLeadId && itinerary?.id && !syncedWithLead) {
-      const syncPaxWithLead = async () => {
-        try {
-          const res = await leadsAPI.get(fromLeadId);
-          const leadData = res.data.data.lead || res.data.data;
-          
-          if (leadData) {
-            const currentAdult = parseInt(itinerary.adult || 1);
-            const currentChild = parseInt(itinerary.child || 0);
-            const currentInfant = parseInt(itinerary.infant || 0);
-            const currentDuration = parseInt(itinerary.duration || 0);
-            
-            const leadAdult = parseInt(leadData.adult || 1);
-            const leadChild = parseInt(leadData.child || 0);
-            const leadInfant = parseInt(leadData.infant || 0);
-
-            // Calculate duration (days) from lead dates: (end - start) + 1
-            let leadDuration = currentDuration;
-            if (leadData.travel_start_date && leadData.travel_end_date) {
-              const start = new Date(leadData.travel_start_date);
-              const end = new Date(leadData.travel_end_date);
-              const diffTime = Math.abs(end - start);
-              const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
-              leadDuration = diffDays;
-            }
-
-            if (currentAdult !== leadAdult || currentChild !== leadChild || currentInfant !== leadInfant || currentDuration !== leadDuration) {
-              console.log('Syncing pax and duration from lead:', leadData.adult, leadData.child, leadData.infant, leadDuration);
-              
-              // Prepare update data
-              const updateData = {
-                adult: leadAdult,
-                child: leadChild,
-                infant: leadInfant
-              };
-              
-              // Update duration if it changed
-              if (currentDuration !== leadDuration) {
-                updateData.duration = leadDuration;
-              }
-
-              // Only update on server if values changed
-              await packagesAPI.update(id, updateData);
-
-              setItinerary(prev => ({
-                ...prev,
-                adult: leadAdult,
-                child: leadChild,
-                infant: leadInfant,
-                duration: leadDuration
-              }));
-              
-              // If duration changed, we need to refresh days
-              if (currentDuration !== leadDuration) {
-                toast.info(`Duration updated from lead: ${leadDuration} Days`);
-                // Trigger itinerary refresh to rebuild days array
-                fetchItinerary();
-              } else {
-                toast.info(`Pax updated from lead: ${leadAdult} Adult${leadAdult > 1 ? 's' : ''}`);
-              }
-            }
-            setSyncedWithLead(true);
-          }
-        } catch (err) {
-          console.error('Failed to sync pax from lead:', err);
-          setSyncedWithLead(true); // Don't keep retrying if it fails
-        }
-      };
-      syncPaxWithLead();
+      manualSyncWithLead(true);
     }
-  }, [fromLeadId, itinerary, id, syncedWithLead]);
+  }, [fromLeadId, itinerary?.id, id, syncedWithLead]);
   const [loading, setLoading] = useState(true);
   const [isLoaded, setIsLoaded] = useState(false);
   const [activeTab, setActiveTab] = useState('build');
@@ -205,6 +207,7 @@ const ItineraryDetail = () => {
     itinerary_name: '',
     duration: '1',
     destinations: '',
+    routing: '',
     notes: '',
     start_date: '',
     image: null
@@ -256,6 +259,7 @@ const ItineraryDetail = () => {
   const [optionGstSettings, setOptionGstSettings] = useState({});
   const [days, setDays] = useState([]);
   const [smartFlow, setSmartFlow] = useState(true); // Auto-advance feature
+  const [dayDistances, setDayDistances] = useState({}); // Road distance in KM between days
 
 
   useEffect(() => {
@@ -412,6 +416,43 @@ const ItineraryDetail = () => {
       setPricingData(prev => ({ ...prev, ...newPricingData }));
     }
   }, [dayEvents]);
+
+  // Automatic Distance Calculation useEffect
+  useEffect(() => {
+    const calculateDistances = async () => {
+      if (days.length < 2) return;
+      
+      const newDistances = { ...dayDistances };
+      let changed = false;
+
+      for (let i = 0; i < days.length - 1; i++) {
+        const currentDest = days[i].destination;
+        const nextDest = days[i + 1].destination;
+        
+        // Only calculate if both destinations are set and they are different
+        if (currentDest && nextDest && currentDest !== nextDest && currentDest !== 'Destination' && nextDest !== 'Destination') {
+          const cacheKey = `${currentDest}_${nextDest}`;
+          if (!dayDistances[cacheKey]) {
+            try {
+              const distance = await getRoadDistance(currentDest, nextDest);
+              if (distance) {
+                newDistances[cacheKey] = distance;
+                changed = true;
+              }
+            } catch (err) {
+              console.error('Distance calculation failed:', err);
+            }
+          }
+        }
+      }
+
+      if (changed) {
+        setDayDistances(newDistances);
+      }
+    };
+
+    calculateDistances();
+  }, [days]);
 
   // Add options to proposals – only options that exist in dayEvents (same as Final tab)
   const handleAddOptionsToProposals = () => {
@@ -707,24 +748,11 @@ const ItineraryDetail = () => {
       const response = await packagesAPI.get(id);
       const data = response.data.data;
 
-      // Convert image URL to absolute if needed
-      if (data.image) {
-        if (data.image.startsWith('/storage') || (data.image.startsWith('/') && !data.image.startsWith('http'))) {
-          const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
-          const baseUrl = apiBaseUrl.replace('/api', '');
-          data.image = `${baseUrl}${data.image}`;
-        }
-        // Fix domain if needed
-        if (data.image.includes('localhost') && !data.image.includes(':8000')) {
-          data.image = data.image.replace('localhost', 'localhost:8000');
-        }
-      }
-
       setItinerary(data);
       
       // Load events and days from server; keep database as source-of-truth
       if (data.day_events && Object.keys(data.day_events).length > 0) {
-        setDayEvents(data.day_events);
+        setDayEvents(data.day_events || {});
       } else {
         setDayEvents({});
       }
@@ -1785,6 +1813,7 @@ const ItineraryDetail = () => {
       itinerary_name: itinerary.itinerary_name || '',
       duration: itinerary.duration?.toString() || '1',
       destinations: itinerary.destinations || '',
+      routing: itinerary.routing || '',
       notes: itinerary.notes || '',
       start_date: itinerary.start_date || '',
       image: null
@@ -1800,6 +1829,7 @@ const ItineraryDetail = () => {
       pkgData.append('itinerary_name', itineraryFormData.itinerary_name);
       pkgData.append('duration', itineraryFormData.duration);
       pkgData.append('destinations', itineraryFormData.destinations);
+      pkgData.append('routing', itineraryFormData.routing || '');
       pkgData.append('notes', itineraryFormData.notes);
       pkgData.append('start_date', itineraryFormData.start_date || '');
       pkgData.append('_method', 'PUT');
@@ -1869,12 +1899,21 @@ const ItineraryDetail = () => {
     );
   }
 
+  if (loading || !itinerary) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
+        <p className="text-gray-500 font-medium">Loading itinerary details...</p>
+      </div>
+    );
+  }
+
   return (
     <>
       <div>
         <div className="min-h-screen">
-          {/* Header with Back Button */}
-          <div className="bg-white border-b border-gray-200 px-6 py-4">
+          {/* Header with Back Button and Sync button */}
+          <div className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
             <button
               onClick={() => fromLeadId ? navigate(`/leads/${fromLeadId}`) : navigate('/itineraries')}
               className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors"
@@ -1882,6 +1921,17 @@ const ItineraryDetail = () => {
               <ArrowLeft className="h-5 w-5" />
               <span className="font-medium">{fromLeadId ? 'Back to Query' : 'Back to Itineraries'}</span>
             </button>
+
+            {fromLeadId && (
+              <button
+                onClick={() => manualSyncWithLead()}
+                className="flex items-center gap-2 text-blue-600 hover:text-blue-800 transition-colors text-sm font-semibold bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-100"
+                title="Refresh pax count and duration from Lead"
+              >
+                <RefreshCw className={`h-4 w-4 ${syncedWithLead ? '' : 'animate-spin'}`} />
+                Sync with Lead
+              </button>
+            )}
           </div>
 
           {/* Tabs */}
@@ -1932,10 +1982,10 @@ const ItineraryDetail = () => {
                   backgroundColor: '#667eea'
                 }}
               >
-                {itinerary.image && (
+                {itinerary?.image && (
                   <img
                     src={getDisplayImageUrl(itinerary.image) || itinerary.image}
-                    alt={itinerary.itinerary_name}
+                    alt={itinerary?.itinerary_name || 'Itinerary'}
                     className="absolute inset-0 w-full h-full object-cover"
                     onError={(e) => {
                       e.target.style.display = 'none';
@@ -1956,7 +2006,7 @@ const ItineraryDetail = () => {
                   )}
                   <div className="bg-white/90 backdrop-blur-sm p-4 rounded-lg shadow-lg">
                     <div className="flex items-center gap-3 mb-2">
-                      <h1 className="text-4xl font-bold text-gray-900">{itinerary.itinerary_name || 'Untitled'}</h1>
+                      <h1 className="text-4xl font-bold text-gray-900">{itinerary?.itinerary_name || 'Untitled'}</h1>
                       {hasPermission(user, 'itineraries.edit') && (
                         <button 
                           onClick={handleEditItinerary}
@@ -1968,11 +2018,14 @@ const ItineraryDetail = () => {
                     </div>
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-gray-700 text-lg font-medium">{itinerary.destinations || 'No destinations'}</p>
+                        <p className="text-gray-700 text-lg font-medium">{itinerary?.destinations || 'No destinations'}</p>
+                        {itinerary?.routing && (
+                          <p className="text-blue-600 text-sm font-semibold mt-1">Route: {itinerary.routing}</p>
+                        )}
                         <div className="flex items-center gap-4 mt-1 text-sm text-gray-550 font-medium">
                           <div className="flex items-center gap-1.5 bg-blue-50/50 px-2 py-1 rounded">
                             <CalendarDays className="h-4 w-4 text-blue-600" />
-                            <span>{parseInt(itinerary.duration) - 1} Nights & {itinerary.duration} Days</span>
+                            <span>{parseInt(itinerary?.duration || 0) - 1} Nights & {itinerary?.duration || 0} Days</span>
                           </div>
                           {itinerary.start_date && itinerary.duration && !isNaN(parseInt(itinerary.duration)) && (
                             <div className="flex items-center gap-1.5 bg-green-50/50 px-2 py-1 rounded text-green-700">
@@ -1996,57 +2049,78 @@ const ItineraryDetail = () => {
                     <h3 className="font-semibold text-gray-800 mb-4">Itinerary Days</h3>
                     <div className="space-y-2">
                       {days.map((day, index) => (
-                        <div
-                          key={day.day}
-                          onClick={() => setSelectedDay(day.day)}
-                          className={`p-3 rounded-lg cursor-pointer transition-colors ${selectedDay === day.day
-                            ? 'bg-blue-50 border-2 border-blue-500'
-                            : 'bg-gray-50 border-2 border-transparent hover:bg-gray-100'
-                            }`}
-                        >
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                              <div className="flex flex-col">
-                                <span className={`font-semibold ${selectedDay === day.day ? 'text-blue-600' : 'text-gray-700'}`}>
-                                  DAY {day.day}
-                                </span>
-                                {calculateDate(day.day) && (
-                                  <span className="text-[10px] text-gray-500">
-                                    {formatDateWithDay(calculateDate(day.day))}
+                        <React.Fragment key={day.day}>
+                          <div
+                            onClick={() => setSelectedDay(day.day)}
+                            className={`p-3 rounded-lg cursor-pointer transition-colors ${selectedDay === day.day
+                              ? 'bg-blue-50 border-2 border-blue-500'
+                              : 'bg-gray-50 border-2 border-transparent hover:bg-gray-100'
+                              }`}
+                          >
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <div className="flex flex-col">
+                                  <span className={`font-semibold ${selectedDay === day.day ? 'text-blue-600' : 'text-gray-700'}`}>
+                                    DAY {day.day}
                                   </span>
+                                  {calculateDate(day.day) && (
+                                    <span className="text-[10px] text-gray-500">
+                                      {formatDateWithDay(calculateDate(day.day))}
+                                    </span>
+                                  )}
+                                </div>
+                                {hasPermission(user, 'itineraries.edit') && (
+                                  <button className="text-gray-400 hover:text-gray-600">
+                                    <Edit className="h-4 w-4" />
+                                  </button>
                                 )}
                               </div>
-                              {hasPermission(user, 'itineraries.edit') && (
-                                <button className="text-gray-400 hover:text-gray-600">
-                                  <Edit className="h-4 w-4" />
-                                </button>
-                              )}
+                              <ChevronRight className={`h-4 w-4 ${selectedDay === day.day ? 'text-blue-600' : 'text-gray-400'}`} />
                             </div>
-                            <ChevronRight className={`h-4 w-4 ${selectedDay === day.day ? 'text-blue-600' : 'text-gray-400'}`} />
+                            <select
+                              className="mt-2 w-full text-sm border border-gray-300 rounded px-2 py-1 bg-white"
+                              value={day.destination || ''}
+                              onChange={(e) => {
+                                e.stopPropagation();
+                                const selectedValue = e.target.value;
+                                if (selectedValue && selectedValue !== '') {
+                                  handleDayDestinationChange(day.day, selectedValue);
+                                }
+                              }}
+                              onClick={(e) => e.stopPropagation()}
+                              disabled={!hasPermission(user, 'itineraries.edit')}
+                            >
+                              <option value="">Select Destination</option>
+                              {destinations.map((dest) => (
+                                <option key={dest} value={dest}>{dest}</option>
+                              ))}
+                              {/* Show current destination if it's not in the list */}
+                              {day.destination && !destinations.includes(day.destination) && day.destination !== 'Destination' && (
+                                <option value={day.destination}>{day.destination}</option>
+                              )}
+                            </select>
                           </div>
-                          <select
-                            className="mt-2 w-full text-sm border border-gray-300 rounded px-2 py-1 bg-white"
-                            value={day.destination || ''}
-                            onChange={(e) => {
-                              e.stopPropagation();
-                              const selectedValue = e.target.value;
-                              if (selectedValue && selectedValue !== '') {
-                                handleDayDestinationChange(day.day, selectedValue);
-                              }
-                            }}
-                            onClick={(e) => e.stopPropagation()}
-                            disabled={!hasPermission(user, 'itineraries.edit')}
-                          >
-                            <option value="">Select Destination</option>
-                            {destinations.map((dest) => (
-                              <option key={dest} value={dest}>{dest}</option>
-                            ))}
-                            {/* Show current destination if it's not in the list */}
-                            {day.destination && !destinations.includes(day.destination) && day.destination !== 'Destination' && (
-                              <option value={day.destination}>{day.destination}</option>
-                            )}
-                          </select>
-                        </div>
+                          
+                          {/* Distance Indicator between days */}
+                          {index < days.length - 1 && day.destination && days[index + 1]?.destination && day.destination !== days[index + 1].destination && (
+                            <div className="flex items-center justify-center my-1">
+                              <div className="w-0.5 h-3 bg-gray-300 rounded-full"></div>
+                              <div className="px-2">
+                                {dayDistances[`${day.destination}_${days[index + 1].destination}`] ? (
+                                  <div className="flex items-center gap-1 text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-100 shadow-sm animate-fade-in">
+                                    <Car className="h-3 w-3" />
+                                    <span className="text-[10px] font-bold whitespace-nowrap">
+                                      {dayDistances[`${day.destination}_${days[index + 1].destination}`]} KM
+                                    </span>
+                                  </div>
+                                ) : (
+                                  <div className="w-1 h-1 bg-gray-300 rounded-full"></div>
+                                )}
+                              </div>
+                              <div className="w-0.5 h-3 bg-gray-300 rounded-full"></div>
+                            </div>
+                          )}
+                        </React.Fragment>
                       ))}
                       <div className="mt-4 pt-4 border-t border-gray-200">
                         <div
@@ -5037,7 +5111,7 @@ const ItineraryDetail = () => {
                       <div className="flex items-center justify-center h-64">
                         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
                       </div>
-                    ) : dayItineraryLibrarySearch.length < 2 ? (
+                    ) : (dayItineraryLibrarySearchTerm || '').length < 2 ? (
                       <div className="text-center py-12 text-gray-500">
                         <p>Type at least 2 characters to see images from your itineraries.</p>
                       </div>
@@ -5460,6 +5534,19 @@ const ItineraryDetail = () => {
                       placeholder="e.g. Delhi - Shimla - Manali"
                     />
                   </div>
+                  <div className="space-y-2">
+                    <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider">Routing</label>
+                    <input
+                      type="text"
+                      className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all font-medium text-gray-800"
+                      value={itineraryFormData.routing}
+                      onChange={(e) => setItineraryFormData({ ...itineraryFormData, routing: e.target.value })}
+                      placeholder="e.g. Delhi (1N) - Shimla (2N) - Manali (3N) - Delhi"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                   <div className="space-y-2">
                     <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider">Travel Start Date</label>
                     <input

@@ -33,6 +33,7 @@ class Package extends Model
         'child',
         'infant',
         'destinations',
+        'routing',
         'notes',
         'terms_conditions',
         'refund_policy',

@@ -473,6 +473,14 @@
                         {{ $quotation->itinerary['duration'] + 1 }} Days</span>
                 </td>
             </tr>
+            @if(!empty($quotation->itinerary['routing']))
+            <tr>
+                <td colspan="4" style="padding-top: 5px;">
+                    <span class="label">Routing</span>
+                    <span class="value" style="color: #1e3a8a; font-size: 11px;">{{ $quotation->itinerary['routing'] }}</span>
+                </td>
+            </tr>
+            @endif
         </table>
     </div>
 

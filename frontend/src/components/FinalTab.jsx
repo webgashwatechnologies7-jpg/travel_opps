@@ -140,6 +140,8 @@ const FinalTab = ({
 
     loadPolicies();
   }, []);
+  
+  if (!dayEvents) return null;
 
   // Smooth scroll to right content heading when a policy is selected
   useEffect(() => {
@@ -265,7 +267,6 @@ const FinalTab = ({
     }
   };
 
-  // Generate days array
   const generateDays = () => {
     if (!itinerary || !itinerary.duration) return [];
     const days = [];
@@ -278,7 +279,7 @@ const FinalTab = ({
   const days = generateDays();
 
   // Active option for itinerary filter: default to Option 1 when options exist
-  const activeOption = sidebarSelectedOption || (Object.keys(optionsByNumber).length > 0 ? Object.keys(optionsByNumber).sort((a, b) => parseInt(a) - parseInt(b))[0] : null);
+  const activeOption = sidebarSelectedOption || (optionsByNumber && Object.keys(optionsByNumber).length > 0 ? Object.keys(optionsByNumber).sort((a, b) => parseInt(a) - parseInt(b))[0] : null);
 
   // Filter day events by selected option (for accommodation: show only that option's hotels)
   const getFilteredDayEvents = () => {
@@ -287,7 +288,10 @@ const FinalTab = ({
       const events = dayEvents[day] || [];
       filtered[day] = events.map(event => {
         if (event.eventType === 'accommodation' && event.hotelOptions && event.hotelOptions.length > 0 && activeOption) {
-          const matchingHotels = event.hotelOptions.filter(opt => String(opt.optionNumber) === String(activeOption));
+          const matchingHotels = event.hotelOptions.filter(opt => {
+            const optNum = String(opt.optionNumber || 1);
+            return optNum === String(activeOption);
+          });
           if (matchingHotels.length === 0) return null;
           return { ...event, hotelOptions: matchingHotels };
         }
@@ -411,7 +415,11 @@ const FinalTab = ({
               <div className="flex flex-wrap items-center gap-4 text-sm text-gray-200">
                 <span className="flex items-center gap-1"><MapPin className="h-4 w-4" />{itinerary?.destinations || 'N/A'}</span>
                 <span className="flex items-center gap-1"><Calendar className="h-4 w-4" />{itinerary?.duration || 0} Days</span>
-                <span className="flex items-center gap-1"><Users className="h-4 w-4" />{itinerary?.adult || 0} Adult{itinerary?.adult !== 1 ? 's' : ''}</span>
+                <span className="flex items-center gap-1"><Users className="h-4 w-4" />
+                  {itinerary?.adult || 0} Adult{itinerary?.adult !== 1 ? 's' : ''}
+                  {itinerary?.child > 0 && ` | ${itinerary.child} Child${itinerary.child !== 1 ? 'ren' : ''}`}
+                  {itinerary?.infant > 0 && ` | ${itinerary.infant} Infant${itinerary.infant !== 1 ? 's' : ''}`}
+                </span>
                 <span className="flex items-center gap-1"><Building2 className="h-4 w-4" />Hotel</span>
               </div>
             </div>
@@ -422,13 +430,13 @@ const FinalTab = ({
       {/* Two-column layout: Sidebar Options | Itinerary */}
       <div className="max-w-7xl mx-auto px-6 pb-12 flex flex-col lg:flex-row gap-8">
         {/* Left Sidebar - Package Options */}
-        {Object.keys(optionsByNumber).length > 0 && (
+        {optionsByNumber && Object.keys(optionsByNumber).length > 0 && (
           <div className="lg:w-96 flex-shrink-0">
             <h2 className="text-xl font-bold text-gray-900 mb-4">Select Your Package Option</h2>
             <div className="space-y-4">
               {Object.keys(optionsByNumber).sort((a, b) => parseInt(a) - parseInt(b)).map(optNum => {
                 const totals = optionTotals[optNum];
-                const options = optionsByNumber[optNum];
+                const options = optionsByNumber[optNum] || [];
                 const hasDiscount = (totals?.discountAmount || 0) > 0;
                 const discountPct = totals?.gstSettings?.discount || 0;
                 return (
@@ -463,7 +471,14 @@ const FinalTab = ({
                         <Eye className="h-5 w-5 text-gray-400" />
                       </div>
                       <div className="space-y-2 mb-4">
-                        {options.slice(0, 3).map((opt, idx) => {
+                        {/* Pax Summary for this option */}
+                        <div className="flex items-center gap-2 text-xs font-semibold text-gray-500 mb-2 bg-gray-50 p-1.5 rounded">
+                           <Users className="h-3.5 w-3.5 text-gray-400" />
+                           <span>{(itinerary?.adult || 1)} Adult{(itinerary?.adult > 1) ? 's' : ''}</span>
+                           {(itinerary?.child > 0) && <span>, {itinerary?.child} Child{(itinerary?.child > 1) ? 'ren' : ''}</span>}
+                        </div>
+
+                        {(options || []).map((opt, idx) => {
                           const start = opt.checkIn ? new Date(opt.checkIn) : null;
                           const end = opt.checkOut ? new Date(opt.checkOut) : null;
                           let nightCount = 0;
@@ -492,14 +507,16 @@ const FinalTab = ({
                           <div className="flex items-center gap-2 text-sm text-gray-700">
                             <span className="text-blue-600">✓</span>
                             <UtensilsCrossed className="h-4 w-4 text-blue-600 flex-shrink-0" />
-                            <span>Meals</span>
+                            <span>Meals Included</span>
                           </div>
                         )}
-                        <div className="flex items-center gap-2 text-sm text-gray-700">
-                          <span className="text-blue-600">✓</span>
-                          <ImageIcon className="h-4 w-4 text-blue-600 flex-shrink-0" />
-                          <span>Sightseeing Tours</span>
-                        </div>
+                        {Object.values(dayEvents).some(events => (events || []).some(e => e.eventType === 'activity')) && (
+                          <div className="flex items-center gap-2 text-sm text-gray-700">
+                            <span className="text-blue-600">✓</span>
+                            <ImageIcon className="h-4 w-4 text-blue-600 flex-shrink-0" />
+                            <span>Sightseeing Tours</span>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -534,7 +551,26 @@ const FinalTab = ({
           <div ref={rightContentRef} className="bg-white rounded-xl shadow-lg p-8 mb-8">
             {rightView === 'itinerary' ? (
               <>
-                <h2 className="text-2xl font-bold text-gray-900 mb-6">Day-by-Day Itinerary</h2>
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 border-b border-gray-100 pb-6">
+                  <div>
+                    <h2 className="text-3xl font-black text-gray-900 leading-tight">Day-by-Day Itinerary</h2>
+                    <p className="text-gray-500 font-medium flex items-center gap-2 mt-1">
+                      <MapPin className="h-4 w-4 text-blue-500" />
+                      {itinerary?.destinations || 'Flexible'} | {itinerary?.duration || 0} Days Plan
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3 bg-blue-50 px-4 py-2 rounded-xl border border-blue-100 shadow-sm">
+                    <Users className="h-5 w-5 text-blue-600" />
+                    <div className="flex flex-col">
+                      <span className="text-xs font-bold text-blue-800 uppercase tracking-wider">Travelers</span>
+                      <span className="text-sm font-bold text-blue-900">
+                        {itinerary?.adult || 0} Adult{itinerary?.adult !== 1 ? 's' : ''}
+                        {itinerary?.child > 0 && `, ${itinerary.child} Child${itinerary.child !== 1 ? 'ren' : ''}`}
+                        {itinerary?.infant > 0 && `, ${itinerary.infant} Infant${itinerary.infant !== 1 ? 's' : ''}`}
+                      </span>
+                    </div>
+                  </div>
+                </div>
                 <div className="space-y-8">
                   {days.map((day) => {
                     const events = filteredDayEvents[day] || [];

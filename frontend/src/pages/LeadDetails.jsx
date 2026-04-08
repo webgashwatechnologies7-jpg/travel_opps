@@ -7,7 +7,7 @@ import { searchPexelsPhotos } from '../services/pexels';
 import { getDisplayImageUrl, rewriteHtmlImageUrls, sanitizeEmailHtmlForDisplay } from '../utils/imageUrl';
 // Layout removed - handled by nested routing
 import { useSettings } from '../contexts/SettingsContext';
-import { ArrowLeft, Calendar, Mail, Plus, Upload, X, Search, FileText, Printer, Send, MessageCircle, CheckCircle, CheckCircle2, Clock, Briefcase, MapPin, CalendarDays, Users, UserCheck, Leaf, Smartphone, Phone, MoreVertical, Download, Pencil, Trash2, Camera, RefreshCw, Reply, ChevronDown, Paperclip, Eye, Info, Gift, Heart } from 'lucide-react';
+import { ArrowLeft, Calendar, Mail, Plus, Upload, X, Search, FileText, Printer, Send, MessageCircle, CheckCircle, CheckCircle2, Clock, Briefcase, MapPin, CalendarDays, Users, UserCheck, Leaf, Smartphone, Phone, MoreVertical, Download, Pencil, Trash2, Camera, RefreshCw, Reply, ChevronDown, Paperclip, Eye, Info, Gift, Heart, Building2 } from 'lucide-react';
 import DetailRow from '../components/Quiries/DetailRow';
 import html2pdf from 'html2pdf.js';
 import { WhatsAppTab, MailsTab, FollowupsTab, BillingTab, HistoryTab, SuppCommTab, PostSalesTab, VoucherTab, DocsTab, InvoiceTab, CallsTab } from '../components/LeadTabs';
@@ -4865,9 +4865,11 @@ const LeadDetails = () => {
                           </div>
                         ) : (() => {
                           const first = visibleProposals[0] || proposals[0];
-                          const cardTitle = (lead?.destination || first?.itinerary_name || 'Proposals').toString().trim() || 'Proposals';
-                          const cardImage = getDisplayImageUrl(first?.image) || first?.image || null;
-                          const cardDestination = first?.destination || lead?.destination || '';
+                          const meta = first?.metadata || {};
+                          const cardTitle = (first?.itinerary_name || meta.itinerary_name || first?.title || lead?.destination || 'Proposals').toString().trim() || 'Proposals';
+                          const cardImageResult = getDisplayImageUrl(first?.image || meta.image);
+                          const cardImage = cardImageResult || first?.image || meta.image || null;
+                          const cardDestination = first?.destination || meta.destination || lead?.destination || '';
 
                           return (
                             <div className="w-full">
@@ -4876,7 +4878,8 @@ const LeadDetails = () => {
                                 <div
                                   className="relative h-48 sm:h-60 w-full overflow-hidden rounded-t-xl cursor-pointer"
                                   onClick={() => {
-                                    const itineraryId = first?.itinerary_id || proposals[0]?.itinerary_id;
+                                    const meta = first?.metadata || {};
+                                    const itineraryId = first?.itinerary_id || meta.itinerary_id || proposals[0]?.itinerary_id;
                                     if (itineraryId) {
                                       window.open(`/itineraries/${itineraryId}?fromLead=${id}`, '_blank');
                                     } else {
@@ -4885,12 +4888,20 @@ const LeadDetails = () => {
                                   }}
                                 >
                                   {cardImage ? (
-                                    <img src={cardImage} alt={cardTitle} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                                  ) : (
-                                    <div className="w-full h-full bg-gray-200 flex items-center justify-center">
-                                      <span className="text-gray-500 font-semibold">Proposals</span>
-                                    </div>
-                                  )}
+                                    <img 
+                                      src={cardImage} 
+                                      alt={cardTitle} 
+                                      className="w-full h-full object-cover" 
+                                      referrerPolicy="no-referrer" 
+                                      onError={(e) => {
+                                        e.target.style.display = 'none';
+                                        e.target.nextSibling.style.display = 'flex';
+                                      }}
+                                    />
+                                  ) : null}
+                                  <div className={`w-full h-full bg-gray-200 flex items-center justify-center ${cardImage ? 'hidden' : ''}`}>
+                                    <span className="text-gray-500 font-semibold">Proposals</span>
+                                  </div>
                                   <div className="absolute bottom-0 left-0 right-0 bg-black/55 p-4">
                                     <h3 className="text-xl font-semibold text-white">{cardTitle}</h3>
                                     {cardDestination && (
@@ -4965,7 +4976,10 @@ const LeadDetails = () => {
                                   {/* Package options – professional card layout */}
                                   <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 mb-4">
                                     {visibleProposals.map((opt) => {
-                                      const displayPrice = opt.price ?? opt.pricing?.finalClientPrice ?? 0;
+                                      const meta = opt.metadata || {};
+                                      const displayPrice = opt.price ?? meta.price ?? opt.pricing?.finalClientPrice ?? meta.pricing?.finalClientPrice ?? 0;
+                                      const itineraryName = opt.itinerary_name || meta.itinerary_name || opt.title || 'Itinerary';
+
                                       return (
                                         <div
                                           key={opt.id}
@@ -4974,7 +4988,7 @@ const LeadDetails = () => {
                                           {/* Card header */}
                                           <div className="bg-blue-600 px-4 py-2.5 flex items-center justify-between">
                                             <span className="text-white font-semibold">
-                                              {opt.optionNumber != null ? `Option ${opt.optionNumber}` : (opt.itinerary_name || 'Itinerary')}
+                                              {opt.optionNumber != null ? `Option ${opt.optionNumber}` : itineraryName}
                                             </span>
                                             {opt.confirmed && (
                                               <span className="px-2 py-0.5 bg-green-500 text-white text-xs font-semibold rounded-full">Confirmed</span>
@@ -4984,28 +4998,50 @@ const LeadDetails = () => {
                                           <div className="p-4">
                                             <div className="mb-4">
                                               {/* Breakdown: Base + Tax - Discount */}
-                                              {opt.pricing && (opt.pricing.totalGross > 0 || opt.pricing.totalTax > 0) && (
+                                              {(opt.pricing || meta.pricing) && ((opt.pricing?.totalGross || meta.pricing?.totalGross) > 0 || (opt.pricing?.totalTax || meta.pricing?.totalTax) > 0) && (
                                                 <div className="mb-2 space-y-1 bg-gray-50 p-2 rounded text-xs">
-                                                  {opt.pricing.totalGross > 0 && (
+                                                  {(opt.pricing?.totalGross || meta.pricing?.totalGross) > 0 && (
                                                     <div className="flex justify-between text-gray-600">
                                                       <span>Base Price:</span>
-                                                      <span>₹{Math.round(opt.pricing.totalGross).toLocaleString('en-IN')}</span>
+                                                      <span>₹{Math.round(opt.pricing?.totalGross || meta.pricing?.totalGross).toLocaleString('en-IN')}</span>
                                                     </div>
                                                   )}
-                                                  {(opt.pricing.totalTax > 0) && (
+                                                  {(opt.pricing?.totalTax || meta.pricing?.totalTax) > 0 && (
                                                     <div className="flex justify-between text-gray-600">
                                                       <span>Taxes (GST/TCS):</span>
-                                                      <span>+ ₹{Math.round(opt.pricing.totalTax).toLocaleString('en-IN')}</span>
+                                                      <span>+ ₹{Math.round(opt.pricing?.totalTax || meta.pricing?.totalTax).toLocaleString('en-IN')}</span>
                                                     </div>
                                                   )}
-                                                  {(opt.pricing.discountAmount > 0) && (
+                                                  {(opt.pricing?.discountAmount || meta.pricing?.discountAmount) > 0 && (
                                                     <div className="flex justify-between text-green-600 font-medium">
-                                                      <span>Discount ({opt.pricing.discount}%):</span>
-                                                      <span>- ₹{Math.round(opt.pricing.discountAmount).toLocaleString('en-IN')}</span>
+                                                      <span>Discount ({(opt.pricing?.discount || meta.pricing?.discount)}%):</span>
+                                                      <span>- ₹{Math.round(opt.pricing?.discountAmount || meta.pricing?.discountAmount).toLocaleString('en-IN')}</span>
                                                     </div>
                                                   )}
                                                 </div>
                                               )}
+                                              
+                                              {/* Pax Summary */}
+                                              <div className="flex items-center gap-2 text-xs font-semibold text-gray-500 mb-3 bg-gray-50 p-1.5 rounded">
+                                                 <Users className="h-3.5 w-3.5 text-gray-400" />
+                                                 <span>{lead?.adult || 1} Adult{(lead?.adult > 1) ? 's' : ''}</span>
+                                                 {(lead?.child > 0) && <span>, {lead?.child} Child{(lead?.child > 1) ? 'ren' : ''}</span>}
+                                              </div>
+
+                                              {/* Hotels Summary */}
+                                              {(meta.hotelOptions || opt.hotelOptions) ? (
+                                                <div className="space-y-1 mb-4 max-h-32 overflow-y-auto pr-1 thin-scrollbar">
+                                                  {(meta.hotelOptions || opt.hotelOptions || []).map((h, hIdx) => (
+                                                    <div key={hIdx} className="flex items-start gap-1.5 text-xs text-gray-600">
+                                                      <Building2 className="h-3 w-3 mt-0.5 text-blue-500 flex-shrink-0" />
+                                                      <span className="truncate font-medium">{h.hotelName || h.name || 'Hotel'}</span>
+                                                    </div>
+                                                  ))}
+                                                </div>
+                                              ) : (
+                                                <div className="text-[10px] text-gray-400 mb-4 italic">No hotels set</div>
+                                              )}
+
                                               <p className="text-xs text-gray-500 uppercase tracking-wide font-medium mb-0.5">Total Price</p>
                                               <p className="text-2xl font-bold text-gray-900">₹{Number(displayPrice).toLocaleString('en-IN')}</p>
                                             </div>
@@ -5481,7 +5517,12 @@ const LeadDetails = () => {
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     {itineraryLibraryImages.map((p) => (
                       <button key={p.id} type="button" onClick={() => handleSelectItineraryLibraryImage(p)} className="group relative aspect-square rounded-xl overflow-hidden border-2 border-transparent hover:border-blue-500 transition-all shadow-sm">
-                        <img src={p.image} alt={p.itinerary_name || p.title || 'Select'} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+                        <img 
+                          src={getDisplayImageUrl(p.image) || p.image} 
+                          alt={p.itinerary_name || p.title || 'Select'} 
+                          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" 
+                          onError={(e) => { e.target.style.display = 'none'; }}
+                        />
                         <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-bold p-2 text-center">{p.title || p.itinerary_name || 'SELECT'}</div>
                       </button>
                     ))}
@@ -5524,12 +5565,23 @@ const LeadDetails = () => {
                 ) : filteredItineraries.length === 0 ? (
                   <div className="text-center py-8 text-gray-500">No itineraries found.</div>
                 ) : filteredItineraries.map((it) => (
-                  <div key={it.id} onClick={() => handleSelectItinerary(it)} className="border border-gray-200 rounded-lg p-4 hover:bg-blue-50 cursor-pointer flex justify-between items-center">
-                    <div>
-                      <h3 className="font-bold">{it.title || it.itinerary_name}</h3>
+                  <div key={it.id} onClick={() => handleSelectItinerary(it)} className="border border-gray-200 rounded-lg p-4 hover:bg-blue-50 cursor-pointer flex gap-4 items-center">
+                    <div className="w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center overflow-hidden border border-gray-200 flex-shrink-0">
+                      {it.image ? (
+                        <img 
+                          src={getDisplayImageUrl(it.image) || it.image} 
+                          alt={it.title || 'Itinerary'} 
+                          className="w-full h-full object-cover" 
+                        />
+                      ) : (
+                        <ImageIcon className="h-6 w-6 text-gray-400" />
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-bold truncate">{it.title || it.itinerary_name}</h3>
                       <p className="text-sm text-gray-500">{it.duration} Days - {it.destination}</p>
                     </div>
-                    <button className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm">Insert</button>
+                    <button className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm transition-colors flex-shrink-0">Insert</button>
                   </div>
                 ))}
               </div>

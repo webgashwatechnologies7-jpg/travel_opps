@@ -5,31 +5,43 @@
 export function getDisplayImageUrl(url) {
   if (!url || typeof url !== 'string') return null;
   if (url.startsWith('data:')) return url;
+
   let base = (import.meta.env.VITE_API_BASE_URL || (typeof window !== 'undefined' ? `${window.location.origin}/api` : '')).replace(/\/api\/?$/, '');
-  const isRelative = url.startsWith('/storage') || url.startsWith('storage/') || (url.startsWith('/') && !url.startsWith('http'));
-  if (typeof window !== 'undefined' && isRelative && (!base || base === window.location.origin)) {
+  
+  const isRelative = url.startsWith('/storage') || url.startsWith('storage/') || (url.startsWith('/') && !url.startsWith('http')) || url.startsWith('images/');
+
+  if (typeof window !== 'undefined' && isRelative) {
     const host = window.location.hostname || '';
     const isLocal = host === 'localhost' || host === '127.0.0.1' || host.endsWith('.localhost');
-    // Backend/storage runs on localhost:8000 (or 127.0.0.1:8000), including for *.localhost subdomains
-    base = isLocal ? `${window.location.protocol}//${host === '127.0.0.1' ? '127.0.0.1' : 'localhost'}:8000` : (base || window.location.origin);
+    
+    // If local and base is not set or matches current origin, default to port 8000 for Laravel
+    if (isLocal && (!base || base.includes(host) || base.includes('localhost') || base.includes('127.0.0.1'))) {
+      // Use current hostname but port 8000 for backend
+      // This works for localhost:8000, 127.0.0.1:8000, and *.localhost:8000
+      base = `${window.location.protocol}//${host.split(':')[0]}:8000`;
+    }
   }
+
   if (isRelative) {
-    const path = url.startsWith('storage/') ? `/${url}` : url;
+    let path = url;
+    if (url.startsWith('storage/')) path = `/${url}`;
+    if (!path.startsWith('/') && !path.startsWith('http')) path = `/${path}`;
     return base ? `${base}${path}` : path;
   }
-  // URL stored as localhost/127.0.0.1 (e.g. from local dev) – on live, replace with current host
+
+  // URL stored as localhost/127.0.0.1 (e.g. from local dev) – on live, replace with current origin
   if (url.includes('localhost') || url.includes('127.0.0.1')) {
     if (typeof window !== 'undefined') {
       const host = window.location.hostname || '';
       const isLocal = host === 'localhost' || host === '127.0.0.1' || host.endsWith('.localhost');
-      const replaceWith = isLocal ? url : (base || window.location.origin);
       if (!isLocal) {
-        return url.replace(/https?:\/\/[^/]+/, replaceWith);
+        return url.replace(/https?:\/\/[^/]+/, base || window.location.origin);
       }
     } else if (base) {
       return url.replace(/https?:\/\/[^/]+/, base);
     }
   }
+
   return url;
 }
 

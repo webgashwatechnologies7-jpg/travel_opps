@@ -42,6 +42,7 @@ const Itineraries = () => {
     itinerary_name: '',
     duration: '1',
     destinations: '',
+    routing: '',
     notes: '',
     image: null
   });
@@ -142,6 +143,7 @@ const Itineraries = () => {
       itinerary_name: '',
       duration: '1',
       destinations: '',
+      routing: '',
       notes: '',
       image: null
     });
@@ -205,6 +207,7 @@ const Itineraries = () => {
       itinerary_name: itinerary.title || itinerary.itinerary_name || '',
       duration: itinerary.duration?.toString() || '1',
       destinations: itinerary.destination || itinerary.destinations || '',
+      routing: itinerary.routing || '',
       notes: itinerary.notes || '',
       image: null
     });
@@ -219,6 +222,7 @@ const Itineraries = () => {
         itinerary_name: data.itinerary_name || '',
         duration: data.duration?.toString() || '1',
         destinations: data.destinations || '',
+        routing: data.routing || '',
         notes: data.notes || '',
         image: null
       });
@@ -235,6 +239,7 @@ const Itineraries = () => {
       itinerary_name: '',
       duration: '1',
       destinations: '',
+      routing: '',
       notes: '',
       image: null
     });
@@ -317,6 +322,7 @@ const Itineraries = () => {
       packageData.append('itinerary_name', formData.itinerary_name);
       packageData.append('duration', formData.duration || '1');
       if (formData.destinations) packageData.append('destinations', formData.destinations);
+      if (formData.routing) packageData.append('routing', formData.routing);
       if (formData.notes) packageData.append('notes', formData.notes);
       if (formData.image) {
         if (formData.image instanceof File) {
@@ -690,6 +696,17 @@ const Itineraries = () => {
                     value={formData.destinations}
                     onChange={(e) => setFormData({ ...formData, destinations: e.target.value })}
                     placeholder="e.g. Delhi - Shimla - Manali"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider">Routing</label>
+                  <input
+                    type="text"
+                    className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all font-medium text-gray-800"
+                    value={formData.routing}
+                    onChange={(e) => setFormData({ ...formData, routing: e.target.value })}
+                    placeholder="e.g. Delhi (1N) - Shimla (2N) - Manali (3N) - Delhi"
                   />
                 </div>
 
