@@ -379,7 +379,21 @@
                         <td>{{ $lead->travel_end_date ? $lead->travel_end_date->format('d-m-Y') : 'TBA' }}</td>
                         <td>{{ $hotel['hotelName'] ?? 'Selected Hotel' }}</td>
                         <td>{{ $hotel['roomName'] ?? 'Standard Room' }}</td>
-                        <td>{{ $hotel['mealPlan'] ?? 'As per Plan' }}</td>
+                        <td>
+                            @php
+                                $dayNo = $hotel['day'] ?? null;
+                                $mealP = $hotel['mealPlan'] ?? 'As per Plan';
+                                if ($dayNo && $quotation && isset($quotation->itinerary['day_events'][$dayNo])) {
+                                    foreach ($quotation->itinerary['day_events'][$dayNo] as $evt) {
+                                        if (($evt['eventType'] ?? '') === 'meal') {
+                                            $mealP = $evt['subject'] ?? $evt['mealType'] ?? $mealP;
+                                            break;
+                                        }
+                                    }
+                                }
+                            @endphp
+                            {{ $mealP }}
+                        </td>
                         <td>{{ $hotel['roomCount'] ?? 1 }}</td>
                         <td>{{ $hotel['confirmationNo'] ?? 'Pending' }}</td>
                         <td>{{ $hotel['remarks'] ?? '' }}</td>

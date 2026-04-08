@@ -469,8 +469,8 @@
             <tr>
                 <td colspan="4" style="padding-top: 10px; border-top: 1px solid #e2e8f0; margin-top: 5px;">
                     <span class="label">Duration</span>
-                    <span class="value">{{ $quotation->itinerary['duration'] }} Nights /
-                        {{ $quotation->itinerary['duration'] + 1 }} Days</span>
+                    <span class="value">{{ max(0, (int)($quotation->itinerary['duration'] ?? 1) - 1) }} Nights /
+                        {{ $quotation->itinerary['duration'] ?? 1 }} Days</span>
                 </td>
             </tr>
             @if(!empty($quotation->itinerary['routing']))
@@ -704,7 +704,19 @@
                                         {!! html_entity_decode(html_entity_decode($h['hotelName'] ?? 'Selected Hotel')) !!}
                                     </div>
                                     <div class="hotel-meta">
-                                        {{ $h['roomName'] ?? 'Standard Room' }} • {{ $h['mealPlan'] ?? 'As per Plan' }}
+                                        @php
+                                            $dayNumber = $h['day'] ?? null;
+                                            $mPlan = $h['mealPlan'] ?? 'As per Plan';
+                                            if ($dayNumber && isset($dayEvents[$dayNumber])) {
+                                                foreach ($dayEvents[$dayNumber] as $ev) {
+                                                    if (($ev['eventType'] ?? '') === 'meal') {
+                                                        $mPlan = $ev['subject'] ?? $ev['mealType'] ?? $mPlan;
+                                                        break;
+                                                    }
+                                                }
+                                            }
+                                        @endphp
+                                        {{ $h['roomName'] ?? 'Standard Room' }} | {{ $mPlan }}
                                     </div>
                                     @if(!empty($h['details']))
                                         <div style="font-size: 8.5px; color: #64748b; margin-top: 3px; line-height: 1.4;">

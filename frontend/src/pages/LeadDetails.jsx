@@ -734,6 +734,9 @@ const LeadDetails = () => {
       await queryProposalsAPI.sync(id, newProposals);
     } catch (err) {
       console.error('Failed to save proposals:', err);
+      showToastNotification('error', 'Sync Failed', 'Could not save proposals to the server. Please try again.');
+      // Refresh to get actual server state if desired, or just inform the user
+      fetchLeadDetails(); 
     }
   };
 
