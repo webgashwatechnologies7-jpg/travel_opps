@@ -104,6 +104,7 @@ Route::middleware(['auth:sanctum', 'plan.feature:itineraries'])->prefix('package
     Route::post('/', [PackageController::class, 'store']);
     Route::get('/{id}', [PackageController::class, 'show']);
     Route::put('/{id}', [PackageController::class, 'update']);
+    Route::post('/{id}/duplicate', [PackageController::class, 'duplicate']);
     Route::delete('/{id}', [PackageController::class, 'destroy'])->middleware('role:Admin|Company Admin|Manager');
 
     // Itinerary pricing routes

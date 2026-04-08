@@ -6,7 +6,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { getDisplayImageUrl } from '../utils/imageUrl';
 import { packagesAPI, dayItinerariesAPI, hotelsAPI, activitiesAPI, settingsAPI, destinationsAPI, itineraryPricingAPI, transfersAPI, mealPlansAPI, roomTypesAPI, queryProposalsAPI, leadsAPI } from '../services/api';
 import { searchPexelsPhotos } from '../services/pexels';
-import { ArrowLeft, Camera, Edit, Plus, ChevronRight, FileText, Search, X, Bed, Image as ImageIcon, Car, FileText as PassportIcon, UtensilsCrossed, Plane, User, Ship, Star, Calendar, Hash, Building2, Upload } from 'lucide-react';
+import { ArrowLeft, Camera, Edit, Plus, ChevronRight, FileText, Search, X, Bed, Image as ImageIcon, Car, FileText as PassportIcon, UtensilsCrossed, Plane, User, Ship, Star, Calendar, CalendarDays, Hash, Building2, Upload, Clock } from 'lucide-react';
 import PricingTab from '../components/PricingTab';
 import FinalTab from '../components/FinalTab';
 
@@ -106,6 +106,7 @@ const ItineraryDetail = () => {
     }
   }, [fromLeadId, itinerary, id, syncedWithLead]);
   const [loading, setLoading] = useState(true);
+  const [isLoaded, setIsLoaded] = useState(false);
   const [activeTab, setActiveTab] = useState('build');
   const [dayItineraries, setDayItineraries] = useState([]);
   const [destinations, setDestinations] = useState([]);
@@ -199,6 +200,16 @@ const ItineraryDetail = () => {
   const [dataSourceTab, setDataSourceTab] = useState('database'); // 'database', 'manual', 'api'
   const [showManualAddModal, setShowManualAddModal] = useState(false);
   const [showApiSearchModal, setShowApiSearchModal] = useState(false);
+  const [showEditItineraryModal, setShowEditItineraryModal] = useState(false);
+  const [itineraryFormData, setItineraryFormData] = useState({
+    itinerary_name: '',
+    duration: '1',
+    destinations: '',
+    notes: '',
+    start_date: '',
+    image: null
+  });
+  const [itinerarySaving, setItinerarySaving] = useState(false);
   const [storedHotels, setStoredHotels] = useState([]);
   const [storedHotelsLoading, setStoredHotelsLoading] = useState(false);
   const [storedTransfers, setStoredTransfers] = useState([]);
@@ -426,8 +437,10 @@ const ItineraryDetail = () => {
     const proposals = sortedOptionNumbers.map(optNum => {
       let totalGross = 0;
       Object.keys(pricingData || {}).forEach(key => {
-        const [keyOpt] = key.split('-');
-        if (parseInt(keyOpt, 10) === optNum) {
+        const parts = key.split('-');
+        const keyOpt = parts[0];
+        const day = parts[1];
+        if (parseInt(keyOpt, 10) === optNum && parseInt(day) <= (itinerary?.duration || 0)) {
           totalGross += (pricingData[key]?.gross || 0);
         }
       });
@@ -448,13 +461,15 @@ const ItineraryDetail = () => {
 
       const hotelDetails = [];
       Object.keys(dayEvents || {}).forEach(day => {
+        const dayNum = parseInt(day);
+        if (dayNum > (itinerary?.duration || 0)) return;
         (dayEvents[day] || []).forEach(event => {
           if (event.eventType === 'accommodation' && event.hotelOptions) {
             event.hotelOptions.forEach((option, idx) => {
               if (option.optionNumber === optNum) {
                 hotelDetails.push({
                   ...option,
-                  day: parseInt(day),
+                  day: dayNum,
                   pricing: pricingData[`${optNum}-${day}-${idx}`]
                 });
               }
@@ -515,8 +530,10 @@ const ItineraryDetail = () => {
       const optNumStr = String(optNum);
       let totalGross = 0;
       Object.keys(pricingData || {}).forEach(key => {
-        const [keyOpt] = key.split('-');
-        if (parseInt(keyOpt, 10) === optNum) {
+        const parts = key.split('-');
+        const keyOpt = parts[0];
+        const day = parts[1];
+        if (parseInt(keyOpt, 10) === optNum && parseInt(day) <= (itinerary?.duration || 0)) {
           totalGross += (pricingData[key]?.gross || 0);
         }
       });
@@ -536,13 +553,15 @@ const ItineraryDetail = () => {
         : (finalClientPrices[optNum] !== undefined && finalClientPrices[optNum] !== null ? parseFloat(finalClientPrices[optNum]) : null) ?? calculatedTotal;
       const hotelDetails = [];
       Object.keys(dayEvents || {}).forEach(day => {
+        const dayNum = parseInt(day);
+        if (dayNum > (itinerary?.duration || 0)) return;
         (dayEvents[day] || []).forEach(event => {
           if (event.eventType === 'accommodation' && event.hotelOptions) {
             event.hotelOptions.forEach((option, idx) => {
               if (option.optionNumber === optNum) {
                 hotelDetails.push({
                   ...option,
-                  day: parseInt(day),
+                  day: dayNum,
                   pricing: pricingData[`${optNum}-${day}-${idx}`]
                 });
               }
@@ -598,7 +617,9 @@ const ItineraryDetail = () => {
     };
     
     const timer = setTimeout(() => {
-      itineraryPricingAPI.save(id, { ...settings, lead_id: fromLeadId }).catch(() => {});
+      if (isLoaded) {
+        itineraryPricingAPI.save(id, { ...settings, lead_id: fromLeadId }).catch(() => {});
+      }
     }, 1000);
     
     return () => clearTimeout(timer);
@@ -606,7 +627,7 @@ const ItineraryDetail = () => {
 
   // Save pricing data and final client prices to database
   useEffect(() => {
-    if (!id || (Object.keys(pricingData).length === 0 && Object.keys(finalClientPrices).length === 0)) return;
+    if (!id || !isLoaded || (Object.keys(pricingData).length === 0 && Object.keys(finalClientPrices).length === 0)) return;
     
     const timer = setTimeout(() => {
       itineraryPricingAPI.save(id, {
@@ -622,7 +643,7 @@ const ItineraryDetail = () => {
 
   // Save days and events to database whenever they change
   useEffect(() => {
-    if (!id || (days.length === 0 && Object.keys(dayEvents).length === 0)) return;
+    if (!id || !isLoaded || (days.length === 0 && Object.keys(dayEvents).length === 0)) return;
     
     const timer = setTimeout(() => {
       syncItineraryToServer();
@@ -633,7 +654,8 @@ const ItineraryDetail = () => {
 
   // Sync packageTerms (inclusions, exclusions, terms) to server
   useEffect(() => {
-    if (id && packageTerms) {
+    // Only sync if loaded and handle the first mount delay
+    if (id && packageTerms && isLoaded) {
       const syncTerms = async () => {
         try {
           await packagesAPI.update(id, {
@@ -648,13 +670,19 @@ const ItineraryDetail = () => {
             payment_policy: packageTerms.payment_policy,
             thank_you_message: packageTerms.thank_you_message
           });
+          console.log('Package terms synced to server');
         } catch (err) {
           console.error('Failed to sync package terms to server:', err);
         }
       };
-      syncTerms();
+      
+      const timer = setTimeout(() => {
+        syncTerms();
+      }, 1500); // 1.5s debounce
+
+      return () => clearTimeout(timer);
     }
-  }, [packageTerms, id]);
+  }, [packageTerms, id, isLoaded]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -675,7 +703,7 @@ const ItineraryDetail = () => {
 
   const fetchItinerary = async () => {
     try {
-      setLoading(true);
+      if (!isLoaded) setLoading(true);
       const response = await packagesAPI.get(id);
       const data = response.data.data;
 
@@ -701,11 +729,24 @@ const ItineraryDetail = () => {
         setDayEvents({});
       }
 
-      if (data.days && Array.isArray(data.days) && data.days.length > 0) {
-        setDays(data.days);
-      } else {
-        initializeDefaultDays(data);
+      // Always ensure days array length matches duration, even if db is out of sync
+      const duration = parseInt(data.duration || 1);
+      const existingDays = Array.isArray(data.days) ? data.days : [];
+      const syncedDays = [];
+      
+      for (let i = 1; i <= duration; i++) {
+        const existingDay = existingDays.find(d => d.day === i);
+        if (existingDay) {
+          syncedDays.push(existingDay);
+        } else {
+          syncedDays.push({
+            day: i,
+            destination: data.destinations?.split(',')[0]?.trim() || '',
+            details: ''
+          });
+        }
       }
+      setDays(syncedDays);
 
       if (data.options_data && Array.isArray(data.options_data) && data.options_data.length > 0) {
         // We don't have a state for proposals in this component as they are reconstructed,
@@ -742,6 +783,7 @@ const ItineraryDetail = () => {
       navigate('/itineraries');
     } finally {
       setLoading(false);
+      if (!isLoaded) setIsLoaded(true);
     }
   };
 
@@ -1281,6 +1323,19 @@ const ItineraryDetail = () => {
   const saveEvent = (eventData) => {
     if (!selectedDay) return;
 
+    // Auto-calculate dates for accommodation if missing
+    if ((eventData.eventType || '').toLowerCase() === 'accommodation' && eventData.hotelOptions) {
+      eventData.hotelOptions = eventData.hotelOptions.map(opt => {
+        if (!opt.checkIn && calculateDate(selectedDay)) {
+          opt.checkIn = calculateDate(selectedDay).toISOString().split('T')[0];
+        }
+        if (!opt.checkOut && calculateDate(selectedDay + 1)) {
+          opt.checkOut = calculateDate(selectedDay + 1).toISOString().split('T')[0];
+        }
+        return opt;
+      });
+    }
+
     const currentDayEvents = dayEvents[selectedDay] || [];
     const normalizedType = (eventData.eventType || '').toLowerCase();
     const isEditingExisting = !!(eventData.id && currentDayEvents.some(e => e.id === eventData.id));
@@ -1725,6 +1780,67 @@ const ItineraryDetail = () => {
 
   };
 
+  const handleEditItinerary = () => {
+    setItineraryFormData({
+      itinerary_name: itinerary.itinerary_name || '',
+      duration: itinerary.duration?.toString() || '1',
+      destinations: itinerary.destinations || '',
+      notes: itinerary.notes || '',
+      start_date: itinerary.start_date || '',
+      image: null
+    });
+    setShowEditItineraryModal(true);
+  };
+
+  const handleEditItinerarySave = async (e) => {
+    e.preventDefault();
+    setItinerarySaving(true);
+    try {
+      const pkgData = new FormData();
+      pkgData.append('itinerary_name', itineraryFormData.itinerary_name);
+      pkgData.append('duration', itineraryFormData.duration);
+      pkgData.append('destinations', itineraryFormData.destinations);
+      pkgData.append('notes', itineraryFormData.notes);
+      pkgData.append('start_date', itineraryFormData.start_date || '');
+      pkgData.append('_method', 'PUT');
+
+      await packagesAPI.update(id, pkgData);
+      
+      // Update local state is done via fetchItinerary
+      await fetchItinerary();
+      setShowEditItineraryModal(false);
+      toast.success('Itinerary updated successfully');
+    } catch (err) {
+      console.error('Failed to update itinerary:', err);
+      toast.error('Failed to update itinerary');
+    } finally {
+      setItinerarySaving(false);
+    }
+  };
+
+  const calculateDate = (dayNumber) => {
+    if (!itinerary?.start_date) return null;
+    const start = new Date(itinerary.start_date);
+    const result = new Date(start);
+    result.setDate(start.getDate() + (dayNumber - 1));
+    return result;
+  };
+
+  const formatDateWithDay = (date) => {
+    if (!date) return '';
+    return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  };
+
+  const calculateNights = (inDate, outDate) => {
+    if (!inDate || !outDate) return null;
+    const start = new Date(inDate);
+    const end = new Date(outDate);
+    const diffTime = end - start;
+    if (diffTime < 0) return 0;
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays;
+  };
+
   if (loading) {
     return (
       <div>
@@ -1842,12 +1958,33 @@ const ItineraryDetail = () => {
                     <div className="flex items-center gap-3 mb-2">
                       <h1 className="text-4xl font-bold text-gray-900">{itinerary.itinerary_name || 'Untitled'}</h1>
                       {hasPermission(user, 'itineraries.edit') && (
-                        <button className="text-gray-700 hover:text-gray-900">
+                        <button 
+                          onClick={handleEditItinerary}
+                          className="text-gray-700 hover:text-gray-900"
+                        >
                           <Edit className="h-5 w-5" />
                         </button>
                       )}
                     </div>
-                    <p className="text-gray-700 text-lg">{itinerary.destinations || 'No destinations'}</p>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-gray-700 text-lg font-medium">{itinerary.destinations || 'No destinations'}</p>
+                        <div className="flex items-center gap-4 mt-1 text-sm text-gray-550 font-medium">
+                          <div className="flex items-center gap-1.5 bg-blue-50/50 px-2 py-1 rounded">
+                            <CalendarDays className="h-4 w-4 text-blue-600" />
+                            <span>{parseInt(itinerary.duration) - 1} Nights & {itinerary.duration} Days</span>
+                          </div>
+                          {itinerary.start_date && itinerary.duration && !isNaN(parseInt(itinerary.duration)) && (
+                            <div className="flex items-center gap-1.5 bg-green-50/50 px-2 py-1 rounded text-green-700">
+                              <Calendar className="h-4 w-4" />
+                              <span>
+                                {formatDateWithDay(new Date(itinerary.start_date))} to {formatDateWithDay(calculateDate(parseInt(itinerary.duration)))}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1869,9 +2006,16 @@ const ItineraryDetail = () => {
                         >
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
-                              <span className={`font-semibold ${selectedDay === day.day ? 'text-blue-600' : 'text-gray-700'}`}>
-                                DAY {day.day}
-                              </span>
+                              <div className="flex flex-col">
+                                <span className={`font-semibold ${selectedDay === day.day ? 'text-blue-600' : 'text-gray-700'}`}>
+                                  DAY {day.day}
+                                </span>
+                                {calculateDate(day.day) && (
+                                  <span className="text-[10px] text-gray-500">
+                                    {formatDateWithDay(calculateDate(day.day))}
+                                  </span>
+                                )}
+                              </div>
                               {hasPermission(user, 'itineraries.edit') && (
                                 <button className="text-gray-400 hover:text-gray-600">
                                   <Edit className="h-4 w-4" />
@@ -1928,7 +2072,14 @@ const ItineraryDetail = () => {
                       <>
                         <div className="flex items-center justify-between mb-4">
                           <h3 className="text-lg font-semibold text-gray-800">
-                            Day {selectedDay} → {days[selectedDay - 1]?.destination || 'Destination'}
+                            Day {selectedDay} 
+                            {calculateDate(selectedDay) && (
+                              <span className="ml-2 text-sm font-normal text-gray-500">
+                                ({formatDateWithDay(calculateDate(selectedDay))})
+                              </span>
+                            )}
+                            <span className="mx-2">→</span>
+                            {days[selectedDay - 1]?.destination || 'Destination'}
                           </h3>
                           <div className="relative" ref={dropdownRef}>
                             {hasPermission(user, 'itineraries.edit') && (
@@ -2122,7 +2273,7 @@ const ItineraryDetail = () => {
                                                 </div>
                                               </div>
                                               <div className="flex items-center justify-between mt-3 pt-2 border-t border-gray-100">
-                                                <div className="grid grid-cols-3 gap-2 text-[10px] text-gray-500 flex-1">
+                                                <div className="grid grid-cols-4 gap-2 text-[10px] text-gray-500 flex-1">
                                                   <div className="flex items-center gap-1">
                                                     <Calendar className="h-2.5 w-2.5" />
                                                     <span>In: {option.checkIn ? new Date(option.checkIn).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : 'N/A'}</span>
@@ -2130,6 +2281,10 @@ const ItineraryDetail = () => {
                                                   <div className="flex items-center gap-1">
                                                     <Calendar className="h-2.5 w-2.5" />
                                                     <span>Out: {option.checkOut ? new Date(option.checkOut).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : 'N/A'}</span>
+                                                  </div>
+                                                  <div className="flex items-center gap-1 font-semibold text-blue-600">
+                                                    <Clock className="h-2.5 w-2.5" />
+                                                    <span>{calculateNights(option.checkIn, option.checkOut) ?? 0} Night(s)</span>
                                                   </div>
                                                   <div className="flex items-center gap-1">
                                                     <Hash className="h-2.5 w-2.5" />
@@ -2161,6 +2316,34 @@ const ItineraryDetail = () => {
                                             {event.price && <span className="ml-auto inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-green-100 text-green-700">₹{event.price}</span>}
                                           </div>
                                           <p className="text-[13px] text-gray-500 italic border-l-2 border-gray-100 pl-2">{event.details || 'No details provided'}</p>
+                                          {hasPermission(user, 'itineraries.edit') && (
+                                            <button
+                                              onClick={() => {
+                                                const updatedEvents = { ...dayEvents };
+                                                days.forEach(d => {
+                                                  const dayNum = d.day;
+                                                  if (!updatedEvents[dayNum]) updatedEvents[dayNum] = [];
+                                                  // Check if already has this transport
+                                                  const exists = updatedEvents[dayNum].some(e => 
+                                                    e.eventType === 'transportation' && 
+                                                    (e.name === event.name || e.subject === event.subject)
+                                                  );
+                                                  if (!exists) {
+                                                    updatedEvents[dayNum].push({
+                                                      ...event,
+                                                      id: Date.now() + dayNum + Math.random()
+                                                    });
+                                                  }
+                                                });
+                                                setDayEvents(updatedEvents);
+                                                syncItineraryToServer(updatedEvents, days);
+                                                toast.success('Transportation applied to all days');
+                                              }}
+                                              className="mt-2 text-[10px] text-blue-600 hover:text-blue-800 font-medium underline"
+                                            >
+                                              Apply to all days
+                                            </button>
+                                          )}
                                         </div>
                                       ) : (
                                         <p className="text-sm text-gray-600">{event.details || 'No details provided'}</p>
@@ -2360,6 +2543,15 @@ const ItineraryDetail = () => {
                           <>
                             {dayItineraries
                               .filter(di => {
+                                // Filter out already added items
+                                if (selectedDay && dayEvents[selectedDay]) {
+                                  const alreadyAdded = dayEvents[selectedDay].some(e => 
+                                    e.eventType === 'day-itinerary' && 
+                                    (e.master_id === di.id || (e.subject && di.title && e.subject.toLowerCase() === di.title.toLowerCase()))
+                                  );
+                                  if (alreadyAdded) return false;
+                                }
+
                                 if (!searchQuery) return true;
                                 const query = searchQuery.toLowerCase();
                                 return (di.title || '').toLowerCase().includes(query) ||
@@ -2434,6 +2626,15 @@ const ItineraryDetail = () => {
                             ) : (
                               activities
                                 .filter(activity => {
+                                  // Filter out already added items
+                                  if (selectedDay && dayEvents[selectedDay]) {
+                                    const alreadyAdded = dayEvents[selectedDay].some(e => 
+                                      e.eventType === 'activity' && 
+                                      (e.master_id === activity.id || (e.name && activity.name && e.name.toLowerCase() === activity.name.toLowerCase()))
+                                    );
+                                    if (alreadyAdded) return false;
+                                  }
+
                                   if (!searchQuery) return true;
                                   const query = searchQuery.toLowerCase();
                                   return (activity.name || '').toLowerCase().includes(query) ||
@@ -2768,13 +2969,30 @@ const ItineraryDetail = () => {
 
                         {categoryType === 'transportation' && (
                           <>
-                            {storedTransfersLoading ? (
+                            {selectedDay && dayEvents[selectedDay]?.some(e => (e.eventType || '').toLowerCase() === 'transportation') ? (
+                              <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg text-blue-700 text-sm">
+                                <div className="flex items-center gap-2 font-semibold mb-1">
+                                  <Car className="h-4 w-4" />
+                                  Transportation already added
+                                </div>
+                                <p className="text-xs opacity-80">You have already added transportation for Day {selectedDay}. Remove the existing one if you wish to select a different option.</p>
+                              </div>
+                            ) : storedTransfersLoading ? (
                               <div className="flex items-center justify-center py-8">
                                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
                               </div>
                             ) : storedTransfers.length > 0 ? (
                               storedTransfers
                                 .filter(transfer => {
+                                  // Filter out already added items
+                                  if (selectedDay && dayEvents[selectedDay]) {
+                                    const alreadyAdded = dayEvents[selectedDay].some(e => 
+                                      (e.eventType || '').toLowerCase() === 'transportation' && 
+                                      (e.master_id === transfer.id || (e.name && transfer.name && e.name.toLowerCase() === transfer.name.toLowerCase()))
+                                    );
+                                    if (alreadyAdded) return false;
+                                  }
+
                                   if (!searchQuery) return true;
                                   const query = searchQuery.toLowerCase();
                                   return (transfer.name || '').toLowerCase().includes(query) ||
@@ -5186,6 +5404,101 @@ const ItineraryDetail = () => {
                 Search Hotel
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Itinerary Modal */}
+      {showEditItineraryModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] py-8">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl mx-4 my-auto max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="flex justify-between items-center p-6 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-white">
+              <h2 className="text-2xl font-bold text-gray-800">Edit Itinerary</h2>
+              <button 
+                onClick={() => setShowEditItineraryModal(false)}
+                className="text-gray-400 hover:text-gray-600 rounded-full p-1 transition-colors"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+            
+            <form onSubmit={handleEditItinerarySave} className="flex-1 overflow-y-auto p-6">
+              <div className="space-y-5">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  <div className="space-y-2">
+                    <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider">Itinerary Name</label>
+                    <input
+                      type="text"
+                      className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all font-medium text-gray-800"
+                      value={itineraryFormData.itinerary_name}
+                      onChange={(e) => setItineraryFormData({ ...itineraryFormData, itinerary_name: e.target.value })}
+                      placeholder="Enter itinerary name"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider">Duration (Days)</label>
+                    <input
+                      type="number"
+                      className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all font-medium text-gray-800"
+                      value={itineraryFormData.duration}
+                      onChange={(e) => setItineraryFormData({ ...itineraryFormData, duration: e.target.value })}
+                      min="1"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  <div className="space-y-2">
+                    <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider">Destinations</label>
+                    <input
+                      type="text"
+                      className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all font-medium text-gray-800"
+                      value={itineraryFormData.destinations}
+                      onChange={(e) => setItineraryFormData({ ...itineraryFormData, destinations: e.target.value })}
+                      placeholder="e.g. Delhi - Shimla - Manali"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider">Travel Start Date</label>
+                    <input
+                      type="date"
+                      className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all font-medium text-gray-800"
+                      value={itineraryFormData.start_date}
+                      onChange={(e) => setItineraryFormData({ ...itineraryFormData, start_date: e.target.value })}
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider">Notes / Description</label>
+                  <textarea
+                    className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all h-28 font-medium text-gray-800 resize-none"
+                    value={itineraryFormData.notes}
+                    onChange={(e) => setItineraryFormData({ ...itineraryFormData, notes: e.target.value })}
+                    placeholder="Enter itinerary details..."
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 mt-8 pt-6 border-t border-gray-100">
+                <button
+                  type="button"
+                  onClick={() => setShowEditItineraryModal(false)}
+                  className="px-6 py-2.5 bg-gray-50 text-gray-600 rounded-lg text-sm font-bold hover:bg-gray-100 transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={itinerarySaving}
+                  className="px-10 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700 disabled:opacity-50 transition-all shadow-md shadow-blue-100"
+                >
+                  {itinerarySaving ? 'SAVING...' : 'SAVE CHANGES'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

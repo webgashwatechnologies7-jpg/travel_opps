@@ -599,8 +599,6 @@
                 <ul class="policy-list">
                     @if(!empty($quotation->inclusions))
                         @foreach($quotation->inclusions as $inc) <li>{!! strip_tags($inc, '<strong><b><i><em>') !!}</li> @endforeach
-                    @elseif(isset($masterPolicies['inclusion']))
-                        @foreach($masterPolicies['inclusion'] as $mp) <li>{!! strip_tags($mp->content, '<strong><b><i><em>') !!}</li> @endforeach
                     @endif
                 </ul>
             </td>
@@ -610,27 +608,20 @@
                 <ul class="policy-list">
                     @if(!empty($quotation->exclusions))
                         @foreach($quotation->exclusions as $exc) <li>{!! strip_tags($exc, '<strong><b><i><em>') !!}</li> @endforeach
-                    @elseif(isset($masterPolicies['exclusion']))
-                        @foreach($masterPolicies['exclusion'] as $mp) <li>{!! strip_tags($mp->content, '<strong><b><i><em>') !!}</li> @endforeach
                     @endif
                 </ul>
             </td>
         </tr>
     </table>
 
-    <!-- IMPORTANT POLICIES -->
     @php
-        $getPol = function ($key) use ($masterPolicies) {
-            return isset($masterPolicies[$key]) ? $masterPolicies[$key]->pluck('content')->toArray() : null;
-        };
-
         $policyItems = [
-            'General Remarks' => $pols['remarks'] ?? $getPol('remarks') ?? [],
-            'Booking Terms & Conditions' => $pols['termsConditions'] ?? $getPol('terms') ?? $quotation->terms_conditions ?? [],
-            'Confirmation Policy' => $pols['confirmationPolicy'] ?? $getPol('confirmation') ?? [],
-            'Cancellation Policy' => $pols['cancellationPolicy'] ?? $getPol('cancellation') ?? [],
-            'Amendment Policy' => $pols['amendmentPolicy'] ?? $getPol('amendment') ?? [],
-            'Payment Policy' => $pols['paymentPolicy'] ?? $getPol('payment') ?? [],
+            'General Remarks' => $pols['remarks'] ?? $quotation->remarks ?? [],
+            'Booking Terms & Conditions' => $pols['termsConditions'] ?? $quotation->terms_conditions ?? [],
+            'Confirmation Policy' => $pols['confirmationPolicy'] ?? $quotation->confirmation_policy ?? [],
+            'Cancellation Policy' => $pols['cancellationPolicy'] ?? $quotation->refund_policy ?? [],
+            'Amendment Policy' => $pols['amendmentPolicy'] ?? $quotation->amendment_policy ?? [],
+            'Payment Policy' => $pols['paymentPolicy'] ?? $quotation->payment_policy ?? [],
         ];
     @endphp
 

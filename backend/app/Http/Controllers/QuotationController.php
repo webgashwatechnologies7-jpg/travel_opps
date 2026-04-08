@@ -248,7 +248,7 @@ class QuotationController extends Controller
             }
 
             foreach (['title', 'description', 'travel_start_date', 'travel_end_date', 'adults', 'children', 'infants', 'base_price', 'tax_amount', 'discount_amount', 'currency', 'valid_until', 'template', 'itinerary', 'inclusions', 'exclusions', 'pricing_breakdown', 'custom_fields', 'notes', 'terms_conditions'] as $field) {
-                if ($request->filled($field)) {
+                if ($request->has($field)) {
                     $quotation->{$field} = $request->input($field);
                 }
             }

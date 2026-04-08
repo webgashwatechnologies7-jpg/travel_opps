@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useCallback, memo } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { useAuth } from '../contexts/AuthContext';
-import { leadsAPI, usersAPI, followupsAPI, dayItinerariesAPI, packagesAPI, settingsAPI, suppliersAPI, hotelsAPI, paymentsAPI, googleMailAPI, whatsappAPI, whatsappWebAPI, queryDetailAPI, vouchersAPI, itineraryPricingAPI, leadInvoicesAPI, quotationsAPI, queryProposalsAPI } from '../services/api';
+import { leadsAPI, usersAPI, followupsAPI, dayItinerariesAPI, packagesAPI, settingsAPI, suppliersAPI, hotelsAPI, paymentsAPI, googleMailAPI, whatsappAPI, whatsappWebAPI, queryDetailAPI, vouchersAPI, itineraryPricingAPI, leadInvoicesAPI, quotationsAPI, queryProposalsAPI, leadSourcesAPI } from '../services/api';
 import { searchPexelsPhotos } from '../services/pexels';
 import { getDisplayImageUrl, rewriteHtmlImageUrls, sanitizeEmailHtmlForDisplay } from '../utils/imageUrl';
 // Layout removed - handled by nested routing
@@ -29,12 +29,14 @@ const LeadDetails = () => {
     return tab || 'proposals';
   });
   const [users, setUsers] = useState([]);
+  const [leadSources, setLeadSources] = useState([]);
   const [notes, setNotes] = useState([]);
   const [noteText, setNoteText] = useState('');
   const [showNoteInput, setShowNoteInput] = useState(false);
   const [addingNote, setAddingNote] = useState(false);
   const [editingNoteId, setEditingNoteId] = useState(null);
   const [showItineraryModal, setShowItineraryModal] = useState(false);
+  const [showAddItineraryModal, setShowAddItineraryModal] = useState(false);
   const [showInsertItineraryModal, setShowInsertItineraryModal] = useState(false);
   const [sendDropdownOptId, setSendDropdownOptId] = useState(null);
   const [sendAllDropdownOpen, setSendAllDropdownOpen] = useState(false);
@@ -217,6 +219,7 @@ const LeadDetails = () => {
   useEffect(() => {
     fetchLeadDetails();
     fetchUsers();
+    fetchSources();
     fetchMaxHotelOptions();
     fetchSuppliers();
     fetchCompanySettings();
@@ -249,6 +252,18 @@ const LeadDetails = () => {
       markAsRead();
     }
   }, [lead?.id, lead?.status]);
+
+  // Listener for itinerary selection from new tab
+  useEffect(() => {
+    const handleMessage = (event) => {
+      if (event.data?.type === 'ITINERARY_SELECTED' && event.data?.itinerary) {
+        handleSelectItinerary(event.data.itinerary);
+      }
+    };
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, [id, proposals]);
+
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
@@ -1088,6 +1103,15 @@ const LeadDetails = () => {
       setUsers(response.data.data.users || []);
     } catch (err) {
       console.error('Failed to fetch users:', err);
+    }
+  };
+
+  const fetchSources = async () => {
+    try {
+      const response = await leadSourcesAPI.list();
+      setLeadSources(response.data.data || []);
+    } catch (err) {
+      console.error('Failed to fetch lead sources:', err);
     }
   };
 
@@ -2021,21 +2045,53 @@ const LeadDetails = () => {
   };
 
   const handleCreateItinerary = () => {
-    // Pre-fill form with lead data (duration from lead trip days if set)
-    const tripDays = (lead?.travel_start_date && lead?.travel_end_date)
-      ? Math.round((new Date(lead.travel_end_date) - new Date(lead.travel_start_date)) / (1000 * 60 * 60 * 24)) + 1
-      : 1;
     setItineraryFormData({
       itinerary_name: '',
-      duration: String(tripDays),
-      destinations: lead?.destination || '',
-      notes: lead?.remark || '',
+      destinations: '',
+      duration: '',
+      start_date: '',
       image: null,
+      notes: '',
       show_on_website: true
     });
     setItineraryImagePreview(null);
-    setShowItineraryModal(true);
+    setShowAddItineraryModal(true);
   };
+
+  const handleSaveItinerary = async (e) => {
+    e.preventDefault();
+    setSavingItinerary(true);
+    try {
+      const formData = new FormData();
+      formData.append('itinerary_name', itineraryFormData.itinerary_name);
+      formData.append('destinations', itineraryFormData.destinations);
+      formData.append('duration', itineraryFormData.duration);
+      formData.append('notes', itineraryFormData.notes);
+      formData.append('show_on_website', itineraryFormData.show_on_website ? 1 : 0);
+
+      if (itineraryFormData.image && itineraryFormData.image.file) {
+        formData.append('image', itineraryFormData.image.file);
+      } else if (itineraryFormData.image && itineraryFormData.image.libraryPath) {
+        formData.append('library_image', itineraryFormData.image.libraryPath);
+      }
+
+      const res = await packagesAPI.create(formData);
+      const newPkg = res.data.data;
+
+      showToastNotification('success', 'Itinerary Created', 'Itinerary has been created successfully!');
+      setShowAddItineraryModal(false);
+
+      // Open builder in new tab as requested
+      const builderUrl = `/itineraries/${newPkg.id}?fromLead=${id}`;
+      window.open(builderUrl, '_blank');
+    } catch (err) {
+      console.error('Failed to create itinerary:', err);
+      showToastNotification('error', 'Creation Failed', err.response?.data?.message || 'Something went wrong');
+    } finally {
+      setSavingItinerary(false);
+    }
+  };
+
 
   const getImagePathFromUrl = (url) => {
     if (!url || typeof url !== 'string') return null;
@@ -2111,6 +2167,17 @@ const LeadDetails = () => {
     }).catch(() => setItineraryLibraryPackages([]));
   }, [showItineraryLibraryModal, itineraryLibraryTab]);
 
+  // Fetch itineraries for the "Insert Itinerary" selection modal
+  useEffect(() => {
+    if (!showInsertItineraryModal || dayItineraries.length > 0) return;
+    setLoadingItineraries(true);
+    packagesAPI.list().then((res) => {
+      const data = res.data.data || [];
+      setDayItineraries(data);
+    }).catch(() => setDayItineraries([]))
+      .finally(() => setLoadingItineraries(false));
+  }, [showInsertItineraryModal]);
+
   const itineraryLibrarySearch = (itineraryLibrarySearchTerm || '').trim().toLowerCase();
   const itineraryLibraryImages = itineraryLibrarySearch.length >= 2
     ? itineraryLibraryPackages.filter(
@@ -2121,38 +2188,10 @@ const LeadDetails = () => {
     )
     : [];
 
-  const handleInsertItinerary = async () => {
+  const handleInsertItinerary = () => {
     setShowInsertItineraryModal(true);
-    setLoadingItineraries(true);
-    try {
-      const response = await packagesAPI.list();
-      const data = response.data.data || [];
-
-      // Process image URLs - handle both relative and absolute URLs
-      const processedData = data.map(itinerary => {
-        if (itinerary.image) {
-          // If image is a relative URL, convert to absolute
-          if (itinerary.image.startsWith('/storage') || (itinerary.image.startsWith('/') && !itinerary.image.startsWith('http'))) {
-            let baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
-            baseUrl = baseUrl.replace('/api', '');
-            itinerary.image = `${baseUrl}${itinerary.image}`;
-          }
-          // Fix domain if needed
-          if (itinerary.image.includes('localhost') && !itinerary.image.includes(':8000')) {
-            itinerary.image = itinerary.image.replace('localhost', 'localhost:8000');
-          }
-        }
-        return itinerary;
-      });
-
-      setDayItineraries(processedData);
-    } catch (err) {
-      console.error('Failed to fetch itineraries:', err);
-      showToastNotification('error', 'Fetch Failed', 'Failed to load itineraries');
-    } finally {
-      setLoadingItineraries(false);
-    }
   };
+
 
   const handleSelectItinerary = async (itinerary) => {
     const tid = itinerary.id;
@@ -2284,14 +2323,10 @@ const LeadDetails = () => {
   })();
 
   const filteredItineraries = dayItineraries.filter(itinerary => {
-    // Only show active itineraries (show_on_website = true)
-    if (!itinerary.show_on_website) {
-      return false;
-    }
-    // If query has From/To dates, show only itineraries matching that duration (e.g. 3 days → 3 days itineraries)
+    // If query has From/To dates, show only itineraries matching that duration
     if (leadTripDays != null) {
-      const itineraryDays = itinerary.duration != null ? Number(itinerary.duration) : null;
-      if (itineraryDays != null && itineraryDays !== leadTripDays) {
+      const itDays = parseInt(itinerary.duration);
+      if (!isNaN(itDays) && itDays !== leadTripDays) {
         return false;
       }
     }
@@ -4841,10 +4876,9 @@ const LeadDetails = () => {
                                 <div
                                   className="relative h-48 sm:h-60 w-full overflow-hidden rounded-t-xl cursor-pointer"
                                   onClick={() => {
-                                    if (first?.itinerary_id) {
-                                      navigate(`/itineraries/${first.itinerary_id}?fromLead=${id}`, { state: { fromLeadId: id } });
-                                    } else if (proposals[0]?.itinerary_id) {
-                                      navigate(`/itineraries/${proposals[0].itinerary_id}?fromLead=${id}`, { state: { fromLeadId: id } });
+                                    const itineraryId = first?.itinerary_id || proposals[0]?.itinerary_id;
+                                    if (itineraryId) {
+                                      window.open(`/itineraries/${itineraryId}?fromLead=${id}`, '_blank');
                                     } else {
                                       showToastNotification('error', 'Error', 'Itinerary ID not found for this proposal.');
                                     }
@@ -4999,11 +5033,12 @@ const LeadDetails = () => {
                                               {opt.itinerary_id && (
                                                 <button
                                                   type="button"
-                                                  onClick={(e) => { e.stopPropagation(); navigate(`/itineraries/${opt.itinerary_id}?fromLead=${id}`, { state: { fromLeadId: id } }); }}
+                                                  onClick={(e) => { e.stopPropagation(); window.open(`/itineraries/${opt.itinerary_id}?fromLead=${id}`, '_blank'); }}
                                                   className="w-full text-gray-600 hover:text-gray-800 hover:bg-gray-100 text-sm font-medium px-3 py-2 rounded-lg border border-gray-300 transition-colors"
                                                 >
                                                   Edit
                                                 </button>
+
                                               )}
                                               {/* Duplicate Option button removed for now */}
                                             </div>
@@ -5232,7 +5267,7 @@ const LeadDetails = () => {
             <div className="flex justify-between items-center p-6 border-b border-gray-200 shrink-0">
               <h2 className="text-xl font-bold text-gray-800">Itinerary setup</h2>
               <button
-                onClick={() => setShowItineraryModal(false)}
+                onClick={() => setShowAddItineraryModal(false)}
                 className="text-gray-400 hover:text-gray-600 transition-colors"
               >
                 <X className="h-6 w-6" />
@@ -5240,9 +5275,9 @@ const LeadDetails = () => {
             </div>
           )}
             style={{ minWidth: '60vw' }}
-            visible={showItineraryModal}
+            visible={showAddItineraryModal}
           >
-            <form onSubmit={handleItinerarySave} className="flex flex-col overflow-hidden">
+            <form onSubmit={handleSaveItinerary} className="flex flex-col overflow-hidden">
               <div className="p-6 grid grid-cols-2 gap-6 overflow-y-auto flex-1">
                 {/* Itinerary setup section */}
                 <div className="col-span-2">
@@ -5385,7 +5420,7 @@ const LeadDetails = () => {
               <div className="flex justify-end p-6 border-t border-gray-200 shrink-0">
                 <button
                   type="button"
-                  onClick={() => setShowItineraryModal(false)}
+                  onClick={() => setShowAddItineraryModal(false)}
                   className="px-4 py-2 text-gray-700 hover:text-gray-900 mr-3"
                 >
                   Cancel
@@ -5776,32 +5811,64 @@ const LeadDetails = () => {
           {/* Edit Query Modal */}
           <Dialog visible={showEditQueryModal} style={{ width: 'min(95vw, 750px)' }} onHide={() => setShowEditQueryModal(false)} showCloseIcon={false} header={() => (
             <div className="flex justify-between items-center p-4 border-b border-gray-100 bg-gray-50/50">
-              <h3 className="text-xl font-black text-gray-800 uppercase tracking-tight">Configuration</h3>
+              <h3 className="text-xl font-black text-gray-800 uppercase tracking-tight">Edit Query Information</h3>
               <button onClick={() => setShowEditQueryModal(false)} className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"><X className="h-6 w-6" /></button>
             </div>
           )}>
             <form onSubmit={handleSaveQuery} className="p-8 space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Destinations</label>
-                  <input type="text" value={editQueryFormData.destination} onChange={(e) => setEditQueryFormData({ ...editQueryFormData, destination: e.target.value })} className="w-full border border-gray-200 rounded-2xl px-4 py-3 outline-none focus:ring-4 focus:ring-blue-50/50 font-bold" />
+                  <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Destination</label>
+                  <input type="text" value={editQueryFormData.destination} onChange={(e) => setEditQueryFormData({ ...editQueryFormData, destination: e.target.value })} className="w-full border border-gray-200 rounded-2xl px-4 py-3 outline-none focus:ring-4 focus:ring-blue-50/50 font-bold" placeholder="Enter destination" />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Service</label>
-                  <input type="text" value={editQueryFormData.service} onChange={(e) => setEditQueryFormData({ ...editQueryFormData, service: e.target.value })} className="w-full border border-gray-200 rounded-2xl px-4 py-3 outline-none focus:ring-4 focus:ring-blue-50/50 font-bold" />
+                  <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Lead Source</label>
+                  <select value={editQueryFormData.source} onChange={(e) => setEditQueryFormData({ ...editQueryFormData, source: e.target.value })} className="w-full border border-gray-200 rounded-2xl px-4 py-3 outline-none focus:ring-4 focus:ring-blue-50/50 font-bold">
+                    <option value="">Select Source</option>
+                    {leadSources.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
+                  </select>
                 </div>
                 <div>
-                  <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Travel Window (Start)</label>
-                  <input type="date" value={editQueryFormData.travel_start_date} onChange={(e) => setEditQueryFormData({ ...editQueryFormData, travel_start_date: e.target.value })} className="w-full border border-gray-200 rounded-2xl px-4 py-3 outline-none" />
+                  <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">From Date</label>
+                  <input type="date" value={editQueryFormData.travel_start_date} onChange={(e) => setEditQueryFormData({ ...editQueryFormData, travel_start_date: e.target.value })} className="w-full border border-gray-200 rounded-2xl px-4 py-3 outline-none focus:ring-4 focus:ring-blue-50/50 font-bold" />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Travel Window (End)</label>
-                  <input type="date" value={editQueryFormData.travel_end_date} onChange={(e) => setEditQueryFormData({ ...editQueryFormData, travel_end_date: e.target.value })} className="w-full border border-gray-200 rounded-2xl px-4 py-3 outline-none" />
+                  <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">To Date</label>
+                  <input type="date" value={editQueryFormData.travel_end_date} onChange={(e) => setEditQueryFormData({ ...editQueryFormData, travel_end_date: e.target.value })} className="w-full border border-gray-200 rounded-2xl px-4 py-3 outline-none focus:ring-4 focus:ring-blue-50/50 font-bold" />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Services</label>
+                  <input type="text" value={editQueryFormData.service} onChange={(e) => setEditQueryFormData({ ...editQueryFormData, service: e.target.value })} className="w-full border border-gray-200 rounded-2xl px-4 py-3 outline-none focus:ring-4 focus:ring-blue-50/50 font-bold" placeholder="e.g. Flight + Hotel" />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Assign To</label>
+                  <select value={editQueryFormData.assigned_to} onChange={(e) => setEditQueryFormData({ ...editQueryFormData, assigned_to: e.target.value })} className="w-full border border-gray-200 rounded-2xl px-4 py-3 outline-none focus:ring-4 focus:ring-blue-50/50 font-bold">
+                    <option value="">Select User</option>
+                    {users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+                  </select>
+                </div>
+                <div className="grid grid-cols-3 gap-4 md:col-span-2">
+                   <div>
+                      <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Adult</label>
+                      <input type="number" value={editQueryFormData.adult} onChange={(e) => setEditQueryFormData({ ...editQueryFormData, adult: e.target.value })} className="w-full border border-gray-200 rounded-2xl px-4 py-3 outline-none focus:ring-4 focus:ring-blue-50/50 font-bold" />
+                   </div>
+                   <div>
+                      <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Child</label>
+                      <input type="number" value={editQueryFormData.child} onChange={(e) => setEditQueryFormData({ ...editQueryFormData, child: e.target.value })} className="w-full border border-gray-200 rounded-2xl px-4 py-3 outline-none focus:ring-4 focus:ring-blue-50/50 font-bold" />
+                   </div>
+                   <div>
+                      <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Infant</label>
+                      <input type="number" value={editQueryFormData.infant} onChange={(e) => setEditQueryFormData({ ...editQueryFormData, infant: e.target.value })} className="w-full border border-gray-200 rounded-2xl px-4 py-3 outline-none focus:ring-4 focus:ring-blue-50/50 font-bold" />
+                   </div>
+                </div>
+                <div className="md:col-span-2">
+                  <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Remark / Description</label>
+                  <textarea value={editQueryFormData.remark} onChange={(e) => setEditQueryFormData({ ...editQueryFormData, remark: e.target.value })} className="w-full border border-gray-200 rounded-2xl px-4 py-3 outline-none focus:ring-4 focus:ring-blue-50/50 font-bold" rows={3} placeholder="Enter any additional details or requirements" />
                 </div>
               </div>
               <div className="flex justify-end gap-3 items-center">
-                <button type="button" onClick={() => setShowEditQueryModal(false)} className="px-6 text-gray-400 font-bold">Dismiss</button>
-                <button type="submit" disabled={savingQuery} className="px-12 py-4 bg-indigo-600 text-white rounded-3xl font-black shadow-2xl shadow-indigo-100 hover:scale-[1.05] active:scale-95 transition-all">{savingQuery ? 'SYNCING...' : 'UPDATE TRIP'}</button>
+                <button type="button" onClick={() => setShowEditQueryModal(false)} className="px-6 text-gray-400 font-bold">Cancel</button>
+                <button type="submit" disabled={savingQuery} className="px-12 py-4 bg-blue-600 text-white rounded-3xl font-black shadow-2xl shadow-blue-100 hover:scale-[1.05] active:scale-95 transition-all">{savingQuery ? 'SAVING...' : 'Save Changes'}</button>
               </div>
             </form>
           </Dialog>

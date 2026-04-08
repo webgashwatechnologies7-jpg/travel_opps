@@ -189,6 +189,8 @@ class PackageController extends Controller
                     'payment_policy' => $package->payment_policy,
                     'remarks' => $package->remarks,
                     'thank_you_message' => $package->thank_you_message,
+                    'inclusions' => $package->inclusions,
+                    'exclusions' => $package->exclusions,
                     'duration' => $package->duration,
                     'price' => $package->price,
                     'website_cost' => $package->website_cost,
@@ -258,6 +260,8 @@ class PackageController extends Controller
                     'payment_policy' => $package->payment_policy,
                     'remarks' => $package->remarks,
                     'thank_you_message' => $package->thank_you_message,
+                    'inclusions' => $package->inclusions,
+                    'exclusions' => $package->exclusions,
                     'duration' => $package->duration,
                     'price' => $package->price,
                     'website_cost' => $package->website_cost,
@@ -427,6 +431,8 @@ class PackageController extends Controller
                     'payment_policy' => $package->payment_policy,
                     'remarks' => $package->remarks,
                     'thank_you_message' => $package->thank_you_message,
+                    'inclusions' => $package->inclusions,
+                    'exclusions' => $package->exclusions,
                     'duration' => $package->duration,
                     'price' => $package->price,
                     'website_cost' => $package->website_cost,
@@ -486,6 +492,57 @@ class PackageController extends Controller
                 'success' => false,
                 'message' => 'An error occurred while deleting package',
                 'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
+            ], 500);
+        }
+    }
+
+    /**
+     * Duplicate an existing package.
+     *
+     * @param int $id
+     * @return JsonResponse
+     */
+    public function duplicate(int $id): JsonResponse
+    {
+        try {
+            $originalPackage = Package::find($id);
+
+            if (!$originalPackage) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Original itinerary not found',
+                ], 404);
+            }
+
+            // Replicate the main package model
+            $newPackage = $originalPackage->replicate();
+            // Append (Copy) to the name
+            $newPackage->itinerary_name = $originalPackage->itinerary_name . ' (Copy)';
+            $newPackage->created_by = auth()->id();
+            $newPackage->save();
+
+            // Also duplicate the pricing if it exists
+            $originalPricing = \App\Models\ItineraryPricing::where('package_id', $originalPackage->id)->first();
+            if ($originalPricing) {
+                $newPricing = $originalPricing->replicate();
+                $newPricing->package_id = $newPackage->id;
+                $newPricing->save();
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Itinerary duplicated successfully',
+                'data' => [
+                    'id' => $newPackage->id,
+                    'itinerary_name' => $newPackage->itinerary_name,
+                ],
+            ], 201);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'An error occurred while duplicating itinerary',
+                'error' => config('app.debug') ? $e->getMessage() : $e->getMessage(),
             ], 500);
         }
     }

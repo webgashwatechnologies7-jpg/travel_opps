@@ -321,7 +321,11 @@ const PricingTab = ({
                                 {option.hotelName || 'Hotel'}
                               </div>
                               <div className="text-xs text-gray-600 mt-1">
-                                {option.roomName || 'Standard'} | {option.mealPlan || 'Room Only'}
+                                {option.roomName || 'Standard'} | {(() => {
+                                  const events = dayEvents[option.day] || [];
+                                  const mealEvent = events.find(e => e.eventType === 'meal');
+                                  return mealEvent ? (mealEvent.subject || mealEvent.mealType || 'Meal') : (option.mealPlan || 'Room Only');
+                                })()}
                               </div>
                               {option.category && (
                                 <div className="flex items-center gap-1 mt-1">

@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { useAuth } from '../contexts/AuthContext';
 // Layout removed - handled by nested routing
-import { Search, Plus, Edit, Eye, X, Image as ImageIcon, Hash, MapPin, CalendarDays, Trash, Upload, Camera } from 'lucide-react';
+import { Search, Plus, Edit, Eye, X, Image as ImageIcon, Hash, MapPin, CalendarDays, Trash, Upload, Camera, Copy } from 'lucide-react';
 import { packagesAPI } from '../services/api';
 import { searchPexelsPhotos } from '../services/pexels';
 import LogoLoader from '../components/LogoLoader';
@@ -148,6 +148,24 @@ const Itineraries = () => {
     setImagePreview(null);
     setShowModal(true);
   };
+
+  const handleSelectForLead = (itinerary) => {
+    if (window.opener) {
+      window.opener.postMessage({ type: 'ITINERARY_SELECTED', itinerary }, '*');
+      window.close();
+    } else {
+      toast.error('Lead details page not found. Please select from the lead detail tab.');
+    }
+  };
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const create = params.get('create');
+    if (create === 'true') {
+      handleAddNew();
+    }
+  }, []);
+
 
   const handleView = async (itinerary) => {
     try {
@@ -316,7 +334,20 @@ const Itineraries = () => {
 
       await fetchItineraries();
       handleCloseModal();
+      
+      const params = new URLSearchParams(window.location.search);
+      const leadId = params.get('chooseForLead');
+      if (leadId && !editingItineraryId) {
+        // If we just created a new itinerary while in "select for lead" mode, select it automatically
+        const response = await packagesAPI.list();
+        const latest = response.data.data?.[0]; // Assuming newest is first or just find by name
+        if (latest) {
+          handleSelectForLead(latest);
+        }
+      }
+
       toast.success(editingItineraryId ? 'Itinerary updated successfully' : 'Itinerary created successfully');
+
     } catch (err) {
       const errorMessage = err.response?.data?.message || err.response?.data?.errors
         ? Object.values(err.response.data.errors).flat().join(', ')
@@ -366,6 +397,22 @@ const Itineraries = () => {
     } catch (err) {
       console.error('Failed to delete itinerary:', err);
       toast.error(err.response?.data?.message || 'Failed to delete itinerary. Please try again.');
+    }
+  };
+
+  const handleDuplicate = async (itinerary) => {
+    try {
+      setLoading(true);
+      const res = await packagesAPI.duplicate(itinerary.id);
+      if (res.data.success) {
+        toast.success(res.data.message || 'Itinerary duplicated');
+        await fetchItineraries(false);
+      }
+    } catch (err) {
+      console.error('Failed to duplicate itinerary:', err);
+      toast.error(err.response?.data?.message || 'Failed to duplicate itinerary');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -474,6 +521,19 @@ const Itineraries = () => {
                     >
                       <Eye className="h-4 w-4" />
                     </button>
+                    {hasPermission(user, 'itineraries.create') && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDuplicate(itinerary);
+                        }}
+                        className="w-8 h-8 rounded-full bg-white/90 backdrop-blur text-purple-600 hover:bg-white flex items-center justify-center shadow-lg"
+                        title="Duplicate Itinerary"
+                      >
+                        <Copy className="h-4 w-4" />
+                      </button>
+                    )}
                     {hasPermission(user, 'itineraries.edit') && (
                       <button
                         type="button"
@@ -501,6 +561,24 @@ const Itineraries = () => {
                       </button>
                     )}
                   </div>
+
+                  {/* SELECT FOR LEAD BUTTON */}
+                  {new URLSearchParams(window.location.search).get('chooseForLead') && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleSelectForLead(itinerary);
+                        }}
+                        className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-xl font-bold flex items-center gap-2 shadow-xl transform group-hover:scale-110 transition-transform"
+                      >
+                        <Plus className="h-5 w-5" />
+                        INSERT INTO LEAD
+                      </button>
+                    </div>
+                  )}
+
 
                   {/* Bottom Info Overlay */}
                   <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-4">

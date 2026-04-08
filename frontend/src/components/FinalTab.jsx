@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { getDisplayImageUrl } from '../utils/imageUrl';
 import { settingsAPI, masterPointsAPI } from '../services/api';
-import { Building2, Star, Calendar, Hash, X, Eye, MapPin, Users, Clock, Image as ImageIcon, Car, UtensilsCrossed, Plane, User, Ship, FileText, FileText as PassportIcon, File, Download, Mail, MessageCircle, Printer, Plus } from 'lucide-react';
+import { Building2, Star, Calendar, Hash, X, Eye, MapPin, Users, Clock, Image as ImageIcon, Car, UtensilsCrossed, Plane, User, Ship, FileText, FileText as PassportIcon, File, Download, Mail, MessageCircle, Printer, Plus, Save, CheckCircle } from 'lucide-react';
 
 const POLICY_KEYS = [
   { key: 'itinerary', label: 'Day-by-Day Itinerary' },
@@ -42,6 +42,8 @@ const FinalTab = ({
   const [sidebarSelectedOption, setSidebarSelectedOption] = useState(null); // For itinerary filter when option selected from sidebar
   const [rightView, setRightView] = useState('itinerary'); // 'itinerary' | policy keys
   const rightContentRef = useRef(null);
+  const [newManualPoint, setNewManualPoint] = useState('');
+  const [savingToMaster, setSavingToMaster] = useState({}); // Tracking which point is being saved to master
   const [policyContent, setPolicyContent] = useState({
     inclusions: [],
     exclusions: [],
@@ -53,6 +55,10 @@ const FinalTab = ({
     payment_policy: [],
     thank_you_message: []
   });
+  const [editingMasterId, setEditingMasterId] = useState(null);
+  const [editingMasterText, setEditingMasterText] = useState('');
+  const [itemSourceMap, setItemSourceMap] = useState({}); // { [key]: { [currentText]: masterId } }
+  const [lastFocusedText, setLastFocusedText] = useState({}); // { [key-idx]: text } to track what it was before edit
 
   useEffect(() => {
     // Helper to get first point content from Master API response
@@ -68,8 +74,15 @@ const FinalTab = ({
 
     // Helper to get all points content from Master API response
     const getMasterList = (res) => {
-      if (res?.data && Array.isArray(res.data)) {
-        return res.data.map(item => item.content);
+      const data = res?.data?.data || res?.data;
+      if (data && Array.isArray(data)) {
+        return data.map((item, idx) => {
+          if (typeof item === 'string') return { id: `str-${idx}-${data.length}`, content: item };
+          return { 
+            id: item.id || `item-${idx}`, 
+            content: item.content || item.name || item.title || (typeof item === 'string' ? item : '') 
+          };
+        }).filter(item => item.content); // Remove truly empty ones
       }
       return [];
     };
@@ -97,7 +110,6 @@ const FinalTab = ({
           masterPointsAPI.list('payment'),
           masterPointsAPI.list('thank_you')
         ]);
-
         const masters = {
           inclusions: getMasterList(incRes),
           exclusions: getMasterList(excRes),
@@ -109,33 +121,18 @@ const FinalTab = ({
           payment_policy: getMasterList(paymentRes),
           thank_you_message: getMasterList(thankYouRes)
         };
-
+        
         setPolicyContent(masters);
 
-        // Map POLICY_KEYS back to packageTerms if they are currently null/empty
-        if (setPackageTerms && packageTerms) {
-          setPackageTerms(prev => {
-            const updates = {};
-            
-            // Handle inclusions/exclusions
-            if (!prev.inclusions || prev.inclusions.length === 0) updates.inclusions = masters.inclusions;
-            if (!prev.exclusions || prev.exclusions.length === 0) updates.exclusions = masters.exclusions;
-            
-            // Handle new list-based fields if they are empty
-            if (!prev.remarks || prev.remarks.length === 0) updates.remarks = masters.remarks;
-            if (!prev.terms_conditions || prev.terms_conditions.length === 0) updates.terms_conditions = masters.terms_conditions;
-            if (!prev.confirmation_policy || prev.confirmation_policy.length === 0) updates.confirmation_policy = masters.confirmation_policy;
-            if (!prev.refund_policy || prev.refund_policy.length === 0) updates.refund_policy = masters.cancellation_policy;
-            if (!prev.amendment_policy || prev.amendment_policy.length === 0) updates.amendment_policy = masters.amendment_policy;
-            if (!prev.payment_policy || prev.payment_policy.length === 0) updates.payment_policy = masters.payment_policy;
-            if (!prev.thank_you_message || prev.thank_you_message.length === 0) updates.thank_you_message = masters.thank_you_message;
-
-            if (Object.keys(updates).length > 0) {
-              return { ...prev, ...updates };
-            }
-            return prev;
+        // Initialize itemSourceMap based on current masters
+        const initialMap = {};
+        Object.keys(masters).forEach(key => {
+          initialMap[key] = {};
+          masters[key].forEach(m => {
+            initialMap[key][m.content] = m.id;
           });
-        }
+        });
+        setItemSourceMap(initialMap);
       } catch (error) {
         console.error("Failed to load policies", error);
       }
@@ -466,13 +463,31 @@ const FinalTab = ({
                         <Eye className="h-5 w-5 text-gray-400" />
                       </div>
                       <div className="space-y-2 mb-4">
-                        {options.slice(0, 3).map((opt, idx) => (
-                          <div key={idx} className="flex items-center gap-2 text-sm text-gray-700">
-                            <span className="text-blue-600">✓</span>
-                            <Building2 className="h-4 w-4 text-blue-600 flex-shrink-0" />
-                            <span className="truncate">{opt.hotelName || 'Hotel'} (Day {opt.day})</span>
-                          </div>
-                        ))}
+                        {options.slice(0, 3).map((opt, idx) => {
+                          const start = opt.checkIn ? new Date(opt.checkIn) : null;
+                          const end = opt.checkOut ? new Date(opt.checkOut) : null;
+                          let nightCount = 0;
+                          if (start && end) {
+                            nightCount = Math.ceil(Math.abs(end - start) / (1000 * 60 * 60 * 24));
+                          }
+                          
+                          return (
+                            <div key={idx} className="flex items-center gap-2 text-sm text-gray-700">
+                              <span className="text-blue-600">✓</span>
+                              <Building2 className="h-4 w-4 text-blue-600 flex-shrink-0" />
+                              <div className="flex flex-col min-w-0">
+                                <span className="truncate font-semibold">{opt.hotelName || 'Hotel'}</span>
+                                {nightCount > 0 ? (
+                                  <span className="text-[10px] text-gray-500">
+                                    {nightCount} Night{nightCount > 1 ? 's' : ''} & {nightCount + 1} Days | {start.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} to {end.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+                                  </span>
+                                ) : (
+                                  <span className="text-[10px] text-gray-500">Day {opt.day}</span>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
                         {options.some(o => o.mealPlan) && (
                           <div className="flex items-center gap-2 text-sm text-gray-700">
                             <span className="text-blue-600">✓</span>
@@ -587,9 +602,13 @@ const FinalTab = ({
                                                 {hotel.roomName && (
                                                   <div><Hash className="h-3 w-3 inline mr-1" />Room: {hotel.roomName}</div>
                                                 )}
-                                                {hotel.mealPlan && (
-                                                  <div><UtensilsCrossed className="h-3 w-3 inline mr-1" />Meal: {hotel.mealPlan}</div>
-                                                )}
+                                                {(() => {
+                                                  const d = hotel.day || day;
+                                                  const dEvents = dayEvents[d] || [];
+                                                  const mEvent = dEvents.find(e => e.eventType === 'meal');
+                                                  const mName = mEvent ? (mEvent.subject || mEvent.mealType) : (hotel.mealPlan || 'Room Only');
+                                                  return <div><UtensilsCrossed className="h-3 w-3 inline mr-1" />Meal: {mName}</div>;
+                                                })()}
                                                 {hotel.checkIn && (
                                                   <div><Calendar className="h-3 w-3 inline mr-1" />Check-in: {new Date(hotel.checkIn).toLocaleDateString('en-GB')}</div>
                                                 )}
@@ -641,55 +660,182 @@ const FinalTab = ({
 
                 {!readOnly && (
                   <div className="mb-8 p-6 bg-blue-50/50 rounded-xl border-2 border-dashed border-blue-200">
-                    <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center justify-between mb-4 border-b border-blue-100 pb-2">
                       <h3 className="text-sm font-bold text-blue-800 uppercase tracking-wider flex items-center gap-2">
-                        <Plus className="h-4 w-4" /> Pick from Master {POLICY_KEYS.find(p => p.key === rightView)?.label}
+                        <Building2 className="h-4 w-4" /> Master Library (Pick Points)
                       </h3>
-                      <button 
-                        type="button"
-                        onClick={() => {
-                          const key = rightView === 'cancellation_policy' ? 'refund_policy' : rightView;
-                          const current = (packageTerms[key] || []);
-                          setPackageTerms(prev => ({
-                            ...prev,
-                            [key]: [...current, 'New Point...']
-                          }));
-                        }}
-                        className="text-xs font-bold text-white bg-blue-600 px-3 py-1.5 rounded-lg hover:bg-blue-700 shadow-sm transition-all active:scale-95"
-                      >
-                        Add Manual Point
-                      </button>
+                      <span className="text-[10px] font-medium text-blue-500 bg-blue-50 px-2 py-0.5 rounded-full">
+                        Changes here update your global templates
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-3 mb-6">
+                      <div className="flex-1 flex gap-2">
+                        <input
+                          type="text"
+                          value={newManualPoint}
+                          onChange={(e) => setNewManualPoint(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' && newManualPoint.trim()) {
+                              const key = (rightView === 'cancellation_policy' ? 'refund_policy' : rightView);
+                              const newPoint = newManualPoint.trim();
+                              setPackageTerms(prev => ({
+                                ...prev,
+                                [key]: [...(prev[key] || []), newPoint]
+                              }));
+                              setNewManualPoint('');
+                            }
+                          }}
+                          placeholder={`Add new ${POLICY_KEYS.find(p => p.key === rightView)?.label || 'point'}...`}
+                          className="flex-1 px-4 py-2 border-2 border-blue-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm transition-all bg-white"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (!newManualPoint.trim()) return;
+                            const key = (rightView === 'cancellation_policy' ? 'refund_policy' : rightView);
+                            const newPoint = newManualPoint.trim();
+                            setPackageTerms(prev => ({
+                              ...prev,
+                              [key]: [...(prev[key] || []), newPoint]
+                            }));
+                            setNewManualPoint('');
+                          }}
+                          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 shadow-md transition-all active:scale-95 flex items-center gap-2"
+                        >
+                          <Plus className="h-4 w-4" />
+                          <span className="text-sm font-bold">Add to List</span>
+                        </button>
+                      </div>
                     </div>
                     {policyContent[rightView] && policyContent[rightView].length > 0 ? (
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
-                        {policyContent[rightView].map((masterPoint, mIdx) => {
+                        {policyContent[rightView].map((masterItem, mIdx) => {
                           const key = rightView === 'cancellation_policy' ? 'refund_policy' : rightView;
                           const currentList = packageTerms[key] || [];
-                          const isSelected = currentList.includes(masterPoint);
+                          // Robust selection check
+                          const isSelected = currentList.some(item => 
+                            String(item).trim() === String(masterItem.content).trim()
+                          );
+                          const isEditing = editingMasterId === masterItem.id;
                           
                           return (
-                            <label key={mIdx} className={`flex items-start gap-3 p-3 rounded-lg border-2 cursor-pointer transition-all ${
-                              isSelected ? 'bg-blue-600 border-blue-600 text-white shadow-md' : 'bg-white border-gray-100 hover:border-blue-300 text-gray-700'
-                            }`}>
-                              <input 
-                                type="checkbox"
-                                checked={isSelected}
-                                className="hidden"
-                                onChange={() => {
-                                  let newList;
-                                  if (isSelected) {
-                                    newList = currentList.filter(p => p !== masterPoint);
-                                  } else {
-                                    newList = [...currentList, masterPoint];
-                                  }
-                                  setPackageTerms(prev => ({ ...prev, [key]: newList }));
-                                }}
-                              />
-                              <span className={`mt-0.5 flex-shrink-0 w-4 h-4 rounded border flex items-center justify-center ${isSelected ? 'bg-white text-blue-600 border-white' : 'border-gray-300'}`}>
-                                {isSelected && <Plus className="h-3 w-3 rotate-45" />}
-                              </span>
-                              <span className="text-xs font-medium leading-tight">{masterPoint}</span>
-                            </label>
+                            <div key={mIdx} className="group relative">
+                              {isEditing ? (
+                                <div className="flex gap-2 p-2 rounded-lg border-2 border-blue-500 bg-white">
+                                  <input 
+                                    type="text"
+                                    autoFocus
+                                    value={editingMasterText}
+                                    onChange={(e) => setEditingMasterText(e.target.value)}
+                                    onKeyDown={async (e) => {
+                                      if (e.key === 'Enter') {
+                                        try {
+                                          await masterPointsAPI.update(masterItem.id, { content: editingMasterText });
+                                          setEditingMasterId(null);
+                                          // Refresh local list
+                                          setPolicyContent(prev => ({
+                                            ...prev, 
+                                            [rightView]: prev[rightView].map(item => item.id === masterItem.id ? { ...item, content: editingMasterText } : item)
+                                          }));
+                                          // Also update in packageTerms if it was selected
+                                          if (isSelected) {
+                                            setPackageTerms(prev => {
+                                              const current = prev[key] || [];
+                                              const updated = current.map(c => c === masterItem.content ? editingMasterText : c);
+                                              return { ...prev, [key]: updated };
+                                            });
+                                          }
+                                        } catch (err) {
+                                          console.error('Failed to update master point:', err);
+                                        }
+                                      } else if (e.key === 'Escape') {
+                                        setEditingMasterId(null);
+                                      }
+                                    }}
+                                    className="flex-1 outline-none text-xs"
+                                  />
+                                  <button 
+                                    onClick={async () => {
+                                      try {
+                                        await masterPointsAPI.update(masterItem.id, { content: editingMasterText });
+                                        setEditingMasterId(null);
+                                        setPolicyContent(prev => ({
+                                          ...prev, 
+                                          [rightView]: prev[rightView].map(item => item.id === masterItem.id ? { ...item, content: editingMasterText } : item)
+                                        }));
+                                        if (isSelected) {
+                                          setPackageTerms(prev => {
+                                            const current = prev[key] || [];
+                                            const updated = current.map(c => c === masterItem.content ? editingMasterText : c);
+                                            return { ...prev, [key]: updated };
+                                          });
+                                        }
+                                      } catch (err) {
+                                        console.error('Failed to update master point:', err);
+                                      }
+                                    }}
+                                    className="text-blue-600"
+                                  >
+                                    <Save className="h-4 w-4" />
+                                  </button>
+                                </div>
+                              ) : (
+                                <div className={`flex items-center justify-between gap-3 p-3 rounded-lg border-2 transition-all ${
+                                  isSelected ? 'bg-blue-600 border-blue-600 text-white shadow-md' : 'bg-white border-gray-100 hover:border-blue-300 text-gray-700'
+                                }`}>
+                                  <label className="flex-1 flex items-start gap-3 cursor-pointer">
+                                    <input 
+                                      type="checkbox"
+                                      checked={isSelected}
+                                      className="hidden"
+                                      onChange={() => {
+                                        if (!readOnly) {
+                                          const key = rightView === 'cancellation_policy' ? 'refund_policy' : rightView;
+                                          const trimmedContent = String(masterItem.content).trim();
+                                          
+                                          setPackageTerms(prev => {
+                                            const current = prev[key] || [];
+                                            const isCurrentlySelected = current.some(item => 
+                                              String(item).trim() === trimmedContent
+                                            );
+                                            
+                                            let nextList;
+                                            if (isCurrentlySelected) {
+                                              nextList = current.filter(p => String(p).trim() !== trimmedContent);
+                                            } else {
+                                              nextList = [...current, trimmedContent];
+                                              // Track that this text came from this master ID
+                                              setItemSourceMap(sMap => ({
+                                                ...sMap,
+                                                [key]: { ...sMap[key], [trimmedContent]: masterItem.id }
+                                              }));
+                                            }
+                                            
+                                            return { ...prev, [key]: nextList };
+                                          });
+                                        }
+                                      }}
+                                    />
+                                    <span className={`mt-0.5 flex-shrink-0 w-4 h-4 rounded border flex items-center justify-center ${isSelected ? 'bg-white text-blue-600 border-white' : 'border-gray-300'}`}>
+                                      {isSelected && <Plus className="h-3 w-3 rotate-45" />}
+                                    </span>
+                                    <span className="text-xs font-medium leading-tight">{masterItem.content}</span>
+                                  </label>
+                                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <button 
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setEditingMasterId(masterItem.id);
+                                        setEditingMasterText(masterItem.content);
+                                      }}
+                                      className={`p-1 rounded hover:bg-black/10 ${isSelected ? 'text-white' : 'text-gray-400'}`}
+                                    >
+                                      <FileText className="h-3 w-3" />
+                                    </button>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
                           );
                         })}
                       </div>
@@ -730,24 +876,100 @@ const FinalTab = ({
                             <input
                               type="text"
                               value={point}
+                              onFocus={() => {
+                                setLastFocusedText(prev => ({ ...prev, [`${key}-${idx}`]: point }));
+                              }}
                               onChange={(e) => {
-                                const newList = [...packageTerms[key]];
-                                newList[idx] = e.target.value;
-                                setPackageTerms(prev => ({ ...prev, [key]: newList }));
+                                const newVal = e.target.value;
+                                setPackageTerms(prev => {
+                                  const current = [...(prev[key] || [])];
+                                  current[idx] = newVal;
+                                  return { ...prev, [key]: current };
+                                });
                               }}
                               className="flex-1 px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all shadow-sm hover:border-gray-300"
                             />
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const newList = items.filter((_, i) => i !== idx);
-                                setPackageTerms(prev => ({ ...prev, [key]: newList }));
-                              }}
-                              className="p-2 text-gray-400 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
-                              title="Remove item"
-                            >
-                              <X className="h-5 w-5" />
-                            </button>
+                            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <button
+                                type="button"
+                                onClick={async () => {
+                                  if (!point.trim()) return;
+                                  setSavingToMaster(prev => ({ ...prev, [idx]: true }));
+                                  try {
+                                    const typeMap = {
+                                      inclusions: 'inclusion',
+                                      exclusions: 'exclusion',
+                                      remarks: 'remarks',
+                                      terms_conditions: 'terms',
+                                      confirmation_policy: 'confirmation',
+                                      refund_policy: 'cancellation',
+                                      amendment_policy: 'amendment',
+                                      payment_policy: 'payment',
+                                      thank_you_message: 'thank_you'
+                                    };
+                                    const dbType = typeMap[key] || rightView;
+                                    
+                                    // SMART UPDATE LOGIC
+                                    const originalText = lastFocusedText[`${key}-${idx}`] || point;
+                                    const masterId = itemSourceMap[key]?.[originalText];
+
+                                    if (masterId) {
+                                      // Update existing master point
+                                      await masterPointsAPI.update(masterId, { content: point.trim() });
+                                      
+                                      // Update local source map to use new text as key
+                                      setItemSourceMap(prev => {
+                                        const newKeyMap = { ...prev[key] };
+                                        delete newKeyMap[originalText];
+                                        newKeyMap[point.trim()] = masterId;
+                                        return { ...prev, [key]: newKeyMap };
+                                      });
+                                    } else {
+                                      // Create new master point
+                                      const res = await masterPointsAPI.create({ type: dbType, content: point.trim() });
+                                      const newId = res.data?.id || res.data?.data?.id;
+                                      if (newId) {
+                                        setItemSourceMap(prev => ({
+                                          ...prev,
+                                          [key]: { ...prev[key], [point.trim()]: newId }
+                                        }));
+                                      }
+                                    }
+
+                                    // Refresh master content
+                                    const freshRes = await masterPointsAPI.list(dbType);
+                                    const data = getMasterList(freshRes);
+                                    setPolicyContent(prev => ({ ...prev, [rightView]: data }));
+                                    
+                                    // Update last focused text so subsequent saves work correctly
+                                    setLastFocusedText(prev => ({ ...prev, [`${key}-${idx}`]: point.trim() }));
+
+                                  } catch (err) {
+                                    console.error('Failed to save to masters:', err);
+                                  } finally {
+                                    setSavingToMaster(prev => ({ ...prev, [idx]: false }));
+                                  }
+                                }}
+                                disabled={savingToMaster[idx]}
+                                className={`p-2 rounded-lg transition-colors ${savingToMaster[idx] ? 'text-gray-300' : 'text-blue-500 hover:bg-blue-50'}`}
+                                title="Save/Update Master Template"
+                              >
+                                {savingToMaster[idx] ? <Clock className="h-5 w-5 animate-spin" /> : <Save className="h-5 w-5" />}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setPackageTerms(prev => ({
+                                    ...prev,
+                                    [key]: (prev[key] || []).filter((_, i) => i !== idx)
+                                  }));
+                                }}
+                                className="p-2 text-gray-400 hover:text-red-500 transition-colors"
+                                title="Remove item"
+                              >
+                                <X className="h-5 w-5" />
+                              </button>
+                            </div>
                           </div>
                         )}
                       </div>
@@ -1267,7 +1489,13 @@ const FinalTab = ({
                                                       </div>
                                                       <div className="grid grid-cols-2 gap-2 text-sm text-gray-600">
                                                         {hotel.roomName && <div><Hash className="h-3 w-3 inline mr-1" />Room: {hotel.roomName}</div>}
-                                                        {hotel.mealPlan && <div><UtensilsCrossed className="h-3 w-3 inline mr-1" />Meal: {hotel.mealPlan}</div>}
+                                                        {(() => {
+                                                          const d = hotel.day || 1; // Fallback if day not found in this specific context
+                                                          const dEvents = dayEvents[d] || [];
+                                                          const mEvent = dEvents.find(e => e.eventType === 'meal');
+                                                          const mName = mEvent ? (mEvent.subject || mEvent.mealType) : (hotel.mealPlan || 'Room Only');
+                                                          return <div><UtensilsCrossed className="h-3 w-3 inline mr-1" />Meal: {mName}</div>;
+                                                        })()}
                                                         {hotel.checkIn && <div><Calendar className="h-3 w-3 inline mr-1" />Check-in: {new Date(hotel.checkIn).toLocaleDateString('en-GB')}</div>}
                                                         {hotel.checkOut && <div><Calendar className="h-3 w-3 inline mr-1" />Check-out: {new Date(hotel.checkOut).toLocaleDateString('en-GB')}</div>}
                                                       </div>
