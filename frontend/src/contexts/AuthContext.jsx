@@ -77,12 +77,12 @@ export const AuthProvider = ({ children }) => {
     if (!user) return;
 
     let timeout;
-    const INACTIVITY_LIMIT = 5 * 60 * 1000; // 5 minutes
+    const INACTIVITY_LIMIT = 30 * 60 * 1000; // 30 minutes
 
     const resetTimer = () => {
       if (timeout) clearTimeout(timeout);
       timeout = setTimeout(() => {
-        console.warn('Inactivity detected (5m). Auto-logging out...');
+        console.warn('Inactivity detected (30m). Auto-logging out...');
         logout();
         // Optional: Notify user they were logged out due to inactivity
         if (typeof window !== 'undefined') {
