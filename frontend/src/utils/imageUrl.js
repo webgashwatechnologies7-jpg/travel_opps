@@ -8,7 +8,7 @@ export function getDisplayImageUrl(url) {
 
   let base = (import.meta.env.VITE_API_BASE_URL || (typeof window !== 'undefined' ? `${window.location.origin}/api` : '')).replace(/\/api\/?$/, '');
   
-  const isRelative = url.startsWith('/storage') || url.startsWith('storage/') || (url.startsWith('/') && !url.startsWith('http')) || url.startsWith('images/');
+  const isRelative = url.startsWith('/storage') || url.startsWith('storage/') || (url.startsWith('/') && !url.startsWith('http')) || url.startsWith('itineraries/') || url.startsWith('packages/') || url.startsWith('images/');
 
   if (typeof window !== 'undefined' && isRelative) {
     const host = window.location.hostname || '';
@@ -25,6 +25,7 @@ export function getDisplayImageUrl(url) {
   if (isRelative) {
     let path = url;
     if (url.startsWith('storage/')) path = `/${url}`;
+    else if (url.startsWith('itineraries/') || url.startsWith('packages/')) path = `/storage/${url}`;
     if (!path.startsWith('/') && !path.startsWith('http')) path = `/${path}`;
     return base ? `${base}${path}` : path;
   }

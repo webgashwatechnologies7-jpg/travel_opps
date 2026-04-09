@@ -426,7 +426,14 @@ class CompanySettingsController extends Controller
             'roles' => 'nullable|array',
             'roles.*' => 'exists:roles,name',
             'is_active' => 'boolean',
-            'reports_to' => 'nullable|exists:users,id'
+            'reports_to' => 'nullable|exists:users,id',
+            'employment_type' => 'nullable|string|in:salary,commission,both',
+            'commission_percentage' => 'nullable|numeric|min:0|max:100',
+            'base_salary' => 'nullable|numeric|min:0',
+            'salary_type' => 'nullable|string|in:monthly,daily,hourly',
+            'overtime_rate' => 'nullable|numeric|min:0',
+            'working_hours_per_day' => 'nullable|numeric|min:1|max:24',
+            'allow_remote_attendance' => 'nullable|boolean'
         ]);
 
         // Manager Restriction: Cannot assign restricted roles
@@ -457,6 +464,13 @@ class CompanySettingsController extends Controller
                 'is_active' => $request->is_active ?? true,
                 'employee_id' => $request->employee_id,
                 'reports_to' => $request->reports_to,
+                'employment_type' => $request->employment_type ?? 'salary',
+                'commission_percentage' => $request->commission_percentage ?? 0,
+                'base_salary' => $request->base_salary ?? 0,
+                'salary_type' => $request->salary_type ?? 'monthly',
+                'overtime_rate' => $request->overtime_rate ?? 0,
+                'working_hours_per_day' => $request->working_hours_per_day ?? 9,
+                'allow_remote_attendance' => $request->allow_remote_attendance ?? false,
             ]);
 
             // Assign roles if provided
@@ -500,7 +514,14 @@ class CompanySettingsController extends Controller
             'roles.*' => 'exists:roles,name',
             'is_active' => 'boolean',
             'password' => 'nullable|string|min:8',
-            'reports_to' => 'nullable|exists:users,id'
+            'reports_to' => 'nullable|exists:users,id',
+            'employment_type' => 'nullable|string|in:salary,commission,both',
+            'commission_percentage' => 'nullable|numeric|min:0|max:100',
+            'base_salary' => 'nullable|numeric|min:0',
+            'salary_type' => 'nullable|string|in:monthly,daily,hourly',
+            'overtime_rate' => 'nullable|numeric|min:0',
+            'working_hours_per_day' => 'nullable|numeric|min:1|max:24',
+            'allow_remote_attendance' => 'nullable|boolean'
         ]);
 
         // Manager Restriction: Cannot edit restricted users or assign restricted roles
@@ -534,6 +555,13 @@ class CompanySettingsController extends Controller
                 'phone' => $request->phone,
                 'branch_id' => $request->branch_id,
                 'is_active' => $request->is_active ?? $user->is_active,
+                'employment_type' => $request->employment_type ?? $user->employment_type,
+                'commission_percentage' => $request->commission_percentage ?? $user->commission_percentage,
+                'base_salary' => $request->base_salary ?? $user->base_salary,
+                'salary_type' => $request->salary_type ?? $user->salary_type,
+                'overtime_rate' => $request->overtime_rate ?? $user->overtime_rate,
+                'working_hours_per_day' => $request->working_hours_per_day ?? $user->working_hours_per_day,
+                'allow_remote_attendance' => $request->allow_remote_attendance ?? $user->allow_remote_attendance,
             ];
 
             if ($request->exists('reports_to')) {

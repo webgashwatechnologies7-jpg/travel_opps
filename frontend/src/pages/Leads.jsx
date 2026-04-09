@@ -1859,7 +1859,14 @@ const Leads = () => {
                     <input
                       type="date"
                       value={formData.from_date}
-                      onChange={(e) => setFormData({ ...formData, from_date: e.target.value })}
+                      onChange={(e) => {
+                        const newFromDate = e.target.value;
+                        setFormData(prev => ({
+                          ...prev,
+                          from_date: newFromDate,
+                          to_date: prev.to_date && prev.to_date < newFromDate ? newFromDate : prev.to_date
+                        }));
+                      }}
                       min={new Date().toISOString().split('T')[0]}
                       className="w-full px-4 py-3 bg-slate-50/50 border border-slate-100 rounded-xl focus:ring-2 focus:ring-blue-500/10 focus:border-blue-400 transition-all font-semibold outline-none"
                     />

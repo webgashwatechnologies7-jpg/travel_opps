@@ -704,6 +704,10 @@ const LeadDetails = () => {
               result.push({
                 ...opt,
                 id: opt.id || Date.now() + i + tid,
+                itinerary_name: opt.itinerary_name || pkgData.itinerary_name || pkgData.title || p.itinerary_name || p.title,
+                destination: opt.destination || pkgData.destinations || pkgData.destination || p.destination,
+                duration: opt.duration || pkgData.duration || p.duration,
+                image: opt.image || pkgData.image || p.image,
                 price: price,
                 pricing: { ...(opt.pricing || {}), finalClientPrice: price },
                 confirmed: confirmedOptionNum != null && opt.optionNumber === confirmedOptionNum
@@ -724,7 +728,7 @@ const LeadDetails = () => {
     };
     run();
     return () => { cancelled = true; };
-  }, [id, maxHotelOptions, activeTab]);
+  }, [id, maxHotelOptions]);
 
   // Save proposals to server (DATABASE ONLY)
   const saveProposals = async (newProposals) => {
@@ -736,7 +740,7 @@ const LeadDetails = () => {
       console.error('Failed to save proposals:', err);
       showToastNotification('error', 'Sync Failed', 'Could not save proposals to the server. Please try again.');
       // Refresh to get actual server state if desired, or just inform the user
-      fetchLeadDetails(); 
+      fetchLeadDetails();
     }
   };
 
@@ -4868,11 +4872,11 @@ const LeadDetails = () => {
                           </div>
                         ) : (() => {
                           const first = visibleProposals[0] || proposals[0];
-                          const meta = first?.metadata || {};
-                          const cardTitle = (first?.itinerary_name || meta.itinerary_name || first?.title || lead?.destination || 'Proposals').toString().trim() || 'Proposals';
-                          const cardImageResult = getDisplayImageUrl(first?.image || meta.image);
-                          const cardImage = cardImageResult || first?.image || meta.image || null;
-                          const cardDestination = first?.destination || meta.destination || lead?.destination || '';
+                          const cardTitle = (first?.itinerary_name || first?.title || first?.metadata?.itinerary_name || lead?.destination || 'Proposals').toString().trim() || 'Proposals';
+                          const rawImage = first?.image || first?.metadata?.image;
+                          const cardImageResult = getDisplayImageUrl(rawImage);
+                          const cardImage = cardImageResult || rawImage || null;
+                          const cardDestination = first?.destination || first?.metadata?.destination || lead?.destination || '';
 
                           return (
                             <div className="w-full">
@@ -4891,11 +4895,11 @@ const LeadDetails = () => {
                                   }}
                                 >
                                   {cardImage ? (
-                                    <img 
-                                      src={cardImage} 
-                                      alt={cardTitle} 
-                                      className="w-full h-full object-cover" 
-                                      referrerPolicy="no-referrer" 
+                                    <img
+                                      src={cardImage}
+                                      alt={cardTitle}
+                                      className="w-full h-full object-cover"
+                                      referrerPolicy="no-referrer"
                                       onError={(e) => {
                                         e.target.style.display = 'none';
                                         e.target.nextSibling.style.display = 'flex';
@@ -5023,12 +5027,12 @@ const LeadDetails = () => {
                                                   )}
                                                 </div>
                                               )}
-                                              
+
                                               {/* Pax Summary */}
                                               <div className="flex items-center gap-2 text-xs font-semibold text-gray-500 mb-3 bg-gray-50 p-1.5 rounded">
-                                                 <Users className="h-3.5 w-3.5 text-gray-400" />
-                                                 <span>{lead?.adult || 1} Adult{(lead?.adult > 1) ? 's' : ''}</span>
-                                                 {(lead?.child > 0) && <span>, {lead?.child} Child{(lead?.child > 1) ? 'ren' : ''}</span>}
+                                                <Users className="h-3.5 w-3.5 text-gray-400" />
+                                                <span>{lead?.adult || 1} Adult{(lead?.adult > 1) ? 's' : ''}</span>
+                                                {(lead?.child > 0) && <span>, {lead?.child} Child{(lead?.child > 1) ? 'ren' : ''}</span>}
                                               </div>
 
                                               {/* Hotels Summary */}
@@ -5520,10 +5524,10 @@ const LeadDetails = () => {
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     {itineraryLibraryImages.map((p) => (
                       <button key={p.id} type="button" onClick={() => handleSelectItineraryLibraryImage(p)} className="group relative aspect-square rounded-xl overflow-hidden border-2 border-transparent hover:border-blue-500 transition-all shadow-sm">
-                        <img 
-                          src={getDisplayImageUrl(p.image) || p.image} 
-                          alt={p.itinerary_name || p.title || 'Select'} 
-                          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" 
+                        <img
+                          src={getDisplayImageUrl(p.image) || p.image}
+                          alt={p.itinerary_name || p.title || 'Select'}
+                          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                           onError={(e) => { e.target.style.display = 'none'; }}
                         />
                         <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-bold p-2 text-center">{p.title || p.itinerary_name || 'SELECT'}</div>
@@ -5571,10 +5575,10 @@ const LeadDetails = () => {
                   <div key={it.id} onClick={() => handleSelectItinerary(it)} className="border border-gray-200 rounded-lg p-4 hover:bg-blue-50 cursor-pointer flex gap-4 items-center">
                     <div className="w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center overflow-hidden border border-gray-200 flex-shrink-0">
                       {it.image ? (
-                        <img 
-                          src={getDisplayImageUrl(it.image) || it.image} 
-                          alt={it.title || 'Itinerary'} 
-                          className="w-full h-full object-cover" 
+                        <img
+                          src={getDisplayImageUrl(it.image) || it.image}
+                          alt={it.title || 'Itinerary'}
+                          className="w-full h-full object-cover"
                         />
                       ) : (
                         <ImageIcon className="h-6 w-6 text-gray-400" />
@@ -5885,11 +5889,18 @@ const LeadDetails = () => {
                 </div>
                 <div>
                   <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">From Date</label>
-                  <input type="date" value={editQueryFormData.travel_start_date} onChange={(e) => setEditQueryFormData({ ...editQueryFormData, travel_start_date: e.target.value })} className="w-full border border-gray-200 rounded-2xl px-4 py-3 outline-none focus:ring-4 focus:ring-blue-50/50 font-bold" />
+                  <input type="date" value={editQueryFormData.travel_start_date} onChange={(e) => {
+                    const newStartDate = e.target.value;
+                    setEditQueryFormData(prev => ({
+                      ...prev,
+                      travel_start_date: newStartDate,
+                      travel_end_date: prev.travel_end_date && prev.travel_end_date < newStartDate ? newStartDate : prev.travel_end_date
+                    }));
+                  }} className="w-full border border-gray-200 rounded-2xl px-4 py-3 outline-none focus:ring-4 focus:ring-blue-50/50 font-bold" />
                 </div>
                 <div>
                   <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">To Date</label>
-                  <input type="date" value={editQueryFormData.travel_end_date} onChange={(e) => setEditQueryFormData({ ...editQueryFormData, travel_end_date: e.target.value })} className="w-full border border-gray-200 rounded-2xl px-4 py-3 outline-none focus:ring-4 focus:ring-blue-50/50 font-bold" />
+                  <input type="date" value={editQueryFormData.travel_end_date} min={editQueryFormData.travel_start_date} onChange={(e) => setEditQueryFormData({ ...editQueryFormData, travel_end_date: e.target.value })} className="w-full border border-gray-200 rounded-2xl px-4 py-3 outline-none focus:ring-4 focus:ring-blue-50/50 font-bold" />
                 </div>
                 <div>
                   <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Services</label>
@@ -5903,18 +5914,18 @@ const LeadDetails = () => {
                   </select>
                 </div>
                 <div className="grid grid-cols-3 gap-4 md:col-span-2">
-                   <div>
-                      <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Adult</label>
-                      <input type="number" value={editQueryFormData.adult} onChange={(e) => setEditQueryFormData({ ...editQueryFormData, adult: e.target.value })} className="w-full border border-gray-200 rounded-2xl px-4 py-3 outline-none focus:ring-4 focus:ring-blue-50/50 font-bold" />
-                   </div>
-                   <div>
-                      <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Child</label>
-                      <input type="number" value={editQueryFormData.child} onChange={(e) => setEditQueryFormData({ ...editQueryFormData, child: e.target.value })} className="w-full border border-gray-200 rounded-2xl px-4 py-3 outline-none focus:ring-4 focus:ring-blue-50/50 font-bold" />
-                   </div>
-                   <div>
-                      <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Infant</label>
-                      <input type="number" value={editQueryFormData.infant} onChange={(e) => setEditQueryFormData({ ...editQueryFormData, infant: e.target.value })} className="w-full border border-gray-200 rounded-2xl px-4 py-3 outline-none focus:ring-4 focus:ring-blue-50/50 font-bold" />
-                   </div>
+                  <div>
+                    <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Adult</label>
+                    <input type="number" value={editQueryFormData.adult} onChange={(e) => setEditQueryFormData({ ...editQueryFormData, adult: e.target.value })} className="w-full border border-gray-200 rounded-2xl px-4 py-3 outline-none focus:ring-4 focus:ring-blue-50/50 font-bold" />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Child</label>
+                    <input type="number" value={editQueryFormData.child} onChange={(e) => setEditQueryFormData({ ...editQueryFormData, child: e.target.value })} className="w-full border border-gray-200 rounded-2xl px-4 py-3 outline-none focus:ring-4 focus:ring-blue-50/50 font-bold" />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Infant</label>
+                    <input type="number" value={editQueryFormData.infant} onChange={(e) => setEditQueryFormData({ ...editQueryFormData, infant: e.target.value })} className="w-full border border-gray-200 rounded-2xl px-4 py-3 outline-none focus:ring-4 focus:ring-blue-50/50 font-bold" />
+                  </div>
                 </div>
                 <div className="md:col-span-2">
                   <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Remark / Description</label>

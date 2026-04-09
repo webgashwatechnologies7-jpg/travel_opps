@@ -77,7 +77,14 @@ const TeamManagement = () => {
     country: '',
     postal_code: '',
     permissions: [],
-    reports_to: ''
+    reports_to: '',
+    employment_type: 'salary',
+    commission_percentage: 0,
+    base_salary: 0,
+    salary_type: 'monthly',
+    overtime_rate: 0,
+    working_hours_per_day: 9,
+    allow_remote_attendance: false
   });
 
   useEffect(() => {
@@ -151,7 +158,14 @@ const TeamManagement = () => {
       country: '',
       postal_code: '',
       permissions: [],
-      reports_to: ''
+      reports_to: '',
+      employment_type: 'salary',
+      commission_percentage: 0,
+      base_salary: 0,
+      salary_type: 'monthly',
+      overtime_rate: 0,
+      working_hours_per_day: 9,
+      allow_remote_attendance: false
     });
   };
 
@@ -196,6 +210,13 @@ const TeamManagement = () => {
           reports_to: formData.reports_to || null,
           role: formData.roles?.[0] || null, // Send primary role as 'role' for backend
           roles: formData.roles || [],
+          employment_type: formData.employment_type || 'salary',
+          commission_percentage: formData.commission_percentage || 0,
+          base_salary: formData.base_salary || 0,
+          salary_type: formData.salary_type || 'monthly',
+          overtime_rate: formData.overtime_rate || 0,
+          working_hours_per_day: formData.working_hours_per_day || 9,
+          allow_remote_attendance: formData.allow_remote_attendance || false,
         };
         if (editingItem) {
           response = await companySettingsAPI.updateUser(editingItem.id, submitData);
@@ -254,7 +275,14 @@ const TeamManagement = () => {
       is_active: item.is_active ?? true,
       password: '',
       address: item.address || '',
-      reports_to: item.reports_to || ''
+      reports_to: item.reports_to || '',
+      employment_type: item.employment_type || 'salary',
+      commission_percentage: item.commission_percentage || 0,
+      base_salary: item.base_salary || 0,
+      salary_type: item.salary_type || 'monthly',
+      overtime_rate: item.overtime_rate || 0,
+      working_hours_per_day: item.working_hours_per_day || 9,
+      allow_remote_attendance: item.allow_remote_attendance || false
     });
     setShowModal(true);
   };
@@ -1839,6 +1867,80 @@ const TeamManagement = () => {
                                 ))}
                               </select>
                             </div>
+
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">Employment Type</label>
+                              <select
+                                value={formData.employment_type}
+                                onChange={(e) => setFormData({ ...formData, employment_type: e.target.value })}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              >
+                                <option value="salary">Fixed Salary Only</option>
+                                <option value="commission">Commission Base</option>
+                                <option value="both">Hybrid (Salary + Commission)</option>
+                              </select>
+                            </div>
+
+                            {formData.employment_type !== 'commission' && (
+                              <>
+                                <div>
+                                  <label className="block text-sm font-medium text-gray-700 mb-1">Base Salary</label>
+                                  <input
+                                    type="number"
+                                    value={formData.base_salary}
+                                    onChange={(e) => setFormData({ ...formData, base_salary: e.target.value })}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    placeholder="e.g. 25000"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-sm font-medium text-gray-700 mb-1">Salary Type</label>
+                                  <select
+                                    value={formData.salary_type}
+                                    onChange={(e) => setFormData({ ...formData, salary_type: e.target.value })}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                  >
+                                    <option value="monthly">Monthly</option>
+                                    <option value="daily">Daily</option>
+                                    <option value="hourly">Hourly</option>
+                                  </select>
+                                </div>
+                              </>
+                            )}
+
+                            {(formData.employment_type === 'commission' || formData.employment_type === 'both') && (
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Commission Percentage (%)</label>
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  value={formData.commission_percentage}
+                                  onChange={(e) => setFormData({ ...formData, commission_percentage: e.target.value })}
+                                  className="w-full px-3 py-2 border border-blue-200 bg-blue-50 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                  placeholder="e.g. 5.5"
+                                />
+                              </div>
+                            )}
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Working Hours/Day</label>
+                                <input
+                                    type="number"
+                                    value={formData.working_hours_per_day}
+                                    onChange={(e) => setFormData({ ...formData, working_hours_per_day: e.target.value })}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                />
+                            </div>
+
+                            <div className="flex items-center gap-2 pt-6">
+                              <input
+                                type="checkbox"
+                                checked={formData.allow_remote_attendance}
+                                onChange={(e) => setFormData({ ...formData, allow_remote_attendance: e.target.checked })}
+                                className="w-4 h-4 text-blue-600 border-gray-300 rounded"
+                              />
+                              <label className="text-sm font-medium text-gray-700">Allow Remote Attendance (WFH)</label>
+                            </div>
                           </div>
                         </div>
                       ) : (
@@ -1963,6 +2065,79 @@ const TeamManagement = () => {
                                 <option key={u.id} value={u.id}>{u.name} ({u.roles?.map(r => typeof r === 'string' ? r : r.name).join(', ')})</option>
                               ))}
                             </select>
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Employment Type</label>
+                            <select
+                              value={formData.employment_type}
+                              onChange={(e) => setFormData({ ...formData, employment_type: e.target.value })}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            >
+                              <option value="salary">Fixed Salary Only</option>
+                              <option value="commission">Commission Base</option>
+                              <option value="both">Hybrid (Salary + Commission)</option>
+                            </select>
+                          </div>
+                          
+                          {formData.employment_type !== 'commission' && (
+                            <>
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Base Salary</label>
+                                <input
+                                  type="number"
+                                  value={formData.base_salary}
+                                  onChange={(e) => setFormData({ ...formData, base_salary: e.target.value })}
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                  placeholder="e.g. 25000"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Salary Type</label>
+                                <select
+                                  value={formData.salary_type}
+                                  onChange={(e) => setFormData({ ...formData, salary_type: e.target.value })}
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                >
+                                  <option value="monthly">Monthly</option>
+                                  <option value="daily">Daily</option>
+                                  <option value="hourly">Hourly</option>
+                                </select>
+                              </div>
+                            </>
+                          )}
+
+                          {formData.employment_type !== 'salary' && (
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">Commission Percentage (%)</label>
+                              <input
+                                type="number"
+                                step="0.01"
+                                value={formData.commission_percentage}
+                                onChange={(e) => setFormData({ ...formData, commission_percentage: e.target.value })}
+                                className="w-full px-3 py-2 border border-blue-200 bg-blue-50 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                placeholder="e.g. 5.5"
+                              />
+                            </div>
+                          )}
+
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Working Hours/Day</label>
+                            <input
+                              type="number"
+                              value={formData.working_hours_per_day}
+                              onChange={(e) => setFormData({ ...formData, working_hours_per_day: e.target.value })}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                          </div>
+
+                          <div className="flex items-center gap-2 pt-6">
+                            <input
+                              type="checkbox"
+                              checked={formData.allow_remote_attendance}
+                              onChange={(e) => setFormData({ ...formData, allow_remote_attendance: e.target.checked })}
+                              className="w-4 h-4 text-blue-600 border-gray-300 rounded"
+                            />
+                            <label className="text-sm font-medium text-gray-700">Allow Remote Attendance (WFH)</label>
                           </div>
                         </div>
                       )}

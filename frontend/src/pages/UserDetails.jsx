@@ -34,7 +34,14 @@ const UserDetails = () => {
     state: '',
     country: '',
     postal_code: '',
-    is_active: true
+    is_active: true,
+    base_salary: 0,
+    salary_type: 'monthly',
+    overtime_rate: 0,
+    working_hours_per_day: 9,
+    allow_remote_attendance: false,
+    employment_type: 'salary',
+    commission_percentage: 0
   });
 
   useEffect(() => {
@@ -95,6 +102,13 @@ const UserDetails = () => {
           country: userResponse.data.data.country || '',
           postal_code: userResponse.data.data.postal_code || '',
           is_active: userResponse.data.data.is_active,
+          base_salary: userResponse.data.data.base_salary || 0,
+          salary_type: userResponse.data.data.salary_type || 'monthly',
+          overtime_rate: userResponse.data.data.overtime_rate || 0,
+          working_hours_per_day: userResponse.data.data.working_hours_per_day || 9,
+          allow_remote_attendance: userResponse.data.data.allow_remote_attendance || false,
+          employment_type: userResponse.data.data.employment_type || 'salary',
+          commission_percentage: userResponse.data.data.commission_percentage || 0,
           profile_picture: null
         });
       } else {
@@ -311,6 +325,13 @@ const UserDetails = () => {
           country: userData.country || '',
           postal_code: userData.postal_code || '',
           is_active: userData.is_active,
+          base_salary: userData.base_salary || 0,
+          salary_type: userData.salary_type || 'monthly',
+          overtime_rate: userData.overtime_rate || 0,
+          working_hours_per_day: userData.working_hours_per_day || 9,
+          allow_remote_attendance: userData.allow_remote_attendance || false,
+          employment_type: userData.employment_type || 'salary',
+          commission_percentage: userData.commission_percentage || 0,
           password: '',
           profile_picture: null
         });
@@ -713,6 +734,171 @@ const UserDetails = () => {
                             <p className="text-sm text-gray-500">Last Login</p>
                             <p className="font-medium text-gray-900">{user.last_login || 'N/A'}</p>
                           </div>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Payroll & Commission Settings */}
+              <div className="bg-white shadow-sm rounded-lg mb-6">
+                <div className="px-6 py-4 border-b border-gray-100">
+                  <h2 className="text-lg font-semibold text-gray-900 font-sans">Payroll & Commission Structure</h2>
+                </div>
+                <div className="px-6 py-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {editingUser ? (
+                      <>
+                        <div className="flex items-center space-x-3">
+                          <Users className="h-5 w-5 text-gray-400" />
+                          <div className="flex-1">
+                            <p className="text-sm text-gray-500">Employment Type</p>
+                            <select
+                                name="employment_type"
+                                value={editForm.employment_type}
+                                onChange={handleEditFormChange}
+                                className="w-full px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 font-sans text-sm"
+                            >
+                                <option value="salary">Fixed Salary Only</option>
+                                <option value="commission">Commission Base</option>
+                                <option value="both">Hybrid (Salary + Commission)</option>
+                            </select>
+                          </div>
+                        </div>
+
+                        {(editForm.employment_type === 'commission' || editForm.employment_type === 'both') && (
+                          <div className="flex items-center space-x-3">
+                            <TrendingUp className="h-5 w-5 text-blue-400" />
+                            <div className="flex-1">
+                              <p className="text-sm text-gray-500">Commission (%)</p>
+                              <input
+                                  type="number"
+                                  name="commission_percentage"
+                                  value={editForm.commission_percentage}
+                                  onChange={handleEditFormChange}
+                                  step="0.01"
+                                  className="w-full px-2 py-1 border border-blue-300 bg-blue-50 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 font-sans text-sm"
+                              />
+                            </div>
+                          </div>
+                        )}
+
+                        {editForm.employment_type !== 'commission' && (
+                          <>
+                            <div className="flex items-center space-x-3">
+                                <DollarSign className="h-5 w-5 text-gray-400" />
+                                <div className="flex-1">
+                                    <p className="text-sm text-gray-500">Base Salary</p>
+                                    <input
+                                        type="number"
+                                        name="base_salary"
+                                        value={editForm.base_salary}
+                                        onChange={handleEditFormChange}
+                                        className="w-full px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 font-sans text-sm"
+                                    />
+                                </div>
+                            </div>
+                            <div className="flex items-center space-x-3">
+                                <Clock className="h-5 w-5 text-gray-400" />
+                                <div className="flex-1">
+                                    <p className="text-sm text-gray-500">Salary Cycle</p>
+                                    <select
+                                        name="salary_type"
+                                        value={editForm.salary_type}
+                                        onChange={handleEditFormChange}
+                                        className="w-full px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 font-sans text-sm"
+                                    >
+                                        <option value="monthly">Monthly</option>
+                                        <option value="daily">Daily</option>
+                                        <option value="hourly">Hourly</option>
+                                    </select>
+                                </div>
+                            </div>
+                          </>
+                        )}
+                        
+                        <div className="flex items-center space-x-3">
+                            <Clock className="h-5 w-5 text-gray-400" />
+                            <div className="flex-1">
+                                <p className="text-sm text-gray-500">Working Hours/Day</p>
+                                <input
+                                    type="number"
+                                    name="working_hours_per_day"
+                                    value={editForm.working_hours_per_day}
+                                    onChange={handleEditFormChange}
+                                    className="w-full px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 font-sans text-sm"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="flex items-center space-x-3 col-span-1 md:col-span-2 bg-blue-50 p-3 rounded-xl border border-blue-100">
+                          <input
+                            type="checkbox"
+                            name="allow_remote_attendance"
+                            checked={editForm.allow_remote_attendance}
+                            onChange={handleEditFormChange}
+                            className="w-4 h-4 text-blue-600 border-gray-300 rounded cursor-pointer"
+                          />
+                          <div className="ml-2">
+                             <p className="text-sm font-bold text-blue-900 font-sans">Allow Remote Attendance (WFH)</p>
+                             <p className="text-[10px] text-blue-600 font-sans">Allows punching in from any IP address.</p>
+                          </div>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="flex items-center space-x-3">
+                          <Users className="h-5 w-5 text-gray-400" />
+                          <div>
+                            <p className="text-sm text-gray-500">Employment Type</p>
+                            <p className="font-bold text-gray-900 capitalize font-sans">{user.employment_type || 'salary'}</p>
+                          </div>
+                        </div>
+
+                        {user.employment_type !== 'salary' && (
+                          <div className="flex items-center space-x-3 text-blue-600">
+                            <TrendingUp className="h-5 w-5" />
+                            <div>
+                                <p className="text-sm text-gray-500">Commission rate</p>
+                                <p className="font-bold font-sans">{user.commission_percentage || 0}%</p>
+                            </div>
+                          </div>
+                        )}
+
+                        {user.employment_type !== 'commission' && (
+                          <>
+                            <div className="flex items-center space-x-3">
+                                <DollarSign className="h-5 w-5 text-gray-400" />
+                                <div>
+                                    <p className="text-sm text-gray-500">Base Salary</p>
+                                    <p className="font-bold text-gray-900 font-sans">{formatCurrency(user.base_salary || 0)}</p>
+                                </div>
+                            </div>
+                            <div className="flex items-center space-x-3">
+                                <Clock className="h-5 w-5 text-gray-400" />
+                                <div>
+                                    <p className="text-sm text-gray-500">Salary Cycle</p>
+                                    <p className="font-bold text-gray-900 capitalize font-sans">{user.salary_type || 'monthly'}</p>
+                                </div>
+                            </div>
+                          </>
+                        )}
+
+                        <div className="flex items-center space-x-3">
+                            <Clock className="h-5 w-5 text-gray-400" />
+                            <div>
+                                <p className="text-sm text-gray-500">Work Hours</p>
+                                <p className="font-bold text-gray-900 font-sans">{user.working_hours_per_day || 9} hrs/day</p>
+                            </div>
+                        </div>
+
+                        <div className="flex items-center space-x-3">
+                            <Activity className="h-5 w-5 text-gray-400" />
+                            <div>
+                                <p className="text-sm text-gray-500">WFH Allowed</p>
+                                <p className={`font-bold font-sans ${user.allow_remote_attendance ? 'text-green-600' : 'text-gray-900'}`}>{user.allow_remote_attendance ? 'Yes' : 'No'}</p>
+                            </div>
                         </div>
                       </>
                     )}

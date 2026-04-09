@@ -48,6 +48,8 @@ class User extends Authenticatable
         'overtime_rate',
         'working_hours_per_day',
         'allow_remote_attendance',
+        'employment_type',
+        'commission_percentage',
     ];
 
     /**

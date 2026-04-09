@@ -8,6 +8,8 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
+use App\Modules\Leads\Domain\Entities\Lead;
+use App\Modules\Payments\Domain\Entities\Payment;
 
 class AttendanceController extends Controller
 {
@@ -122,7 +124,7 @@ class AttendanceController extends Controller
             'total_absent' => $records->where('status', 'absent')->count(),
             'total_hours' => $records->sum('total_hours'),
             'total_overtime' => $records->sum('overtime_hours'),
-            'estimated_salary' => $this->calculateSalary($user, $records)
+            'estimated_salary' => $this->calculateSalary($user, $records, $month, $year)
         ];
 
         return response()->json([
@@ -189,34 +191,45 @@ class AttendanceController extends Controller
     }
 
     /**
-     * Private helper to calculate salary based on attendance
+     * Private helper to calculate salary based on attendance and commission
      */
-    private function calculateSalary($user, $records)
+    private function calculateSalary($user, $records, $month = null, $year = null)
     {
-        if (!$user->base_salary) return 0;
+        $basePay = 0;
+        $overtimePay = 0;
+        $commissionPay = 0;
 
-        if ($user->salary_type === 'monthly') {
-            // Simple logic: (Base Salary / 30) * Present Days
-            // You can make this more complex (e.g. deductions for late)
-            $dayRate = $user->base_salary / 30; // Standard month
-            $payableDays = $records->where('status', 'present')->count() + ($records->where('status', 'half_day')->count() * 0.5);
-            
-            $basePay = $dayRate * $payableDays;
+        // 1. Calculate Base Salary (if employee has a salary component)
+        if ($user->employment_type !== 'commission' && $user->base_salary) {
+            if ($user->salary_type === 'monthly') {
+                $dayRate = $user->base_salary / 30;
+                $payableDays = $records->where('status', 'present')->count() + ($records->where('status', 'half_day')->count() * 0.5);
+                $basePay = $dayRate * $payableDays;
+            } elseif ($user->salary_type === 'daily') {
+                $basePay = $user->base_salary * ($records->where('status', 'present')->count() + ($records->where('status', 'half_day')->count() * 0.5));
+            } elseif ($user->salary_type === 'hourly') {
+                $basePay = $records->sum('total_hours') * $user->base_salary;
+            }
             $overtimePay = $records->sum('overtime_hours') * ($user->overtime_rate ?? 0);
-            
-            return round($basePay + $overtimePay, 2);
         }
 
-        if ($user->salary_type === 'daily') {
-            $basePay = $user->base_salary * ($records->where('status', 'present')->count() + ($records->where('status', 'half_day')->count() * 0.5));
-            $overtimePay = $records->sum('overtime_hours') * ($user->overtime_rate ?? 0);
-            return round($basePay + $overtimePay, 2);
+        // 2. Calculate Commission (if employee has a commission component)
+        if (in_array($user->employment_type, ['commission', 'both']) && $user->commission_percentage > 0) {
+            $month = $month ?? Carbon::now()->month;
+            $year = $year ?? Carbon::now()->year;
+
+            // Get revenue from confirmed leads assigned to this user in this month
+            // We use Payment model for actual revenue received
+            $revenue = Payment::whereHas('lead', function ($query) use ($user, $month, $year) {
+                $query->where('assigned_to', $user->id)
+                    ->where('status', 'confirmed')
+                    ->whereMonth('created_at', $month)
+                    ->whereYear('created_at', $year);
+            })->sum('amount');
+
+            $commissionPay = ($revenue * $user->commission_percentage) / 100;
         }
 
-        if ($user->salary_type === 'hourly') {
-            return round(($records->sum('total_hours') * $user->base_salary) + ($records->sum('overtime_hours') * ($user->overtime_rate ?? 0)), 2);
-        }
-
-        return 0;
+        return round($basePay + $overtimePay + $commissionPay, 2);
     }
 }
