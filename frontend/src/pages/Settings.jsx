@@ -62,6 +62,11 @@ const Settings = () => {
   const [savingItinerarySettings, setSavingItinerarySettings] = useState(false);
   const [apiKey, setApiKey] = useState('');
   const [testingWebToLead, setTestingWebToLead] = useState(false);
+  const [emailColors, setEmailColors] = useState({
+    email_header_color: '#1e40af',
+    email_footer_color: '#1e293b',
+  });
+  const [savingEmailColors, setSavingEmailColors] = useState(false);
 
   useEffect(() => {
     if (settings) {
@@ -73,6 +78,7 @@ const Settings = () => {
     }
     fetchMaxHotelOptions();
     fetchCompanyDetails();
+    fetchEmailColors();
   }, [settings]);
 
   const fetchMaxHotelOptions = async () => {
@@ -109,6 +115,34 @@ const Settings = () => {
         if (company.api_key) setApiKey(company.api_key);
       }
     } catch (err) { console.error(err); }
+  };
+
+  const fetchEmailColors = async () => {
+    try {
+      const [hRes, fRes] = await Promise.all([
+        settingsAPI.getByKey('email_header_color'),
+        settingsAPI.getByKey('email_footer_color'),
+      ]);
+      setEmailColors({
+        email_header_color: hRes?.data?.data?.value || '#1e40af',
+        email_footer_color: fRes?.data?.data?.value || '#1e293b',
+      });
+    } catch (err) { /* non-blocking */ }
+  };
+
+  const saveEmailColors = async () => {
+    try {
+      setSavingEmailColors(true);
+      await Promise.all([
+        settingsAPI.save({ key: 'email_header_color', value: emailColors.email_header_color, type: 'string', description: 'Email header background color' }),
+        settingsAPI.save({ key: 'email_footer_color', value: emailColors.email_footer_color, type: 'string', description: 'Email footer background color' }),
+      ]);
+      toast.success('Email colors saved!');
+    } catch (err) {
+      toast.error('Failed to save email colors.');
+    } finally {
+      setSavingEmailColors(false);
+    }
   };
 
   const saveItinerarySettings = async () => {
@@ -375,6 +409,58 @@ const Settings = () => {
                 </div>
               </div>
             </div>
+          </section>
+
+          {/* ── Email Brand Colors ─────────────────────────────────────── */}
+          <section className="space-y-6 pt-4">
+            <h3 className="text-xs font-bold text-indigo-600 uppercase tracking-widest flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-indigo-600"></div> Email Header &amp; Footer Colors
+            </h3>
+            <p className="text-xs text-slate-500 font-medium -mt-2">
+              These colors are used in the header and footer of every quotation email sent from the CRM.
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div className="space-y-3">
+                <label className="text-sm font-bold text-slate-700 ml-1">Email Header Color</label>
+                <div className="flex items-center gap-4">
+                  <input
+                    type="color"
+                    value={emailColors.email_header_color}
+                    onChange={(e) => setEmailColors(p => ({ ...p, email_header_color: e.target.value }))}
+                    className="w-12 h-12 rounded-xl cursor-pointer border-0 p-0 shadow-sm"
+                  />
+                  <input value={emailColors.email_header_color} readOnly className="flex-1 px-5 py-3.5 bg-slate-50 border-0 rounded-2xl font-mono" />
+                </div>
+                {/* live preview strip */}
+                <div style={{ background: emailColors.email_header_color }} className="h-10 rounded-xl flex items-center justify-center">
+                  <span className="text-white text-xs font-bold opacity-80">Header Preview</span>
+                </div>
+              </div>
+              <div className="space-y-3">
+                <label className="text-sm font-bold text-slate-700 ml-1">Email Footer Color</label>
+                <div className="flex items-center gap-4">
+                  <input
+                    type="color"
+                    value={emailColors.email_footer_color}
+                    onChange={(e) => setEmailColors(p => ({ ...p, email_footer_color: e.target.value }))}
+                    className="w-12 h-12 rounded-xl cursor-pointer border-0 p-0 shadow-sm"
+                  />
+                  <input value={emailColors.email_footer_color} readOnly className="flex-1 px-5 py-3.5 bg-slate-50 border-0 rounded-2xl font-mono" />
+                </div>
+                {/* live preview strip */}
+                <div style={{ background: emailColors.email_footer_color }} className="h-10 rounded-xl flex items-center justify-center">
+                  <span className="text-white text-xs font-bold opacity-80">Footer Preview</span>
+                </div>
+              </div>
+            </div>
+            <button
+              onClick={saveEmailColors}
+              disabled={savingEmailColors}
+              className="px-8 py-3 bg-indigo-600 text-white rounded-2xl font-bold hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100 active:scale-95 text-xs flex items-center gap-2"
+            >
+              <Save className="w-4 h-4" />
+              {savingEmailColors ? 'SAVING...' : 'SAVE EMAIL COLORS'}
+            </button>
           </section>
 
           <div className="flex items-center gap-4 pt-8">
