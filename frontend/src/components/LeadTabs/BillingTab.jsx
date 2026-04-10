@@ -1,5 +1,5 @@
 import React, { memo } from 'react';
-import { Plus } from 'lucide-react';
+import { Plus, Bell, Loader2 } from 'lucide-react';
 
 const BillingTab = memo(({
     lead,
@@ -11,6 +11,8 @@ const BillingTab = memo(({
     setPaymentFormData,
     setShowPaymentModal,
     formatDateForDisplay,
+    onSendReminder,
+    remindingPaymentId
 }) => {
     const confirmedOption = getConfirmedOption();
     const confirmedOptionNum = confirmedOption?.optionNumber;
@@ -153,6 +155,7 @@ const BillingTab = memo(({
                                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Due Date</th>
                                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Status</th>
                                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 uppercase">Added By</th>
+                                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-700 uppercase">Actions</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-200">
@@ -193,6 +196,23 @@ const BillingTab = memo(({
                                         </td>
                                         <td className="px-4 py-3 text-sm text-gray-600">
                                             {payment.creator?.name || 'N/A'}
+                                        </td>
+                                        <td className="px-4 py-3 text-center">
+                                            {payment.status !== 'paid' && (
+                                                <button
+                                                    onClick={() => onSendReminder && onSendReminder(payment)}
+                                                    disabled={remindingPaymentId === payment.id}
+                                                    title="Send Payment Reminder via WhatsApp & Email"
+                                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-orange-50 text-orange-600 border border-orange-100 rounded-md hover:bg-orange-100 transition-colors text-xs font-semibold disabled:opacity-50"
+                                                >
+                                                    {remindingPaymentId === payment.id ? (
+                                                        <Loader2 className="h-3 w-3 animate-spin" />
+                                                    ) : (
+                                                        <Bell className="h-3 w-3" />
+                                                    )}
+                                                    Remind
+                                                </button>
+                                            )}
                                         </td>
                                     </tr>
                                 ))}

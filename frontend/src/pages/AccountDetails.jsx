@@ -10,8 +10,11 @@ const AccountDetails = () => {
     ifsc_code: '',
     account_holder_name: '',
     branch: '',
-    upi_id: ''
+    upi_id: '',
+    qr_code: ''
   });
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [qrUrl, setQrUrl] = useState('');
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
@@ -27,6 +30,9 @@ const AccountDetails = () => {
       if (response.data.success && response.data.data && response.data.data.value) {
         const details = JSON.parse(response.data.data.value);
         setAccountDetails(details);
+        if (details.qr_code) {
+          setQrUrl(details.qr_code);
+        }
       }
     } catch (err) {
       console.error('Failed to fetch account details:', err);
@@ -43,17 +49,46 @@ const AccountDetails = () => {
     setMessage({ type: '', text: '' });
   };
 
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setSelectedFile(file);
+      // Create a preview URL
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setQrUrl(reader.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const handleSave = async () => {
     try {
       setSaving(true);
       setMessage({ type: '', text: '' });
+
+      let currentDetails = { ...accountDetails };
+
+      // Upload QR code if a new file is selected
+      if (selectedFile) {
+        const formData = new FormData();
+        formData.append('qr_code', selectedFile);
+        const uploadResponse = await settingsAPI.uploadPaymentQr(formData);
+        if (uploadResponse.data.success) {
+          const uploadedUrl = uploadResponse.data.data.qr_url;
+          currentDetails.qr_code = uploadedUrl;
+          setAccountDetails(currentDetails);
+        }
+      }
+
       await settingsAPI.save({
         key: 'account_details',
-        value: JSON.stringify(accountDetails),
+        value: JSON.stringify(currentDetails),
         type: 'text',
         description: 'Company account details'
       });
       setMessage({ type: 'success', text: 'Account details saved successfully!' });
+      setSelectedFile(null);
     } catch (err) {
       console.error('Failed to save account details:', err);
       setMessage({ type: 'error', text: 'Failed to save. Please try again.' });
@@ -168,6 +203,29 @@ const AccountDetails = () => {
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="Enter UPI ID"
               />
+            </div>
+            <div className="col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Payment QR Code (Scan to Pay)
+              </label>
+              <div className="flex items-start gap-4">
+                <div className="flex-1">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFileChange}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Upload your Bank/UPI QR code. Recommendation: Square image, max 5MB.
+                  </p>
+                </div>
+                {qrUrl && (
+                  <div className="h-32 w-32 border border-gray-200 rounded-lg overflow-hidden bg-gray-50 flex items-center justify-center p-2">
+                    <img src={qrUrl} alt="Payment QR" className="max-h-full max-w-full object-contain" />
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 

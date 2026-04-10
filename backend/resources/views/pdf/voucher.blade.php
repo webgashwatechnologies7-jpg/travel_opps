@@ -199,6 +199,74 @@
             font-size: 9px;
             color: #4b5563;
         }
+        /* EXTREMELY COMPACT LAYOUT */
+        body { margin: 0; padding: 0; }
+        .payment-block {
+            margin-top: 5px;
+            border: 1px solid {{ $lead->company ? '#2D3192' : '#000' }};
+        }
+
+        .payment-header {
+            background-color: {{ $lead->company ? '#2D3192' : '#000' }};
+            color: #fff;
+            padding: 2px 8px;
+            font-weight: bold;
+            font-size: 10px;
+            text-transform: uppercase;
+        }
+
+        .bank-info-td {
+            padding: 5px;
+            vertical-align: top;
+        }
+
+        .bank-details-subtable td {
+            padding: 1px 0;
+            font-size: 10px;
+            border-bottom: 1px solid #f9fafb;
+        }
+
+        .label-text {
+            color: #6b7280;
+            font-weight: bold;
+            width: 90px;
+            font-size: 8px;
+        }
+
+        .value-text {
+            color: #111827;
+            font-weight: bold;
+            font-size: 10px;
+        }
+
+        .qr-placeholder {
+            width: 100px;
+            text-align: center;
+            border-left: 1px solid #eee;
+            background-color: #fafafa;
+            padding: 4px;
+        }
+
+        .qr-img-large {
+            width: 70px;
+            height: 70px;
+        }
+
+        .payment-footer {
+            background-color: #fff5f5;
+            color: #b91c1c;
+            padding: 3px;
+            text-align: center;
+            font-weight: bold;
+            font-size: 9px;
+        }
+
+        /* TIGHTEN ALL SECTIONS */
+        .notes-section, .terms-section { margin-top: 5px !important; }
+        .notes-list li, .terms-list li { margin-bottom: 0px !important; font-size: 9px !important; }
+        .total-section { margin-top: 5px !important; }
+        h1, h2, h3 { margin: 2px 0 !important; }
+        .header-table { margin-bottom: 5px !important; }
     </style>
 </head>
 
@@ -288,7 +356,9 @@
                 }
             }
         }
-    }
+    // Extracting Departure Details (Moved logic before HTML for cleaner structure)
+    $accountDetailsJson = \App\Models\Setting::getValue('account_details');
+    $accountDetails = $accountDetailsJson ? json_decode($accountDetailsJson, true) : null;
 @endphp
 
 <body>
@@ -472,6 +542,53 @@
             @endforeach
         </tbody>
     </table>
+    @endif
+
+    <!-- PAYMENT DETAILS -->
+    @if($accountDetails)
+    <div class="payment-block">
+        <div class="payment-header">OFFICIAL PAYMENT DETAILS</div>
+        <table class="bank-info-table">
+            <tr>
+                <td class="bank-info-td">
+                    <table class="bank-details-subtable">
+                        <tr>
+                            <td class="label-text">Bank Name</td>
+                            <td class="value-text">{{ !empty($accountDetails['bank_name']) ? $accountDetails['bank_name'] : 'N/A' }}</td>
+                        </tr>
+                        <tr>
+                            <td class="label-text">Account Number</td>
+                            <td class="value-text" style="font-size: 14px;">{{ !empty($accountDetails['account_number']) ? $accountDetails['account_number'] : 'N/A' }}</td>
+                        </tr>
+                        <tr>
+                            <td class="label-text">IFSC Code</td>
+                            <td class="value-text">{{ !empty($accountDetails['ifsc_code']) ? $accountDetails['ifsc_code'] : 'N/A' }}</td>
+                        </tr>
+                        <tr>
+                            <td class="label-text">Account Holder</td>
+                            <td class="value-text">{{ !empty($accountDetails['account_holder_name']) ? $accountDetails['account_holder_name'] : 'N/A' }}</td>
+                        </tr>
+                        <tr>
+                            <td class="label-text">UPI ID</td>
+                            <td class="value-text" style="color: {{ $lead->company ? '#2D3192' : '#000' }};">{{ !empty($accountDetails['upi_id']) ? $accountDetails['upi_id'] : 'N/A' }}</td>
+                        </tr>
+                    </table>
+                </td>
+                @if(!empty($accountDetails['qr_code']))
+                <td class="qr-placeholder">
+                    @php $qrBase64 = imageToBase64($accountDetails['qr_code']); @endphp
+                    @if($qrBase64)
+                        <img src="{{ $qrBase64 }}" class="qr-img-large" alt="Payment QR">
+                        <div style="font-size: 9px; font-weight: bold; margin-top: 5px;">SCAN & PAY</div>
+                    @endif
+                </td>
+                @endif
+            </tr>
+        </table>
+        <div class="payment-footer">
+            PLEASE SHARE A SCREENSHOT OF THE PAYMENT RECEIPT AFTER TRANSFER
+        </div>
+    </div>
     @endif
 
     <!-- IMPORTANT NOTES -->

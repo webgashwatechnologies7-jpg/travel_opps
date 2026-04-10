@@ -8,8 +8,8 @@ const resolveUrl = (url) => {
   if (url.startsWith('http')) return url;
   if (url.startsWith('data:')) return url;
   
-  // Globally remove all "storage/" occurrences and multiple slashes
-  let cleanPath = url.replace(/storage\//gi, '').replace(/\/+/g, '/').replace(/^\//, '');
+  // Clean trailing/multiple slashes and remove leading storage/ if present
+  let cleanPath = url.trim().replace(/^(?:\/)?storage\//gi, '').replace(/\/+/g, '/').replace(/^\//, '');
   
   // If it's a public asset, return as root-relative
   if (cleanPath.startsWith('assets/')) return '/' + cleanPath;
@@ -347,7 +347,7 @@ export const SettingsProvider = ({ children }) => {
     if (settings?.company_favicon) {
       const faviconEl = document.getElementById('favicon');
       if (faviconEl) {
-        let faviconUrl = settings.company_favicon;
+        let faviconUrl = resolveUrl(settings.company_favicon);
         if (window.location.protocol === 'https:' && faviconUrl.startsWith('http://')) {
           faviconUrl = faviconUrl.replace('http://', 'https://');
         }

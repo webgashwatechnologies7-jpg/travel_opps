@@ -717,4 +717,43 @@ class SettingsController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Upload payment QR code
+     */
+    public function uploadPaymentQrCode(Request $request): JsonResponse
+    {
+        try {
+            $validator = Validator::make($request->all(), [
+                'qr_code' => 'required|image|mimes:jpeg,png,jpg,webp|max:5120',
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Validation failed: ' . implode(', ', $validator->errors()->all()),
+                    'errors' => $validator->errors(),
+                ], 422);
+            }
+
+            $file = $request->file('qr_code');
+            $path = $file->store('payment_qrs', 'public');
+            $url = url('storage/' . $path);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'QR Code uploaded successfully',
+                'data' => [
+                    'qr_url' => $url,
+                    'qr_path' => $path,
+                ],
+            ], 200);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to upload QR code',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
+            ], 500);
+        }
+    }
 }

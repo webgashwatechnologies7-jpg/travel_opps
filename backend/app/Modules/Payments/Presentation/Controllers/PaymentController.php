@@ -207,6 +207,11 @@ class PaymentController extends Controller
                                 'destination' => $payment->lead->destination,
                                 'status' => $payment->lead->status,
                                 'priority' => $payment->lead?->priority ?? 'medium',
+                                'travel_start_date' => $payment->lead->travel_start_date,
+                                'travel_end_date' => $payment->lead->travel_end_date,
+                                'adults' => $payment->lead->adults,
+                                'children' => $payment->lead->children,
+                                'infants' => $payment->lead->infants,
                                 'assigned_to' => $payment->lead?->assigned_to,
                                 'assigned_user' => $payment->lead?->assignedUser ? [
                                     'id' => $payment->lead->assignedUser?->id,
@@ -218,6 +223,7 @@ class PaymentController extends Controller
                             'paid_amount' => $payment->paid_amount,
                             'due_date' => $payment->due_date,
                             'status' => $payment->status,
+                            'screenshot' => $payment->screenshot ?? ($payment->metadata['screenshot'] ?? null),
                             'created_by' => $payment->created_by,
                             'creator' => $payment->creator ? [
                                 'id' => $payment->creator->id,
@@ -358,6 +364,77 @@ class PaymentController extends Controller
                         'total_paid' => $payments->sum('paid_amount'),
                         'total_due' => max(0, $totalDealAmount - $payments->sum('paid_amount')),
                     ],
+                ],
+            ], 200);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'An error occurred while retrieving payments',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
+            ], 500);
+        }
+    }
+
+    /**
+     * Get all payments for the company.
+     *
+     * @param Request $request
+     * @return JsonResponse
+     */
+    public function index(Request $request): JsonResponse
+    {
+        try {
+            $user = $request->user();
+            $query = Payment::with(['lead.assignedUser', 'lead.creator', 'creator']);
+
+            // If not super admin, filter by company
+            if ($user->company_id !== null) {
+                $query->whereHas('lead', function($q) use ($user) {
+                    $q->where('company_id', $user->company_id);
+                });
+            }
+
+            $payments = $query->orderBy('created_at', 'desc')->get();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'All payments retrieved successfully',
+                'data' => [
+                    'payments' => $payments->map(function ($payment) {
+                        return [
+                            'id' => $payment->id,
+                            'lead_id' => $payment->lead_id,
+                            'lead' => $payment->lead ? [
+                                'id' => $payment->lead->id,
+                                'client_name' => $payment->lead->client_name,
+                                'email' => $payment->lead->email,
+                                'phone' => $payment->lead->phone,
+                                'source' => $payment->lead->source,
+                                'destination' => $payment->lead->destination,
+                                'status' => $payment->lead->status,
+                                'priority' => $payment->lead?->priority ?? 'medium',
+                                'assigned_to' => $payment->lead?->assigned_to,
+                                'assigned_user' => $payment->lead?->assignedUser ? [
+                                    'id' => $payment->lead->assignedUser?->id,
+                                    'name' => $payment->lead->assignedUser?->name ?? 'Unknown',
+                                    'email' => $payment->lead->assignedUser?->email,
+                                ] : null,
+                            ] : null,
+                            'amount' => $payment->amount,
+                            'paid_amount' => $payment->paid_amount,
+                            'due_date' => $payment->due_date,
+                            'status' => $payment->status,
+                            'created_by' => $payment->created_by,
+                            'creator' => $payment->creator ? [
+                                'id' => $payment->creator->id,
+                                'name' => $payment->creator->name,
+                                'email' => $payment->creator->email,
+                            ] : null,
+                            'created_at' => $payment->created_at,
+                        ];
+                    }),
+                    'count' => $payments->count(),
                 ],
             ], 200);
 

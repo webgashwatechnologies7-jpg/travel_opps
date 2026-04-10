@@ -269,6 +269,10 @@ class Company extends Model
         }
 
         if (!filter_var($value, FILTER_VALIDATE_URL)) {
+            // If it's already an asset path, return it as-is (with leading slash)
+            if (str_starts_with($value, 'assets/')) {
+                return '/' . $value;
+            }
             return asset('storage/' . $value);
         }
 
@@ -285,6 +289,10 @@ class Company extends Model
         }
 
         if (!filter_var($value, FILTER_VALIDATE_URL)) {
+            // If it's already an asset path, return it as-is (with leading slash)
+            if (str_starts_with($value, 'assets/')) {
+                return '/' . $value;
+            }
             return asset('storage/' . $value);
         }
 

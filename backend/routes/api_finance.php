@@ -19,6 +19,7 @@ Route::middleware('auth:sanctum')->prefix('financial-summary')->group(function (
 
 // Payment routes - require authentication
 Route::middleware('auth:sanctum')->prefix('payments')->group(function () {
+    Route::get('/all', [PaymentController::class, 'index']);
     Route::get('/due-today', [PaymentController::class, 'dueToday']);
     Route::get('/pending', [PaymentController::class, 'pending']);
     Route::get('/lead/{leadId}', [PaymentController::class, 'getByLead']);

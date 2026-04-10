@@ -68,7 +68,7 @@ const Login = () => {
               <img src={companyLogo} alt={companyName} className="h-10 object-contain rounded-lg" />
             ) : (
               <img
-                src="/logo.png"
+                src="/assets/defaults/logo.jpg"
                 alt="CRM Logo"
                 className="h-10 object-contain rounded-lg"
                 onError={(e) => {
@@ -78,7 +78,7 @@ const Login = () => {
                 }}
               />
             )}
-            {/* Fallback Blue T Icon if logo.png is also not found */}
+            {/* Fallback Blue T Icon if logo.jpg is also not found */}
             <div className={`${companyLogo ? 'hidden' : 'hidden'} bg-[#2D3192] p-1.5 rounded-lg items-center justify-center`}>
               <span className="text-white font-bold text-xl">TF</span>
             </div>

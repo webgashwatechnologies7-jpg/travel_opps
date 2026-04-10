@@ -40,6 +40,7 @@ Route::middleware('auth:sanctum')->prefix('settings')->group(function () {
     Route::put('/update', [SettingsController::class, 'update']);
     Route::get('/max-hotel-options', [SettingsController::class, 'getMaxHotelOptions']);
     Route::post('/upload-logo', [SettingsController::class, 'uploadLogo']);
+    Route::post('/upload-payment-qr', [SettingsController::class, 'uploadPaymentQrCode']);
     Route::get('/company', [SettingsController::class, 'getCompanyDetails']);
     Route::put('/company', [SettingsController::class, 'updateCompanyDetails']);
     Route::get('/my-team', [CompanySettingsController::class, 'getMyTeam']);

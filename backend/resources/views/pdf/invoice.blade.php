@@ -225,17 +225,82 @@
 
         .footer-icon {
             display: inline-block;
-            width: 18px;
-            height: 18px;
-            background-color: #2D3192;
-            color: #fff;
-            border-radius: 50%;
-            text-align: center;
-            line-height: 18px;
-            margin-right: 8px;
-            font-size: 9px;
             font-weight: bold;
+            color: {{ $invoice->lead->company ? '#2D3192' : '#000' }};
+            margin-right: 5px;
+            font-size: 9px;
         }
+        /* EXTREMELY COMPACT LAYOUT */
+        body { margin: 0; padding: 0; }
+        .payment-block {
+            margin-top: 5px;
+            border: 1px solid #000;
+        }
+
+        .payment-header {
+            background-color: #000;
+            color: #fff;
+            padding: 3px 10px;
+            font-weight: bold;
+            font-size: 11px;
+            text-transform: uppercase;
+        }
+
+        .bank-info-td {
+            padding: 5px;
+            vertical-align: top;
+        }
+
+        .bank-details-subtable td {
+            padding: 1px 0;
+            font-size: 10px;
+            border-bottom: 1px solid #f9f9f9;
+        }
+
+        .label-text {
+            color: #666;
+            font-weight: bold;
+            width: 100px;
+            font-size: 8px;
+            text-transform: uppercase;
+        }
+
+        .value-text {
+            color: #000;
+            font-weight: bold;
+            font-size: 10px;
+        }
+
+        .qr-placeholder {
+            width: 110px;
+            text-align: center;
+            border-left: 1px solid #eee;
+            background-color: #fafafa;
+            padding: 5px;
+        }
+
+        .qr-img-large {
+            width: 75px;
+            height: 75px;
+        }
+
+        .payment-footer {
+            background-color: #fffafa;
+            color: #d32f2f;
+            padding: 4px;
+            text-align: center;
+            font-weight: bold;
+            font-size: 10px;
+        }
+
+        /* TIGHTEN ALL SECTIONS */
+        .notes-section, .terms-section { margin-top: 5px !important; }
+        li { margin-bottom: 0px !important; font-size: 9px !important; }
+        .total-section { margin-top: 5px !important; }
+        h1, h2, h3 { margin: 1px 0 !important; }
+        .header-table { margin-bottom: 3px !important; }
+        .bill-to-section { margin: 5px 0 !important; padding: 5px !important; }
+        .invoice-table th, .invoice-table td { padding: 4px !important; }
     </style>
 </head>
 
@@ -385,6 +450,9 @@
     $paxString = ($invoice->lead->adult ?? 0) . ' Adults';
     if ($invoice->lead->child ?? 0)
         $paxString .= ', ' . $invoice->lead->child . ' Child';
+
+    $accountDetailsJson = \App\Models\Setting::getValue('account_details');
+    $accountDetails = $accountDetailsJson ? json_decode($accountDetailsJson, true) : null;
 @endphp
 
 <body>
@@ -395,8 +463,7 @@
         <table class="header">
             <tr>
                 <td>
-                    <h1 class="invoice-title">PROFORMA INVOICE</h1>
-                    <div class="company-subtitle">{{ $companyName }}</div>
+                    <div class="company-subtitle" style="font-size: 16px; font-weight: bold; color: #000;">{{ $companyName }}</div>
                 </td>
                 <td class="logo-container">
                     @if($base64Logo)
@@ -488,16 +555,63 @@
             </ul>
         </div>
 
+        <!-- PAYMENT DETAILS -->
+        @if($accountDetails)
+        <div class="payment-block">
+            <div class="payment-header">OFFICIAL PAYMENT DETAILS</div>
+            <table class="bank-info-table">
+                <tr>
+                    <td class="bank-info-td">
+                        <table class="bank-details-subtable">
+                            <tr>
+                                <td class="label-text">Bank Name</td>
+                                <td class="value-text">{{ !empty($accountDetails['bank_name']) ? $accountDetails['bank_name'] : 'N/A' }}</td>
+                            </tr>
+                            <tr>
+                                <td class="label-text">Account Number</td>
+                                <td class="value-text" style="font-size: 15px;">{{ !empty($accountDetails['account_number']) ? $accountDetails['account_number'] : 'N/A' }}</td>
+                            </tr>
+                            <tr>
+                                <td class="label-text">IFSC Code</td>
+                                <td class="value-text">{{ !empty($accountDetails['ifsc_code']) ? $accountDetails['ifsc_code'] : 'N/A' }}</td>
+                            </tr>
+                            <tr>
+                                <td class="label-text">Account Holder</td>
+                                <td class="value-text">{{ !empty($accountDetails['account_holder_name']) ? $accountDetails['account_holder_name'] : 'N/A' }}</td>
+                            </tr>
+                            <tr>
+                                <td class="label-text">UPI ID</td>
+                                <td class="value-text" style="color: #d32f2f;">{{ !empty($accountDetails['upi_id']) ? $accountDetails['upi_id'] : 'N/A' }}</td>
+                            </tr>
+                        </table>
+                    </td>
+                    @if(!empty($accountDetails['qr_code']))
+                    <td class="qr-placeholder">
+                        @php $qrBase64 = imageToBase64($accountDetails['qr_code']); @endphp
+                        @if($qrBase64)
+                            <img src="{{ $qrBase64 }}" class="qr-img-large" alt="Payment QR">
+                            <div style="font-size: 11px; font-weight: bold; margin-top: 7px;">SCAN & PAY</div>
+                        @endif
+                    </td>
+                    @endif
+                </tr>
+            </table>
+            <div class="payment-footer">
+                PLEASE SHARE A SCREENSHOT OF THE PAYMENT RECEIPT AFTER TRANSFER
+            </div>
+        </div>
+        @endif
+
         <div class="footer">
             <table class="footer-table">
                 <tr>
                     <td class="footer-cell">
-                        <div><span class="footer-icon">P</span> {{ $companyPhone }}</div>
-                        <div style="margin-top: 5px;"><span class="footer-icon">E</span> {{ $companyEmail }}</div>
+                        <div><span class="footer-icon">TEL :</span> {{ $companyPhone }}</div>
+                        <div style="margin-top: 3px;"><span class="footer-icon">MAIL :</span> {{ $companyEmail }}</div>
                     </td>
                     <td class="footer-cell" style="text-align: right;">
-                        <div><span class="footer-icon">A</span> {{ $companyAddress }}</div>
-                        <div style="margin-top: 5px;"><span class="footer-icon">W</span> {{ $companyDomain }}</div>
+                        <div><span class="footer-icon">ADD :</span> {{ $companyAddress }}</div>
+                        <div style="margin-top: 3px;"><span class="footer-icon">WEB :</span> {{ $companyDomain }}</div>
                     </td>
                 </tr>
             </table>

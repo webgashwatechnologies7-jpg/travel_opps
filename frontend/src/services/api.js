@@ -226,6 +226,7 @@ export const callsAPI = {
 
 // Payments APIs
 export const paymentsAPI = {
+  list: () => api.get('/payments/all'),
   dueToday: () => api.get('/payments/due-today'),
   pending: () => api.get('/payments/pending'),
   getByLead: (leadId) => api.get(`/payments/lead/${leadId}`),
@@ -478,6 +479,9 @@ export const settingsAPI = {
   // Company details from companies table
   getCompany: () => api.get('/settings/company'),
   updateCompany: (data) => api.put('/settings/company', data),
+  uploadPaymentQr: (formData) => api.post('/settings/upload-payment-qr', formData, {
+    headers: { 'Content-Type': 'multipart/form-data', },
+  }),
 };
 
 // Sidebar menu (dynamic from backend)

@@ -698,19 +698,37 @@ const LeadDetails = () => {
             const confirmedOptionNum = existingOfThisTid.find((x) => x.confirmed)?.optionNumber;
             latestOptions.forEach((opt, i) => {
               const optNum = opt.optionNumber != null ? opt.optionNumber : i + 1;
-              const serverPrice = getPriceFromFinalPrices(pricingMap[tid]?.final_client_prices, optNum);
-              const price = serverPrice !== null ? serverPrice : (opt.price ?? 0);
+              const isConfirmed = confirmedOptionNum != null && opt.optionNumber === confirmedOptionNum;
+              
+              // DEEP LOCK: Find the existing saved version of this specific option for this lead
+              const existing = existingOfThisTid.find(x => x.optionNumber === optNum);
+              
+              let price = opt.price ?? 0;
+              
+              if (isConfirmed && existing) {
+                // If confirmed, ALWAYS use the price that was saved in the lead's proposal record
+                price = existing.price ?? opt.price ?? 0;
+              } else {
+                // Not confirmed, so we can fetch the latest price from master
+                const serverPrice = getPriceFromFinalPrices(pricingMap[tid]?.final_client_prices, optNum);
+                price = serverPrice !== null ? serverPrice : (opt.price ?? 0);
+              }
 
               result.push({
                 ...opt,
-                id: opt.id || Date.now() + i + tid,
+                id: opt.id || (existing?.id) || Date.now() + i + tid,
                 itinerary_name: opt.itinerary_name || pkgData.itinerary_name || pkgData.title || p.itinerary_name || p.title,
                 destination: opt.destination || pkgData.destinations || pkgData.destination || p.destination,
                 duration: opt.duration || pkgData.duration || p.duration,
                 image: opt.image || pkgData.image || p.image,
                 price: price,
-                pricing: { ...(opt.pricing || {}), finalClientPrice: price },
-                confirmed: confirmedOptionNum != null && opt.optionNumber === confirmedOptionNum
+                pricing: { 
+                  ...(opt.pricing || {}), 
+                  finalClientPrice: price,
+                  // LOCK BASE PRICE: If confirmed, base price should also match the locked price
+                  totalGross: isConfirmed ? price : (opt.pricing?.totalGross || price)
+                },
+                confirmed: isConfirmed
               });
             });
           } else {
@@ -763,11 +781,16 @@ const LeadDetails = () => {
       }
       let anyUpdated = false;
       const updated = proposals.map((opt) => {
+        // LOCK PRICE FOR CONFIRMED OPTIONS: Do not refresh price from master if already confirmed
+        if (opt.confirmed) {
+          return opt;
+        }
+
         const tid = opt.itinerary_id;
         const fp = priceMapByItinerary[tid];
         const optNum = opt.optionNumber != null ? opt.optionNumber : 1;
         const apiPrice = getPriceFromFinalPrices(fp, optNum);
-        if (apiPrice !== null) {
+        if (apiPrice !== null && apiPrice !== opt.price) {
           anyUpdated = true;
           return { ...opt, price: apiPrice, pricing: { ...(opt.pricing || {}), finalClientPrice: apiPrice } };
         }
@@ -950,23 +973,147 @@ const LeadDetails = () => {
   };
 
   const handleInvoiceSend = async (invoiceId) => {
-    if (!id) return;
+    if (!id || !lead) return;
+    
+    const inv = queryDetailInvoices.find((i) => i.id === invoiceId);
+    if (!inv) return;
+
     const toEmail = lead?.email || '';
-    const email = window.prompt('Send invoice to email:', toEmail || '');
-    if (email === null) return;
+    const toPhone = lead?.phone || '';
+
+    if (!toEmail && !toPhone) {
+      showToastNotification('warning', 'Missing Contact', 'Client has no email or phone number saved.');
+      return;
+    }
+
+    if (!window.confirm(`Send Invoice ${inv.invoice_number} to client via ${toEmail ? 'Email' : ''}${toEmail && toPhone ? ' and ' : ''}${toPhone ? 'WhatsApp' : ''}?`)) {
+      return;
+    }
+
     setInvoiceActionLoading('send');
     try {
-      await leadInvoicesAPI.send(id, invoiceId, { to_email: email || toEmail, subject: `Invoice ${queryDetailInvoices.find((i) => i.id === invoiceId)?.invoice_number || invoiceId}` });
-      showToastNotification('success', 'Sent', 'Invoice sent by email successfully.');
+      // 1. Send Email via Backend (already has PDF attachment logic in some systems, or sends HTML)
+      if (toEmail) {
+        await leadInvoicesAPI.send(id, invoiceId, { 
+          to_email: toEmail, 
+          subject: `Proforma Invoice - ${inv.invoice_number} - TravelFusion CRM` 
+        });
+      }
+
+      // 2. Send WhatsApp with PDF Attachment
+      if (toPhone && waStatus === 'Connected') {
+        const phoneStr = toPhone.replace(/\D/g, '');
+        const chatId = phoneStr.length <= 10 ? `91${phoneStr}@s.whatsapp.net` : `${phoneStr}@s.whatsapp.net`;
+        
+        // Prepare professional message
+        let waMsg = `*PROFORMA INVOICE: ${inv.invoice_number}*\n\n`;
+        waMsg += `Hello *${lead.client_name || 'Guest'}*,\n`;
+        waMsg += `Please find attached your invoice for: *${inv.itinerary_name || 'Package'}*.\n\n`;
+        waMsg += `*Invoice Total: ₹${Number(inv.total_amount).toLocaleString('en-IN')}*\n`;
+        
+        // Add Bank Details if available from state
+        if (accountDetails) {
+          waMsg += `\n*OFFICIAL PAYMENT DETAILS:*\n`;
+          waMsg += `Bank: ${accountDetails.bank_name || 'N/A'}\n`;
+          waMsg += `Acc No: ${accountDetails.account_number || 'N/A'}\n`;
+          waMsg += `IFSC: ${accountDetails.ifsc_code || 'N/A'}\n`;
+          waMsg += `Holder: ${accountDetails.account_holder_name || 'N/A'}\n`;
+          if (accountDetails.upi_id) waMsg += `UPI ID: ${accountDetails.upi_id}\n`;
+        }
+
+        waMsg += `\n*PLEASE SHARE A SCREENSHOT OF THE PAYMENT RECEIPT AFTER TRANSFER.*\n\n`;
+        waMsg += `Best regards,\nTravelFusion CRM Team`;
+
+        // Fetch PDF Blob to send as attachment
+        const pdfRes = await leadInvoicesAPI.download(id, invoiceId);
+        const pdfBlob = new Blob([pdfRes.data], { type: 'application/pdf' });
+        const pdfFile = new File([pdfBlob], `Invoice_${inv.invoice_number}.pdf`, { type: 'application/pdf' });
+
+        await whatsappWebAPI.sendMedia({
+          chat_id: chatId,
+          file: pdfFile,
+          caption: waMsg,
+          type: 'document'
+        });
+      }
+
+      showToastNotification('success', 'Sent', 'Invoice sent successfully via ' + 
+        (toEmail && toPhone && waStatus === 'Connected' ? 'Email & WhatsApp' : 
+         toEmail ? 'Email' : 'WhatsApp'));
+      
+      if (inv.status !== 'paid') {
+        fetchQueryDetail(); // Refresh list to see updated status
+      }
     } catch (err) {
       console.error('Invoice send failed:', err);
-      showToastNotification('error', 'Send Failed', 'Invoice send failed. Please check client email.');
+      const msg = err.response?.data?.message || err.message || 'Unknown error';
+      showToastNotification('error', 'Send Failed', 'Issue: ' + msg);
     } finally {
       setInvoiceActionLoading(null);
     }
   };
 
-  // Get confirmed option
+  // NEW: Send Payment Reminder via Email and WhatsApp
+  const [remindingPaymentId, setRemindingPaymentId] = useState(null);
+
+  const handleSendPaymentReminder = async (payment) => {
+    if (!lead || !payment) return;
+    setRemindingPaymentId(payment.id);
+
+    try {
+      const bankDetails = settings?.bank_details || 'Please contact us for bank details.';
+      const amount = Number(payment.amount).toLocaleString('en-IN');
+      const dueAmount = (Number(payment.amount) - Number(payment.paid_amount)).toLocaleString('en-IN');
+      const dueDate = payment.due_date || 'N/A';
+      
+      const welcomeMsg = `Dear ${lead.client_name || 'Customer'},\n\nThis is a friendly reminder that a payment toward your travel booking is due today or in the next few days.\n\n*Payment Summary:*\n• Total Amount: ₹${amount}\n• Balance Due: *₹${dueAmount}*\n• Due Date: ${dueDate}\n\n*Bank Details:*\n${bankDetails}\n\nKindly share the screenshot of the transaction once the payment is made.\n\nBest regards,\nTravelFusion CRM Team`;
+
+      // 1. Send via WhatsApp
+      let waSent = false;
+      const toPhone = lead.phone || lead.whatsapp_number;
+      if (toPhone) {
+        try {
+          const chatId = toPhone.includes('@') ? toPhone : `${toPhone}@s.whatsapp.net`;
+          await whatsappWebAPI.sendMessage({
+            chat_id: chatId,
+            message: welcomeMsg
+          });
+          waSent = true;
+        } catch (waErr) {
+          console.error('WhatsApp reminder failed:', waErr);
+          // Don't throw, proceed to email
+        }
+      }
+
+      // 2. Send via Email
+      let emailSent = false;
+      if (lead.email) {
+        try {
+          await leadsAPI.sendEmail(id, {
+            to_email: lead.email,
+            subject: `Payment Reminder: ₹${dueAmount} Due for your Booking`,
+            body: welcomeMsg.replace(/\*/g, '') 
+          });
+          fetchLeadEmails();
+          emailSent = true;
+        } catch (emailErr) {
+          console.error('Email reminder failed:', emailErr);
+        }
+      }
+
+      if (waSent || emailSent) {
+        showToastNotification('success', 'Reminder Handled', 
+          `Sent via: ${waSent ? 'WhatsApp ' : ''}${emailSent ? '& Email' : ''}`);
+      } else {
+        showToastNotification('error', 'Reminder Failed', 'Both WhatsApp and Email failed. Check connections.');
+      }
+    } catch (err) {
+      console.error('Reminder failed:', err);
+      showToastNotification('error', 'Reminder Failed', 'Could not send reminder.');
+    } finally {
+      setRemindingPaymentId(null);
+    }
+  };
   const getConfirmedOption = () => {
     return proposals.find(p => p.confirmed === true);
   };
@@ -4873,7 +5020,7 @@ const LeadDetails = () => {
                         ) : (() => {
                           const first = visibleProposals[0] || proposals[0];
                           const cardTitle = (first?.itinerary_name || first?.title || first?.metadata?.itinerary_name || lead?.destination || 'Proposals').toString().trim() || 'Proposals';
-                          const rawImage = first?.image || first?.metadata?.image;
+                          const rawImage = first?.image || first?.metadata?.image || first?.metadata?.itinerary_image;
                           const cardImageResult = getDisplayImageUrl(rawImage);
                           const cardImage = cardImageResult || rawImage || null;
                           const cardDestination = first?.destination || first?.metadata?.destination || lead?.destination || '';
@@ -4883,7 +5030,7 @@ const LeadDetails = () => {
                               <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow">
                                 {/* Card header – one image/title block (click to edit itinerary) */}
                                 <div
-                                  className="relative h-48 sm:h-60 w-full overflow-hidden rounded-t-xl cursor-pointer"
+                                  className="relative h-48 sm:h-60 w-full overflow-hidden rounded-t-xl cursor-pointer bg-gray-100"
                                   onClick={() => {
                                     const meta = first?.metadata || {};
                                     const itineraryId = first?.itinerary_id || meta.itinerary_id || proposals[0]?.itinerary_id;
@@ -4899,15 +5046,19 @@ const LeadDetails = () => {
                                       src={cardImage}
                                       alt={cardTitle}
                                       className="w-full h-full object-cover"
-                                      referrerPolicy="no-referrer"
                                       onError={(e) => {
                                         e.target.style.display = 'none';
-                                        e.target.nextSibling.style.display = 'flex';
+                                        if (e.target.nextSibling) {
+                                          e.target.nextSibling.style.display = 'flex';
+                                        }
                                       }}
                                     />
                                   ) : null}
-                                  <div className={`w-full h-full bg-gray-200 flex items-center justify-center ${cardImage ? 'hidden' : ''}`}>
-                                    <span className="text-gray-500 font-semibold">Proposals</span>
+                                  <div 
+                                    className="w-full h-full bg-gradient-to-br from-gray-200 to-gray-300 flex items-center justify-center"
+                                    style={{ display: cardImage ? 'none' : 'flex' }}
+                                  >
+                                    <span className="text-gray-400 font-bold text-xl uppercase tracking-widest opacity-50">{cardTitle.substring(0, 2)}</span>
                                   </div>
                                   <div className="absolute bottom-0 left-0 right-0 bg-black/55 p-4">
                                     <h3 className="text-xl font-semibold text-white">{cardTitle}</h3>
@@ -5240,6 +5391,8 @@ const LeadDetails = () => {
                                           setPaymentFormData={setPaymentFormData}
                                           setShowPaymentModal={setShowPaymentModal}
                                           formatDateForDisplay={formatDateForDisplay}
+                                          onSendReminder={handleSendPaymentReminder}
+                                          remindingPaymentId={remindingPaymentId}
                                         />
                                       ) : activeTab === 'calls' ? (
                                         <CallsTab

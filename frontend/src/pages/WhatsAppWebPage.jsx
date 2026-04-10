@@ -4,7 +4,7 @@ import WhatsAppWebLayout from '../components/WhatsAppWeb/WhatsAppWebLayout';
 
 const WhatsAppWebPage = () => {
     return (
-        <div noPadding={true}>
+        <div>
             <div className="w-full h-[calc(100vh-64px)] overflow-hidden">
                 <WhatsAppWebLayout />
             </div>
