@@ -1066,8 +1066,56 @@ const LeadDetails = () => {
       const dueAmount = (Number(payment.amount) - Number(payment.paid_amount)).toLocaleString('en-IN');
       const dueDate = payment.due_date || 'N/A';
       
+      // Welcome Msg for whatsapp 
       const welcomeMsg = `Dear ${lead.client_name || 'Customer'},\n\nThis is a friendly reminder that a payment toward your travel booking is due today or in the next few days.\n\n*Payment Summary:*\n• Total Amount: ₹${amount}\n• Balance Due: *₹${dueAmount}*\n• Due Date: ${dueDate}\n\n*Bank Details:*\n${bankDetails}\n\nKindly share the screenshot of the transaction once the payment is made.\n\nBest regards,\nTravelFusion CRM Team`;
 
+      const _hdrBg = companySettings?.email_header_color || '#2c3e50';
+      const _ftrBg = companySettings?.email_footer_color || '#f5f7fa';
+
+      const htmlTemplate = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+</head>
+<body style="margin:0; padding:0; font-family: Arial, sans-serif; background-color:#f5f7fa;">
+  <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
+    ${buildEmailHeader(_hdrBg, '#ffffff')}
+    <div style="padding: 30px; color: #333;">
+      <h2 style="color: ${_hdrBg}; margin-top: 0; margin-bottom: 20px;">Payment Reminder</h2>
+      <p>Dear <strong>${lead.client_name || 'Customer'}</strong>,</p>
+
+      <p>
+        This is a friendly reminder that a payment toward your travel booking is due.
+      </p>
+
+      <table width="100%" cellpadding="10" style="margin: 20px 0; border: 1px solid #eee; border-radius: 8px; border-collapse: collapse;">
+        <tr>
+          <td style="border-bottom: 1px solid #eee;"><b>Total Amount:</b></td>
+          <td style="border-bottom: 1px solid #eee;">₹${amount}</td>
+        </tr>
+        <tr>
+          <td style="border-bottom: 1px solid #eee;"><b>Balance Due:</b></td>
+          <td style="border-bottom: 1px solid #eee; color: #d93025; font-weight: bold;">₹${dueAmount}</td>
+        </tr>
+        <tr>
+          <td><b>Due Date:</b></td>
+          <td>${dueDate}</td>
+        </tr>
+      </table>
+
+      <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-top: 20px;">
+        <p style="margin-top: 0;"><b>Bank Details:</b></p>
+        <pre style="margin: 0; font-family: inherit; font-size: 14px; white-space: pre-wrap;">${bankDetails}</pre>
+      </div>
+
+      <p style="margin-top: 20px;">Please share payment screenshot once done.</p>
+    </div>
+    ${buildEmailFooter(_ftrBg, '#333333')}
+  </div>
+</body>
+</html>
+`;
       // 1. Send via WhatsApp
       let waSent = false;
       const toPhone = lead.phone || lead.whatsapp_number;
@@ -1092,7 +1140,7 @@ const LeadDetails = () => {
           await leadsAPI.sendEmail(id, {
             to_email: lead.email,
             subject: `Payment Reminder: ₹${dueAmount} Due for your Booking`,
-            body: welcomeMsg.replace(/\*/g, '') 
+            body: htmlTemplate 
           });
           fetchLeadEmails();
           emailSent = true;
@@ -1144,105 +1192,123 @@ const LeadDetails = () => {
       ? `\n\nPayment Summary:\nTotal: ₹${paySummary.total_amount.toLocaleString('en-IN')}\nPaid: ₹${paySummary.total_paid.toLocaleString('en-IN')}\nDue: ₹${paySummary.total_due.toLocaleString('en-IN')}`
       : '';
 
-    // 1. Professional HTML Email Body for Confirmation
-    const confirmationHtml = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <style>
-          .container { font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; }
-          .header { background: linear-gradient(135deg, #2563eb, #3b82f6); color: white; padding: 40px 20px; text-align: center; }
-          .content { padding: 30px; color: #1e293b; line-height: 1.6; }
-          .booking-box { background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; margin: 20px 0; }
-          .hotel-item { padding: 8px 0; border-bottom: 1px solid #f1f5f9; }
-          .footer { background-color: #f1f5f9; padding: 20px; text-align: center; font-size: 12px; color: #64748b; }
-          .price-tag { font-size: 24px; color: #2563eb; font-weight: bold; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="header">
-            <h1 style="margin:0; font-size: 28px;">Booking Confirmed!</h1>
-            <p style="margin:10px 0 0 0; opacity: 0.9;">Thank you for choosing TravelFusion</p>
-          </div>
-          <div class="content">
-            <p>Dear <strong>${lead.client_name || 'Guest'}</strong>,</p>
-            <p>We are delighted to confirm your travel booking for <strong>${itinerary.itinerary_name || 'your trip'}</strong>. We are committed to making your journey memorable.</p>
-            
-            <div class="booking-box">
-              <h3 style="margin-top:0; color:#2563eb;">Trip Summary</h3>
-              <p><strong>Query ID:</strong> #${formatLeadId(lead.id)}</p>
-              <p><strong>Destinations:</strong> ${itinerary.destinations}</p>
-              <p><strong>Duration:</strong> ${itinerary.duration} Days</p>
-              <p><strong>Option Selected:</strong> Option ${confirmedOptionNum}</p>
-              <p class="price-tag">Total: ₹${totalPrice.toLocaleString('en-IN')}</p>
-            </div>
-
-            <h3 style="color:#2563eb;">Planned Hotels</h3>
-            ${hotels.map(h => `
-              <div class="hotel-item">
-                <strong>Day ${h.day}:</strong> ${h.hotelName} (${h.category} Star)<br/>
-                <small style="color:#64748b;">${h.roomName} | ${h.mealPlan}</small>
-              </div>
-            `).join('')}
-
-            ${paySummary.total_amount > 0 ? `
-              <div class="booking-box" style="border-left: 4px solid #10b981;">
-                <h3 style="margin-top:0; color:#059669;">Payment Status</h3>
-                <p>Total: ₹${paySummary.total_amount.toLocaleString('en-IN')}</p>
-                <p>Paid: ₹${paySummary.total_paid.toLocaleString('en-IN')}</p>
-                <p style="font-weight:bold; color:#ef4444;">Due Balance: ₹${paySummary.total_due.toLocaleString('en-IN')}</p>
-              </div>
-            ` : ''}
-
-            <p style="margin-top:30px;">Our team is now finalizing all your arrangements. You will receive further updates soon.</p>
-          </div>
-          <div class="footer">
-            <p>&copy; ${new Date().getFullYear()} TravelFusion CRM. All rights reserved.</p>
-          </div>
-        </div>
-      </body>
-      </html>
-    `;
-
-    // 2. WhatsApp message (Enhanced formatting)
-    let whatsappMsg = `*✅ BOOKING CONFIRMED!*\n\n`;
-    whatsappMsg += `Dear *${lead.client_name || 'Guest'}*,\nThank you for booking with us! Your trip to *${itinerary.destinations}* is now confirmed.\n\n`;
-    whatsappMsg += `*TRIP DETAILS:*\n`;
-    whatsappMsg += `• ID: #${formatLeadId(lead.id)}\n`;
-    whatsappMsg += `• Package: ${itinerary.itinerary_name}\n`;
-    whatsappMsg += `• Duration: ${itinerary.duration} Days\n\n`;
-    
-    whatsappMsg += `*HOTELS:*\n`;
+    // WhatsApp message (confirmed option + payment)
+    let whatsappMsg = `*✓ CONFIRMED TRAVEL ITINERARY*\n\n`;
+    whatsappMsg += `*${itinerary.itinerary_name || 'Itinerary'}*\n`;
+    whatsappMsg += `Query ID: ${formatLeadId(lead.id)}\n`;
+    whatsappMsg += `Destination: ${itinerary.destinations || 'N/A'}\n`;
+    whatsappMsg += `Duration: ${itinerary.duration || 0} Days\n\n`;
+    whatsappMsg += `*Confirmed Option ${confirmedOptionNum}*\n`;
     hotels.forEach(h => {
-      whatsappMsg += `• Day ${h.day}: ${h.hotelName} (${h.category}★)\n`;
+      whatsappMsg += `• Day ${h.day}: ${h.hotelName || 'Hotel'} (${h.category || 'N/A'} Star)\n`;
+      whatsappMsg += `  Room: ${h.roomName || 'N/A'} | Meal: ${h.mealPlan || 'N/A'}\n`;
     });
-    
-    whatsappMsg += `\n*TOTAL PACKAGE PRICE: ₹${totalPrice.toLocaleString('en-IN')}*`;
-    
-    if (paySummary.total_amount > 0) {
-      whatsappMsg += `\n\n*PAYMENT STATUS:*`;
-      whatsappMsg += `\n• Paid: ₹${paySummary.total_paid.toLocaleString('en-IN')}`;
-      whatsappMsg += `\n• Balance: *₹${paySummary.total_due.toLocaleString('en-IN')}*`;
-    }
-    
-    whatsappMsg += `\n\nWe look forward to hosting you! 🙏\n_Best regards, TravelFusion Team_`;
+    whatsappMsg += `\n*Total Package: ₹${totalPrice.toLocaleString('en-IN')}*`;
+    whatsappMsg += paymentText;
+    whatsappMsg += `\n\nThis is your confirmed itinerary. Best regards,\nTravelFusion CRM Team`;
 
-    const subject = `Booking Confirmed! - ${itinerary.itinerary_name || 'Itinerary'} - #${formatLeadId(lead.id)}`;
+    // Email body (plain text for API)
+    const hotelsHtml = hotels.map(h => `
+  <tr>
+    <td style="padding:8px; border-bottom:1px solid #eee;">Day ${h.day}</td>
+    <td style="padding:8px; border-bottom:1px solid #eee;">
+      ${h.hotelName || 'Hotel'} (${h.category || 'N/A'} Star)
+    </td>
+    <td style="padding:8px; border-bottom:1px solid #eee;">
+      ${h.roomName || 'N/A'}
+    </td>
+    <td style="padding:8px; border-bottom:1px solid #eee;">
+      ${h.mealPlan || 'N/A'}
+    </td>
+  </tr>
+`).join('');
+
+const _hdrBgConfirmed = companySettings?.email_header_color || '#27ae60';
+const _ftrBgConfirmed = companySettings?.email_footer_color || '#ecf0f1';
+
+const emailTemplate = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+</head>
+<body style="margin:0; padding:0; font-family: Arial, sans-serif; background:#f4f6f9;">
+  <div style="max-width: 650px; margin: 0 auto; background: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-top: 20px; margin-bottom: 20px;">
+    ${buildEmailHeader(_hdrBgConfirmed, '#ffffff')}
+    <div style="padding: 30px; color: #333;">
+      <h2 style="color: ${_hdrBgConfirmed}; margin-top: 0; text-align: center; border-bottom: 1px solid #eee; padding-bottom: 15px;">Confirmed Travel Itinerary</h2>
+      
+      <h3 style="margin-top:20px; margin-bottom: 15px;">${itinerary.itinerary_name || 'Itinerary'}</h3>
+
+      <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px;">
+        <div><strong>Query ID:</strong> ${formatLeadId(lead.id)}</div>
+        <div><strong>Duration:</strong> ${itinerary.duration || 0} Days</div>
+        <div style="grid-column: span 2;"><strong>Destination:</strong> ${itinerary.destinations || 'N/A'}</div>
+      </div>
+
+      <p style="margin-top:20px; font-size: 16px;">
+        <strong>Confirmed Option ${confirmedOptionNum}</strong>
+      </p>
+
+      <!-- Hotels Table -->
+      <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse; margin-top:10px; border: 1px solid #eee;">
+        <tr style="background:#f1f1f1;">
+          <th style="padding:10px; text-align:left; border-bottom: 1px solid #ddd;">Day</th>
+          <th style="padding:10px; text-align:left; border-bottom: 1px solid #ddd;">Hotel</th>
+          <th style="padding:10px; text-align:left; border-bottom: 1px solid #ddd;">Room</th>
+          <th style="padding:10px; text-align:left; border-bottom: 1px solid #ddd;">Meal</th>
+        </tr>
+        ${hotelsHtml}
+      </table>
+
+      <!-- Price -->
+      <p style="margin-top:20px; font-size:16px;">
+        <strong>Total Package:</strong> 
+        <span style="color:#27ae60; font-size:18px; font-weight: bold;">
+          ₹${totalPrice.toLocaleString('en-IN')}
+        </span>
+      </p>
+
+      <!-- Payment Info -->
+      <div style="margin-top:20px; background: #f8f9fb; padding: 15px; border-radius: 8px; border-left: 4px solid #27ae60;">
+        <strong>Payment Details:</strong>
+        <pre style="margin: 10px 0 0 0; font-family: inherit; font-size: 14px; white-space: pre-wrap;">${paymentText}</pre>
+      </div>
+
+      <p style="margin-top:25px; text-align: center; color: #555; font-style: italic;">
+        This is your confirmed itinerary. We wish you a wonderful trip!
+      </p>
+
+    </div>
+    ${buildEmailFooter(_ftrBgConfirmed, '#333')}
+  </div>
+</body>
+</html>
+`;
+    // let emailBody = `CONFIRMED TRAVEL ITINERARY\n\n`;
+    // emailBody += `${itinerary.itinerary_name || 'Itinerary'}\n`;
+    // emailBody += `Query ID: ${formatLeadId(lead.id)}\n`;
+    // emailBody += `Destination: ${itinerary.destinations || 'N/A'}\n`;
+    // emailBody += `Duration: ${itinerary.duration || 0} Days\n\n`;
+    // emailBody += `Confirmed Option ${confirmedOptionNum}\n`;
+    // hotels.forEach(h => {
+    //   emailBody += `• Day ${h.day}: ${h.hotelName || 'Hotel'} (${h.category || 'N/A'} Star)\n`;
+    //   emailBody += `  Room: ${h.roomName || 'N/A'} | Meal: ${h.mealPlan || 'N/A'}\n`;
+    // });
+    // emailBody += `\nTotal Package: ₹${totalPrice.toLocaleString('en-IN')}`;
+    // emailBody += paymentText.replace(/\n\n/g, '\n');
+    // emailBody += `\n\nThis is your confirmed itinerary. Best regards, TravelFusion CRM Team`;
+
+    const subject = `Confirmed Travel Itinerary - ${itinerary.itinerary_name || 'Itinerary'} - ${formatLeadId(lead.id)}`;
     const toEmail = lead.email;
 
     try {
       if (toEmail) {
-        await leadsAPI.sendEmail(id, { to_email: toEmail, subject, body: confirmationHtml });
+        await leadsAPI.sendEmail(id, { to_email: toEmail, subject, body: emailTemplate });
         fetchLeadEmails();
       }
       if (lead.phone) {
-        const phoneStr = lead.phone.replace(/\D/g, '');
-        const chatId = phoneStr.length <= 10 ? `91${phoneStr}@s.whatsapp.net` : `${phoneStr}@s.whatsapp.net`;
-        await whatsappWebAPI.sendMessage({
-          chat_id: chatId,
-          message: whatsappMsg
-        });
+        await whatsappAPI.send(id, whatsappMsg);
         fetchWhatsAppMessages();
       }
       if (toEmail || lead.phone) {
@@ -2996,13 +3062,62 @@ const LeadDetails = () => {
     return generatePolicySection('Terms & Conditions', termsText, styles);
   };
 
+  // ─── Shared Email Header / Footer builders ────────────────────────────────
+  // Reads company info from the already-fetched `companySettings` state.
+  // headerBg / footerBg are hex / CSS colour strings from the email_header_color
+  // and email_footer_color settings that callers must load and pass in.
+  const buildEmailHeader = (headerBg = '#1e40af', headerTextColor = '#ffffff') => {
+    const cs = companySettings || {};
+    const name    = cs.company_name    || 'TravelFusion CRM';
+    const address = cs.company_address || 'Delhi, India';
+    const phone   = cs.company_phone   || '+91-9871023004';
+    const email   = cs.company_email   || 'info@travelops.com';
+    const website = cs.company_website || 'www.travelops.com';
+    const logo    = cs.company_logo    ? getDisplayImageUrl(cs.company_logo) : null;
+
+    return `
+      <table width="100%" cellpadding="0" cellspacing="0" style="background:${headerBg};">
+        <tr>
+          <td style="padding:24px 30px;text-align:center;">
+            ${logo
+              ? `<img src="${logo}" alt="${name}" style="height:56px;max-width:180px;object-fit:contain;display:block;margin:0 auto 10px;" />`
+              : `<div style="font-size:28px;font-weight:bold;color:${headerTextColor};margin-bottom:6px;">${name}</div>`
+            }
+            <div style="font-size:20px;font-weight:bold;color:${headerTextColor};margin-bottom:4px;">${name}</div>
+            <div style="font-size:13px;color:${headerTextColor};opacity:0.9;">${address}</div>
+            <div style="font-size:13px;color:${headerTextColor};opacity:0.9;margin-top:3px;">📞 ${phone} | ✉ ${email} | 🌐 ${website}</div>
+          </td>
+        </tr>
+      </table>
+    `;
+  };
+
+  const buildEmailFooter = (footerBg = '#1e293b', footerTextColor = '#ffffff') => {
+    const cs = companySettings || {};
+    const name    = cs.company_name    || 'TravelFusion CRM';
+    const address = cs.company_address || 'Delhi, India';
+    const phone   = cs.company_phone   || '+91-9871023004';
+    const email   = cs.company_email   || 'info@travelops.com';
+    const website = cs.company_website || 'www.travelops.com';
+
+    return `
+      <div style="background:${footerBg};color:${footerTextColor};padding:24px 30px;text-align:center;margin-top:30px;">
+        <p style="margin:0 0 6px 0;font-size:16px;font-weight:bold;">Thank you for choosing ${name}!</p>
+        <p style="margin:0;font-size:13px;opacity:0.9;">📍 ${address} | 📞 ${phone} | ✉ ${email} | 🌐 ${website}</p>
+      </div>
+    `;
+  };
+  // ─────────────────────────────────────────────────────────────────────────
+
+
   // Generate 3D Premium Card Template HTML
   const generate3DPremiumEmailTemplate = (itinerary, allOptions, hotelsData, policies = {}) => {
+    const _hdrBg3dp = (companySettings?.email_header_color) || '#667eea';
+    const _ftrBg3dp = (companySettings?.email_footer_color) || '#4b5563';
     let html = `
       <div style="font-family: 'Arial', sans-serif; max-width: 800px; margin: 0 auto; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 40px 20px;">
-        <div style="background: white; padding: 40px; border-radius: 20px; margin-bottom: 30px; box-shadow: 0 20px 60px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.1);">
-          <h1 style="margin: 0; font-size: 48px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; text-align: center; font-weight: bold;">TravelFusion CRM</h1>
-          <p style="text-align: center; color: #666; margin-top: 10px;">Delhi, India | Email: info@travelops.com | Mobile: +91-9871023004</p>
+        <div style="border-radius: 20px; overflow:hidden; margin-bottom: 30px; box-shadow: 0 20px 60px rgba(0,0,0,0.3);">
+          ${buildEmailHeader(_hdrBg3dp, '#ffffff')}
         </div>
         <div style="background: white; padding: 30px; border-radius: 20px; margin-bottom: 30px; box-shadow: 0 15px 35px rgba(0,0,0,0.2), inset 0 -5px 15px rgba(0,0,0,0.1);">
           <h2 style="margin-top: 0; font-size: 32px; color: #667eea; text-align: center;">Travel Quotation</h2>
@@ -3048,10 +3163,7 @@ const LeadDetails = () => {
     });
 
     html += `
-        <div style="background: rgba(255,255,255,0.95); padding: 30px; border-radius: 20px; text-align: center; box-shadow: 0 15px 35px rgba(0,0,0,0.2);">
-          <p style="margin: 5px 0; font-size: 18px; font-weight: bold; color: #667eea;">Thank you for choosing TravelFusion CRM!</p>
-          <p style="margin: 10px 0 5px 0; color: #666;">📞 +91-9871023004 | 🌐 www.travelops.com</p>
-        </div>
+        ${buildEmailFooter(_ftrBg3dp, '#ffffff')}
       </div>
     `;
 
@@ -3060,11 +3172,12 @@ const LeadDetails = () => {
 
   // Generate 3D Floating Boxes Template HTML
   const generate3DFloatingEmailTemplate = (itinerary, allOptions, hotelsData, policies = {}) => {
+    const _hdrBg3df = (companySettings?.email_header_color) || '#1e3c72';
+    const _ftrBg3df = (companySettings?.email_footer_color) || '#1e3c72';
     let html = `
       <div style="font-family: 'Arial', sans-serif; max-width: 800px; margin: 0 auto; background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%); padding: 40px 20px;">
-        <div style="background: white; padding: 40px; border-radius: 15px; margin-bottom: 40px; box-shadow: 0 30px 60px rgba(0,0,0,0.4), 0 0 0 3px rgba(255,255,255,0.2);">
-          <h1 style="margin: 0; font-size: 48px; background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; text-align: center; font-weight: bold;">TravelFusion CRM</h1>
-          <p style="text-align: center; color: #666; margin-top: 10px;">Delhi, India | Email: info@travelops.com | Mobile: +91-9871023004</p>
+        <div style="border-radius: 15px; overflow:hidden; margin-bottom: 40px; box-shadow: 0 30px 60px rgba(0,0,0,0.4);">
+          ${buildEmailHeader(_hdrBg3df, '#ffffff')}
         </div>
         <div style="background: white; padding: 30px; border-radius: 15px; margin-bottom: 40px; box-shadow: 0 20px 50px rgba(0,0,0,0.3), 0 0 0 2px rgba(255,255,255,0.1);">
           <h2 style="margin-top: 0; font-size: 32px; color: #1e3c72; text-align: center;">Travel Quotation</h2>
@@ -3128,10 +3241,7 @@ const LeadDetails = () => {
           </div>
         </div>
         ` : ''}
-        <div style="background: rgba(255,255,255,0.95); padding: 30px; border-radius: 15px; text-align: center; box-shadow: 0 20px 50px rgba(0,0,0,0.3); margin-top: 30px;">
-          <p style="margin: 5px 0; font-size: 18px; font-weight: bold; color: #1e3c72;">Thank you for choosing TravelFusion CRM!</p>
-          <p style="margin: 10px 0 5px 0; color: #666;">📞 +91-9871023004 | 🌐 www.travelops.com</p>
-        </div>
+        ${buildEmailFooter(_ftrBg3df, '#ffffff')}
       </div>
     `;
 
@@ -3139,106 +3249,124 @@ const LeadDetails = () => {
   };
 
   // Generate 3D Layered Design Template HTML
-  const generate3DLayeredEmailTemplate = (itinerary, allOptions, hotelsData, policies = {}) => {
-    let html = `
-      <div style="font-family: 'Arial', sans-serif; max-width: 800px; margin: 0 auto; background: linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%); padding: 50px 20px;">
-        <div style="position: relative; margin-bottom: 50px;">
-          <div style="background: rgba(255,255,255,0.1); padding: 50px; border-radius: 20px; box-shadow: 0 20px 60px rgba(0,0,0,0.5); position: relative; z-index: 3;">
-            <div style="background: rgba(255,255,255,0.15); padding: 40px; border-radius: 15px; box-shadow: 0 15px 40px rgba(0,0,0,0.4); position: relative; z-index: 2;">
-              <div style="background: white; padding: 30px; border-radius: 10px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); position: relative; z-index: 1;">
-                <h1 style="margin: 0; font-size: 48px; background: linear-gradient(135deg, #0f2027 0%, #2c5364 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; text-align: center; font-weight: bold;">TravelFusion CRM</h1>
-                <p style="text-align: center; color: #666; margin-top: 10px;">Delhi, India | Email: info@travelops.com | Mobile: +91-9871023004</p>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div style="position: relative; margin-bottom: 50px;">
-          <div style="background: rgba(255,255,255,0.95); padding: 30px; border-radius: 20px; box-shadow: 0 25px 60px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.2); position: relative; z-index: 2;">
-            <h2 style="margin-top: 0; font-size: 32px; color: #0f2027; text-align: center;">Travel Quotation</h2>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 20px;">
-              <div style="padding: 15px; background: linear-gradient(135deg, #e0f2f1 0%, #b2dfdb 100%); border-radius: 10px; box-shadow: 0 5px 15px rgba(0,0,0,0.1), inset 0 2px 5px rgba(255,255,255,0.5);"><strong>Query ID:</strong> ${formatLeadId(lead?.id)}</div>
-              <div style="padding: 15px; background: linear-gradient(135deg, #e0f2f1 0%, #b2dfdb 100%); border-radius: 10px; box-shadow: 0 5px 15px rgba(0,0,0,0.1), inset 0 2px 5px rgba(255,255,255,0.5);"><strong>Destination:</strong> ${itinerary.destinations || 'N/A'}</div>
-              <div style="padding: 15px; background: linear-gradient(135deg, #e0f2f1 0%, #b2dfdb 100%); border-radius: 10px; box-shadow: 0 5px 15px rgba(0,0,0,0.1), inset 0 2px 5px rgba(255,255,255,0.5);"><strong>Duration:</strong> ${itinerary.duration || 0} Nights & ${(itinerary.duration || 0) + 1} Days</div>
-              <div style="padding: 15px; background: linear-gradient(135deg, #e0f2f1 0%, #b2dfdb 100%); border-radius: 10px; box-shadow: 0 5px 15px rgba(0,0,0,0.1), inset 0 2px 5px rgba(255,255,255,0.5);"><strong>Adults:</strong> ${lead?.adult || 1} | <strong>Children:</strong> ${lead?.child || 0}</div>
-            </div>
-          </div>
-        </div>
+ const generateEmailTemplate = (itinerary, allOptions, hotelsData, policies = {}) => {
+
+  const _hdrBg4 = (companySettings?.email_header_color) || '#0f2027';
+  const _ftrBg4 = (companySettings?.email_footer_color) || '#ecf0f1';
+  let html = `
+  <html>
+  <body style="margin:0; padding:0; font-family: Arial, sans-serif; background:#f4f6f9;">
+    <table width="100%" cellpadding="0" cellspacing="0" style="padding:20px;">
+      <tr>
+        <td align="center">
+          <table width="700" style="background:#ffffff; border-radius:8px; overflow:hidden;">
+            
+            <!-- HEADER -->
+            <tr>
+              <td style="padding:0;">
+                ${buildEmailHeader(_hdrBg4, '#ffffff')}
+              </td>
+            </tr>
+
+            <!-- BASIC INFO -->
+            <tr>
+              <td style="padding:20px;">
+                <h3>${itinerary.itinerary_name || 'Travel Quotation'}</h3>
+                <p><b>Query ID:</b> ${formatLeadId(lead?.id)}</p>
+                <p><b>Destination:</b> ${itinerary.destinations || 'N/A'}</p>
+                <p><b>Duration:</b> ${itinerary.duration || 0} Nights / ${(itinerary.duration || 0) + 1} Days</p>
+                <p><b>Travellers:</b> ${lead?.adult || 1} Adult(s), ${lead?.child || 0} Child</p>
+              </td>
+            </tr>
+  `;
+
+  allOptions.forEach(optNum => {
+    const hotels = hotelsData[optNum] || [];
+    const totalPrice = hotels.reduce((sum, h) => sum + (parseFloat(h.price) || 0), 0);
+
+    html += `
+      <tr>
+        <td style="padding:20px;">
+          <table width="100%" style="border:1px solid #ddd; border-radius:6px;">
+            
+            <!-- OPTION HEADER -->
+            <tr>
+              <td colspan="4" style="background:#2c5364; color:#fff; padding:10px;">
+                <b>Option ${optNum}</b>
+              </td>
+            </tr>
+
+            <!-- TABLE HEADER -->
+            <tr style="background:#f1f1f1;">
+              <th style="padding:10px;">Day</th>
+              <th style="padding:10px;">Hotel</th>
+              <th style="padding:10px;">Room</th>
+              <th style="padding:10px;">Meal</th>
+            </tr>
     `;
 
-    allOptions.forEach(optNum => {
-      const hotels = hotelsData[optNum] || [];
-      const totalPrice = hotels.reduce((sum, h) => sum + (parseFloat(h.price) || 0), 0);
-
+    hotels.forEach(hotel => {
       html += `
-        <div style="position: relative; margin-bottom: 50px;">
-          <div style="background: rgba(255,255,255,0.1); padding: 35px; border-radius: 25px; box-shadow: 0 30px 70px rgba(0,0,0,0.5); position: relative; z-index: 3;">
-            <div style="background: rgba(255,255,255,0.2); padding: 30px; border-radius: 20px; box-shadow: 0 20px 50px rgba(0,0,0,0.4); position: relative; z-index: 2;">
-              <div style="background: white; padding: 25px; border-radius: 15px; box-shadow: 0 15px 40px rgba(0,0,0,0.3); position: relative; z-index: 1;">
-                <div style="position: absolute; top: -25px; left: 50%; transform: translateX(-50%); width: 70px; height: 70px; background: linear-gradient(135deg, #0f2027 0%, #2c5364 100%); border-radius: 50%; box-shadow: 0 15px 35px rgba(15,32,39,0.6); display: flex; align-items: center; justify-content: center; color: white; font-size: 28px; font-weight: bold; z-index: 4;">${optNum}</div>
-                <div style="margin-top: 30px;">
-                  <h2 style="margin: 0 0 25px 0; font-size: 28px; color: #0f2027; text-align: center;">Option ${optNum}</h2>
+        <tr>
+          <td style="padding:8px;">${hotel.day}</td>
+          <td style="padding:8px;">${hotel.hotelName || 'Hotel'} (${hotel.category || 'N/A'}★)</td>
+          <td style="padding:8px;">${hotel.roomName || 'N/A'}</td>
+          <td style="padding:8px;">${hotel.mealPlan || 'N/A'}</td>
+        </tr>
       `;
-
-      hotels.forEach((hotel) => {
-        html += `
-          <div style="background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); padding: 25px; border-radius: 15px; margin-bottom: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.15), inset 0 2px 5px rgba(255,255,255,0.5);">
-            <h4 style="margin: 0 0 15px 0; color: #0f2027; font-size: 20px;">Day ${hotel.day}: ${hotel.hotelName || 'Hotel'}</h4>
-            <p style="margin: 8px 0; color: #333;"><strong>Category:</strong> ${hotel.category ? `${hotel.category} Star` : 'N/A'}</p>
-            <p style="margin: 8px 0; color: #333;"><strong>Room:</strong> ${hotel.roomName || 'N/A'}</p>
-            <p style="margin: 8px 0; color: #333;"><strong>Meal Plan:</strong> ${hotel.mealPlan || 'N/A'}</p>
-            ${hotel.price ? `<p style="margin: 8px 0; color: #333;"><strong>Price:</strong> ₹${parseFloat(hotel.price).toLocaleString('en-IN')}</p>` : ''}
-          </div>
-        `;
-      });
-
-      html += `
-          <div style="background: linear-gradient(135deg, #0f2027 0%, #2c5364 100%); color: white; padding: 25px; border-radius: 15px; text-align: center; font-size: 28px; font-weight: bold; box-shadow: 0 15px 35px rgba(15,32,39,0.6), inset 0 -5px 15px rgba(0,0,0,0.2);">
-            Total Package Price: ₹${totalPrice.toLocaleString('en-IN')}
-          </div>
-        </div>
-      </div>
-    </div>
-    `;
     });
 
     html += `
-        ${generateAllPoliciesSection(policies, {
-      termsBg: 'rgba(255,255,255,0.95)',
-      borderRadius: '20px',
-      termsBorder: '2px solid #0f2027',
-      termsShadow: '0 20px 50px rgba(0,0,0,0.4)',
-      termsTitleColor: '#0f2027',
-      termsTitleSize: '20px',
-      termsTextSize: '14px'
-    })}
-        ${policies.thankYouMessage ? `
-        <div style="background: rgba(255,255,255,0.95); padding: 25px; border-radius: 20px; margin-top: 30px; border: 2px solid #0f2027; box-shadow: 0 20px 50px rgba(0,0,0,0.4);">
-          <div style="color: #555; line-height: 1.8; font-size: 14px;">
-            ${formatTextForHTML(policies.thankYouMessage)}
-          </div>
-        </div>
-        ` : ''}
-        <div style="position: relative;">
-          <div style="background: rgba(255,255,255,0.95); padding: 30px; border-radius: 20px; text-align: center; box-shadow: 0 25px 60px rgba(0,0,0,0.4); position: relative; z-index: 2; margin-top: 30px;">
-            <p style="margin: 5px 0; font-size: 18px; font-weight: bold; color: #0f2027;">Thank you for choosing TravelFusion CRM!</p>
-            <p style="margin: 8px 0 0 0;font-size:14px;opacity:0.9;">Delhi, India | 📞 +91-9871023004 | ✉ info@travelops.com</p>
-          </div>
-        </div>
-      </div>
-    `;
+        <tr>
+          <td colspan="4" style="padding:12px; background:#ecf0f1; text-align:right;">
+            <b>Total: ₹${totalPrice.toLocaleString('en-IN')}</b>
+          </td>
+        </tr>
 
-    return html;
-  };
+          </table>
+        </td>
+      </tr>
+    `;
+  });
+
+  // POLICIES
+  if (policies?.terms) {
+    html += `
+      <tr>
+        <td style="padding:20px;">
+          <h4>Terms & Conditions</h4>
+          <p style="font-size:13px;">${policies.terms}</p>
+        </td>
+      </tr>
+    `;
+  }
+
+  // FOOTER
+  html += `
+            <tr>
+              <td style="padding:0;">
+                ${buildEmailFooter(_ftrBg4, _ftrBg4 === '#ecf0f1' ? '#333333' : '#ffffff')}
+              </td>
+            </tr>
+
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+  </html>
+  `;
+
+  return html;
+};
 
   // Generate Adventure Template HTML
   const generateAdventureEmailTemplate = (itinerary, allOptions, hotelsData, policies = {}) => {
+    const _hdrBg5 = (companySettings?.email_header_color) || '#65a30d';
+    const _ftrBg5 = (companySettings?.email_footer_color) || '#365314';
     let html = `
       <div style="font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; background: #d1fae5;">
-        <div style="background: #65a30d; padding: 40px 30px; text-align: center;">
-          <h1 style="margin: 0; font-size: 48px; font-weight: bold; color: white; text-transform: uppercase; letter-spacing: 3px;">EXPLORE</h1>
-          <p style="margin: 10px 0 0 0; font-size: 28px; color: white; font-style: italic;">The World</p>
-          <p style="margin: 20px 0 0 0; font-size: 16px; color: white; text-transform: uppercase; letter-spacing: 2px;">ORGANIZE YOUR TRIP WITH US</p>
-        </div>
+        ${buildEmailHeader(_hdrBg5, '#ffffff')}
         <div style="padding: 30px; background: #d1fae5;">
           <div style="background: white; padding: 25px; border-radius: 8px; margin-bottom: 25px; border-left: 5px solid #65a30d;">
             <h2 style="margin-top: 0; color: #365314; font-size: 24px;">Travel Quotation</h2>
@@ -3308,12 +3436,7 @@ const LeadDetails = () => {
           </div>
         </div>
         ` : ''}
-        <div style="background: #365314; color: #fef3c7; padding: 25px; text-align: center; margin-top: 30px;">
-          <p style="margin: 5px 0; font-size: 18px; font-weight: bold;">BOOK NOW</p>
-          <p style="margin: 10px 0 5px 0;">📍 Delhi, India</p>
-          <p style="margin: 5px 0;">📞 +91-9871023004</p>
-          <p style="margin: 5px 0;">🌐 www.travelops.com</p>
-        </div>
+        ${buildEmailFooter(_ftrBg5, '#ffffff')}
       </div>
     `;
 
@@ -3322,15 +3445,11 @@ const LeadDetails = () => {
 
   // Generate Beach Template HTML
   const generateBeachEmailTemplate = (itinerary, allOptions, hotelsData, policies = {}) => {
+    const _hdrBg6 = (companySettings?.email_header_color) || '#0891b2';
+    const _ftrBg6 = (companySettings?.email_footer_color) || '#164e63';
     let html = `
       <div style="font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; background: white;">
-        <div style="background: linear-gradient(180deg, #0ea5e9 0%, #06b6d4 50%, #22d3ee 100%); padding: 50px 30px; text-align: center; position: relative; overflow: hidden;">
-          <div style="position: absolute; bottom: 0; left: 0; right: 0; height: 50px; background: #fef3c7; border-radius: 50% 50% 0 0 / 100% 100% 0 0;"></div>
-          <div style="position: relative; z-index: 1;">
-            <h1 style="margin: 0; font-size: 42px; color: white; font-weight: bold;">Explore The World</h1>
-            <p style="margin: 10px 0 0 0; font-size: 18px; color: white; text-transform: uppercase; letter-spacing: 2px;">WITH US</p>
-          </div>
-        </div>
+        ${buildEmailHeader(_hdrBg6, '#ffffff')}
         <div style="padding: 30px; background: #fef3c7;">
           <div style="background: white; padding: 25px; border-radius: 12px; margin-bottom: 25px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
             <h2 style="margin-top: 0; color: #0891b2; font-size: 28px;">Travel Quotation</h2>
@@ -3398,10 +3517,7 @@ const LeadDetails = () => {
           </div>
         </div>
         ` : ''}
-        <div style="background: #164e63; color: white; padding: 25px; text-align: center; margin-top: 30px;">
-          <p style="margin: 5px 0; font-size: 18px; font-weight: bold;">Thank you for choosing TravelFusion CRM!</p>
-          <p style="margin: 10px 0 5px 0;">📞 +91-9871023004 | 🌐 www.travelops.com</p>
-        </div>
+        ${buildEmailFooter(_ftrBg6, '#ffffff')}
       </div>
     `;
 
@@ -3410,15 +3526,11 @@ const LeadDetails = () => {
 
   // Generate Elegant Package Template HTML
   const generateElegantEmailTemplate = (itinerary, allOptions, hotelsData, policies = {}) => {
+    const _hdrBg7 = (companySettings?.email_header_color) || '#3f6212';
+    const _ftrBg7 = (companySettings?.email_footer_color) || '#365314';
     let html = `
       <div style="font-family: 'Georgia', serif; max-width: 800px; margin: 0 auto; background: white;">
-        <div style="background: #3f6212; color: #fef3c7; padding: 40px 30px; text-align: center;">
-          <h1 style="margin: 0; font-size: 48px; font-style: italic; font-weight: normal;">Travel</h1>
-          <p style="margin: 5px 0 0 0; font-size: 24px; letter-spacing: 3px;">Package Pricelist</p>
-          <p style="margin: 20px 0 0 0; font-size: 14px; max-width: 600px; margin-left: auto; margin-right: auto;">
-            Create your dream travel experience with our carefully curated packages, designed to make your journey truly unforgettable.
-          </p>
-        </div>
+        ${buildEmailHeader(_hdrBg7, '#fef3c7')}
         <div style="padding: 30px; background: #f7fee7;">
           <div style="background: white; padding: 20px; border-radius: 8px; margin-bottom: 25px; border: 1px solid #84cc16;">
             <h2 style="margin-top: 0; color: #365314; font-size: 24px;">Quote Details</h2>
@@ -3476,10 +3588,7 @@ const LeadDetails = () => {
       termsTitleSize: '22px',
       termsTextSize: '14px'
     })}
-        <div style="background: #365314; color: #fef3c7; padding: 25px; text-align: center; margin-top: 30px;">
-          <p style="margin: 5px 0;">📍 Delhi, India</p>
-          <p style="margin: 5px 0;">📞 +91-9871023004 | 🌐 www.travelops.com</p>
-        </div>
+        ${buildEmailFooter(_ftrBg7, '#fef3c7')}
       </div>
     `;
 
@@ -3523,20 +3632,14 @@ const LeadDetails = () => {
     const companyPhone = pdfCompanySettings?.company_phone || '+91-9871023004';
     const companyEmail = pdfCompanySettings?.company_email || 'info@travelops.com';
 
+    const pdfHdrBg = pdfCompanySettings?.email_header_color || '#1e40af';
     let html = `
     <div style="font-family:Arial,sans-serif;line-height:1.6;color:#333;margin:0;padding:0;">
       <!-- PDF Header: Logo + Company Name + Details -->
-      <div style="background:linear-gradient(135deg,#1e40af 0%,#2563eb 100%);color:#fff;padding:24px 30px;display:flex;align-items:center;gap:20px;flex-wrap:wrap;">
-        ${logoUrl ? `<img src="${logoUrl}" alt="${companyName}" style="height:56px;max-width:180px;object-fit:contain;" />` : `<div style="font-size:28px;font-weight:bold;">${companyName}</div>`}
-        <div style="flex:1;min-width:200px;">
-          <div style="font-size:22px;font-weight:bold;margin-bottom:6px;">${companyName}</div>
-          <div style="font-size:13px;opacity:0.95;">${companyAddress}</div>
-          <div style="font-size:13px;opacity:0.95;">📞 ${companyPhone} | ✉ ${companyEmail}</div>
-        </div>
-      </div>
+      ${buildEmailHeader(pdfHdrBg, '#ffffff')}
 
       <div style="padding:30px;max-width:800px;margin:0 auto;">
-        <h2 style="color:#1e40af;font-size:24px;margin-bottom:20px;">Travel Quotation - ${itinerary.itinerary_name || 'Itinerary'}</h2>
+        <h2 style="color:${pdfHdrBg};font-size:24px;margin-bottom:20px;">Travel Quotation - ${itinerary.itinerary_name || 'Itinerary'}</h2>
 
         <!-- Query Information (A to Z query details) -->
         <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:20px;margin-bottom:24px;">
@@ -3644,10 +3747,7 @@ const LeadDetails = () => {
       termsTextSize: '14px'
     })}
     ${allPolicies.thankYouMessage ? `<div style="background:#f8f9fa;padding:20px;border-radius:10px;margin-top:20px;border:2px solid #2563eb;"><div style="color:#555;line-height:1.8;font-size:14px;">${formatTextForHTML(allPolicies.thankYouMessage)}</div></div>` : ''}
-        <div style="background:#1e293b;color:#fff;padding:20px;text-align:center;margin-top:30px;border-radius:0 0 10px 10px;">
-          <p style="margin:0;">${companyName}</p>
-          <p style="margin:8px 0 0 0;font-size:14px;opacity:0.9;">${companyAddress} | 📞 ${companyPhone} | ✉ ${companyEmail}</p>
-        </div>
+        ${buildEmailFooter(pdfCompanySettings?.email_footer_color || '#1e293b', '#ffffff')}
       </div>
     </div>
     `;
@@ -3694,7 +3794,7 @@ const LeadDetails = () => {
     } else if (templateId === 'template-3') {
       return generate3DFloatingEmailTemplate(itinerary, allOptions, qData.hotelOptions, allPolicies);
     } else if (templateId === 'template-4') {
-      return generate3DLayeredEmailTemplate(itinerary, allOptions, qData.hotelOptions, allPolicies);
+      return generateEmailTemplate(itinerary, allOptions, qData.hotelOptions, allPolicies);
     } else if (templateId === 'template-5') {
       return generateAdventureEmailTemplate(itinerary, allOptions, qData.hotelOptions, allPolicies);
     } else if (templateId === 'template-6') {
@@ -3746,10 +3846,7 @@ const LeadDetails = () => {
 
     let htmlContent = `
       <div style="font-family:Arial,sans-serif;line-height:1.6;color:#333;margin:0;padding:0;">
-          <div style="${headerStyle}">
-            <h1 style="margin:0;font-size:32px;">TravelFusion CRM</h1>
-            <p style="margin:8px 0 0 0;">Delhi, India | Email: info@travelops.com | Mobile: +91-9871023004</p>
-          </div>
+          ${buildEmailHeader(styles.headerBg?.includes('gradient') ? styles.headerBg : (companySettings?.email_header_color || styles.headerBg || '#1e40af'), styles.headerColor || '#ffffff')}
           
           <div style="${contentStyle}">
             <h2 style="color:${styles.optionBorder};font-size:28px;">Travel Quotation</h2>
@@ -3828,10 +3925,7 @@ const LeadDetails = () => {
           </div>
           ` : ''}
           
-          <div style="${footerStyle}">
-            <p style="margin:0;">Thank you for choosing TravelFusion CRM!</p>
-            <p style="margin:8px 0 0 0;">For any queries, please contact us at info@travelops.com or +91-9871023004</p>
-          </div>
+          ${buildEmailFooter(companySettings?.email_footer_color || styles.footerBg || '#1f2937', styles.footerColor || '#ffffff')}
       </div>
     `;
 
