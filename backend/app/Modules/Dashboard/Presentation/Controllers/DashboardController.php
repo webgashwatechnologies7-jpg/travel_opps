@@ -36,6 +36,7 @@ class DashboardController extends Controller
                 // ─── ONE combined query for all lead status counts ───────────────────
                 $leadCounts = DB::table('leads')
                     ->where('company_id', $companyId)
+                    ->whereNull('deleted_at')
                     ->selectRaw("
                         COUNT(*) as total_queries,
                         SUM(CASE WHEN DATE(created_at) = ? THEN 1 ELSE 0 END) as today_queries,
@@ -49,7 +50,7 @@ class DashboardController extends Controller
                 \Illuminate\Support\Facades\Log::info('Dashboard Stats: leadCounts calculated');
 
                 // Confirmed with status log transition (keep as separate since it uses whereHas)
-                $proposalConfirmed = Lead::withTrashed()->where('company_id', $companyId)
+                $proposalConfirmed = Lead::where('company_id', $companyId)
                     ->where('status', 'confirmed')
                     ->whereHas('statusLogs', function ($query) {
                         $query->where('old_status', 'proposal')->where('new_status', 'confirmed');
@@ -68,6 +69,7 @@ class DashboardController extends Controller
                 $rawRevenue = DB::table('lead_payments')
                     ->join('leads', 'leads.id', '=', 'lead_payments.lead_id')
                     ->where('leads.company_id', $companyId)
+                    ->whereNull('leads.deleted_at')
                     ->whereYear('lead_payments.created_at', now()->subYear()->year <= $currentYear ? $currentYear : $currentYear)
                     ->selectRaw('MONTH(lead_payments.created_at) as m, SUM(paid_amount) as amount')
                     ->groupBy('m')
@@ -86,6 +88,7 @@ class DashboardController extends Controller
                 // ─── This year queries confirmed: ONE query instead of 24 queries ────
                 $rawYearData = DB::table('leads')
                     ->where('company_id', $companyId)
+                    ->whereNull('deleted_at')
                     ->whereYear('created_at', $currentYear)
                     ->selectRaw("
                         MONTH(created_at) as m,
@@ -109,7 +112,8 @@ class DashboardController extends Controller
                 \Illuminate\Support\Facades\Log::info('Dashboard Stats: thisYearQueriesConfirmed calculated');
 
                 // Upcoming tours (confirmed leads with earliest payment due_date)
-                $upcomingTours = Lead::withTrashed()->where('status', 'confirmed')
+                $upcomingTours = Lead::where('status', 'confirmed')
+                    ->where('company_id', $companyId)
                     ->with([
                         'payments' => function ($query) {
                             $query->orderBy('due_date', 'asc');
@@ -243,7 +247,7 @@ class DashboardController extends Controller
                 \Illuminate\Support\Facades\Log::info('Dashboard Stats: teamLeaderStats calculated');
 
                 // Top lead sources
-                $topLeadSources = Lead::withTrashed()->where('company_id', $companyId)
+                $topLeadSources = Lead::where('company_id', $companyId)
                     ->select('source', DB::raw('COUNT(*) as total'))
                     ->selectRaw("SUM(CASE WHEN status = 'confirmed' THEN 1 ELSE 0 END) as confirmed")
                     ->groupBy('source')
@@ -261,7 +265,7 @@ class DashboardController extends Controller
                 \Illuminate\Support\Facades\Log::info('Dashboard Stats: topLeadSources calculated');
 
                 // Top destinations
-                $topDestinations = Lead::withTrashed()->where('company_id', $companyId)
+                $topDestinations = Lead::where('company_id', $companyId)
                     ->whereNotNull('destination')
                     ->select('destination', DB::raw('COUNT(*) as total'))
                     ->groupBy('destination')
@@ -299,7 +303,7 @@ class DashboardController extends Controller
             };
 
             // Cache for 5 minutes per user — safe for multi-tenant
-            $cacheKey = 'dashboard_stats_v6_' . $currentUser->id;
+            $cacheKey = 'dashboard_stats_v7_' . $currentUser->id;
             try {
                 $stats = Cache::remember($cacheKey, 60, $calculateStats);
             } catch (\Exception $e) {
@@ -754,7 +758,7 @@ class DashboardController extends Controller
     {
         try {
             // Group leads by destination where destination is not null
-            $topDestinations = Lead::withTrashed()->whereNotNull('destination')
+            $topDestinations = Lead::whereNotNull('destination')
                 ->select('destination', DB::raw('COUNT(*) as total'))
                 ->groupBy('destination')
                 ->orderBy('total', 'desc')

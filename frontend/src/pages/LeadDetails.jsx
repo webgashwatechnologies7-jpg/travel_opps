@@ -1144,46 +1144,105 @@ const LeadDetails = () => {
       ? `\n\nPayment Summary:\nTotal: ₹${paySummary.total_amount.toLocaleString('en-IN')}\nPaid: ₹${paySummary.total_paid.toLocaleString('en-IN')}\nDue: ₹${paySummary.total_due.toLocaleString('en-IN')}`
       : '';
 
-    // WhatsApp message (confirmed option + payment)
-    let whatsappMsg = `*✓ CONFIRMED TRAVEL ITINERARY*\n\n`;
-    whatsappMsg += `*${itinerary.itinerary_name || 'Itinerary'}*\n`;
-    whatsappMsg += `Query ID: ${formatLeadId(lead.id)}\n`;
-    whatsappMsg += `Destination: ${itinerary.destinations || 'N/A'}\n`;
-    whatsappMsg += `Duration: ${itinerary.duration || 0} Days\n\n`;
-    whatsappMsg += `*Confirmed Option ${confirmedOptionNum}*\n`;
-    hotels.forEach(h => {
-      whatsappMsg += `• Day ${h.day}: ${h.hotelName || 'Hotel'} (${h.category || 'N/A'} Star)\n`;
-      whatsappMsg += `  Room: ${h.roomName || 'N/A'} | Meal: ${h.mealPlan || 'N/A'}\n`;
-    });
-    whatsappMsg += `\n*Total Package: ₹${totalPrice.toLocaleString('en-IN')}*`;
-    whatsappMsg += paymentText;
-    whatsappMsg += `\n\nThis is your confirmed itinerary. Best regards,\nTravelFusion CRM Team`;
+    // 1. Professional HTML Email Body for Confirmation
+    const confirmationHtml = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <style>
+          .container { font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; }
+          .header { background: linear-gradient(135deg, #2563eb, #3b82f6); color: white; padding: 40px 20px; text-align: center; }
+          .content { padding: 30px; color: #1e293b; line-height: 1.6; }
+          .booking-box { background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; margin: 20px 0; }
+          .hotel-item { padding: 8px 0; border-bottom: 1px solid #f1f5f9; }
+          .footer { background-color: #f1f5f9; padding: 20px; text-align: center; font-size: 12px; color: #64748b; }
+          .price-tag { font-size: 24px; color: #2563eb; font-weight: bold; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1 style="margin:0; font-size: 28px;">Booking Confirmed!</h1>
+            <p style="margin:10px 0 0 0; opacity: 0.9;">Thank you for choosing TravelFusion</p>
+          </div>
+          <div class="content">
+            <p>Dear <strong>${lead.client_name || 'Guest'}</strong>,</p>
+            <p>We are delighted to confirm your travel booking for <strong>${itinerary.itinerary_name || 'your trip'}</strong>. We are committed to making your journey memorable.</p>
+            
+            <div class="booking-box">
+              <h3 style="margin-top:0; color:#2563eb;">Trip Summary</h3>
+              <p><strong>Query ID:</strong> #${formatLeadId(lead.id)}</p>
+              <p><strong>Destinations:</strong> ${itinerary.destinations}</p>
+              <p><strong>Duration:</strong> ${itinerary.duration} Days</p>
+              <p><strong>Option Selected:</strong> Option ${confirmedOptionNum}</p>
+              <p class="price-tag">Total: ₹${totalPrice.toLocaleString('en-IN')}</p>
+            </div>
 
-    // Email body (plain text for API)
-    let emailBody = `CONFIRMED TRAVEL ITINERARY\n\n`;
-    emailBody += `${itinerary.itinerary_name || 'Itinerary'}\n`;
-    emailBody += `Query ID: ${formatLeadId(lead.id)}\n`;
-    emailBody += `Destination: ${itinerary.destinations || 'N/A'}\n`;
-    emailBody += `Duration: ${itinerary.duration || 0} Days\n\n`;
-    emailBody += `Confirmed Option ${confirmedOptionNum}\n`;
-    hotels.forEach(h => {
-      emailBody += `• Day ${h.day}: ${h.hotelName || 'Hotel'} (${h.category || 'N/A'} Star)\n`;
-      emailBody += `  Room: ${h.roomName || 'N/A'} | Meal: ${h.mealPlan || 'N/A'}\n`;
-    });
-    emailBody += `\nTotal Package: ₹${totalPrice.toLocaleString('en-IN')}`;
-    emailBody += paymentText.replace(/\n\n/g, '\n');
-    emailBody += `\n\nThis is your confirmed itinerary. Best regards, TravelFusion CRM Team`;
+            <h3 style="color:#2563eb;">Planned Hotels</h3>
+            ${hotels.map(h => `
+              <div class="hotel-item">
+                <strong>Day ${h.day}:</strong> ${h.hotelName} (${h.category} Star)<br/>
+                <small style="color:#64748b;">${h.roomName} | ${h.mealPlan}</small>
+              </div>
+            `).join('')}
 
-    const subject = `Confirmed Travel Itinerary - ${itinerary.itinerary_name || 'Itinerary'} - ${formatLeadId(lead.id)}`;
+            ${paySummary.total_amount > 0 ? `
+              <div class="booking-box" style="border-left: 4px solid #10b981;">
+                <h3 style="margin-top:0; color:#059669;">Payment Status</h3>
+                <p>Total: ₹${paySummary.total_amount.toLocaleString('en-IN')}</p>
+                <p>Paid: ₹${paySummary.total_paid.toLocaleString('en-IN')}</p>
+                <p style="font-weight:bold; color:#ef4444;">Due Balance: ₹${paySummary.total_due.toLocaleString('en-IN')}</p>
+              </div>
+            ` : ''}
+
+            <p style="margin-top:30px;">Our team is now finalizing all your arrangements. You will receive further updates soon.</p>
+          </div>
+          <div class="footer">
+            <p>&copy; ${new Date().getFullYear()} TravelFusion CRM. All rights reserved.</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+
+    // 2. WhatsApp message (Enhanced formatting)
+    let whatsappMsg = `*✅ BOOKING CONFIRMED!*\n\n`;
+    whatsappMsg += `Dear *${lead.client_name || 'Guest'}*,\nThank you for booking with us! Your trip to *${itinerary.destinations}* is now confirmed.\n\n`;
+    whatsappMsg += `*TRIP DETAILS:*\n`;
+    whatsappMsg += `• ID: #${formatLeadId(lead.id)}\n`;
+    whatsappMsg += `• Package: ${itinerary.itinerary_name}\n`;
+    whatsappMsg += `• Duration: ${itinerary.duration} Days\n\n`;
+    
+    whatsappMsg += `*HOTELS:*\n`;
+    hotels.forEach(h => {
+      whatsappMsg += `• Day ${h.day}: ${h.hotelName} (${h.category}★)\n`;
+    });
+    
+    whatsappMsg += `\n*TOTAL PACKAGE PRICE: ₹${totalPrice.toLocaleString('en-IN')}*`;
+    
+    if (paySummary.total_amount > 0) {
+      whatsappMsg += `\n\n*PAYMENT STATUS:*`;
+      whatsappMsg += `\n• Paid: ₹${paySummary.total_paid.toLocaleString('en-IN')}`;
+      whatsappMsg += `\n• Balance: *₹${paySummary.total_due.toLocaleString('en-IN')}*`;
+    }
+    
+    whatsappMsg += `\n\nWe look forward to hosting you! 🙏\n_Best regards, TravelFusion Team_`;
+
+    const subject = `Booking Confirmed! - ${itinerary.itinerary_name || 'Itinerary'} - #${formatLeadId(lead.id)}`;
     const toEmail = lead.email;
 
     try {
       if (toEmail) {
-        await leadsAPI.sendEmail(id, { to_email: toEmail, subject, body: emailBody });
+        await leadsAPI.sendEmail(id, { to_email: toEmail, subject, body: confirmationHtml });
         fetchLeadEmails();
       }
       if (lead.phone) {
-        await whatsappAPI.send(id, whatsappMsg);
+        const phoneStr = lead.phone.replace(/\D/g, '');
+        const chatId = phoneStr.length <= 10 ? `91${phoneStr}@s.whatsapp.net` : `${phoneStr}@s.whatsapp.net`;
+        await whatsappWebAPI.sendMessage({
+          chat_id: chatId,
+          message: whatsappMsg
+        });
         fetchWhatsAppMessages();
       }
       if (toEmail || lead.phone) {
