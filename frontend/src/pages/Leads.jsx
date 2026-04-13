@@ -76,10 +76,11 @@ const Leads = () => {
   const [pagination, setPagination] = useState({
     current_page: 1,
     last_page: 1,
-    per_page: 8,
+    per_page: localStorage.getItem('leads_per_page') ? parseInt(localStorage.getItem('leads_per_page')) : 8,
     total: 0,
   });
   const [currentPage, setCurrentPage] = useState(1);
+  const [perPage, setPerPage] = useState(localStorage.getItem('leads_per_page') ? parseInt(localStorage.getItem('leads_per_page')) : 8);
   const [viewType, setViewType] = useState(() => localStorage.getItem('leads_view_type') || 'grid');
 
   const [selectedLeadIds, setSelectedLeadIds] = useState([]);
@@ -332,7 +333,7 @@ const Leads = () => {
       else if (activeFilter === 'today') activeFilterParams = { today: 1 };
 
       const params = { 
-        per_page: 8, 
+        per_page: perPage, 
         page,
         destination: destinationFilter,
         assigned_to: assignedToFilter,
@@ -370,7 +371,15 @@ const Leads = () => {
     } finally {
       setLoading(false);
     }
-  }, [destinationFilter, assignedToFilter, advancedFilters, activeFilter, currentUser]);
+  }, [destinationFilter, assignedToFilter, advancedFilters, activeFilter, currentUser, perPage]);
+
+  const handlePerPageChange = (e) => {
+    const newPerPage = parseInt(e.target.value);
+    setPerPage(newPerPage);
+    localStorage.setItem('leads_per_page', newPerPage);
+    // Directly pass the new value to fetchLeads because state update is async
+    fetchLeads({ per_page: newPerPage }, 1); 
+  };
 
   const fetchLeadSources = useCallback(async () => {
     try {
@@ -1531,51 +1540,70 @@ const Leads = () => {
               )}
 
               {/* Pagination Controls */}
-              {pagination.last_page > 1 && (
-                <div className="flex items-center justify-between mt-6 bg-white rounded-lg shadow px-4 py-3">
-                  <p className="text-sm text-gray-600">
-                    Showing <span className="font-semibold">{((currentPage - 1) * pagination.per_page) + 1}</span>–<span className="font-semibold">{Math.min(currentPage * pagination.per_page, pagination.total)}</span> of <span className="font-semibold">{pagination.total}</span> leads
-                  </p>
-                  <div className="flex items-center gap-1">
-                    <button
-                      onClick={() => { fetchLeads({}, currentPage - 1); }}
-                      disabled={currentPage === 1}
-                      className="px-3 py-1.5 text-sm border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
-                    >
-                      ← Prev
-                    </button>
-                    {Array.from({ length: Math.min(5, pagination.last_page) }, (_, i) => {
-                      let page;
-                      if (pagination.last_page <= 5) {
-                        page = i + 1;
-                      } else if (currentPage <= 3) {
-                        page = i + 1;
-                      } else if (currentPage >= pagination.last_page - 2) {
-                        page = pagination.last_page - 4 + i;
-                      } else {
-                        page = currentPage - 2 + i;
-                      }
-                      return (
-                        <button
-                          key={page}
-                          onClick={() => fetchLeads({}, page)}
-                          className={`px-3 py-1.5 text-sm border rounded-md ${page === currentPage
-                            ? 'bg-blue-600 text-white border-blue-600'
-                            : 'border-gray-300 hover:bg-gray-50'
-                            }`}
-                        >
-                          {page}
-                        </button>
-                      );
-                    })}
-                    <button
-                      onClick={() => { fetchLeads({}, currentPage + 1); }}
-                      disabled={currentPage === pagination.last_page}
-                      className="px-3 py-1.5 text-sm border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
-                    >
-                      Next →
-                    </button>
+              {pagination.total > 0 && (
+                <div className="flex flex-col md:flex-row items-center justify-between mt-6 bg-white rounded-lg shadow px-4 py-3 gap-4">
+                  <div className="flex items-center gap-6">
+                    <p className="text-sm text-gray-600">
+                      Showing <span className="font-semibold">{((currentPage - 1) * perPage) + 1}</span>–<span className="font-semibold">{Math.min(currentPage * perPage, pagination.total)}</span> of <span className="font-semibold">{pagination.total}</span> leads
+                    </p>
+                    
+                    <div className="flex items-center gap-2 border-l border-gray-200 pl-6">
+                      <label htmlFor="perPageSelect" className="text-xs font-bold text-gray-400 uppercase tracking-wider">Queries per page:</label>
+                      <select
+                        id="perPageSelect"
+                        value={perPage}
+                        onChange={handlePerPageChange}
+                        className="text-sm border border-gray-200 rounded-md px-2 py-1 bg-gray-50 font-bold text-gray-700 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all cursor-pointer"
+                      >
+                        {[8, 10, 20, 30, 40, 50].map(val => (
+                          <option key={val} value={val}>{val}</option>
+                        ))}
+                      </select>
+                    </div>
                   </div>
+
+                  {pagination.last_page > 1 && (
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => { fetchLeads({}, currentPage - 1); }}
+                        disabled={currentPage === 1}
+                        className="px-3 py-1.5 text-sm border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed font-medium transition-colors"
+                      >
+                        ← Prev
+                      </button>
+                      {Array.from({ length: Math.min(5, pagination.last_page) }, (_, i) => {
+                        let page;
+                        if (pagination.last_page <= 5) {
+                          page = i + 1;
+                        } else if (currentPage <= 3) {
+                          page = i + 1;
+                        } else if (currentPage >= pagination.last_page - 2) {
+                          page = pagination.last_page - 4 + i;
+                        } else {
+                          page = currentPage - 2 + i;
+                        }
+                        return (
+                          <button
+                            key={page}
+                            onClick={() => fetchLeads({}, page)}
+                            className={`px-3 py-1.5 text-sm border rounded-md font-medium transition-all ${page === currentPage
+                              ? 'bg-blue-600 text-white border-blue-600 shadow-md shadow-blue-500/20'
+                              : 'border-gray-300 hover:bg-gray-50 text-gray-600'
+                              }`}
+                          >
+                            {page}
+                          </button>
+                        );
+                      })}
+                      <button
+                        onClick={() => { fetchLeads({}, currentPage + 1); }}
+                        disabled={currentPage === pagination.last_page}
+                        className="px-3 py-1.5 text-sm border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed font-medium transition-colors"
+                      >
+                        Next →
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
             </>
