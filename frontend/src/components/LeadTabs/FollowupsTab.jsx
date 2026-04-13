@@ -22,7 +22,7 @@ const FollowupsTab = memo(({
             type: 'Task',
             description: '',
             reminder_date: `${dd}-${mm}-${yyyy}`,
-            reminder_time: '1:00 PM',
+            reminder_time: '13:00',
             set_reminder: 'Yes',
         });
         setShowFollowupModal(true);
@@ -38,7 +38,7 @@ const FollowupsTab = memo(({
                     className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
                 >
                     <Plus className="h-4 w-4" />
-                    + Add Task
+                    Add Task
                 </button>
             </div>
 
@@ -159,7 +159,7 @@ const FollowupsTab = memo(({
                                                                 reminder_date: ddmmyyyy,
                                                                 reminder_time: followup.reminder_time
                                                                     ? convertTo12Hour(followup.reminder_time)
-                                                                    : '1:00 PM',
+                                                                    : '13:00',
                                                                 set_reminder: 'Yes',
                                                             });
                                                             setShowFollowupModal(true);

@@ -31,7 +31,18 @@ const LeadDetails = () => {
   const [users, setUsers] = useState([]);
   const [leadSources, setLeadSources] = useState([]);
   const [notes, setNotes] = useState([]);
-  const [noteText, setNoteText] = useState('');
+   const [noteText, setNoteText] = useState('');
+   const [noteReason, setNoteReason] = useState('');
+   const noteReasons = [
+     "Booked with someone else",
+     "Not interested",
+     "Price is high",
+     "Not answering call from 1 week",
+     "Plan cancelled",
+     "Wrong number",
+     "Denied to post lead",
+     "Other"
+   ];
   const [showNoteInput, setShowNoteInput] = useState(false);
   const [addingNote, setAddingNote] = useState(false);
   const [editingNoteId, setEditingNoteId] = useState(null);
@@ -2138,15 +2149,17 @@ const emailTemplate = `
   };
 
   const handleAddNote = async () => {
-    if (!noteText.trim()) {
-      showToastNotification('warning', 'Empty Note', 'Please enter a note');
+    const finalNote = noteReason === 'Other' ? noteText.trim() : noteReason;
+    
+    if (!finalNote) {
+      showToastNotification('warning', 'Empty Note', 'Please select a reason or enter a note');
       return;
     }
 
     setAddingNote(true);
     try {
       const payload = {
-        remark: noteText.trim(),
+        remark: finalNote,
         reminder_date: null,
         reminder_time: null,
       };
@@ -2155,7 +2168,6 @@ const emailTemplate = `
         await followupsAPI.update(editingNoteId, payload);
         showToastNotification('success', 'Note Updated', 'Note has been updated successfully');
       } else {
-        // Create note-only (no reminder) so it appears in Notes section, not Followups
         await followupsAPI.create({
           lead_id: parseInt(id),
           ...payload,
@@ -2163,9 +2175,9 @@ const emailTemplate = `
         showToastNotification('success', 'Note Added', 'Note has been added successfully');
       }
 
-      // Refresh lead details to get updated notes
       await fetchLeadDetails();
       setNoteText('');
+      setNoteReason('');
       setShowNoteInput(false);
       setEditingNoteId(null);
     } catch (err) {
@@ -2189,9 +2201,19 @@ const emailTemplate = `
   };
 
   // Helper function to convert 12-hour time to 24-hour format
-  const convertTo24Hour = (time12h) => {
-    if (!time12h || time12h.trim() === '') return null;
-    const parts = time12h.trim().split(' ');
+  const convertTo24Hour = (timeStr) => {
+    if (!timeStr || timeStr.trim() === '') return null;
+    
+    // If already in 24h format (no AM/PM)
+    if (!timeStr.toUpperCase().includes('AM') && !timeStr.toUpperCase().includes('PM')) {
+      const parts = timeStr.split(':');
+      if (parts.length >= 2) {
+        return `${parts[0].padStart(2, '0')}:${parts[1].padStart(2, '0')}:00`;
+      }
+      return null;
+    }
+
+    const parts = timeStr.trim().split(' ');
     if (parts.length < 2) return null;
     const [time, modifier] = parts;
     const [hours, minutes] = time.split(':');
@@ -2212,11 +2234,7 @@ const emailTemplate = `
   // Helper function to convert 24-hour time to 12-hour format
   const convertTo12Hour = (time24h) => {
     if (!time24h) return '';
-    const [hours, minutes] = time24h.split(':');
-    const hour = parseInt(hours, 10);
-    const ampm = hour >= 12 ? 'PM' : 'AM';
-    const hour12 = hour % 12 || 12;
-    return `${hour12}:${minutes} ${ampm}`;
+    return time24h.substring(0, 5); // Return HH:mm as is
   };
 
   // Helper function to convert date from DD-MM-YYYY to YYYY-MM-DD
@@ -2242,13 +2260,10 @@ const emailTemplate = `
   // Generate time slots for dropdown
   const generateTimeSlots = () => {
     const slots = [];
-    for (let hour = 1; hour <= 12; hour++) {
-      slots.push(`${hour}:00 AM`);
-      slots.push(`${hour}:30 AM`);
-    }
-    for (let hour = 1; hour <= 12; hour++) {
-      slots.push(`${hour}:00 PM`);
-      slots.push(`${hour}:30 PM`);
+    for (let hour = 1; hour <= 24; hour++) {
+      const h = String(hour === 24 ? 0 : hour).padStart(2, '0');
+      slots.push(`${h}:00`);
+      slots.push(`${h}:30`);
     }
     return slots;
   };
@@ -5051,20 +5066,34 @@ const emailTemplate = `
 
                       {/* NOTE INPUT */}
                       {showNoteInput && (
-                        <div className="w-full mt-4">
-                          <textarea
-                            value={noteText}
-                            onChange={(e) => setNoteText(e.target.value)}
-                            placeholder="Type Note Here..."
-                            rows={3}
-                            className="w-full border border-gray-300 rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-inner"
-                          />
+                        <div className="w-full mt-4 space-y-3">
+                          <select
+                            value={noteReason}
+                            onChange={(e) => setNoteReason(e.target.value)}
+                            className="w-full border border-gray-300 rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                          >
+                            <option value="">Select Reason</option>
+                            {noteReasons.map((reason) => (
+                              <option key={reason} value={reason}>{reason}</option>
+                            ))}
+                          </select>
+
+                          {noteReason === 'Other' && (
+                            <textarea
+                              value={noteText}
+                              onChange={(e) => setNoteText(e.target.value)}
+                              placeholder="Type Note Here..."
+                              rows={3}
+                              className="w-full border border-gray-300 rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-inner"
+                            />
+                          )}
 
                           <div className="flex justify-end gap-3 mt-2">
                             <button
                               onClick={() => {
                                 setShowNoteInput(false);
                                 setNoteText('');
+                                setNoteReason('');
                                 setEditingNoteId(null);
                               }}
                               className="text-gray-500 hover:text-gray-700 text-sm font-medium"
@@ -5074,7 +5103,7 @@ const emailTemplate = `
 
                             <button
                               onClick={handleAddNote}
-                              disabled={addingNote}
+                              disabled={addingNote || !noteReason || (noteReason === 'Other' && !noteText.trim())}
                               className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-1.5 rounded-full text-sm font-medium disabled:opacity-50 shadow-sm transition-all"
                             >
                               {addingNote ? 'Saving...' : (editingNoteId ? 'Update Note' : 'Add Note')}

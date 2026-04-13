@@ -7,7 +7,7 @@ import { Calendar, ChevronDown } from 'lucide-react';
  */
 const TaskFollowups = ({ followups = [], onViewMore, onFollowupClick }) => {
   return (
-    <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 w-full h-[320px] flex flex-col relative overflow-hidden group" style={{ fontFamily: "'Poppins', sans-serif" }}>
+    <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 w-full h-[320px] flex flex-col relative overflow-hidden group" style={{ fontFamily: "'Inter', sans-serif" }}>
       <div className="flex items-center justify-between mb-4 flex-shrink-0 relative z-10 border-b border-gray-50 pb-3">
         <div>
           <h2 className="text-lg font-semibold text-gray-800 tracking-tight">
@@ -43,10 +43,10 @@ const TaskFollowups = ({ followups = [], onViewMore, onFollowupClick }) => {
                 <div className={`w-[2.5px] h-8 rounded-full flex-shrink-0 ${item.color || 'bg-[#2C55D4]'} group-hover:scale-y-110 transition-all`} />
 
                 <div className="min-w-0 flex-1">
-                  <p className="text-[9px] font-bold text-slate-300 uppercase tracking-widest mb-1 tabular-nums">
+                  <p className="text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-1.5 tabular-nums">
                     {item.date}
                   </p>
-                  <p className="text-slate-700 text-[11.5px] font-semibold truncate tracking-tight group-hover:text-[#2C55D4] uppercase leading-tight">
+                  <p className="text-slate-800 text-[13px] font-semibold truncate tracking-tight group-hover:text-[#2C55D4] uppercase leading-tight">
                     {item.title}
                   </p>
                 </div>

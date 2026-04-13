@@ -58,13 +58,12 @@ const DashboardStatsCards = ({ stats = {} }) => {
             </div>
 
             {/* Slimmer High-Gloss Footer */}
-            <div className="bg-white/60 border-t border-white/80 px-4 py-1.5 flex items-center justify-between">
-              <span className="text-[9px] font-black text-blue-600 uppercase tracking-[0.15em] opacity-80 group-hover:opacity-100">
+            <div className="bg-white/60 border-t border-white/80 px-4 py-2 flex items-center justify-between">
+              <span className="text-[10px] font-bold text-blue-600 uppercase tracking-[0.1em] opacity-80 group-hover:opacity-100">
                 VIEW ALL
               </span>
-              <div className="flex items-center gap-0.5 opacity-30">
-                 <div className="w-1 h-1 rounded-full bg-slate-900"></div>
-                 <div className="w-1 h-1 rounded-full bg-slate-900"></div>
+              <div className="flex items-center gap-1 opacity-20">
+                 <ChevronRight size={10} strokeWidth={3} className="text-blue-600" />
               </div>
             </div>
           </Link>

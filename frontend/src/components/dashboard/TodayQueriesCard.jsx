@@ -7,7 +7,7 @@ import { Search, Clock, ChevronDown } from 'lucide-react';
  */
 const TodayQueriesCard = ({ queries = [], loading, onViewAll, onQueryClick }) => {
   return (
-    <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 w-full h-[320px] flex flex-col relative overflow-hidden group" style={{ fontFamily: "'Poppins', sans-serif" }}>
+    <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 w-full h-[320px] flex flex-col relative overflow-hidden group" style={{ fontFamily: "'Inter', sans-serif" }}>
       {/* Visual Decoration Shape - Matched to Reference 24 */}
       <div className="absolute top-1/2 -right-8 w-64 h-64 bg-blue-50/20 rounded-full z-0 -translate-y-1/2 transition-transform duration-700 group-hover:scale-105"></div>
       <div className="absolute -bottom-8 right-1/4 w-32 h-32 bg-blue-100/10 rounded-full z-0"></div>
@@ -52,16 +52,16 @@ const TodayQueriesCard = ({ queries = [], loading, onViewAll, onQueryClick }) =>
                 <div className="min-w-0 flex items-center gap-3">
                   <div className="w-1.5 h-1.5 rounded-full bg-[#2C55D4] flex-shrink-0" />
                   <div>
-                    <h4 className="text-[11px] font-bold text-slate-700 uppercase tracking-tight truncate leading-tight group-hover:text-[#2C55D4]">
+                    <h4 className="text-[13px] font-bold text-slate-800 uppercase tracking-tight truncate leading-tight group-hover:text-[#2C55D4]">
                       {item.title}
                     </h4>
-                    <p className="text-[9px] font-semibold text-slate-400 uppercase tracking-widest mt-0.5 truncate max-w-[150px]">
+                    <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide mt-1 truncate max-w-[150px]">
                       {item.name}
                     </p>
                   </div>
                 </div>
                 <div className="text-right flex-shrink-0">
-                  <p className="text-[9px] font-bold text-slate-300 tabular-nums uppercase">{item.date}</p>
+                  <p className="text-[11px] font-bold text-slate-500 tabular-nums uppercase">{item.date}</p>
                 </div>
               </div>
             </div>

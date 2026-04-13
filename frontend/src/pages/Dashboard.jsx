@@ -168,7 +168,7 @@ const Dashboard = () => {
   if (loading && !stats) return <div className="flex items-center justify-center h-[80vh]"><LogoLoader text="Initializing CRM..." /></div>;
 
   return (
-    <div className="w-full relative px-6 py-4" style={{ fontFamily: "'Poppins', sans-serif" }}>
+    <div className="w-full relative px-6 py-4" style={{ fontFamily: "'Inter', sans-serif" }}>
       {error && (
         <div className="mb-6">
           <div className="bg-red-50 border border-red-200 text-red-700 px-6 py-4 rounded-2xl shadow-sm flex items-center gap-3">
@@ -203,10 +203,10 @@ const Dashboard = () => {
                   <item.icon size={20} style={{ color: item.color }} strokeWidth={2.5} className={item.live ? "animate-pulse" : ""} />
                 </div>
                 <div className="min-w-0">
-                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-[0.1em] leading-none mb-1.5 truncate">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.12em] leading-none mb-2 truncate">
                     {item.label}
                   </p>
-                  <h3 className={`text-[20px] font-bold ${item.live ? "text-emerald-500" : "text-slate-800"} uppercase tabular-nums leading-none tracking-tight`}>
+                  <h3 className={`text-[22px] font-bold ${item.live ? "text-emerald-500" : "text-slate-900"} tabular-nums leading-none tracking-tight`}>
                     {item.val}
                   </h3>
                 </div>

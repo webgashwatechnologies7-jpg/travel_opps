@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { followupsAPI } from '../services/api';
 import { toast } from 'react-toastify';
 import LogoLoader from '../components/LogoLoader';
@@ -6,6 +7,7 @@ import LogoLoader from '../components/LogoLoader';
 // Layout removed - handled by nested routing
 
 const Followups = () => {
+  const navigate = useNavigate();
   const [todayFollowups, setTodayFollowups] = useState([]);
   const [overdueFollowups, setOverdueFollowups] = useState([]);
   const [activeTab, setActiveTab] = useState('today');
@@ -87,7 +89,17 @@ const Followups = () => {
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
             {followups.map((followup) => (
-              <tr key={followup.id}>
+              <tr 
+                key={followup.id} 
+                className="hover:bg-gray-50 cursor-pointer transition-colors"
+                onClick={(e) => {
+                  // Don't navigate if clicking on an action button
+                  if (e.target.tagName.toLowerCase() === 'button') return;
+                  if (followup.lead_id || followup.lead?.id) {
+                    navigate(`/leads/${followup.lead_id || followup.lead.id}?tab=followups`);
+                  }
+                }}
+              >
                 <td className="px-6 py-4">
                   <div className="text-sm font-medium text-gray-900">
                     {followup.lead?.client_name || 'N/A'}
@@ -100,8 +112,11 @@ const Followups = () => {
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <button
-                    onClick={() => handleComplete(followup.id)}
-                    className="text-green-600 hover:text-green-900"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleComplete(followup.id);
+                    }}
+                    className="text-green-600 hover:text-green-900 font-medium"
                   >
                     Mark Complete
                   </button>
