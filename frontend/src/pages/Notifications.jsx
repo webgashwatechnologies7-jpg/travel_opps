@@ -64,7 +64,6 @@ export default function Notifications() {
 
     const handleDelete = async (id, event) => {
         if (event) event.stopPropagation();
-        if (!isAdmin) return;
 
         try {
             const res = await notificationsAPI.delete(id);
@@ -103,15 +102,33 @@ export default function Notifications() {
         <div className="p-6">
             <div className="flex items-center justify-between mb-4">
                 <h1 className="text-3xl font-bold text-gray-800">Notifications</h1>
-                {notifications.length > 0 && notifications.some(n => !n.is_read) && (
-                    <button
-                        onClick={handleMarkAllRead}
-                        className="flex items-center gap-2 bg-white text-blue-600 hover:bg-blue-50 px-4 py-2 rounded-xl text-sm font-semibold transition-all border border-blue-200 shadow-sm hover:shadow"
-                    >
-                        <Check size={18} />
-                        Mark all as read
-                    </button>
-                )}
+                <div className="flex items-center gap-2">
+                    {notifications.length > 0 && notifications.some(n => n.is_read) && (
+                        <button
+                            onClick={async () => {
+                                if (window.confirm("Delete all read notifications?")) {
+                                    const readIds = notifications.filter(n => n.is_read).map(n => n.id);
+                                    for (const id of readIds) { await notificationsAPI.delete(id); }
+                                    setNotifications(prev => prev.filter(n => !n.is_read));
+                                    toast.success("Read notifications cleared");
+                                }
+                            }}
+                            className="flex items-center gap-2 bg-red-50 text-red-600 hover:bg-red-100 px-4 py-2 rounded-xl text-sm font-semibold transition-all border border-red-100"
+                        >
+                            <Trash2 size={18} />
+                            Delete All Read
+                        </button>
+                    )}
+                    {notifications.length > 0 && notifications.some(n => !n.is_read) && (
+                        <button
+                            onClick={handleMarkAllRead}
+                            className="flex items-center gap-2 bg-white text-blue-600 hover:bg-blue-50 px-4 py-2 rounded-xl text-sm font-semibold transition-all border border-blue-200 shadow-sm hover:shadow"
+                        >
+                            <Check size={18} />
+                            Mark all as read
+                        </button>
+                    )}
+                </div>
             </div>
             <div className="w-full">
                 {/* Content Section */}
@@ -190,15 +207,13 @@ export default function Notifications() {
                                                         </button>
                                                     )}
 
-                                                    {isAdmin && (
-                                                        <button
-                                                            onClick={(e) => handleDelete(n.id, e)}
-                                                            className="p-2 text-gray-400 hover:bg-red-50 hover:text-red-600 rounded-lg transition-colors border border-transparent hover:border-red-200 ml-1"
-                                                            title="Delete Notification"
-                                                        >
-                                                            <Trash2 className="h-4 w-4" />
-                                                        </button>
-                                                    )}
+                                                    <button
+                                                        onClick={(e) => handleDelete(n.id, e)}
+                                                        className="p-2 text-gray-400 hover:bg-red-50 hover:text-red-600 rounded-lg transition-colors border border-transparent hover:border-red-200 ml-1"
+                                                        title="Delete Notification"
+                                                    >
+                                                        <Trash2 className="h-4 w-4" />
+                                                    </button>
                                                 </div>
                                             </div>
                                         ))}
