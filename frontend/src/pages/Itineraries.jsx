@@ -596,10 +596,10 @@ const Itineraries = () => {
                         <CalendarDays className="w-3 h-3" />
                         {itinerary.duration ? `${itinerary.duration} Days` : "N/A"}
                       </span>
-                      {itinerary.destination && (
-                        <span className="flex items-center gap-1 truncate max-w-[120px]">
+                      {itinerary.routing && (
+                        <span className="flex items-center gap-1 truncate max-w-[150px]">
                           <MapPin className="w-3 h-3" />
-                          {itinerary.destination}
+                          {itinerary.routing}
                         </span>
                       )}
                     </div>
@@ -688,16 +688,6 @@ const Itineraries = () => {
                   </div>
                 </div>
 
-                <div className="space-y-1.5">
-                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider">Destinations</label>
-                  <input
-                    type="text"
-                    className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all font-medium text-gray-800"
-                    value={formData.destinations}
-                    onChange={(e) => setFormData({ ...formData, destinations: e.target.value })}
-                    placeholder="e.g. Delhi - Shimla - Manali"
-                  />
-                </div>
 
                 <div className="space-y-1.5">
                   <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider">Routing</label>
@@ -967,14 +957,6 @@ const Itineraries = () => {
                 </div>
 
                 <div className="space-y-6">
-                   <div className="space-y-2">
-                      <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest flex items-center gap-2">
-                         <MapPin className="w-3 h-3" /> Destinations
-                      </h4>
-                      <p className="text-sm font-medium text-gray-700 bg-gray-50 p-4 rounded-xl border border-gray-100">
-                         {viewingItinerary?.destinations || 'No destinations listed'}
-                      </p>
-                   </div>
                    <div className="grid grid-cols-2 gap-3">
                       <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
                          <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Standard Cost</span>

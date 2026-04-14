@@ -50,6 +50,7 @@ const Settings = () => {
     company_website: '',
     fb_page_id: '',
     fb_page_access_token: '',
+    fb_ad_account_id: '',
     attendance_mode: 'flexible',
     allowed_ips: [],
     default_punch_in_time: '09:00',
@@ -103,6 +104,7 @@ const Settings = () => {
           company_website: company.website || '',
           fb_page_id: company.fb_page_id || '',
           fb_page_access_token: company.fb_page_access_token || '',
+          fb_ad_account_id: company.fb_ad_account_id || '',
           attendance_mode: company.attendance_mode || 'flexible',
           allowed_ips: company.allowed_ips || [],
           default_punch_in_time: company.default_punch_in_time || '09:00',
@@ -215,6 +217,7 @@ const Settings = () => {
         website: companyForm.company_website,
         fb_page_id: companyForm.fb_page_id,
         fb_page_access_token: companyForm.fb_page_access_token,
+        fb_ad_account_id: companyForm.fb_ad_account_id,
         attendance_mode: companyForm.attendance_mode,
         allowed_ips: companyForm.allowed_ips,
         default_punch_in_time: companyForm.default_punch_in_time,
@@ -369,6 +372,10 @@ const Settings = () => {
               <div className="space-y-2">
                 <label className="text-sm font-bold text-slate-700 ml-1">Page Access Token</label>
                 <input name="fb_page_access_token" value={companyForm.fb_page_access_token} onChange={handleCompanyChange} className="w-full px-5 py-3.5 bg-slate-50 border-0 rounded-2xl focus:ring-2 focus:ring-blue-100 font-mono text-sm" />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-bold text-slate-700 ml-1">Facebook Ad Account ID (act_xxxx)</label>
+                <input name="fb_ad_account_id" value={companyForm.fb_ad_account_id} onChange={handleCompanyChange} placeholder="act_xxxx" className="w-full px-5 py-3.5 bg-slate-50 border-0 rounded-2xl focus:ring-2 focus:ring-blue-100 font-medium" />
               </div>
             </div>
           </section>

@@ -77,5 +77,8 @@ return [
         ],
     ],
 
+    'facebook' => [
+        'webhook_verify_token' => env('FACEBOOK_WEBHOOK_VERIFY_TOKEN', 'my_crm_lead_token'),
+    ],
 
 ];

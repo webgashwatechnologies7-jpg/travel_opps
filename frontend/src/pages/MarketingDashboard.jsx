@@ -36,7 +36,9 @@ import LogoLoader from '../components/LogoLoader';
 const MarketingDashboard = () => {
   const { t } = useContent();
   const [stats, setStats] = useState(null);
+  const [metaStats, setMetaStats] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [loadingMeta, setLoadingMeta] = useState(false);
   const [error, setError] = useState('');
   const [selectedPeriod, setSelectedPeriod] = useState('month');
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
@@ -44,7 +46,29 @@ const MarketingDashboard = () => {
 
   useEffect(() => {
     fetchMarketingStats();
+    fetchMetaStats();
   }, [selectedPeriod, selectedMonth]);
+
+  const fetchMetaStats = async () => {
+    setLoadingMeta(true);
+    try {
+      const rangeMap = {
+        'week': 'last_7d',
+        'month': 'last_30d',
+        'year': 'this_year'
+      };
+      const response = await marketingAPI.getMetaInsights({
+        range: rangeMap[selectedPeriod] || 'last_30d'
+      });
+      if (response.data?.success) {
+        setMetaStats(response.data.data);
+      }
+    } catch (err) {
+      console.error('Failed to load Meta stats:', err);
+    } finally {
+      setLoadingMeta(false);
+    }
+  };
 
   const fetchMarketingStats = async () => {
     setLoading(true);
@@ -212,21 +236,92 @@ const MarketingDashboard = () => {
               </div>
             </div>
 
-            <div className="bg-gradient-to-r from-orange-500 to-orange-600 rounded-xl p-6 text-white">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-orange-100 text-sm font-medium">{t('marketing.dashboard.card_response')}</p>
-                  <p className="text-3xl font-bold mt-2">{stats?.conversion_rate || 0}%</p>
-                  <div className="flex items-center mt-2 text-sm">
-                    <ArrowDown className="w-4 h-4 mr-1" />
-                    <span>3% from last month</span>
-                  </div>
+            <div className="bg-gradient-to-r from-orange-500 to-orange-600 rounded-xl p-6 text-white text-center">
+                <p className="text-orange-100 text-sm font-medium">FB AD SPENT</p>
+                <p className="text-2xl font-bold mt-2">₹{metaStats?.spent || 0}</p>
+                <p className="text-xs text-orange-200 mt-1">Total across active campaigns</p>
+            </div>
+          </div>
+
+          {/* Meta Ads Integration Section */}
+          <div className="mb-8 p-8 bg-white rounded-3xl border border-blue-50 shadow-sm">
+            <div className="flex items-center justify-between mb-8">
+              <div className="flex items-center gap-4">
+                <div className="p-3 bg-blue-600 rounded-2xl">
+                  <BarChart3 className="w-6 h-6 text-white" />
                 </div>
-                <div className="bg-white/20 p-3 rounded-lg">
-                  <Target className="w-6 h-6" />
+                <div>
+                   <h2 className="text-xl font-bold text-slate-800">Meta (Facebook) Ads Performance</h2>
+                   <p className="text-slate-500 text-sm font-medium">Real-time performance metrics from your connected Meta Ad Account</p>
                 </div>
               </div>
+              <div className="flex items-center gap-2">
+                 <span className={`h-2.5 w-2.5 rounded-full ${metaStats ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300'}`}></span>
+                 <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">{metaStats ? 'Connected' : 'Not Connected'}</span>
+              </div>
             </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+               <div className="p-6 rounded-2xl bg-slate-50 border border-slate-100 space-y-2">
+                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.1em]">Cost Per Lead (CPL)</p>
+                 <p className="text-3xl font-extrabold text-blue-600">₹{metaStats?.cpl || 0}</p>
+                 <div className="flex items-center text-[11px] font-bold text-emerald-600 gap-1 bg-emerald-50 px-2.5 py-1 rounded-lg w-fit">
+                    <ArrowDown className="w-3 h-3" /> Lower is better
+                 </div>
+               </div>
+               
+               <div className="p-6 rounded-2xl bg-slate-50 border border-slate-100 space-y-2">
+                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.1em]">Total Leads</p>
+                 <p className="text-3xl font-extrabold text-slate-800">{metaStats?.leads || 0}</p>
+                 <p className="text-xs text-slate-500 font-medium italic">Direct FB Leads</p>
+               </div>
+
+               <div className="p-6 rounded-2xl bg-slate-50 border border-slate-100 space-y-2">
+                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.1em]">Impressions</p>
+                 <p className="text-3xl font-extrabold text-slate-800">{metaStats?.impressions?.toLocaleString() || 0}</p>
+                 <p className="text-xs text-slate-500 font-medium">Total Visibility</p>
+               </div>
+
+               <div className="p-6 rounded-2xl bg-slate-50 border border-slate-100 space-y-2">
+                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.1em]">Avg. CPC</p>
+                 <p className="text-3xl font-extrabold text-slate-800">₹{metaStats?.cpc || 0}</p>
+                 <p className="text-xs text-slate-500 font-medium">Cost per click</p>
+               </div>
+            </div>
+            
+            {metaStats?.chart_data && (
+              <div className="mt-8">
+                 <h3 className="text-sm font-bold text-slate-700 mb-6 flex items-center gap-2">
+                   <TrendingUp className="w-4 h-4 text-blue-600" /> Facebook Lead Generation Trend ({new Date().getFullYear()})
+                 </h3>
+                 <div className="flex items-end gap-1 h-48">
+                    {metaStats.chart_data.map((item, idx) => (
+                      <div key={idx} className="flex-1 group relative">
+                        <div 
+                          className="w-full bg-blue-100 rounded-t-lg group-hover:bg-blue-600 transition-all duration-300 relative"
+                          style={{ height: `${(item.leads / (Math.max(...metaStats.chart_data.map(i => i.leads)) || 1)) * 100}%` }}
+                        >
+                          <div className="absolute -top-8 left-1/2 -translate-x-1/2 px-2 py-1 bg-slate-800 text-white text-[10px] font-bold rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10">
+                            {item.leads} Leads
+                          </div>
+                        </div>
+                        <p className="text-[10px] font-bold text-slate-400 mt-3 text-center uppercase tracking-tighter truncate">{item.name}</p>
+                      </div>
+                    ))}
+                 </div>
+              </div>
+            )}
+            
+            {!metaStats && !loadingMeta && (
+              <div className="p-12 text-center bg-slate-50 rounded-3xl border border-dashed border-slate-200 mt-4">
+                 <AlertCircle className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+                 <h3 className="text-slate-800 font-bold">Meta Integration Not Deepened</h3>
+                 <p className="text-slate-500 text-sm max-w-md mx-auto mt-2">To see real spent and CPL data, please provide your **Facebook Ad Account ID** in the Company Settings page.</p>
+                 <Link to="/settings" className="inline-block mt-6 px-8 py-3 bg-blue-600 text-white rounded-2xl font-bold hover:bg-blue-700 transition-all text-xs">
+                    GO TO SETTINGS
+                 </Link>
+              </div>
+            )}
           </div>
 
           {/* Start Marketing Section */}

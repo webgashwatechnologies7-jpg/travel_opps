@@ -3,6 +3,8 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { leadsAPI, leadSourcesAPI, usersAPI, googleSheetsAPI } from '../services/api';
 import { toast } from 'react-toastify';
 import { useAuth } from '../contexts/AuthContext';
+import { Dialog } from 'primereact/dialog';
+import { Button } from 'primereact/button';
 // Layout removed - handled by nested routing
 import { X, Search, Upload, Download, RefreshCw, ChevronDown, Filter, Eye, Mail, MessageSquare, Edit, MoreVertical, History, Plus, TrendingUp, BarChart3, Calendar, FileSpreadsheet, LayoutGrid, List, User, Trash2, ArrowUpDown } from 'lucide-react';
 import LeadCard from '../components/Quiries/LeadCard';
@@ -464,7 +466,7 @@ const Leads = () => {
   const handleStatusChange = useCallback(async (leadId, status) => {
     try {
       // Only send allowed backend statuses
-      const allowedStatuses = ['proposal', 'followup', 'confirmed', 'cancelled'];
+      const allowedStatuses = ['processing', 'proposal', 'followup', 'confirmed', 'cancelled'];
       const normalizedStatus = status?.toLowerCase();
       const finalStatus = allowedStatuses.includes(normalizedStatus) ? normalizedStatus : 'proposal';
 
@@ -539,6 +541,7 @@ const Leads = () => {
     const stats = {
       total: pagination.total,
       new: leads.filter(l => l.status === 'new').length,
+      processing: leads.filter(l => l.status === 'processing').length,
       proposalSent: leads.filter(l => l.status === 'proposal').length,
       noConnect: 0, // Not in current data model
       hotLead: leads.filter(l => l.priority === 'hot').length,
@@ -636,6 +639,8 @@ const Leads = () => {
       result = leads.filter(l => l.priority === 'hot');
     } else if (activeFilter === 'new') {
       result = leads.filter(l => l.status === 'new');
+    } else if (activeFilter === 'processing') {
+      result = leads.filter(l => l.status === 'processing');
     } else if (activeFilter === 'proposalSent') {
       result = leads.filter(l => l.status === 'proposal');
     } else if (activeFilter === 'noConnect') {
@@ -1005,11 +1010,12 @@ const Leads = () => {
                   <option value="today">CREATED TODAY ({stats.today})</option>
                   {canAssign && <option value="unassigned">UNASSIGNED ({stats.unassigned})</option>}
                   <option value="new">NEW INCOMING ({stats.new})</option>
+                  <option value="processing">UNDER PROCESS ({stats.processing})</option>
                   <option value="proposalSent">PROPOSAL SENT ({stats.proposalSent})</option>
                   <option value="hotLead">HOT LEADS ({stats.hotLead})</option>
-                  <option value="cancel">CANCELLED ({stats.cancel})</option>
+                  <option value="cancel">DECLINED ({stats.cancel})</option>
                   <option value="followUp">FOLLOW UPS ({stats.followUp})</option>
-                  <option value="confirmed">CONFIRMED ({stats.confirmed})</option>
+                  <option value="confirmed">BOOKED ({stats.confirmed})</option>
                 </select>
                 <ChevronDown size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
               </div>
@@ -1359,7 +1365,7 @@ const Leads = () => {
                         email={lead.email}
                         tag={
                           lead.status === "confirmed"
-                            ? "Confirmed"
+                            ? "Booked"
                             : lead.status === "new"
                               ? "New"
                               : ""
@@ -1507,11 +1513,17 @@ const Leads = () => {
                                                 <span className={`px-4 py-1.5 rounded-xl text-white text-[9px] font-black uppercase tracking-widest shadow-sm ${
                                                     lead.status === 'confirmed' ? 'bg-emerald-600' :
                                                     lead.status === 'new' ? 'bg-blue-600' :
+                                                    lead.status === 'processing' ? 'bg-indigo-600' :
                                                     lead.status === 'proposal' ? 'bg-amber-500' :
                                                     lead.status === 'followup' ? 'bg-orange-600' :
+                                                    lead.status === 'cancelled' ? 'bg-rose-600' :
                                                     'bg-slate-500'
                                                 }`}>
-                                                    {lead.status}
+                                                    {lead.status === 'confirmed' ? 'Booked' : 
+                                                     lead.status === 'processing' ? 'Under Process' : 
+                                                     lead.status === 'proposal' ? 'Proposal Sent' : 
+                                                     lead.status === 'cancelled' ? 'Declined' : 
+                                                     lead.status}
                                                 </span>
                                             </td>
                                             <td className="px-6 py-4">
@@ -1693,331 +1705,326 @@ const Leads = () => {
                     💡 High-volume assignment may take a moment to sync.
                  </p>
               </div>
-            </div>
           </div>
-        )}
+        ) }
 
         {/* ADD QUERY Modal */}
-        {showModal && (
-          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[150] overflow-y-auto py-8 transition-all p-4">
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl mx-auto my-auto animate-in-scale">
-              {/* Modal Header */}
-              <div className="flex justify-between items-center p-6 border-b border-slate-100">
-                <div>
-                  <h2 className="text-xl font-bold text-slate-800">New Query</h2>
-                  <p className="text-slate-400 text-xs mt-1">Fill in the details to create a new opportunity</p>
-                </div>
-                <button
+        <Dialog 
+            visible={showModal} 
+            onHide={() => setShowModal(false)}
+            modal
+            dismissableMask
+            header={
+              <div className="flex flex-col">
+                <span className="text-xl font-bold text-slate-800">New Query</span>
+                <span className="text-slate-400 text-xs font-medium mt-1">Fill in the details to create a new opportunity</span>
+              </div>
+            }
+            className="w-full max-w-2xl mx-auto"
+            contentClassName="p-0 overflow-hidden rounded-b-2xl"
+            headerClassName="p-6 border-b border-slate-100"
+            footer={
+              <div className="flex justify-end gap-3 p-6 border-t border-slate-100 bg-slate-50/50">
+                <Button
+                  label="Cancel"
                   onClick={() => setShowModal(false)}
-                  className="p-2 bg-slate-50 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-all"
-                >
-                  <X size={20} />
-                </button>
+                  className="px-6 py-2.5 bg-white border border-slate-200 text-slate-600 rounded-xl hover:bg-slate-100 transition-all font-bold text-sm h-auto"
+                />
+                <Button
+                  label="Create Query"
+                  onClick={(e) => {
+                    const form = document.getElementById('newQueryForm');
+                    if (form) form.requestSubmit();
+                  }}
+                  className="px-8 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-500/20 font-bold text-sm border-none h-auto"
+                />
+              </div>
+            }
+        >
+          <div className="p-0">
+            <form id="newQueryForm" onSubmit={handleCreate} className="p-8 grid grid-cols-1 md:grid-cols-2 gap-6 max-h-[60vh] overflow-y-auto scrollbar-hide">
+              {/* CLIENT NAME * */}
+              <div className="md:col-span-2">
+                <label className="block text-xs font-bold text-slate-500 mb-2 uppercase tracking-wider">
+                  Client Name & Title *
+                </label>
+                <div className="flex gap-2">
+                  <select
+                    value={formData.client_title}
+                    onChange={(e) => setFormData({ ...formData, client_title: e.target.value })}
+                    className="w-24 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-semibold outline-none"
+                  >
+                    <option value="Mr.">Mr.</option>
+                    <option value="Mrs.">Mrs.</option>
+                    <option value="Ms.">Ms.</option>
+                    <option value="Dr.">Dr.</option>
+                  </select>
+                  <input
+                    type="text"
+                    placeholder="Required Name"
+                    value={formData.client_name}
+                    onChange={(e) => setFormData({ ...formData, client_name: e.target.value })}
+                    required
+                    className="flex-1 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-semibold outline-none"
+                  />
+                </div>
               </div>
 
-              {/* Modal Body */}
-              <form onSubmit={handleCreate}>
-                <div className="p-8 grid grid-cols-1 md:grid-cols-2 gap-6 max-h-[60vh] overflow-y-auto">
-                  {/* CLIENT NAME * */}
-                  <div className="md:col-span-2">
-                    <label className="block text-xs font-bold text-slate-500 mb-2 uppercase tracking-wider">
-                      Client Name & Title *
-                    </label>
-                    <div className="flex gap-2">
-                      <select
-                        value={formData.client_title}
-                        onChange={(e) => setFormData({ ...formData, client_title: e.target.value })}
-                        className="w-24 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-semibold outline-none"
-                      >
-                        <option value="Mr.">Mr.</option>
-                        <option value="Mrs.">Mrs.</option>
-                        <option value="Ms.">Ms.</option>
-                        <option value="Dr.">Dr.</option>
-                      </select>
-                      <input
-                        type="text"
-                        placeholder="Required Name"
-                        value={formData.client_name}
-                        onChange={(e) => setFormData({ ...formData, client_name: e.target.value })}
-                        required
-                        className="flex-1 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-semibold outline-none"
-                      />
-                    </div>
-                  </div>
+              {/* MOBILE * */}
+              <div>
+                <label className="block text-xs font-bold text-slate-500 mb-2 uppercase tracking-wider">
+                  Mobile Number *
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. 9876543210"
+                  value={formData.phone}
+                  onChange={(e) => {
+                    const val = e.target.value.replace(/\D/g, '').slice(0, 10);
+                    setFormData({ ...formData, phone: val });
+                  }}
+                  required
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-semibold outline-none"
+                />
+              </div>
 
-                  {/* MOBILE * */}
-                  <div>
-                    <label className="block text-xs font-bold text-slate-500 mb-2 uppercase tracking-wider">
-                      Mobile Number *
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="e.g. 9876543210"
-                      value={formData.phone}
-                      onChange={(e) => {
-                        const val = e.target.value.replace(/\D/g, '').slice(0, 10);
-                        setFormData({ ...formData, phone: val });
-                      }}
-                      required
-                      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-semibold outline-none"
-                    />
-                  </div>
+              {/* MAIL ID */}
+              <div>
+                <label className="block text-xs font-bold text-slate-500 mb-2 uppercase tracking-wider">
+                  Mail ID (Email)
+                </label>
+                <input
+                  type="email"
+                  placeholder="customer@email.com (Optional)"
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-semibold outline-none"
+                />
+              </div>
 
-                  {/* MAIL ID */}
-                  <div>
-                    <label className="block text-xs font-bold text-slate-500 mb-2 uppercase tracking-wider">
-                      Mail ID (Email)
-                    </label>
-                    <input
-                      type="email"
-                      placeholder="customer@email.com (Optional)"
-                      value={formData.email}
-                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-semibold outline-none"
-                    />
-                  </div>
+              {/* LEAD SOURCE * */}
+              <div>
+                <label className="block text-xs font-bold text-slate-500 mb-2 uppercase tracking-wider">
+                  Lead Source *
+                </label>
+                <select
+                  value={formData.source}
+                  onChange={(e) => setFormData({ ...formData, source: e.target.value })}
+                  required
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-semibold outline-none appearance-none cursor-pointer"
+                >
+                  <option value="">Select Source</option>
+                  {leadSources.map((source) => (
+                    <option key={source.id} value={source.name}>{source.name}</option>
+                  ))}
+                </select>
+              </div>
 
-                  {/* LEAD SOURCE * */}
-                  <div>
-                    <label className="block text-xs font-bold text-slate-500 mb-2 uppercase tracking-wider">
-                      Lead Source *
-                    </label>
-                    <select
-                      value={formData.source}
-                      onChange={(e) => setFormData({ ...formData, source: e.target.value })}
-                      required
-                      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-semibold outline-none appearance-none cursor-pointer"
-                    >
-                      <option value="">Select Source</option>
-                      {leadSources.map((source) => (
-                        <option key={source.id} value={source.name}>{source.name}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {/* ASSIGN TO * */}
-                  {canAssign && (
-                    <div>
-                      <label className="block text-xs font-bold text-slate-500 mb-2 uppercase tracking-wider">
-                        Assign To *
-                      </label>
-                      <select
-                        value={formData.assigned_to}
-                        onChange={(e) => setFormData({ ...formData, assigned_to: e.target.value })}
-                        required
-                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-semibold outline-none appearance-none cursor-pointer"
-                      >
-                        <option value="">Select Staff</option>
-                        {users.map((user) => (
-                          <option key={user.id} value={user.id}>{user.name}</option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
-
-                  {/* Section Divider */}
-                  <div className="md:col-span-2 mt-4 pt-6 border-t border-slate-100">
-                    <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
-                      <div className="w-1.5 h-4 bg-slate-300 rounded-full"></div>
-                      Additional Details (Optional)
-                    </h3>
-                  </div>
-
-                  {/* DESTINATION */}
-                  <div>
-                    <label className="block text-xs font-bold text-slate-400 mb-2 uppercase tracking-wider">
-                      Destination
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="e.g. Maldives"
-                      value={formData.destination}
-                      onChange={(e) => setFormData({ ...formData, destination: e.target.value })}
-                      className="w-full px-4 py-3 bg-slate-50/50 border border-slate-100 rounded-xl focus:ring-2 focus:ring-blue-500/10 focus:border-blue-400 transition-all font-semibold outline-none"
-                    />
-                  </div>
-
-                  {/* TYPE */}
-                  <div>
-                    <label className="block text-xs font-bold text-slate-400 mb-2 uppercase tracking-wider">
-                      Type
-                    </label>
-                    <select
-                      value={formData.type}
-                      onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-                      className="w-full px-4 py-3 bg-slate-50/50 border border-slate-100 rounded-xl focus:ring-2 focus:ring-blue-500/10 focus:border-blue-400 transition-all font-semibold outline-none"
-                    >
-                      <option value="Client">Client</option>
-                      <option value="Agent">Agent</option>
-                      <option value="Corporate">Corporate</option>
-                    </select>
-                  </div>
-
-                  {/* DATE OF BIRTH */}
-                  <div>
-                    <label className="block text-xs font-bold text-slate-400 mb-2 uppercase tracking-wider">
-                      Date of Birth
-                    </label>
-                    <input
-                      type="date"
-                      value={formData.date_of_birth}
-                      onChange={(e) => setFormData({ ...formData, date_of_birth: e.target.value })}
-                      className="w-full px-4 py-3 bg-slate-50/50 border border-slate-100 rounded-xl focus:ring-2 focus:ring-blue-500/10 focus:border-blue-400 transition-all font-semibold outline-none"
-                    />
-                  </div>
-
-                  {/* ANNIVERSARY */}
-                  <div>
-                    <label className="block text-xs font-bold text-slate-400 mb-2 uppercase tracking-wider">
-                      Anniversary
-                    </label>
-                    <input
-                      type="date"
-                      value={formData.marriage_anniversary}
-                      onChange={(e) => setFormData({ ...formData, marriage_anniversary: e.target.value })}
-                      className="w-full px-4 py-3 bg-slate-50/50 border border-slate-100 rounded-xl focus:ring-2 focus:ring-blue-500/10 focus:border-blue-400 transition-all font-semibold outline-none"
-                    />
-                  </div>
-
-                  {/* FROM DATE */}
-                  <div>
-                    <label className="block text-xs font-bold text-slate-400 mb-2 uppercase tracking-wider">
-                      Travel From
-                    </label>
-                    <input
-                      type="date"
-                      value={formData.from_date}
-                      onChange={(e) => {
-                        const newFromDate = e.target.value;
-                        setFormData(prev => ({
-                          ...prev,
-                          from_date: newFromDate,
-                          to_date: prev.to_date && prev.to_date < newFromDate ? newFromDate : prev.to_date
-                        }));
-                      }}
-                      min={new Date().toISOString().split('T')[0]}
-                      className="w-full px-4 py-3 bg-slate-50/50 border border-slate-100 rounded-xl focus:ring-2 focus:ring-blue-500/10 focus:border-blue-400 transition-all font-semibold outline-none"
-                    />
-                  </div>
-
-                  {/* TO DATE */}
-                  <div>
-                    <label className="block text-xs font-bold text-slate-400 mb-2 uppercase tracking-wider">
-                      Travel To
-                    </label>
-                    <input
-                      type="date"
-                      value={formData.to_date}
-                      onChange={(e) => setFormData({ ...formData, to_date: e.target.value })}
-                      min={formData.from_date || new Date().toISOString().split('T')[0]}
-                      className="w-full px-4 py-3 bg-slate-50/50 border border-slate-100 rounded-xl focus:ring-2 focus:ring-blue-500/10 focus:border-blue-400 transition-all font-semibold outline-none"
-                    />
-                  </div>
-
-                  {/* ADULTS / CHILDREN */}
-                  <div className="md:col-span-2 grid grid-cols-3 gap-3">
-                    <div>
-                      <label className="block text-[10px] font-bold text-slate-400 mb-1 uppercase">Adults</label>
-                      <select 
-                        value={formData.adult}
-                        onChange={(e) => setFormData({ ...formData, adult: e.target.value })}
-                        className="w-full px-4 py-2.5 bg-slate-50/50 border border-slate-100 rounded-xl text-sm"
-                      >
-                        {[...Array(20)].map((_, i) => <option key={i+1} value={String(i+1)}>{i+1}</option>)}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-[10px] font-bold text-slate-400 mb-1 uppercase">Child</label>
-                      <select 
-                        value={formData.child}
-                        onChange={(e) => setFormData({ ...formData, child: e.target.value })}
-                        className="w-full px-4 py-2.5 bg-slate-50/50 border border-slate-100 rounded-xl text-sm"
-                      >
-                        {[...Array(11)].map((_, i) => <option key={i} value={String(i)}>{i}</option>)}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-[10px] font-bold text-slate-400 mb-1 uppercase">Infant</label>
-                      <select 
-                        value={formData.infant}
-                        onChange={(e) => setFormData({ ...formData, infant: e.target.value })}
-                        className="w-full px-4 py-2.5 bg-slate-50/50 border border-slate-100 rounded-xl text-sm"
-                      >
-                        {[...Array(11)].map((_, i) => <option key={i} value={String(i)}>{i}</option>)}
-                      </select>
-                    </div>
-                  </div>
-
-                  {/* PRIORITY */}
-                  <div>
-                    <label className="block text-xs font-bold text-slate-400 mb-2 uppercase tracking-wider">
-                      Priority
-                    </label>
-                    <select
-                      value={formData.priority}
-                      onChange={(e) => setFormData({ ...formData, priority: e.target.value })}
-                      className="w-full px-4 py-3 bg-slate-50/50 border border-slate-100 rounded-xl focus:ring-2 focus:ring-blue-500/10 focus:border-blue-400 transition-all font-semibold outline-none"
-                    >
-                      <option value="General Query">General Query</option>
-                      <option value="Hot">Hot</option>
-                      <option value="Warm">Warm</option>
-                      <option value="Cold">Cold</option>
-                    </select>
-                  </div>
-
-                  {/* SERVICE */}
-                  <div>
-                    <label className="block text-xs font-bold text-slate-400 mb-2 uppercase tracking-wider">
-                      Service
-                    </label>
-                    <select
-                      value={formData.service}
-                      onChange={(e) => setFormData({ ...formData, service: e.target.value })}
-                      className="w-full px-4 py-3 bg-slate-50/50 border border-slate-100 rounded-xl focus:ring-2 focus:ring-blue-500/10 focus:border-blue-400 transition-all font-semibold outline-none"
-                    >
-                      <option value="">Select Service</option>
-                      <option value="Full Package">Full Package</option>
-                      <option value="Hotel Only">Hotel Only</option>
-                      <option value="Cab Only">Cab Only</option>
-                      <option value="Activities only">Activities only</option>
-                      <option value="Visa Only">Visa Only</option>
-                      <option value="Flight Only">Flight Only</option>
-                    </select>
-                  </div>
-
-                  {/* REMARK */}
-                  <div className="md:col-span-2">
-                    <label className="block text-xs font-bold text-slate-400 mb-2 uppercase tracking-wider">
-                      Remarks
-                    </label>
-                    <textarea
-                      value={formData.remark}
-                      onChange={(e) => setFormData({ ...formData, remark: e.target.value })}
-                      className="w-full px-4 py-3 bg-slate-50/50 border border-slate-100 rounded-xl focus:ring-2 focus:ring-blue-500/10 focus:border-blue-400 transition-all font-semibold outline-none h-24 resize-none"
-                      placeholder="Enter any additional notes..."
-                    />
-                  </div>
-                </div>
-
-                {/* Modal Footer */}
-                <div className="flex justify-end gap-3 p-6 border-t border-slate-100 bg-slate-50/50 rounded-b-2xl">
-                  <button
-                    type="button"
-                    onClick={() => setShowModal(false)}
-                    className="px-6 py-2.5 bg-white border border-slate-200 text-slate-600 rounded-xl hover:bg-slate-100 transition-all font-bold text-sm"
+              {/* ASSIGN TO * */}
+              {canAssign && (
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 mb-2 uppercase tracking-wider">
+                    Assign To *
+                  </label>
+                  <select
+                    value={formData.assigned_to}
+                    onChange={(e) => setFormData({ ...formData, assigned_to: e.target.value })}
+                    required
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-semibold outline-none appearance-none cursor-pointer"
                   >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="px-8 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-500/20 font-bold text-sm"
-                  >
-                    Create Query
-                  </button>
+                    <option value="">Select Staff</option>
+                    {users.map((user) => (
+                      <option key={user.id} value={user.id}>{user.name}</option>
+                    ))}
+                  </select>
                 </div>
-              </form>
-            </div>
+              )}
+
+              {/* Section Divider */}
+              <div className="md:col-span-2 mt-4 pt-6 border-t border-slate-100">
+                <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+                  <div className="w-1.5 h-4 bg-slate-300 rounded-full"></div>
+                  Additional Details (Optional)
+                </h3>
+              </div>
+
+              {/* DESTINATION */}
+              <div>
+                <label className="block text-xs font-bold text-slate-400 mb-2 uppercase tracking-wider">
+                  Destination
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Maldives"
+                  value={formData.destination}
+                  onChange={(e) => setFormData({ ...formData, destination: e.target.value })}
+                  className="w-full px-4 py-3 bg-slate-50/50 border border-slate-100 rounded-xl focus:ring-2 focus:ring-blue-500/10 focus:border-blue-400 transition-all font-semibold outline-none"
+                />
+              </div>
+
+              {/* TYPE */}
+              <div>
+                <label className="block text-xs font-bold text-slate-400 mb-2 uppercase tracking-wider">
+                  Type
+                </label>
+                <select
+                  value={formData.type}
+                  onChange={(e) => setFormData({ ...formData, type: e.target.value })}
+                  className="w-full px-4 py-3 bg-slate-50/50 border border-slate-100 rounded-xl focus:ring-2 focus:ring-blue-500/10 focus:border-blue-400 transition-all font-semibold outline-none"
+                >
+                  <option value="Client">Client</option>
+                  <option value="Agent">Agent</option>
+                  <option value="Corporate">Corporate</option>
+                </select>
+              </div>
+
+              {/* DATE OF BIRTH */}
+              <div>
+                <label className="block text-xs font-bold text-slate-400 mb-2 uppercase tracking-wider">
+                  Date of Birth
+                </label>
+                <input
+                  type="date"
+                  value={formData.date_of_birth}
+                  onChange={(e) => setFormData({ ...formData, date_of_birth: e.target.value })}
+                  className="w-full px-4 py-3 bg-slate-50/50 border border-slate-100 rounded-xl focus:ring-2 focus:ring-blue-500/10 focus:border-blue-400 transition-all font-semibold outline-none"
+                />
+              </div>
+
+              {/* ANNIVERSARY */}
+              <div>
+                <label className="block text-xs font-bold text-slate-400 mb-2 uppercase tracking-wider">
+                  Anniversary
+                </label>
+                <input
+                  type="date"
+                  value={formData.marriage_anniversary}
+                  onChange={(e) => setFormData({ ...formData, marriage_anniversary: e.target.value })}
+                  className="w-full px-4 py-3 bg-slate-50/50 border border-slate-100 rounded-xl focus:ring-2 focus:ring-blue-500/10 focus:border-blue-400 transition-all font-semibold outline-none"
+                />
+              </div>
+
+              {/* FROM DATE */}
+              <div>
+                <label className="block text-xs font-bold text-slate-400 mb-2 uppercase tracking-wider">
+                  Travel From
+                </label>
+                <input
+                  type="date"
+                  value={formData.from_date}
+                  onChange={(e) => {
+                    const newFromDate = e.target.value;
+                    setFormData(prev => ({
+                      ...prev,
+                      from_date: newFromDate,
+                      to_date: prev.to_date && prev.to_date < newFromDate ? newFromDate : prev.to_date
+                    }));
+                  }}
+                  min={new Date().toISOString().split('T')[0]}
+                  className="w-full px-4 py-3 bg-slate-50/50 border border-slate-100 rounded-xl focus:ring-2 focus:ring-blue-500/10 focus:border-blue-400 transition-all font-semibold outline-none"
+                />
+              </div>
+
+              {/* TO DATE */}
+              <div>
+                <label className="block text-xs font-bold text-slate-400 mb-2 uppercase tracking-wider">
+                  Travel To
+                </label>
+                <input
+                  type="date"
+                  value={formData.to_date}
+                  onChange={(e) => setFormData({ ...formData, to_date: e.target.value })}
+                  min={formData.from_date || new Date().toISOString().split('T')[0]}
+                  className="w-full px-4 py-3 bg-slate-50/50 border border-slate-100 rounded-xl focus:ring-2 focus:ring-blue-500/10 focus:border-blue-400 transition-all font-semibold outline-none"
+                />
+              </div>
+
+              {/* ADULTS / CHILDREN */}
+              <div className="md:col-span-2 grid grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 mb-1 uppercase">Adults</label>
+                  <select 
+                    value={formData.adult}
+                    onChange={(e) => setFormData({ ...formData, adult: e.target.value })}
+                    className="w-full px-4 py-2.5 bg-slate-50/50 border border-slate-100 rounded-xl text-sm outline-none"
+                  >
+                    {[...Array(20)].map((_, i) => <option key={i+1} value={String(i+1)}>{i+1}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 mb-1 uppercase">Child</label>
+                  <select 
+                    value={formData.child}
+                    onChange={(e) => setFormData({ ...formData, child: e.target.value })}
+                    className="w-full px-4 py-2.5 bg-slate-50/50 border border-slate-100 rounded-xl text-sm outline-none"
+                  >
+                    {[...Array(11)].map((_, i) => <option key={i} value={String(i)}>{i}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 mb-1 uppercase">Infant</label>
+                  <select 
+                    value={formData.infant}
+                    onChange={(e) => setFormData({ ...formData, infant: e.target.value })}
+                    className="w-full px-4 py-2.5 bg-slate-50/50 border border-slate-100 rounded-xl text-sm outline-none"
+                  >
+                    {[...Array(11)].map((_, i) => <option key={i} value={String(i)}>{i}</option>)}
+                  </select>
+                </div>
+              </div>
+
+              {/* PRIORITY */}
+              <div>
+                <label className="block text-xs font-bold text-slate-400 mb-2 uppercase tracking-wider">
+                  Priority
+                </label>
+                <select
+                  value={formData.priority}
+                  onChange={(e) => setFormData({ ...formData, priority: e.target.value })}
+                  className="w-full px-4 py-3 bg-slate-50/50 border border-slate-100 rounded-xl focus:ring-2 focus:ring-blue-500/10 focus:border-blue-400 transition-all font-semibold outline-none"
+                >
+                  <option value="General Query">General Query</option>
+                  <option value="Hot">Hot</option>
+                  <option value="Warm">Warm</option>
+                  <option value="Cold">Cold</option>
+                </select>
+              </div>
+
+              {/* SERVICE */}
+              <div>
+                <label className="block text-xs font-bold text-slate-400 mb-2 uppercase tracking-wider">
+                  Service
+                </label>
+                <select
+                  value={formData.service}
+                  onChange={(e) => setFormData({ ...formData, service: e.target.value })}
+                  className="w-full px-4 py-3 bg-slate-50/50 border border-slate-100 rounded-xl focus:ring-2 focus:ring-blue-500/10 focus:border-blue-400 transition-all font-semibold outline-none"
+                >
+                  <option value="">Select Service</option>
+                  <option value="Full Package">Full Package</option>
+                  <option value="Hotel Only">Hotel Only</option>
+                  <option value="Cab Only">Cab Only</option>
+                  <option value="Activities only">Activities only</option>
+                  <option value="Visa Only">Visa Only</option>
+                  <option value="Flight Only">Flight Only</option>
+                </select>
+              </div>
+
+              {/* REMARK */}
+              <div className="md:col-span-2">
+                <label className="block text-xs font-bold text-slate-400 mb-2 uppercase tracking-wider">
+                  Remarks
+                </label>
+                <textarea
+                  value={formData.remark}
+                  onChange={(e) => setFormData({ ...formData, remark: e.target.value })}
+                  className="w-full px-4 py-3 bg-slate-50/50 border border-slate-100 rounded-xl focus:ring-2 focus:ring-blue-500/10 focus:border-blue-400 transition-all font-semibold outline-none h-24 resize-none"
+                  placeholder="Enter any additional notes..."
+                />
+              </div>
+            </form>
           </div>
+        </Dialog></div>
         )}
 
         {/* Assign Modal */}
@@ -2074,13 +2081,17 @@ const Leads = () => {
             <div className="bg-white rounded-lg p-6 w-full max-w-md">
               <h2 className="text-xl font-bold mb-4">Update Status</h2>
               <div className="space-y-2">
-                {['new', 'proposal', 'followup', 'confirmed', 'cancelled'].map((status) => (
+                {['processing', 'proposal', 'followup', 'confirmed', 'cancelled'].map((status) => (
                   <button
                     key={status}
                     onClick={() => handleStatusChange(selectedLead.id, status)}
                     className="w-full text-left px-4 py-2 border rounded-lg hover:bg-gray-100 capitalize"
                   >
-                    {status}
+                    {status === 'processing' ? 'Under Process' : 
+                     status === 'proposal' ? 'Proposal Sent' : 
+                     status === 'confirmed' ? 'Booked' : 
+                     status === 'cancelled' ? 'Declined' : 
+                     status}
                   </button>
                 ))}
               </div>

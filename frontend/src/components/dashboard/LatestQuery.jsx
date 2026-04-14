@@ -1,7 +1,9 @@
 import React from "react";
 import { ChevronDown } from "lucide-react";
+import { useNavigate } from "react-router";
 
 const LatestQuery = ({ latestNotes = [], onViewMore }) => {
+  const navigate = useNavigate();
   return (
     <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 w-full h-full flex flex-col relative overflow-hidden" style={{ fontFamily: "'Poppins', sans-serif" }}>
       <div className="flex items-center justify-between mb-4 flex-shrink-0">
@@ -31,7 +33,14 @@ const LatestQuery = ({ latestNotes = [], onViewMore }) => {
               const dateStr = dateObj.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
 
               return (
-                <div key={index} className="relative group cursor-pointer">
+                <div 
+                  key={index} 
+                  className="relative group cursor-pointer"
+                  onClick={() => {
+                    const leadId = note.lead_id || note.lead?.id;
+                    if (leadId) navigate(`/leads/${leadId}`);
+                  }}
+                >
                   {/* Timeline Dot */}
                   <div className="absolute -left-[22px] top-1.5 w-3 h-3 rounded-full border-2 border-white bg-[#2C55D4] ring-4 ring-blue-50/50 shadow-sm transition-transform group-hover:scale-125" />
 

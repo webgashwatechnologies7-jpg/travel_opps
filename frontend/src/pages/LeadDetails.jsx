@@ -56,6 +56,7 @@ const LeadDetails = () => {
   const [loadingItineraries, setLoadingItineraries] = useState(false);
   const [itinerarySearchTerm, setItinerarySearchTerm] = useState('');
   const [proposals, setProposals] = useState([]);
+  const [loadingProposals, setLoadingProposals] = useState(false);
   const [maxHotelOptions, setMaxHotelOptions] = useState(4);
   const [showQuotationModal, setShowQuotationModal] = useState(false);
   const [selectedProposal, setSelectedProposal] = useState(null);
@@ -245,24 +246,6 @@ const LeadDetails = () => {
       setWaStatus('Disconnected');
     }
   };
-
-  // Mark 'new' leads as 'proposal' (or viewed) when opened to remove the "New" badge
-  useEffect(() => {
-    if (lead?.status === 'new' && lead?.id) {
-      const markAsRead = async () => {
-        try {
-          // Changing status from 'new' to 'proposal' is a safe default to indicate it's been viewed/processed
-          // This removes the "New" badge in LeadCard
-          await leadsAPI.updateStatus(lead.id, 'proposal');
-          // Refresh local lead data to reflect status change
-          fetchLeadDetails();
-        } catch (e) {
-          console.error("Failed to update lead status on view", e);
-        }
-      };
-      markAsRead();
-    }
-  }, [lead?.id, lead?.status]);
 
   // Listener for itinerary selection from new tab
   useEffect(() => {
@@ -613,6 +596,7 @@ const LeadDetails = () => {
     if (!id) return;
     let cancelled = false;
     const run = async () => {
+      setLoadingProposals(true);
       try {
         // 1. Try to fetch from server first
         const serverRes = await queryProposalsAPI.list(id);
@@ -753,6 +737,8 @@ const LeadDetails = () => {
           console.error('Failed to load proposals:', err);
           setProposals([]);
         }
+      } finally {
+        if (!cancelled) setLoadingProposals(false);
       }
     };
     run();
@@ -1203,13 +1189,13 @@ const LeadDetails = () => {
       ? `\n\nPayment Summary:\nTotal: ₹${paySummary.total_amount.toLocaleString('en-IN')}\nPaid: ₹${paySummary.total_paid.toLocaleString('en-IN')}\nDue: ₹${paySummary.total_due.toLocaleString('en-IN')}`
       : '';
 
-    // WhatsApp message (confirmed option + payment)
-    let whatsappMsg = `*✓ CONFIRMED TRAVEL ITINERARY*\n\n`;
+    // WhatsApp message (booked option + payment)
+    let whatsappMsg = `*✓ BOOKED TRAVEL ITINERARY*\n\n`;
     whatsappMsg += `*${itinerary.itinerary_name || 'Itinerary'}*\n`;
     whatsappMsg += `Query ID: ${formatLeadId(lead.id)}\n`;
     whatsappMsg += `Destination: ${itinerary.destinations || 'N/A'}\n`;
     whatsappMsg += `Duration: ${itinerary.duration || 0} Days\n\n`;
-    whatsappMsg += `*Confirmed Option ${confirmedOptionNum}*\n`;
+    whatsappMsg += `*Booked Option ${confirmedOptionNum}*\n`;
     hotels.forEach(h => {
       whatsappMsg += `• Day ${h.day}: ${h.hotelName || 'Hotel'} (${h.category || 'N/A'} Star)\n`;
       whatsappMsg += `  Room: ${h.roomName || 'N/A'} | Meal: ${h.mealPlan || 'N/A'}\n`;
@@ -1247,7 +1233,7 @@ const emailTemplate = `
   <div style="max-width: 650px; margin: 0 auto; background: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-top: 20px; margin-bottom: 20px;">
     ${buildEmailHeader(_hdrBgConfirmed, '#ffffff')}
     <div style="padding: 30px; color: #333;">
-      <h2 style="color: ${_hdrBgConfirmed}; margin-top: 0; text-align: center; border-bottom: 1px solid #eee; padding-bottom: 15px;">Confirmed Travel Itinerary</h2>
+      <h2 style="color: ${_hdrBgConfirmed}; margin-top: 0; text-align: center; border-bottom: 1px solid #eee; padding-bottom: 15px;">Booked Travel Itinerary</h2>
       
       <h3 style="margin-top:20px; margin-bottom: 15px;">${itinerary.itinerary_name || 'Itinerary'}</h3>
 
@@ -1258,7 +1244,7 @@ const emailTemplate = `
       </div>
 
       <p style="margin-top:20px; font-size: 16px;">
-        <strong>Confirmed Option ${confirmedOptionNum}</strong>
+        <strong>Booked Option ${confirmedOptionNum}</strong>
       </p>
 
       <!-- Hotels Table -->
@@ -1348,6 +1334,18 @@ const emailTemplate = `
       // Wiping proposals for 'new' leads was causing data loss when users added itineraries 
       // but the page reloaded before the server-side status update or sync was complete.
       // We now rely on queryProposalsAPI.sync and server-side truth.
+      // Auto-transition 'new' leads to 'Under Process' (processing)
+      if (leadData && leadData.id && (leadData.status?.toLowerCase() === 'new')) {
+        try {
+          // Perform the update synchronously before setting the lead state
+          await leadsAPI.updateStatus(leadData.id, 'processing');
+          // Update the local data object to reflect the change immediately
+          leadData.status = 'processing';
+        } catch (err) {
+          console.error("Auto transition to processing failed:", err);
+        }
+      }
+
       setLead(leadData);
 
       // Split followups vs notes:
@@ -2311,6 +2309,12 @@ const emailTemplate = `
         showToastNotification('success', 'Follow-up Updated', 'Follow-up has been updated successfully');
       } else {
         await followupsAPI.create(payload);
+        // Automatically transition status to 'followup' when a followup is added
+        try {
+          await leadsAPI.updateStatus(id, 'followup');
+        } catch (statusErr) {
+          console.error('Failed to auto-update status to followup:', statusErr);
+        }
         showToastNotification('success', 'Follow-up Added', 'Follow-up has been added successfully');
       }
 
@@ -4021,7 +4025,7 @@ const emailTemplate = `
           }
         }
 
-        showToastNotification('success', 'Email Sent!', 'Email sent successfully! Lead status updated to PROPOSAL.');
+        showToastNotification('success', 'Email Sent!', 'Email sent successfully! Lead status updated to Proposal Sent.');
       } else {
         const msg = response.data?.message || response.data?.error || 'Unknown error';
         showToastNotification('error', 'Mail Error', 'Mail could not be sent. Issue: ' + msg);
@@ -4183,6 +4187,16 @@ const emailTemplate = `
 
       showToastNotification('success', 'PDF Downloaded', 'PDF served from Backend (Blade Template).');
 
+      // Automatically update lead status to 'Proposal Sent' if it's currently new or processing
+      if (lead && (lead.status === 'new' || lead.status === 'processing')) {
+        try {
+          await leadsAPI.updateStatus(id, { status: 'proposal' });
+          await fetchLeadDetails(); // Refresh to reflect status change
+        } catch (statusError) {
+          console.error('Failed to auto-update status on download:', statusError);
+        }
+      }
+
     } catch (error) {
       console.error('Error generating PDF via Backend:', error);
       showToastNotification('error', 'Download Failed', error.response?.data?.message || error.message || 'Backend error');
@@ -4261,7 +4275,7 @@ const emailTemplate = `
           }
         }
 
-        showToastNotification('success', 'WhatsApp Sent!', 'WhatsApp message sent successfully! Lead status updated to PROPOSAL.');
+        showToastNotification('success', 'WhatsApp Sent!', 'WhatsApp message sent successfully! Lead status updated to Proposal Sent.');
       } else {
         showToastNotification('error', 'WhatsApp Error', response.data.message || 'Failed to send WhatsApp message');
       }
@@ -4720,7 +4734,21 @@ const emailTemplate = `
                     <ArrowLeft className="h-5 w-5" />
                   </button>
                   <div>
-                    <h1 className="text-2xl font-bold text-gray-900 leading-tight">Query: #{formatLeadId(lead.id)}</h1>
+                    <h1 className="text-2xl font-bold text-gray-900 leading-tight flex items-center gap-3">
+                      Query: #{formatLeadId(lead.id)}
+                      {lead.status === 'processing' && (
+                        <span className="px-3 py-1 text-xs font-bold bg-indigo-100 text-indigo-600 rounded-full border border-indigo-200 uppercase tracking-wider status-glow-processing">Under Process</span>
+                      )}
+                      {lead.status === 'new' && (
+                        <span className="px-3 py-1 text-xs font-bold bg-blue-100 text-blue-600 rounded-full border border-blue-200 uppercase tracking-wider status-glow-new">New</span>
+                      )}
+                      {lead.status === 'proposal' && (
+                        <span className="px-3 py-1 text-xs font-bold bg-orange-100 text-orange-600 rounded-full border border-orange-200 uppercase tracking-wider status-glow-proposal">Proposal Sent</span>
+                      )}
+                      {lead.status === 'followup' && (
+                        <span className="px-3 py-1 text-xs font-bold bg-purple-100 text-purple-600 rounded-full border border-purple-200 uppercase tracking-wider status-glow-followup">Follow-up</span>
+                      )}
+                    </h1>
                     <div className="text-xs text-gray-500 mt-1 flex items-center gap-2">
                       <span className="font-medium">Created:</span> {formatDate(lead.created_at)}
                       <span className="text-gray-300">•</span>
@@ -4732,6 +4760,12 @@ const emailTemplate = `
                 <div className="flex items-center gap-3">
                   {lead.priority === 'hot' && (
                     <span className="px-3 py-1 text-xs font-bold bg-red-100 text-red-600 rounded-full border border-red-200 uppercase tracking-wider">Hot Lead</span>
+                  )}
+                  {lead.status === 'confirmed' && (
+                    <span className="px-3 py-1 text-xs font-bold bg-green-100 text-green-600 rounded-full border border-green-200 uppercase tracking-wider status-glow-confirmed">Booked</span>
+                  )}
+                   {lead.status === 'cancelled' && (
+                    <span className="px-3 py-1 text-xs font-bold bg-gray-100 text-gray-600 rounded-full border border-gray-200 uppercase tracking-wider">Declined</span>
                   )}
                 </div>
               </div>
@@ -5175,10 +5209,10 @@ const emailTemplate = `
                                   <div className="min-w-0">
                                     <div className="flex flex-wrap items-center gap-2 mb-0.5">
                                       <h3 className="font-bold text-green-800 text-lg sm:text-xl">
-                                        Option {confirmedOption.optionNumber} Confirmed
+                                        Option {confirmedOption.optionNumber} Booked
                                       </h3>
                                       <span className="px-2.5 py-0.5 bg-green-500 text-white text-xs font-bold rounded-full">
-                                        CONFIRMED
+                                        BOOKED
                                       </span>
                                     </div>
                                     <p className="text-sm text-green-700">
@@ -5194,7 +5228,11 @@ const emailTemplate = `
 
 
                         {/* Proposals List – single card with all options inside */}
-                        {visibleProposals.length === 0 ? (
+                        {loadingProposals ? (
+                          <div className="flex flex-col items-center justify-center py-20 bg-white rounded-xl border border-gray-100 shadow-sm">
+                            <LogoLoader text="Fetching itineraries..." compact={true} />
+                          </div>
+                        ) : visibleProposals.length === 0 ? (
                           <div className="text-center w-full py-12 text-gray-500 bg-gray-50 rounded-lg border border-gray-200">
                             <p className="mb-2">No proposals added yet</p>
                             <p className="text-sm">Click "Insert itinerary" to add an itinerary as a proposal</p>
@@ -5331,7 +5369,7 @@ const emailTemplate = `
                                               {opt.optionNumber != null ? `Option ${opt.optionNumber}` : itineraryName}
                                             </span>
                                             {opt.confirmed && (
-                                              <span className="px-2 py-0.5 bg-green-500 text-white text-xs font-semibold rounded-full">Confirmed</span>
+                                              <span className="px-2 py-0.5 bg-green-500 text-white text-xs font-semibold rounded-full">Booked</span>
                                             )}
                                           </div>
                                           {/* Card body */}
@@ -5388,7 +5426,7 @@ const emailTemplate = `
                                             <div className="flex flex-col gap-2">
                                               {opt.confirmed ? (
                                                 <span className="w-full text-center px-3 py-2 bg-green-100 text-green-700 text-sm font-semibold rounded-lg border border-green-300">
-                                                  Confirmed
+                                                  Booked
                                                 </span>
                                               ) : (
                                                 <button
@@ -5396,7 +5434,7 @@ const emailTemplate = `
                                                   onClick={(e) => { e.stopPropagation(); handleConfirmOption(opt.id); }}
                                                   className="w-full bg-orange-500 hover:bg-orange-600 text-white text-sm font-semibold px-3 py-2 rounded-lg transition-colors"
                                                 >
-                                                  Make Confirm
+                                                  Book Now
                                                 </button>
                                               )}
                                               <button
@@ -5691,19 +5729,6 @@ const emailTemplate = `
                   />
                 </div>
 
-                {/* Destinations */}
-                <div className="col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Destinations
-                  </label>
-                  <input
-                    type="text"
-                    value={itineraryFormData.destinations}
-                    onChange={(e) => setItineraryFormData({ ...itineraryFormData, destinations: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="Enter Destination"
-                  />
-                </div>
 
                 {/* Notes */}
                 <div className="col-span-2">

@@ -87,6 +87,9 @@ class Company extends Model
         'exotel_subdomain',
         'exotel_from_number',
         'exotel_webhook_secret',
+        'fb_page_id',
+        'fb_page_access_token',
+        'fb_ad_account_id',
     ];
 
     /**

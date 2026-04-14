@@ -110,7 +110,7 @@ class LeadsController extends Controller
                 'phone' => 'nullable|string|max:20',
                 'source' => 'required|string|max:50',
                 'destination' => 'nullable|string|max:255',
-                'status' => 'nullable|in:new,proposal,followup,confirmed,cancelled',
+                'status' => 'nullable|in:new,processing,proposal,followup,confirmed,cancelled',
                 'assigned_to' => 'nullable|exists:users,id',
                 'priority' => 'nullable|in:hot,warm,cold',
                 'travel_start_date' => 'nullable|date',
@@ -148,7 +148,7 @@ class LeadsController extends Controller
         try {
             $validator = Validator::make($request->all(), [
                 'client_name' => 'sometimes|required|string|max:255',
-                'status' => 'nullable|in:new,proposal,followup,confirmed,cancelled',
+                'status' => 'nullable|in:new,processing,proposal,followup,confirmed,cancelled',
                 'priority' => 'nullable|in:hot,warm,cold',
                 'assigned_to' => 'nullable|exists:users,id',
                 'email' => 'nullable|email|max:255',
@@ -248,7 +248,7 @@ class LeadsController extends Controller
     public function updateStatus(Request $request, int $id): JsonResponse
     {
         try {
-            $validator = Validator::make($request->all(), ['status' => 'required|in:proposal,followup,confirmed,cancelled']);
+            $validator = Validator::make($request->all(), ['status' => 'required|in:processing,proposal,followup,confirmed,cancelled']);
             if ($validator->fails())
                 return $this->validationErrorResponse($validator);
 

@@ -340,6 +340,7 @@ export const marketingTemplatesAPI = {
 // Marketing Dashboard
 export const marketingAPI = {
   dashboard: (params = {}) => api.get('/marketing/dashboard', { params }),
+  getMetaInsights: (params = {}) => api.get('/facebook/insights', { params }),
 };
 
 // Email Campaigns (Marketing)

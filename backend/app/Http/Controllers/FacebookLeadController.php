@@ -106,10 +106,17 @@ class FacebookLeadController extends Controller
         }
 
         // Extract basic info
-        $name = $fieldData['full_name'] ?? ($fieldData['first_name'] ?? 'FB Lead') . ' ' . ($fieldData['last_name'] ?? '');
+        $name = $fieldData['full_name'] ?? (($fieldData['first_name'] ?? 'FB Lead') . ' ' . ($fieldData['last_name'] ?? ''));
         $email = $fieldData['email'] ?? null;
-        $phone = $fieldData['phone_number'] ?? null;
+        $phone = $fieldData['phone_number'] ?? ($fieldData['phone'] ?? null);
         $destination = $fieldData['destination'] ?? 'Not Specified';
+
+        Log::info("Extracted FB Lead Data:", [
+            'name' => $name,
+            'email' => $email,
+            'phone' => $phone,
+            'destination' => $destination
+        ]);
 
         // Find default user to assign (usually admin)
         $assignedUser = User::where('company_id', $company->id)
@@ -122,6 +129,12 @@ class FacebookLeadController extends Controller
             return;
         }
 
+        // Collect all data for remark
+        $allFieldsString = "";
+        foreach ($fieldData as $key => $val) {
+            $allFieldsString .= "\n" . ucfirst(str_replace('_', ' ', $key)) . ": " . $val;
+        }
+
         // Create the lead
         $lead = Lead::create([
             'company_id' => $company->id,
@@ -131,7 +144,7 @@ class FacebookLeadController extends Controller
             'destination' => $destination,
             'source' => 'Facebook Ads',
             'status' => 'new',
-            'remark' => 'Automatically imported from Facebook Lead Ads. Form ID: ' . ($fbLead['form_id'] ?? 'N/A'),
+            'remark' => 'Automatically imported from Facebook Lead Ads. Form ID: ' . ($fbLead['form_id'] ?? 'N/A') . $allFieldsString,
             'assigned_to' => $assignedUser->id,
             'created_by' => $assignedUser->id,
             'client_type' => 'B2C',
@@ -163,6 +176,7 @@ class FacebookLeadController extends Controller
         $company = Company::find($user->company_id);
         $accessToken = $company->fb_page_access_token;
         $pageId = $company->fb_page_id;
+        $adAccountId = $company->fb_ad_account_id;
 
         if (!$accessToken || !$pageId) {
             return response()->json([
@@ -171,21 +185,33 @@ class FacebookLeadController extends Controller
             ], 400);
         }
 
-        // In a real scenario, you might want to fetch by Account ID, but for Page-based ads:
-        // We look for any connected account or use the Page Insights as a proxy if it's Lead Ads.
-        // For actual Ads Spent, we need the "Act_{ads_account_id}/insights".
-        // For now, let's fetch Page-level Lead Gen insights or a mock that explains the requirement.
-        
-        // Let's try to fetch the Ad Account associated with the page if possible, 
-        // but typically Page Access Token is for Page actions. 
-        // For Ads Insights, User Access Token with ads_read is usually needed.
-        
-        // Simulating the response if tokens are valid
         try {
-            $range = $request->get('range', '30days');
+            $range = $request->get('range', 'last_30d');
             
-            // This is a placeholder for actual Facebook Ads Insights API call
-            // Endpoint: https://graph.facebook.com/v19.0/{ad_account_id}/insights
+            // Default stats (will be updated if Ad Account ID exists)
+            $spent = 0;
+            $impressions = 0;
+            $clicks = 0;
+            $leadsCount = Lead::where('company_id', $company->id)->where('source', 'Facebook Ads')->count();
+
+            if ($adAccountId) {
+                // Call Facebook Ads Insights API
+                // Usually Ad Account ID needs to be prefixed with 'act_' if not already
+                $formattedId = str_starts_with($adAccountId, 'act_') ? $adAccountId : 'act_' . $adAccountId;
+                
+                $response = Http::get("https://graph.facebook.com/v19.0/{$formattedId}/insights", [
+                    'access_token' => $accessToken,
+                    'date_preset' => $range,
+                    'fields' => 'spend,impressions,inline_link_clicks'
+                ]);
+
+                if ($response->successful()) {
+                    $insights = $response->json()['data'][0] ?? [];
+                    $spent = (float) ($insights['spend'] ?? 0);
+                    $impressions = (int) ($insights['impressions'] ?? 0);
+                    $clicks = (int) ($insights['inline_link_clicks'] ?? 0);
+                }
+            }
 
             // Monthly leads data for current year
             $monthlyLeads = Lead::where('company_id', $company->id)
@@ -207,16 +233,19 @@ class FacebookLeadController extends Controller
                 ];
             }
             
+            $cpl = $leadsCount > 0 ? round($spent / $leadsCount, 2) : 0;
+            $cpc = $clicks > 0 ? round($spent / $clicks, 2) : 0;
+
             return response()->json([
                 'success' => true,
                 'data' => [
                     'platform' => 'Meta (Facebook)',
-                    'spent' => 1250.75, // Sample Data
-                    'impressions' => 45000,
-                    'clicks' => 1200,
-                    'leads' => Lead::where('company_id', $company->id)->where('source', 'Facebook Ads')->count(),
-                    'cpc' => 1.04,
-                    'cpl' => 15.63,
+                    'spent' => $spent,
+                    'impressions' => $impressions,
+                    'clicks' => $clicks,
+                    'leads' => $leadsCount,
+                    'cpc' => $cpc,
+                    'cpl' => $cpl,
                     'chart_data' => $chartData,
                     'recent_leads' => Lead::where('company_id', $company->id)
                         ->where('source', 'Facebook Ads')

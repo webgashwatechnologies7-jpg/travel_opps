@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { Dropdown } from 'primereact/dropdown';
 import { useParams, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 // Layout removed - handled by nested routing
@@ -976,14 +977,18 @@ const ItineraryDetail = () => {
           // Fetch again to get updated list
           const updatedResponse = await destinationsAPI.list();
           const updatedData = updatedResponse.data.data || updatedResponse.data || [];
-          setDestinations(updatedData.filter(d => d.status === 'active').map(d => d.name));
+          setDestinations(updatedData.filter(d => d.status === 'active').map(d => d.name).sort((a, b) => a.localeCompare(b)));
         } catch (createErr) {
           // If creation fails (maybe already exists), just use the fetched list
           console.error('Failed to create Shimla destination:', createErr);
-          setDestinations(data.filter(d => d.status === 'active').map(d => d.name));
+          setDestinations(data.filter(d => d.status === 'active').map(d => d.name).sort((a, b) => a.localeCompare(b)));
         }
       } else {
-        setDestinations(data.filter(d => d.status === 'active').map(d => d.name));
+        const sortedDestinations = data
+          .filter(d => d.status === 'active')
+          .map(d => d.name)
+          .sort((a, b) => a.localeCompare(b));
+        setDestinations(sortedDestinations);
       }
     } catch (err) {
       console.error('Failed to fetch destinations:', err);
@@ -2077,28 +2082,24 @@ const ItineraryDetail = () => {
                               </div>
                               <ChevronRight className={`h-4 w-4 ${selectedDay === day.day ? 'text-blue-600' : 'text-gray-400'}`} />
                             </div>
-                            <select
-                              className="mt-2 w-full text-sm border border-gray-300 rounded px-2 py-1 bg-white"
+                            <Dropdown
                               value={day.destination || ''}
+                              options={[
+                                ...destinations.map(dest => ({ label: dest, value: dest })),
+                                ...(day.destination && !destinations.includes(day.destination) && day.destination !== 'Destination' 
+                                  ? [{ label: day.destination, value: day.destination }] 
+                                  : [])
+                              ].sort((a, b) => a.label.localeCompare(b.label))}
                               onChange={(e) => {
-                                e.stopPropagation();
-                                const selectedValue = e.target.value;
-                                if (selectedValue && selectedValue !== '') {
-                                  handleDayDestinationChange(day.day, selectedValue);
-                                }
+                                handleDayDestinationChange(day.day, e.value);
                               }}
-                              onClick={(e) => e.stopPropagation()}
+                              filter
+                              placeholder="Select Destination"
+                              className="mt-2 w-full text-sm itinerary-dest-dropdown"
                               disabled={!hasPermission(user, 'itineraries.edit')}
-                            >
-                              <option value="">Select Destination</option>
-                              {destinations.map((dest) => (
-                                <option key={dest} value={dest}>{dest}</option>
-                              ))}
-                              {/* Show current destination if it's not in the list */}
-                              {day.destination && !destinations.includes(day.destination) && day.destination !== 'Destination' && (
-                                <option value={day.destination}>{day.destination}</option>
-                              )}
-                            </select>
+                              panelStyle={{ minWidth: '200px' }}
+                              appendTo="self"
+                            />
                           </div>
                           
                           {/* Distance Indicator between days */}

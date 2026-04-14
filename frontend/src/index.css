@@ -182,6 +182,11 @@ h6 {
   border: 1px solid rgba(59, 130, 246, 0.2);
 }
 
+.status-glow-processing {
+  box-shadow: 0 0 15px rgba(79, 70, 229, 0.3);
+  border: 1px solid rgba(79, 70, 229, 0.2);
+}
+
 .status-glow-proposal {
   box-shadow: 0 0 15px rgba(245, 158, 11, 0.3);
   border: 1px solid rgba(245, 158, 11, 0.2);
@@ -362,3 +367,74 @@ h6 {
     transform: scale(1) translateY(0);
   }
 }
+
+/* PrimeReact Dropdown Premium Overrides */
+.itinerary-dest-dropdown.p-dropdown {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.5rem;
+  transition: all 0.2s ease;
+  height: 32px;
+  display: flex;
+  align-items: center;
+}
+
+.itinerary-dest-dropdown.p-dropdown:not(.p-disabled):hover {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+}
+
+.itinerary-dest-dropdown.p-dropdown:not(.p-disabled).p-focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+
+.itinerary-dest-dropdown .p-dropdown-label {
+  font-size: 0.875rem;
+  padding: 0.25rem 0.5rem;
+  color: #1e293b;
+  font-weight: 500;
+}
+
+.itinerary-dest-dropdown .p-dropdown-trigger {
+  width: 2rem;
+}
+
+.p-dropdown-panel {
+  border-radius: 0.75rem !important;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05) !important;
+  border: 1px solid #f1f5f9 !important;
+  padding: 0.5rem !important;
+  z-index: 99999 !important;
+}
+
+.p-dropdown-items .p-dropdown-item {
+  border-radius: 0.5rem !important;
+  margin: 2px 0 !important;
+  padding: 0.5rem 0.75rem !important;
+  font-size: 0.875rem !important;
+  color: #334155 !important;
+  transition: all 0.2s ease !important;
+}
+
+.p-dropdown-items .p-dropdown-item.p-highlight {
+  background: #eff6ff !important;
+  color: #2563eb !important;
+  font-weight: 600 !important;
+}
+
+.p-dropdown-filter-container {
+  padding: 0.5rem !important;
+}
+
+.p-dropdown-filter {
+  padding: 0.4rem 0.75rem !important;
+  font-size: 0.875rem !important;
+  border-radius: 0.4rem !important;
+  border: 1px solid #e2e8f0 !important;
+}
+
+.p-dropdown-filter:focus {
+  border-color: #3b82f6 !important;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1) !important;
+}

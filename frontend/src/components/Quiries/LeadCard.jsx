@@ -70,10 +70,11 @@ function LeadCard({
 
   const statusConfig = {
     new: { color: 'bg-blue-600', glow: 'status-glow-new', label: 'New' },
-    proposal: { color: 'bg-amber-500', glow: 'status-glow-proposal', label: 'Proposal' },
+    processing: { color: 'bg-indigo-600', glow: 'status-glow-processing', label: 'Under Process' },
+    proposal: { color: 'bg-amber-500', glow: 'status-glow-proposal', label: 'Proposal Sent' },
     followup: { color: 'bg-orange-600', glow: 'status-glow-followup', label: 'Followup' },
-    confirmed: { color: 'bg-emerald-600', glow: 'status-glow-confirmed', label: 'Confirmed' },
-    cancelled: { color: 'bg-rose-600', glow: 'status-glow-cancelled', label: 'Cancelled' },
+    confirmed: { color: 'bg-emerald-600', glow: 'status-glow-confirmed', label: 'Booked' },
+    cancelled: { color: 'bg-rose-600', glow: 'status-glow-cancelled', label: 'Declined' },
   };
 
   const currentStatus = statusConfig[status?.toLowerCase()] || { color: 'bg-slate-500', glow: '', label: status };
