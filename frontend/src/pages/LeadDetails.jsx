@@ -1338,7 +1338,8 @@ const emailTemplate = `
       // but the page reloaded before the server-side status update or sync was complete.
       // We now rely on queryProposalsAPI.sync and server-side truth.
       setLead(leadData);
-
+      console.log(leadData);
+      
       // Split followups vs notes:
       // - Notes: remark present AND no reminder_date/reminder_time
       // - Followups: has reminder_date or reminder_time
