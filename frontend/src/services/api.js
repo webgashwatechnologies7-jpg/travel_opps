@@ -202,6 +202,7 @@ export const leadsAPI = {
 export const queryProposalsAPI = {
   list: (leadId) => api.get(`/leads/${leadId}/proposals`),
   sync: (leadId, proposals) => api.post(`/leads/${leadId}/proposals/sync`, { proposals }),
+  history: (leadId) => api.get(`/leads/${leadId}/proposals/history`),
 };
 
 // Calls APIs

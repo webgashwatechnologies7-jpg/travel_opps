@@ -9,4 +9,5 @@ export { default as VoucherTab } from './VoucherTab';
 export { default as DocsTab } from './DocsTab';
 export { default as InvoiceTab } from './InvoiceTab';
 export { default as CallsTab } from './CallsTab';
+export { default as ItineraryHistoryTab } from './ItineraryHistoryTab';
 

@@ -95,7 +95,7 @@ class QuotationController extends Controller
                 'pricing_breakdown' => 'nullable|array',
                 'custom_fields' => 'nullable|array',
                 'notes' => 'nullable|string',
-                'terms_conditions' => 'nullable|string',
+                'terms_conditions' => 'nullable',
             ]);
 
             if ($validator->fails()) {
@@ -221,7 +221,7 @@ class QuotationController extends Controller
                 'pricing_breakdown' => 'nullable|array',
                 'custom_fields' => 'nullable|array',
                 'notes' => 'nullable|string',
-                'terms_conditions' => 'nullable|string',
+                'terms_conditions' => 'nullable',
             ]);
 
             if ($validator->fails()) {

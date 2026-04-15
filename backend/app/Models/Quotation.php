@@ -70,6 +70,7 @@ class Quotation extends Model
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
         'valid_until' => 'date',
+        'terms_conditions' => 'array',
     ];
 
     public function lead(): BelongsTo

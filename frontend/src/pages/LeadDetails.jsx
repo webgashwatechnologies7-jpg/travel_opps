@@ -10,7 +10,7 @@ import { useSettings } from '../contexts/SettingsContext';
 import { ArrowLeft, Calendar, Mail, Plus, Upload, X, Search, FileText, Printer, Send, MessageCircle, CheckCircle, CheckCircle2, Clock, Briefcase, MapPin, CalendarDays, Users, UserCheck, Leaf, Smartphone, Phone, MoreVertical, Download, Pencil, Trash2, Camera, RefreshCw, Reply, ChevronDown, Paperclip, Eye, Info, Gift, Heart, Building2 } from 'lucide-react';
 import DetailRow from '../components/Quiries/DetailRow';
 import html2pdf from 'html2pdf.js';
-import { WhatsAppTab, MailsTab, FollowupsTab, BillingTab, HistoryTab, SuppCommTab, PostSalesTab, VoucherTab, DocsTab, InvoiceTab, CallsTab } from '../components/LeadTabs';
+import { WhatsAppTab, MailsTab, FollowupsTab, BillingTab, HistoryTab, SuppCommTab, PostSalesTab, VoucherTab, DocsTab, InvoiceTab, CallsTab, ItineraryHistoryTab } from '../components/LeadTabs';
 import { callsAPI } from '../services/api';
 import LogoLoader from '../components/LogoLoader';
 import { Dialog } from 'primereact/dialog';
@@ -131,6 +131,13 @@ const LeadDetails = () => {
   const [showInvoicePreview, setShowInvoicePreview] = useState(false);
   const [invoicePreviewHtml, setInvoicePreviewHtml] = useState('');
   const [invoiceActionLoading, setInvoiceActionLoading] = useState(null); // 'preview' | 'download' | 'send' | invoiceId
+
+  // Itinerary History states (sub-tabs inside Proposals)
+  const [proposalSubTab, setProposalSubTab] = useState('active'); // 'active' | 'history'
+  const [itineraryHistory, setItineraryHistory] = useState([]);
+  const [itineraryHistoryTotal, setItineraryHistoryTotal] = useState(0);
+  const [loadingItineraryHistory, setLoadingItineraryHistory] = useState(false);
+  const [changePlanMode, setChangePlanMode] = useState(false); // true = replace proposals, false = append
 
   // Email states
   const [leadEmails, setLeadEmails] = useState([]);
@@ -751,6 +758,8 @@ const LeadDetails = () => {
       setProposals(newProposals);
       // Removed localStorage sync - using Database only
       await queryProposalsAPI.sync(id, newProposals);
+      // Refresh itinerary history after any sync (so archived data updates)
+      fetchItineraryHistory();
     } catch (err) {
       console.error('Failed to save proposals:', err);
       showToastNotification('error', 'Sync Failed', 'Could not save proposals to the server. Please try again.');
@@ -758,6 +767,32 @@ const LeadDetails = () => {
       fetchLeadDetails();
     }
   };
+
+  // Fetch itinerary change history (archived versions)
+  const fetchItineraryHistory = async () => {
+    if (!id) return;
+    setLoadingItineraryHistory(true);
+    try {
+      const res = await queryProposalsAPI.history(id);
+      const data = res?.data?.data || [];
+      const total = res?.data?.total_changes || 0;
+      setItineraryHistory(data);
+      setItineraryHistoryTotal(total);
+    } catch (err) {
+      console.error('Failed to fetch itinerary history:', err);
+      setItineraryHistory([]);
+      setItineraryHistoryTotal(0);
+    } finally {
+      setLoadingItineraryHistory(false);
+    }
+  };
+
+  // Auto-fetch history when History sub-tab is opened
+  useEffect(() => {
+    if (proposalSubTab === 'history' && id) {
+      fetchItineraryHistory();
+    }
+  }, [proposalSubTab, id]);
 
   // Refresh proposal prices from server (database) – use after saving prices on Itinerary Pricing tab
   const refreshProposalPricesFromServer = async () => {
@@ -2487,6 +2522,13 @@ const emailTemplate = `
     : [];
 
   const handleInsertItinerary = () => {
+    setChangePlanMode(false); // Normal insert — append mode
+    setShowInsertItineraryModal(true);
+  };
+
+  // Called from "Change Plan" button — replaces existing proposals instead of appending
+  const handleChangePlan = () => {
+    setChangePlanMode(true); // Replace mode ON
     setShowInsertItineraryModal(true);
   };
 
@@ -2573,11 +2615,18 @@ const emailTemplate = `
 
     let updatedProposals;
     if (optionsToAdd.length > 0) {
-      updatedProposals = [...proposals, ...optionsToAdd];
+      // ── Change Plan mode: REPLACE old proposals with new itinerary ──
+      // ── Normal Insert mode: APPEND to existing proposals ──
+      updatedProposals = changePlanMode ? optionsToAdd : [...proposals, ...optionsToAdd];
       saveProposals(updatedProposals);
       setShowInsertItineraryModal(false);
       setItinerarySearchTerm('');
-      showToastNotification('success', 'Itinerary Added', `${optionsToAdd.length} option(s) of "${itineraryName}" have been added to proposals.`);
+      setChangePlanMode(false); // Reset after use
+      const actionMsg = changePlanMode ? 'Plan Changed' : 'Itinerary Added';
+      const detailMsg = changePlanMode
+        ? `Plan has been changed to "${itineraryName}". Previous itinerary saved in history.`
+        : `${optionsToAdd.length} option(s) of "${itineraryName}" have been added to proposals.`;
+      showToastNotification('success', actionMsg, detailMsg);
       return;
     }
 
@@ -2588,12 +2637,17 @@ const emailTemplate = `
       price: pkg.price || 0,
       website_cost: pkg.website_cost || 0
     };
-    updatedProposals = [...proposals, newProposal];
+    updatedProposals = changePlanMode ? [newProposal] : [...proposals, newProposal];
     saveProposals(updatedProposals);
+    setChangePlanMode(false); // Reset after use
 
     setShowInsertItineraryModal(false);
     setItinerarySearchTerm('');
-    showToastNotification('success', 'Itinerary Added', `Itinerary "${itineraryName}" has been added to proposals.`);
+    const actionMsg2 = changePlanMode ? 'Plan Changed' : 'Itinerary Added';
+    const detailMsg2 = changePlanMode
+      ? `Plan has been changed to "${itineraryName}". Previous itinerary saved in history.`
+      : `Itinerary "${itineraryName}" has been added to proposals.`;
+    showToastNotification('success', actionMsg2, detailMsg2);
   };
 
   const handleDuplicateProposal = (proposal) => {
@@ -2931,7 +2985,13 @@ const emailTemplate = `
           inclusions: itinerary.inclusions || [],
           exclusions: itinerary.exclusions || [],
           terms_conditions: itinerary.terms_conditions || '',
-          refund_policy: itinerary.refund_policy || ''
+          termsConditions: itinerary.terms_conditions || '', // Match blade
+          refund_policy: itinerary.refund_policy || '',
+          cancellationPolicy: itinerary.refund_policy || '', // Match blade
+          remarks: itinerary.remarks || '',
+          confirmationPolicy: itinerary.confirmation_policy || '', // Match blade
+          amendmentPolicy: itinerary.amendment_policy || '', // Match blade
+          paymentPolicy: itinerary.payment_policy || '' // Match blade
         }
       };
       setQuotationData(builtQuotation);
@@ -4160,7 +4220,7 @@ const emailTemplate = `
         inclusions: qData.policies?.inclusions || [],
         exclusions: qData.policies?.exclusions || [],
         pricing_breakdown: optionPriceMap,
-        terms_conditions: qData.policies?.terms || ''
+        terms_conditions: qData.policies?.terms_conditions || ''
       };
 
       // 1. Create Quotation in Database
@@ -5195,7 +5255,43 @@ const emailTemplate = `
                   {/* Tab Content */}
                   <div className="p-6">
                     {activeTab === 'proposals' ? (
-                      <div className="flex flex-col gap-6 w-full max-w-4xl">
+                      <div className="flex flex-col gap-5 w-full max-w-4xl">
+                        {/* ── Sub-tabs: Active Itinerary | Itinerary History ── */}
+                        <div className="flex items-center border-b border-gray-200">
+                          <button
+                            onClick={() => setProposalSubTab('active')}
+                            className={`px-5 py-2.5 text-sm font-semibold border-b-2 transition-all ${
+                              proposalSubTab === 'active'
+                                ? 'border-blue-600 text-blue-600'
+                                : 'border-transparent text-gray-500 hover:text-gray-700'
+                            }`}
+                          >
+                            Active Itinerary
+                          </button>
+                          <button
+                            onClick={() => setProposalSubTab('history')}
+                            className={`px-5 py-2.5 text-sm font-semibold border-b-2 transition-all flex items-center gap-2 ${
+                              proposalSubTab === 'history'
+                                ? 'border-orange-500 text-orange-600'
+                                : 'border-transparent text-gray-500 hover:text-gray-700'
+                            }`}
+                          >
+                            Itinerary History
+                            {itineraryHistoryTotal > 0 && (
+                              <span className={`text-xs px-1.5 py-0.5 rounded-full font-bold ${
+                                proposalSubTab === 'history'
+                                  ? 'bg-orange-100 text-orange-700'
+                                  : 'bg-gray-100 text-gray-600'
+                              }`}>
+                                {itineraryHistoryTotal}
+                              </span>
+                            )}
+                          </button>
+                        </div>
+
+                        {/* ── Sub-tab Content ── */}
+                        {proposalSubTab === 'active' ? (
+                          <>
                         {/* Confirmed Option Banner – full width, no overlap */}
                         {getConfirmedOption() && (() => {
                           const confirmedOption = getConfirmedOption();
@@ -5462,18 +5558,14 @@ const emailTemplate = `
                                     })}
                                   </div>
 
-                                  {/* Delete all proposals for this lead (only when nothing is confirmed) */}
+                                  {/* Change Plan button (only when nothing is confirmed) */}
                                   {!hasConfirmedProposal && (
                                     <div className="flex justify-end">
                                       <button
-                                        onClick={() => {
-                                          if (window.confirm('Remove all proposals from this lead?')) {
-                                            saveProposals([]);
-                                          }
-                                        }}
-                                        className="text-red-600 hover:text-red-700 text-sm font-medium"
+                                        onClick={handleChangePlan}
+                                        className="inline-flex items-center gap-1.5 text-orange-600 hover:text-orange-700 hover:bg-orange-50 text-sm font-semibold px-3 py-1.5 rounded-lg border border-orange-200 transition-colors"
                                       >
-                                        Remove all proposals
+                                        🔄 Change Plan
                                       </button>
                                     </div>
                                   )}
@@ -5500,6 +5592,17 @@ const emailTemplate = `
                             Insert itinerary
                           </button>
                         </div>
+                          </>
+                        ) : (
+                          /* History Sub-Tab */
+                          <ItineraryHistoryTab
+                            historyData={itineraryHistory}
+                            totalChanges={itineraryHistoryTotal}
+                            loadingHistory={loadingItineraryHistory}
+                            getDisplayImageUrl={getDisplayImageUrl}
+                            activeProposals={visibleProposals}
+                          />
+                        )}
                       </div>
                     ) :
                       activeTab === 'mails' ? (
