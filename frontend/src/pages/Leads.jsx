@@ -1706,7 +1706,8 @@ const Leads = () => {
                  </p>
               </div>
           </div>
-        ) }
+        </div>
+      ) }
 
         {/* ADD QUERY Modal */}
         <Dialog 
@@ -1714,13 +1715,13 @@ const Leads = () => {
             onHide={() => setShowModal(false)}
             modal
             dismissableMask
+            style={{ width: '90%', maxWidth: '700px' }}
             header={
               <div className="flex flex-col">
                 <span className="text-xl font-bold text-slate-800">New Query</span>
                 <span className="text-slate-400 text-xs font-medium mt-1">Fill in the details to create a new opportunity</span>
               </div>
             }
-            className="w-full max-w-2xl mx-auto"
             contentClassName="p-0 overflow-hidden rounded-b-2xl"
             headerClassName="p-6 border-b border-slate-100"
             footer={
@@ -1742,7 +1743,7 @@ const Leads = () => {
             }
         >
           <div className="p-0">
-            <form id="newQueryForm" onSubmit={handleCreate} className="p-8 grid grid-cols-1 md:grid-cols-2 gap-6 max-h-[60vh] overflow-y-auto scrollbar-hide">
+            <form id="newQueryForm" onSubmit={handleCreate} className="p-8 grid grid-cols-1 md:grid-cols-2 gap-6 max-h-[70vh] overflow-y-auto">
               {/* CLIENT NAME * */}
               <div className="md:col-span-2">
                 <label className="block text-xs font-bold text-slate-500 mb-2 uppercase tracking-wider">
@@ -2024,8 +2025,7 @@ const Leads = () => {
               </div>
             </form>
           </div>
-        </Dialog></div>
-        )}
+        </Dialog>
 
         {/* Assign Modal */}
         {showAssignModal && selectedLead && (

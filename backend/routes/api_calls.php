@@ -30,8 +30,6 @@ Route::middleware('auth:sanctum')->prefix('calls')->group(function () {
     Route::delete('/{id}', [CallController::class, 'destroy']);
 
 
-
-
     Route::get('/{id}', [CallController::class, 'show']);
     Route::get('/{id}/recording', [CallController::class, 'recording']);
     Route::post('/click-to-call', [CallController::class, 'clickToCall']);

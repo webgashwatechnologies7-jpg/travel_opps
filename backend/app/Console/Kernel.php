@@ -19,9 +19,9 @@ class Kernel extends ConsoleKernel
             ->dailyAt('09:00')
             ->timezone('UTC');
         
-        // Sync Google Sheets leads every 10 minutes
+        // Sync Google Sheets leads every 30 minutes
         $schedule->command('google-sheets:sync-leads')
-            ->everyTenMinutes();
+            ->everyThirtyMinutes();
 
         // Sync Gmail inbox every 5 minutes
         $schedule->command('gmail:sync')

@@ -546,6 +546,7 @@ class SettingsController extends Controller
                     'api_key' => $company->api_key,
                     'fb_page_id' => $company->fb_page_id,
                     'fb_page_access_token' => $company->fb_page_access_token,
+                    'fb_ad_account_id' => $company->fb_ad_account_id,
                     'sidebar_color' => $themeColors->sidebar_color ?? '#2765B0',
                     'dashboard_background_color' => $themeColors->dashboard_background_color ?? '#D8DEF5',
                     'header_background_color' => $themeColors->header_background_color ?? '#D8DEF5',
@@ -620,6 +621,7 @@ class SettingsController extends Controller
                 'website' => 'nullable|string|max:255',
                 'fb_page_id' => 'nullable|string|max:100',
                 'fb_page_access_token' => 'nullable|string|max:2000',
+                'fb_ad_account_id' => 'nullable|string|max:100',
                 'sidebar_color' => 'nullable|string|max:20',
                 'dashboard_background_color' => 'nullable|string|max:20',
                 'header_background_color' => 'nullable|string|max:20',
@@ -658,7 +660,7 @@ class SettingsController extends Controller
             }
 
             // Separate company and theme settings
-            $companyData = array_intersect_key($validated, array_flip(['name', 'email', 'phone', 'address', 'logo', 'favicon', 'website', 'fb_page_id', 'fb_page_access_token']));
+            $companyData = array_intersect_key($validated, array_flip(['name', 'email', 'phone', 'address', 'logo', 'favicon', 'website', 'fb_page_id', 'fb_page_access_token', 'fb_ad_account_id']));
             $themeData = array_intersect_key($validated, array_flip(['sidebar_color', 'dashboard_background_color', 'header_background_color', 'attendance_mode', 'allowed_ips', 'default_punch_in_time', 'default_punch_out_time']));
 
             // Update company details (including null values for logo removal)

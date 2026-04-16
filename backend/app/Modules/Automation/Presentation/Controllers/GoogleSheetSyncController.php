@@ -156,14 +156,27 @@ class GoogleSheetSyncController extends Controller
                 '--company' => $companyId
             ]);
             
-            // Get the output if needed (optional)
             $output = \Illuminate\Support\Facades\Artisan::output();
+
+            // Parse output to check if any leads were actually imported
+            // The command outputs: "Imported: X, Skipped: Y"
+            $message = 'Google Sheet sync triggered successfully';
+            $newLeadsCount = 0;
+
+            if (preg_match('/Imported: (\d+)/', $output, $matches)) {
+                $newLeadsCount = (int)$matches[1];
+                if ($newLeadsCount > 0) {
+                    $message = "Success! {$newLeadsCount} new lead(s) have been imported to your CRM.";
+                } else {
+                    $message = "Your CRM is already up-to-date. No new leads found in your Google Sheet.";
+                }
+            }
 
             return response()->json([
                 'success' => true,
-                'message' => 'Google Sheet sync triggered successfully',
+                'message' => $message,
                 'data' => [
-                    'output' => $output,
+                    'new_leads_count' => $newLeadsCount,
                     'synced_at' => now(),
                 ],
             ], 200);

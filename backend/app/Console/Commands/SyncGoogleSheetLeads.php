@@ -72,6 +72,11 @@ class SyncGoogleSheetLeads extends Command
     }
 
     /**
+     * @var array
+     */
+    protected array $headerMap = [];
+
+    /**
      * Sync leads for a specific connection.
      *
      * @param GoogleSheetConnection $connection
@@ -82,6 +87,9 @@ class SyncGoogleSheetLeads extends Command
         $this->info("Processing company ID {$connection->company_id}: {$connection->sheet_url}");
 
         try {
+            // Reset header map for each connection
+            $this->headerMap = [];
+            
             // Fetch rows from Google Sheet
             $rows = $this->fetchGoogleSheetRows($connection->sheet_url);
 
@@ -188,31 +196,63 @@ class SyncGoogleSheetLeads extends Command
      * Map Google Sheet row to lead data.
      *
      * @param array $row
+     * @param int $companyId
      * @return array|null
      */
     protected function mapRowToLeadData(array $row, int $companyId): ?array
     {
-        // Mapping based on user's screenshot: 
-        // A: Name, B: Phone, C: Destination, D: Email
-        
-        if (empty($row) || count($row) < 2) {
+        if (empty($row)) {
             return null;
         }
 
-        $clientName = $row[0] ?? null;
-        $phone = !empty($row[1]) && strtolower(trim($row[1])) !== 'n/a' ? trim($row[1]) : null;
-        $destination = $row[2] ?? null;
-        $email = !empty($row[3]) && strtolower(trim($row[3])) !== 'n/a' ? trim($row[3]) : null;
+        // Support for dynamic mapping based on header names
+        $clientName = null;
+        $phone = null;
+        $email = null;
+        $destination = null;
+        $source = 'google_sheets';
+        $city = null;
 
-        if (!$clientName) {
+        if (!empty($this->headerMap)) {
+            // Dynamic mapping using found headers
+            $clientName = $row[$this->headerMap['full_name'] ?? $this->headerMap['name'] ?? $this->headerMap['client_name'] ?? 0] ?? null;
+            $phone = $row[$this->headerMap['phone_number'] ?? $this->headerMap['phone'] ?? 1] ?? null;
+            $destination = $row[$this->headerMap['destination'] ?? $this->headerMap['campaign_name'] ?? 2] ?? null;
+            $email = $row[$this->headerMap['email'] ?? 3] ?? null;
+            $city = $row[$this->headerMap['city'] ?? -1] ?? null;
+
+            // If we found Google Ads specific headers, change source
+            if (isset($this->headerMap['campaign_name']) || isset($this->headerMap['ad_id'])) {
+                $source = 'google_ads';
+            }
+        } else {
+            // Fallback to position-based mapping (Original behavior)
+            $clientName = $row[0] ?? null;
+            $phone = $row[1] ?? null;
+            $destination = $row[2] ?? null;
+            $email = $row[3] ?? null;
+        }
+
+        // Clean values
+        $phone = !empty($phone) && strtolower(trim($phone)) !== 'n/a' ? trim($phone) : null;
+        $email = !empty($email) && strtolower(trim($email)) !== 'n/a' ? trim($email) : null;
+
+        if (!$clientName || (empty($phone) && empty($email))) {
             return null;
+        }
+
+        // If city is present, append to destination or keep separate if Lead model supports it
+        if ($city && $destination) {
+            $destination = $destination . " ({$city})";
+        } elseif ($city) {
+            $destination = $city;
         }
 
         return [
             'client_name' => $clientName,
             'email' => $email,
             'phone' => $phone,
-            'source' => 'google_sheets',
+            'source' => $source,
             'destination' => $destination,
             'priority' => 'warm',
             'status' => 'new',
@@ -269,11 +309,22 @@ class SyncGoogleSheetLeads extends Command
                 continue;
             }
 
-            // Skip header row if present
+            // Capture header row and store index mapping
             if ($isFirstRow) {
                 $isFirstRow = false;
-                $normalized = array_map(fn($v) => strtolower(trim((string) $v)), $data);
-                if (in_array('client_name', $normalized, true) || in_array('name', $normalized, true) || in_array('phone', $normalized, true)) {
+                $normalizedHeads = array_map(fn($v) => strtolower(trim((string) $v)), $data);
+                
+                // Map important fields to their indexes
+                foreach ($normalizedHeads as $index => $head) {
+                    $this->headerMap[$head] = $index;
+                }
+
+                // If it looks like a header row, we skip adding it to rows
+                if (in_array('client_name', $normalizedHeads, true) || 
+                    in_array('name', $normalizedHeads, true) || 
+                    in_array('full_name', $normalizedHeads, true) || 
+                    in_array('phone', $normalizedHeads, true) || 
+                    in_array('phone_number', $normalizedHeads, true)) {
                     continue;
                 }
             }
