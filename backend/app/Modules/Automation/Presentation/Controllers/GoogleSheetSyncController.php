@@ -163,6 +163,17 @@ class GoogleSheetSyncController extends Controller
             $message = 'Google Sheet sync triggered successfully';
             $newLeadsCount = 0;
 
+            if (str_contains($output, 'Critical error')) {
+                // Extract the specific error message if possible
+                if (preg_match('/Critical error.*: (.*)/', $output, $errMatches)) {
+                    $errorMsg = trim($errMatches[1]);
+                    return response()->json([
+                        'success' => false,
+                        'message' => "Sync failed: {$errorMsg}",
+                    ], 422);
+                }
+            }
+
             if (preg_match('/Imported: (\d+)/', $output, $matches)) {
                 $newLeadsCount = (int)$matches[1];
                 if ($newLeadsCount > 0) {

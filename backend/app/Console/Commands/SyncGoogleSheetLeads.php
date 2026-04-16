@@ -172,23 +172,20 @@ class SyncGoogleSheetLeads extends Command
             $response = Http::timeout(15)->withoutVerifying()->get($csvUrl);
 
             if (!$response->successful()) {
-                Log::warning('Google Sheets sync: CSV fetch failed', [
-                    'sheet_url' => $sheetUrl,
-                    'csv_url' => $csvUrl,
-                    'status' => $response->status(),
-                    'body' => $response->body(),
-                ]);
+                $body = $response->body();
+                if (stripos($body, '<html') !== false) {
+                    throw new \Exception("Google Sheet link is private or requires login. Please use 'File -> Share -> Publish to Web' and select 'CSV'.");
+                }
+                $this->error("CSV fetch failed. Status: " . $response->status());
                 return [];
             }
 
             $csv = $response->body();
+            file_put_contents(storage_path('logs/last_sync_raw.txt'), $csv);
+            Log::info('Google Sheet Raw CSV preserved in logs/last_sync_raw.txt');
             return $this->parseCsvRows($csv);
         } catch (\Exception $e) {
-            Log::error('Google Sheets sync: exception while fetching rows', [
-                'sheet_url' => $sheetUrl,
-                'error' => $e->getMessage(),
-            ]);
-            return [];
+            throw $e;
         }
     }
 
@@ -217,9 +214,9 @@ class SyncGoogleSheetLeads extends Command
             // Dynamic mapping using found headers
             $clientName = $row[$this->headerMap['full_name'] ?? $this->headerMap['name'] ?? $this->headerMap['client_name'] ?? 0] ?? null;
             $phone = $row[$this->headerMap['phone_number'] ?? $this->headerMap['phone'] ?? 1] ?? null;
-            $destination = $row[$this->headerMap['destination'] ?? $this->headerMap['campaign_name'] ?? 2] ?? null;
-            $email = $row[$this->headerMap['email'] ?? 3] ?? null;
-            $city = $row[$this->headerMap['city'] ?? -1] ?? null;
+            $destination = $row[$this->headerMap['form_name'] ?? $this->headerMap['campaign_name'] ?? $this->headerMap['destination'] ?? 2] ?? null;
+            $email = $row[$this->headerMap['email'] ?? $this->headerMap['email_address'] ?? 3] ?? null;
+            $city = $row[$this->headerMap['city'] ?? $this->headerMap['location'] ?? -1] ?? null;
 
             // If we found Google Ads specific headers, change source
             if (isset($this->headerMap['campaign_name']) || isset($this->headerMap['ad_id'])) {
@@ -234,8 +231,19 @@ class SyncGoogleSheetLeads extends Command
         }
 
         // Clean values
-        $phone = !empty($phone) && strtolower(trim($phone)) !== 'n/a' ? trim($phone) : null;
-        $email = !empty($email) && strtolower(trim($email)) !== 'n/a' ? trim($email) : null;
+        if ($phone) {
+            $phone = trim($phone);
+            // Remove 'p:', 'tel:', etc. prefixes if present
+            if (preg_match('/^(p:|tel:)/i', $phone)) {
+                $phone = preg_replace('/^(p:|tel:)/i', '', $phone);
+            }
+            $phone = strtolower($phone) !== 'n/a' ? $phone : null;
+        }
+
+        if ($email) {
+            $email = trim($email);
+            $email = strtolower($email) !== 'n/a' ? $email : null;
+        }
 
         if (!$clientName || (empty($phone) && empty($email))) {
             return null;
@@ -248,6 +256,10 @@ class SyncGoogleSheetLeads extends Command
             $destination = $city;
         }
 
+        if ($destination && strlen($destination) > 190) {
+            $destination = substr($destination, 0, 187) . '...';
+        }
+
         return [
             'client_name' => $clientName,
             'email' => $email,
@@ -257,6 +269,7 @@ class SyncGoogleSheetLeads extends Command
             'priority' => 'warm',
             'status' => 'new',
             'created_by' => $this->getSystemUserId($companyId),
+            'assigned_to' => $this->getSystemUserId($companyId),
             'company_id' => $companyId,
         ];
     }
@@ -286,10 +299,8 @@ class SyncGoogleSheetLeads extends Command
             $gid = $gidMatches[1];
         }
 
-        // Use gviz export which works well for public sheets
-        // If gid is missing, default to 0
-        $gid = $gid ?? '0';
-        return "https://docs.google.com/spreadsheets/d/{$spreadsheetId}/gviz/tq?tqx=out:csv&gid={$gid}";
+        // Use export endpoint which is generally more stable for "Anyone with link"
+        return "https://docs.google.com/spreadsheets/d/{$spreadsheetId}/export?format=csv&gid={$gid}";
     }
 
     /**
@@ -298,6 +309,12 @@ class SyncGoogleSheetLeads extends Command
     protected function parseCsvRows(string $csv): array
     {
         $rows = [];
+        
+        // If the content looks like HTML, it means we are likely hitting a login page
+        if (stripos($csv, '<html') !== false || stripos($csv, '<!DOCTYPE') !== false) {
+            throw new \Exception("Google Sheet link is private or requires login. Please use 'File -> Share -> Publish to Web' and select 'CSV'.");
+        }
+
         $handle = fopen('php://temp', 'r+');
         fwrite($handle, $csv);
         rewind($handle);
@@ -333,6 +350,7 @@ class SyncGoogleSheetLeads extends Command
         }
 
         fclose($handle);
+        Log::info("CSV Parsing completed. Total valid rows found: " . count($rows));
         return $rows;
     }
 
@@ -354,6 +372,8 @@ class SyncGoogleSheetLeads extends Command
      */
     protected function findDuplicateLead(array $leadData, int $companyId)
     {
+        // Eloquent by default excludes soft-deleted records.
+        // We only check active leads to avoid skipping a lead that was deleted but needs re-import.
         $query = Lead::where('company_id', $companyId);
 
         if (!empty($leadData['email']) || !empty($leadData['phone'])) {

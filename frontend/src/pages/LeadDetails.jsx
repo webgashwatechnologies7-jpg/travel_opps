@@ -4944,7 +4944,7 @@ const emailTemplate = `
                     <DetailRow
                       icon={<UserCheck className="text-orange-500" size={18} />}
                       label="Assign To"
-                      value={lead.assigned_user?.name || assignedUser?.name || "N/A"}
+                      value={lead.assigned_user?.name || users.find(u => u.id === lead.assigned_to)?.name || "N/A"}
                     />
 
                     {lead.remark && (
