@@ -322,6 +322,42 @@ app.post('/api/message/pin', async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 });
+// Endpoint to mark chat as read
+app.post('/api/chat/read', async (req, res) => {
+    const { userId, companyId, chatId, message_id } = req.body;
+    console.log(`[MarkAsRead] Chat: ${chatId}, Msg: ${message_id}, Company: ${companyId}`);
+    let sessionName = `session_${userId}_${companyId}`;
+    let sock = sessions.get(sessionName);
+
+    // If specific user session not found, try finding ANY session for this company
+    if (!sock && companyId) {
+        for (const [name, socket] of sessions.entries()) {
+            if (name.endsWith(`_${companyId}`)) {
+                sock = socket;
+                break;
+            }
+        }
+    }
+
+    if (!sock) {
+        return res.status(404).json({ error: 'Session not active' });
+    }
+
+    try {
+        const jid = chatId.includes('@') ? chatId : `${chatId}@s.whatsapp.net`;
+        // Baileys way to mark as read: passing the message key
+        const key = {
+            remoteJid: jid,
+            id: message_id || null,
+            fromMe: false
+        };
+        await sock.readMessages([key]);
+        res.json({ success: true, message: 'Marked as read', key });
+    } catch (error) {
+        console.error('Error marking as read:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
 
 // Endpoint to logout
 app.post('/api/session/logout', async (req, res) => {

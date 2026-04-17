@@ -45,7 +45,7 @@ const LatestQuery = ({ latestNotes = [], onViewMore }) => {
                   <div className="absolute -left-[22px] top-1.5 w-3 h-3 rounded-full border-2 border-white bg-[#2C55D4] ring-4 ring-blue-50/50 shadow-sm transition-transform group-hover:scale-125" />
 
                   {/* Content Label Only (Matching Reference Style) */}
-                  <div className="flex justify-between items-start mb-1">
+                  <div className="flex justify-between items-start mb-1 min-w-0">
                     <p className="text-[11.5px] font-semibold text-slate-700 truncate uppercase tracking-tight group-hover:text-[#2C55D4] transition-colors">
                       {note.lead?.client_name || note.client_name || "Note Update"}
                     </p>

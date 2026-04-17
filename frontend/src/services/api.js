@@ -321,7 +321,7 @@ export const whatsappWebAPI = {
       headers: { 'Content-Type': 'multipart/form-data' },
     });
   },
-  markAsRead: (chatId) => api.post(`/whatsapp-web/chats/${chatId}/read`),
+  markAsRead: (chatId, messageId = null) => api.post(`/whatsapp-web/chats/${chatId}/read`, { message_id: messageId }),
   sendReaction: (data) => api.post('/whatsapp-web/messages/react', data),
   pinMessage: (data) => api.post('/whatsapp-web/messages/pin', data),
   starMessage: (data) => api.post('/whatsapp-web/messages/star', data),

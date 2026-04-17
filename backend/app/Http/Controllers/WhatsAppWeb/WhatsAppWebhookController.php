@@ -228,12 +228,24 @@ class WhatsAppWebhookController extends Controller
             }
         }
 
-        // 3. Get or create chat (Point 3: Chat List Management)
-        $chat = DB::table('whatsapp_chats')
-            ->where('chat_id', $jid)
-            ->where('company_id', $session->company_id)
-            ->where('user_id', $session->user_id)
-            ->first();
+        // 3. Get or create chat - prioritize using existing chat for this lead
+        $chat = null;
+        if ($lead) {
+            $chat = DB::table('whatsapp_chats')
+                ->where('lead_id', $lead->id)
+                ->where('company_id', $session->company_id)
+                ->where('user_id', $session->user_id)
+                ->orderByRaw("chat_id LIKE '%@s.whatsapp.net' DESC") // Prefer phone-based JID
+                ->first();
+        }
+
+        if (!$chat) {
+            $chat = DB::table('whatsapp_chats')
+                ->where('chat_id', $jid)
+                ->where('company_id', $session->company_id)
+                ->where('user_id', $session->user_id)
+                ->first();
+        }
 
         $currentTime = now();
         if (!$chat) {

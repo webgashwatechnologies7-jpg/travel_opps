@@ -1749,7 +1749,17 @@ const emailTemplate = `
 
       const response = await whatsappWebAPI.getMessages(chatId, id); // pass lead id
       if (response?.data?.success) {
-        if (response.data.data) setWhatsappMessages(response.data.data);
+        if (response.data.data) {
+          setWhatsappMessages(response.data.data);
+          // Auto-mark as read if there are unread inbound messages and we are on the WhatsApp tab
+          const hasUnread = response.data.data.some(m => m.direction === 'inbound' && m.status !== 'read');
+          if (activeTab === 'whatsapp') {
+            const lastInbound = [...response.data.data].reverse().find(m => m.direction === 'inbound');
+            if (lastInbound && (hasUnread || !lastInbound.read_at)) {
+               whatsappWebAPI.markAsRead(chatId, lastInbound.whatsapp_message_id || lastInbound.id);
+            }
+          }
+        }
         if (response.data.profile_jid && response.data.profile_jid !== lastFetchedJid) {
           setLastFetchedJid(response.data.profile_jid);
           whatsappWebAPI.getProfilePicture(response.data.profile_jid)

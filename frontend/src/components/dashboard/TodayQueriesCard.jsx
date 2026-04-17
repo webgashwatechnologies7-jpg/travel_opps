@@ -51,7 +51,7 @@ const TodayQueriesCard = ({ queries = [], loading, onViewAll, onQueryClick }) =>
               <div className="flex items-center justify-between gap-4">
                 <div className="min-w-0 flex items-center gap-3">
                   <div className="w-1.5 h-1.5 rounded-full bg-[#2C55D4] flex-shrink-0" />
-                  <div>
+                  <div className="min-w-0">
                     <h4 className="text-[13px] font-bold text-slate-800 uppercase tracking-tight truncate leading-tight group-hover:text-[#2C55D4]">
                       {item.title}
                     </h4>

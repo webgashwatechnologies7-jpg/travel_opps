@@ -360,12 +360,23 @@ class WhatsAppChatController extends Controller
         $quotedMessageId = $request->quoted_message_id;
         $quotedText = $request->quoted_text;
 
-        // 1. Get or create chat
-        $chat = DB::table('whatsapp_chats')
-            ->where('chat_id', $chatId)
-            ->where('company_id', $user->company_id)
-            ->where('user_id', $user->id)
-            ->first();
+        // 1. Get or create chat - prioritize linking by lead_id if possible
+        $chat = null;
+        if ($requestedLeadId) {
+            $chat = DB::table('whatsapp_chats')
+                ->where('lead_id', $requestedLeadId)
+                ->where('company_id', $user->company_id)
+                ->where('user_id', $user->id)
+                ->first();
+        }
+
+        if (!$chat) {
+            $chat = DB::table('whatsapp_chats')
+                ->where('chat_id', $chatId)
+                ->where('company_id', $user->company_id)
+                ->where('user_id', $user->id)
+                ->first();
+        }
 
         if (!$chat) {
             // Find lead: first use lead_id from request, else search by phone
@@ -612,12 +623,27 @@ class WhatsAppChatController extends Controller
         }
     }
 
-    public function markAsRead($chatId)
+    public function markAsRead(Request $request, $chatId)
     {
         $user = auth()->user();
         $effectiveCompanyId = $user->company_id ?: config('tenant.id');
+        $messageId = $request->input('message_id');
 
-        // Find the chat to get lead_id
+        // 1. Notify Node server to mark as read on WhatsApp network (Blue Ticks)
+        try {
+            Http::withHeaders([
+                'x-api-key' => $this->apiKey
+            ])->post("{$this->nodeServerUrl}/api/chat/read", [
+                'userId' => $user->id,
+                'companyId' => $effectiveCompanyId,
+                'chatId' => $chatId,
+                'message_id' => $messageId
+            ]);
+        } catch (\Exception $e) {
+            Log::error("Failed to mark WhatsApp chat as read on Node server: " . $e->getMessage());
+        }
+
+        // 2. Update local database
         $chat = DB::table('whatsapp_chats')
             ->where('chat_id', $chatId)
             ->where('company_id', $effectiveCompanyId)
@@ -625,7 +651,6 @@ class WhatsAppChatController extends Controller
             ->first();
 
         if ($chat) {
-            // 1. Clear unread_count for all chats of this lead
             $chatQuery = DB::table('whatsapp_chats')
                 ->where('company_id', $effectiveCompanyId);
 
@@ -636,14 +661,19 @@ class WhatsAppChatController extends Controller
             }
 
             $allRelatedChatIds = $chatQuery->pluck('id');
-            $chatQuery->update(['unread_count' => 0]);
+            
+            DB::table('whatsapp_chats')
+                ->whereIn('id', $allRelatedChatIds)
+                ->update(['unread_count' => 0]);
 
-            // 2. Mark all inbound messages as 'read' in our database
             DB::table('whatsapp_messages')
                 ->whereIn('whatsapp_chat_id', $allRelatedChatIds)
                 ->where('direction', 'inbound')
                 ->where('status', '!=', 'read')
-                ->update(['status' => 'read']);
+                ->update([
+                    'status' => 'read',
+                    'read_at' => now()
+                ]);
         }
 
         return response()->json(['success' => true]);

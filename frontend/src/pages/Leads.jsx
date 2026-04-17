@@ -1007,7 +1007,7 @@ const Leads = () => {
             >
               <option value="total">ALL QUERIES ({stats.total})</option>
               {stats.assignedToMe > 0 && <option value="assignedToMe">{currentUser?.name || 'ASSIGNED TO ME'} ({stats.assignedToMe})</option>}
-              <option value="today">CREATED TODAY ({stats.today})</option>
+              <option value="today">TODAY LEAD ({stats.today})</option>
               {canAssign && <option value="unassigned">UNASSIGNED ({stats.unassigned})</option>}
               <option value="new">NEW INCOMING ({stats.new})</option>
               <option value="processing">UNDER PROCESS ({stats.processing})</option>

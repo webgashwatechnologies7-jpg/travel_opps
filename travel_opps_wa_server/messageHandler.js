@@ -243,9 +243,10 @@ module.exports = (sock, sessionName, pool) => {
     sock.ev.on('messages.update', async (m) => {
         for (const { key, update } of m) {
             if (update.status) {
-                const statusMap = { 3: 'delivered', 4: 'read' };
+                const statusMap = { 2: 'sent', 3: 'delivered', 4: 'read', 5: 'played' };
                 if (statusMap[update.status]) {
                     try {
+                        console.log(`[StatusUpdate] Msg ${key.id} -> ${statusMap[update.status]}`);
                         await axios.post(process.env.LARAVEL_WEBHOOK_URL, {
                             type: 'message_receipt',
                             session_name: sessionName,
