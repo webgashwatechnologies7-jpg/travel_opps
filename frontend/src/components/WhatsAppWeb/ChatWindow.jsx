@@ -454,7 +454,7 @@ const ChatWindow = ({ chat, messages, onSendMessage, onSendMedia, isTyping, isSe
     };
 
     const renderMessage = (msg, index, messagesList) => {
-        const isOutbound = msg.direction === 'outbound';
+        const isOutbound = msg.direction?.toLowerCase() === 'outbound';
         const isReaction = isReactionMsg(msg);
         const isHovered = hoveredMsg === (msg.whatsapp_message_id || msg.id || index);
 

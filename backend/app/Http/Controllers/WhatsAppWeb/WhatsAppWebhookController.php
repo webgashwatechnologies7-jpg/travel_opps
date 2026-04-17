@@ -136,13 +136,19 @@ class WhatsAppWebhookController extends Controller
             return;
 
         $jid = $data['chat_id'];
-        $cleanNumber = explode('@', $jid)[0];
-        // Detect jid type so groups are not treated like phone numbers.
-        $jidType = strpos($jid, '@lid') !== false ? 'lid' : (strpos($jid, '@g.us') !== false ? 'group' : 'phone');
+        $rawPhone = explode('@', $jid)[0];
+        // Normalize: remove non-digits and strip leading 91 if present
+        $cleanPhone = preg_replace('/\D/', '', $rawPhone);
+        if (strlen($cleanPhone) > 10 && str_starts_with($cleanPhone, '91')) {
+            $cleanPhone = substr($cleanPhone, 2);
+        }
+        $phone = $cleanPhone;
+        
+        Log::info("Processing WhatsApp message from normalized phone: $phone");$jidType = strpos($jid, '@lid') !== false ? 'lid' : (strpos($jid, '@g.us') !== false ? 'group' : 'phone');
         $lead = null;
 
         if ($jidType === 'phone') {
-            $phoneNumber = preg_replace('/[^0-9]/', '', $cleanNumber);
+            $phoneNumber = preg_replace('/[^0-9]/', '', $phone);
             $lead = DB::table('leads')
                 ->where('company_id', $session->company_id)
                 ->whereNull('deleted_at')
@@ -214,19 +220,18 @@ class WhatsAppWebhookController extends Controller
             }
         }
         
-        // NEW FILTER: Only process messages for numbers that are already in the Leads table.
-        // This prevents personal chats from cluttering the CRM.
         if (!$lead) {
             // Check if this chat was already manually linked to a lead or created from the CRM
             $existingLinkedChat = DB::table('whatsapp_chats')
                 ->where('chat_id', $jid)
                 ->where('company_id', $session->company_id)
-                ->whereNotNull('lead_id')
                 ->exists();
 
-            if (!$existingLinkedChat) {
-                // Log::info("Ignoring non-lead WhatsApp message", ['chat_id' => $jid]);
-                return response()->json(['status' => 'ignored', 'message' => 'Not a lead number']);
+            if (!$existingLinkedChat && $jidType === 'phone') {
+                // Silently allow it if it's a direct phone JID, a new lead might be created later or it's a reply
+                Log::info("Processing non-lead message as it's a valid phone JID: $jid");
+            } elseif (!$existingLinkedChat) {
+                 return response()->json(['status' => 'ignored', 'message' => 'Not a lead number and not a linked chat']);
             }
         }
 
@@ -320,7 +325,8 @@ class WhatsAppWebhookController extends Controller
             return;
         }
 
-        $direction = $data['direction'] ?? 'inbound';
+        $direction = isset($data['direction']) ? $data['direction'] : 'inbound';
+        Log::info("Saving message with direction: $direction", ['msg_id' => $data['message_id']]);
 
         DB::table('whatsapp_messages')->insert([
             'company_id' => $session->company_id,
@@ -353,7 +359,7 @@ class WhatsAppWebhookController extends Controller
             'quoted_text' => $data['quoted_text'] ?? null,
             'direction' => $direction,
             'lead_id' => $lead ? $lead->id : null,
-            'sender_name' => $lead ? $lead->client_name : ($data['chat_name'] ?? $cleanNumber),
+            'sender_name' => $lead ? $lead->client_name : ($data['chat_name'] ?? $phone),
             'created_at' => now()->toISOString()
         ]);
 
@@ -362,7 +368,7 @@ class WhatsAppWebhookController extends Controller
             try {
                 $recipient = User::find($session->user_id);
                 if ($recipient) {
-                    $senderName = $lead ? $lead->client_name : ($data['chat_name'] ?? $cleanNumber);
+                    $senderName = $lead ? $lead->client_name : ($data['chat_name'] ?? $phone);
                     $recipient->notify(new GenericNotification([
                         'type' => 'whatsapp',
                         'title' => 'New WhatsApp Message',
