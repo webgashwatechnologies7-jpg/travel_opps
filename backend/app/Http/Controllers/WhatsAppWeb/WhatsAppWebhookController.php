@@ -14,6 +14,8 @@ class WhatsAppWebhookController extends Controller
 {
     public function handleNodeHook(Request $request)
     {
+        Log::info('WhatsApp Webhook Received:', $request->all());
+        
         // Security check
         $providedKey = $request->header('x-api-key');
         $expectedKey = env('WHATSAPP_INTERNAL_API_KEY', 'travelops_secret_key_2024');

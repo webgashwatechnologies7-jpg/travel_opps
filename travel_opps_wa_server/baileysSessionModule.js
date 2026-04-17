@@ -109,6 +109,22 @@ async function createSession(userId, companyId, res, force = false, webhookUrl =
         return existingSock;
     }
 
+    const [dbSession] = await pool.execute(
+        'SELECT webhook_url FROM whatsapp_sessions WHERE session_name = ?',
+        [sessionName]
+    );
+
+    // If webhookUrl is passed (from init), use it and save to DB
+    // Else, use the one from DB (for restores)
+    let finalWebhookUrl = webhookUrl || (dbSession[0] ? dbSession[0].webhook_url : null);
+
+    if (webhookUrl) {
+        await pool.execute(
+            'UPDATE whatsapp_sessions SET webhook_url = ? WHERE session_name = ?',
+            [webhookUrl, sessionName]
+        );
+    }
+
     const { state, saveCreds } = await useDatabaseAuthState(sessionName);
     const { version } = await fetchLatestBaileysVersion();
 
@@ -127,7 +143,10 @@ async function createSession(userId, companyId, res, force = false, webhookUrl =
         getMessage: async (key) => ({ conversation: 'hello' })
     });
 
-    if (webhookUrl) sock.webhookUrl = webhookUrl;
+    if (finalWebhookUrl) {
+        console.log(`[Session ${sessionName}] Using Webhook: ${finalWebhookUrl}`);
+        sock.webhookUrl = finalWebhookUrl;
+    }
     sessions.set(sessionName, sock);
 
     sock.ev.on('connection.update', async (update) => {
@@ -142,7 +161,7 @@ async function createSession(userId, companyId, res, force = false, webhookUrl =
                 [qrBase64, 'Scanning', sessionName]
             );
             console.log(`[Session ${sessionName}] DB Update result:`, result.affectedRows);
-            notifyLaravelStatus(sessionName, 'Scanning', qrBase64);
+            notifyLaravelStatus(sessionName, 'Scanning', qrBase64, null, finalWebhookUrl);
         }
 
         if (connection === 'close') {
@@ -162,7 +181,7 @@ async function createSession(userId, companyId, res, force = false, webhookUrl =
                     'UPDATE whatsapp_sessions SET status = ?, qr_code = NULL, session_data = NULL WHERE session_name = ?',
                     ['Disconnected', sessionName]
                 );
-                notifyLaravelStatus(sessionName, 'Disconnected');
+                notifyLaravelStatus(sessionName, 'Disconnected', null, null, finalWebhookUrl);
                 const authFolder = path.join(__dirname, 'sessions', sessionName);
                 if (fs.existsSync(authFolder)) fs.rmSync(authFolder, { recursive: true, force: true });
             }
@@ -172,7 +191,7 @@ async function createSession(userId, companyId, res, force = false, webhookUrl =
                 'UPDATE whatsapp_sessions SET status = ?, phone_number = ?, qr_code = NULL WHERE session_name = ?',
                 ['Connected', phoneNumber, sessionName]
             );
-            notifyLaravelStatus(sessionName, 'Connected', null, phoneNumber);
+            notifyLaravelStatus(sessionName, 'Connected', null, phoneNumber, finalWebhookUrl);
 
             // Sync chats on connect (Groups + Top individual chats)
             setTimeout(async () => {
@@ -181,7 +200,7 @@ async function createSession(userId, companyId, res, force = false, webhookUrl =
                     const groups = await sock.groupFetchAllParticipating();
                     for (const jid in groups) {
                         try {
-                            await axios.post(process.env.LARAVEL_WEBHOOK_URL, {
+                            await axios.post(sock.webhookUrl || process.env.LARAVEL_WEBHOOK_URL, {
                             type: 'chat_update',
                             session_name: sessionName,
                             chat_id: jid,
@@ -205,7 +224,7 @@ async function createSession(userId, companyId, res, force = false, webhookUrl =
         for (const contact of contacts) {
             if (contact.id && (contact.name || contact.notify)) {
                 try {
-                    await axios.post(process.env.LARAVEL_WEBHOOK_URL, {
+                    await axios.post(sock.webhookUrl || process.env.LARAVEL_WEBHOOK_URL, {
                         type: 'chat_update',
                         session_name: sessionName,
                         chat_id: contact.id,
@@ -223,9 +242,9 @@ async function createSession(userId, companyId, res, force = false, webhookUrl =
     return sock;
 }
 
-async function notifyLaravelStatus(sessionName, status, qr = null, phoneNumber = null) {
+async function notifyLaravelStatus(sessionName, status, qr = null, phoneNumber = null, webhookUrl = null) {
     try {
-        await axios.post(process.env.LARAVEL_WEBHOOK_URL, {
+        await axios.post(webhookUrl || process.env.LARAVEL_WEBHOOK_URL, {
             type: 'connection_update',
             session_name: sessionName,
             status,

@@ -233,7 +233,7 @@ module.exports = (sock, sessionName, pool) => {
                             headers: { 'x-api-key': process.env.WA_GATEWAY_API_KEY || 'travelops_secret_key_2024' }
                         });
                     } catch (error) {
-                        console.error('Error forwarding incoming message to Laravel:', error.message);
+                        console.error(`[Webhook Error] Failed to forward to ${sock.webhookUrl || process.env.LARAVEL_WEBHOOK_URL}:`, error.message);
                     }
                 }
             }
