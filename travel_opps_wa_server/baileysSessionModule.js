@@ -100,11 +100,13 @@ async function useDatabaseAuthState(sessionName) {
     return { state, saveCreds: customSaveCreds };
 }
 
-async function createSession(userId, companyId) {
+async function createSession(userId, companyId, res, force = false, webhookUrl = null) {
     const sessionName = `session_${userId}_${companyId}`;
 
     if (sessions.has(sessionName)) {
-        return sessions.get(sessionName);
+        const existingSock = sessions.get(sessionName);
+        if (webhookUrl) existingSock.webhookUrl = webhookUrl;
+        return existingSock;
     }
 
     const { state, saveCreds } = await useDatabaseAuthState(sessionName);
@@ -125,6 +127,7 @@ async function createSession(userId, companyId) {
         getMessage: async (key) => ({ conversation: 'hello' })
     });
 
+    if (webhookUrl) sock.webhookUrl = webhookUrl;
     sessions.set(sessionName, sock);
 
     sock.ev.on('connection.update', async (update) => {

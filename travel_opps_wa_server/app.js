@@ -97,7 +97,8 @@ app.post('/api/session/init', async (req, res) => {
 
     try {
         const sessionName = `session_${userId}_${companyId}`;
-        const { force } = req.body;
+        const { force, webhookUrl } = req.body;
+        console.log(`[Init] Session: ${sessionName}, Force: ${force}, Webhook: ${webhookUrl}`);
 
         if (force === true) {
             console.log(`[Session ${sessionName}] Force refresh requested. Logging out...`);
@@ -119,7 +120,7 @@ app.post('/api/session/init', async (req, res) => {
             );
         }
 
-        await createSession(userId, companyId);
+        await createSession(userId, companyId, null, false, webhookUrl);
         res.json({ message: 'Session initialization started' + (force ? ' (Force Refreshed)' : '') });
     } catch (error) {
         console.error('Error init session:', error);

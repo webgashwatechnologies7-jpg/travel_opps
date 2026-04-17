@@ -16,7 +16,7 @@ module.exports = (sock, sessionName, pool) => {
                     // Sync chat name from sender's pushName or known contact
                     if (msg.pushName) {
                         try {
-                            await axios.post(process.env.LARAVEL_WEBHOOK_URL, {
+                            await axios.post(sock.webhookUrl || process.env.LARAVEL_WEBHOOK_URL, {
                                 type: 'chat_update',
                                 session_name: sessionName,
                                 chat_id: msg.key.remoteJid,
@@ -229,7 +229,7 @@ module.exports = (sock, sessionName, pool) => {
                             timestamp: msg.messageTimestamp,
                         };
 
-                        await axios.post(process.env.LARAVEL_WEBHOOK_URL, payload, {
+                        await axios.post(sock.webhookUrl || process.env.LARAVEL_WEBHOOK_URL, payload, {
                             headers: { 'x-api-key': process.env.WA_GATEWAY_API_KEY || 'travelops_secret_key_2024' }
                         });
                     } catch (error) {
@@ -247,7 +247,7 @@ module.exports = (sock, sessionName, pool) => {
                 if (statusMap[update.status]) {
                     try {
                         console.log(`[StatusUpdate] Msg ${key.id} -> ${statusMap[update.status]}`);
-                        await axios.post(process.env.LARAVEL_WEBHOOK_URL, {
+                        await axios.post(sock.webhookUrl || process.env.LARAVEL_WEBHOOK_URL, {
                             type: 'message_receipt',
                             session_name: sessionName,
                             message_id: key.id,
@@ -265,7 +265,7 @@ module.exports = (sock, sessionName, pool) => {
         for (const update of updates) {
             if (update.subject) {
                 try {
-                    await axios.post(process.env.LARAVEL_WEBHOOK_URL, {
+                    await axios.post(sock.webhookUrl || process.env.LARAVEL_WEBHOOK_URL, {
                         type: 'chat_update',
                         session_name: sessionName,
                         chat_id: update.id,
@@ -283,7 +283,7 @@ module.exports = (sock, sessionName, pool) => {
             const jid = id;
             const presence = presences[Object.keys(presences)[0]] || presences[id];
             if (presence) {
-                await axios.post(process.env.LARAVEL_WEBHOOK_URL, {
+                await axios.post(sock.webhookUrl || process.env.LARAVEL_WEBHOOK_URL, {
                     type: 'presence_update',
                     session_name: sessionName,
                     chat_id: jid,

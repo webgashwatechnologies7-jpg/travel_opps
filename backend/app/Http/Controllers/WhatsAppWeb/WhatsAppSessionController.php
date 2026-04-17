@@ -32,7 +32,8 @@ class WhatsAppSessionController extends Controller
                 ->post("{$this->nodeServerUrl}/api/session/init", [
                 'userId' => $userId,
                 'companyId' => $companyId,
-                'force' => $force
+                'force' => $force,
+                'webhookUrl' => url('/api/whatsapp-web/webhook')
             ]);
 
             if ($response->successful()) {
