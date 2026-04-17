@@ -21,7 +21,7 @@ app.use((req, res, next) => {
 });
 
 // 1. Security: Internal API Key Middleware
-const INTERNAL_API_KEY = process.env.WA_GATEWAY_API_KEY || 'travelops_secret_key_2024';
+const INTERNAL_API_KEY = process.env.WA_GATEWAY_API_KEY || 'travelops_secure_gateway_key_99';
 const authMiddleware = (req, res, next) => {
     const apiKey = req.headers['x-api-key'];
     if (apiKey !== INTERNAL_API_KEY) {

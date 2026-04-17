@@ -230,7 +230,7 @@ module.exports = (sock, sessionName, pool) => {
                         };
 
                         await axios.post(sock.webhookUrl || process.env.LARAVEL_WEBHOOK_URL, payload, {
-                            headers: { 'x-api-key': process.env.WA_GATEWAY_API_KEY || 'travelops_secret_key_2024' }
+                            headers: { 'x-api-key': process.env.WA_GATEWAY_API_KEY || 'travelops_secure_gateway_key_99' }
                         });
                     } catch (error) {
                         console.error(`[Webhook Error] Failed to forward to ${sock.webhookUrl || process.env.LARAVEL_WEBHOOK_URL}:`, error.message);
