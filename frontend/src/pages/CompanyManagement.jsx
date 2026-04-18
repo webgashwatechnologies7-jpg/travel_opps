@@ -455,10 +455,11 @@ const CompanyManagement = () => {
                           </button>
                           <button
                             onClick={() => handleDeleteClick(company)}
-                            className="text-red-600 hover:text-red-900"
-                            title="Delete"
+                            className="flex items-center gap-1 px-2 py-1 bg-red-50 text-red-600 rounded border border-red-200 hover:bg-red-600 hover:text-white transition-colors"
+                            title="Delete Company"
                           >
-                            <Trash2 className="w-4 h-4" />
+                            <Trash2 className="w-3.5 h-3.5" />
+                            <span className="text-xs font-bold">DELETE</span>
                           </button>
                         </div>
                       </td>
