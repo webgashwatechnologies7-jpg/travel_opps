@@ -14,6 +14,9 @@ use Illuminate\Support\Facades\Route;
 // Node.js Webhook (Public)
 Route::post('whatsapp-web/webhook', [WhatsAppWebhookController::class, 'handleNodeHook']);
 
+// Media Proxy (Public to allow video/image loading in tags)
+Route::get('whatsapp-web/media/{filename}', [WhatsAppChatController::class, 'proxyMedia']);
+
 // Authenticated Routes
 Route::middleware('auth:sanctum')->prefix('whatsapp-web')->group(function () {
     // Session Management

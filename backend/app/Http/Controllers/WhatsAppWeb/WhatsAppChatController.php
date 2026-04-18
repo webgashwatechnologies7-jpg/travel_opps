@@ -573,7 +573,13 @@ class WhatsAppChatController extends Controller
 
         // 2. Prepare payload for Node.js
         try {
-            $response = Http::withHeaders(['x-api-key' => $this->apiKey])
+            Log::info("WhatsApp: Attempting to send media for company {$effectiveCompanyId}", [
+                'chat_id' => $chatId,
+                'type' => $type,
+                'file_size' => $request->file('file')->getSize()
+            ]);
+
+            $response = Http::timeout(60)->withHeaders(['x-api-key' => $this->apiKey])
                 ->attach(
                     'file',
                     file_get_contents($request->file('file')),
@@ -590,6 +596,7 @@ class WhatsAppChatController extends Controller
 
             if ($response->successful()) {
                 $nodeData = $response->json();
+                Log::info("WhatsApp: Media sent successfully", ['message_id' => $nodeData['messageId']]);
 
                 // Save message
                 DB::table('whatsapp_messages')->insert([
@@ -616,9 +623,14 @@ class WhatsAppChatController extends Controller
                 ]);
             }
 
-            return response()->json(['success' => false, 'message' => 'Failed to send via gateway'], 500);
+            Log::error("WhatsApp: Node server rejected media", [
+                'status' => $response->status(),
+                'body' => $response->body()
+            ]);
+            return response()->json(['success' => false, 'message' => 'Failed to send via gateway: ' . $response->body()], 500);
 
         } catch (\Exception $e) {
+            Log::error("WhatsApp: Media send Exception: " . $e->getMessage());
             return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
         }
     }
@@ -884,5 +896,29 @@ class WhatsAppChatController extends Controller
         } catch (\Exception $e) {
             return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
         }
+    }
+
+    /**
+     * Proxy WhatsApp Media from Node server to frontend to avoid CORS/Mixed Content issues
+     */
+    public function proxyMedia($filename)
+    {
+        $url = "{$this->nodeServerUrl}/media/{$filename}";
+        
+        try {
+            // Using a stream might be better for large videos, but for now simple fetch
+            $response = Http::timeout(60)->get($url);
+            
+            if ($response->successful()) {
+                $contentType = $response->header('Content-Type') ?: 'application/octet-stream';
+                return response($response->body(), 200)
+                    ->header('Content-Type', $contentType)
+                    ->header('Cache-Control', 'public, max-age=86400'); // Cache for 24h
+            }
+        } catch (\Exception $e) {
+            Log::error("WhatsApp: Proxy Media Error for {$filename}: " . $e->getMessage());
+        }
+
+        return response()->json(['error' => 'Media not found or gateway unreachable'], 404);
     }
 }
