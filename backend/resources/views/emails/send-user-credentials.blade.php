@@ -19,6 +19,10 @@
         <p>Your TravelOps CRM account has been created successfully.</p>
         @endif
         
+        <div style="background-color: #e0f2fe; border: 1px solid #bae6fd; color: #0369a1; padding: 15px; border-radius: 5px; margin-bottom: 20px;">
+            <strong>Wait!</strong> Before logging in, please follow the <strong>DNS Setup Instructions</strong> sent in the previous email. Your subdomain will start working <strong>1 to 5 minutes</strong> after setup.
+        </div>
+
         <p>Below are your login credentials:</p>
         
         <div style="background-color: #f3f4f6; padding: 15px; border-radius: 5px; margin: 20px 0;">
