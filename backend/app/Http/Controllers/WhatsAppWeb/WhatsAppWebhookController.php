@@ -15,7 +15,7 @@ class WhatsAppWebhookController extends Controller
     public function handleNodeHook(Request $request)
     {
         Log::info('WhatsApp Webhook Received:', $request->all());
-        
+
         // Security check
         $providedKey = $request->header('x-api-key');
         $expectedKey = env('WHATSAPP_INTERNAL_API_KEY', 'travelops_secure_gateway_key_99');
@@ -66,14 +66,14 @@ class WhatsAppWebhookController extends Controller
             if ($user && !empty($user->phone)) {
                 $userPhone = preg_replace('/[^0-9]/', '', $user->phone);
                 $whatsappPhone = preg_replace('/[^0-9]/', '', $data['phone_number']);
-                
+
                 // Compare last 10 digits to allow for country code variations
                 if (substr($userPhone, -10) !== substr($whatsappPhone, -10)) {
-                    Log::warning("WhatsApp Phone Mismatch for User {$user->id}: CRM expects ...".substr($userPhone, -4).", Scanned ...".substr($whatsappPhone, -4));
-                    
+                    Log::warning("WhatsApp Phone Mismatch for User {$user->id}: CRM expects ..." . substr($userPhone, -4) . ", Scanned ..." . substr($whatsappPhone, -4));
+
                     // Kill the session immediately
                     $this->forceLogout($session->user_id, $session->company_id);
-                    
+
                     DB::table('whatsapp_sessions')
                         ->where('session_name', $data['session_name'])
                         ->update([
@@ -82,7 +82,7 @@ class WhatsAppWebhookController extends Controller
                             'phone_number' => $data['phone_number'],
                             'updated_at' => now()
                         ]);
-                        
+
                     $data['status'] = 'Unauthorized_Phone';
                     $this->dispatchRealTimeEvent('whatsapp.connection', $data);
                     return;
@@ -109,9 +109,9 @@ class WhatsAppWebhookController extends Controller
             \Illuminate\Support\Facades\Http::withHeaders([
                 'x-api-key' => env('WHATSAPP_INTERNAL_API_KEY', 'travelops_secure_gateway_key_99')
             ])->post(env('WHATSAPP_NODE_SERVER_URL', 'http://localhost:3001') . "/api/session/logout", [
-                'userId' => $userId,
-                'companyId' => $companyId
-            ]);
+                        'userId' => $userId,
+                        'companyId' => $companyId
+                    ]);
         } catch (\Exception $e) {
             Log::error("Failed to force logout WhatsApp session: " . $e->getMessage());
         }
@@ -121,9 +121,11 @@ class WhatsAppWebhookController extends Controller
     {
         // Skip technical protocol messages
         $bodyText = $data['body'] ?? '';
-        if (strpos($bodyText, '[protocol message]') !== false || 
-            strpos($bodyText, '[messageContextInfo message]') !== false || 
-            strpos($bodyText, '[senderKeyDistributionMessage]') !== false) {
+        if (
+            strpos($bodyText, '[protocol message]') !== false ||
+            strpos($bodyText, '[messageContextInfo message]') !== false ||
+            strpos($bodyText, '[senderKeyDistributionMessage]') !== false
+        ) {
             return;
         }
 
@@ -143,8 +145,9 @@ class WhatsAppWebhookController extends Controller
             $cleanPhone = substr($cleanPhone, 2);
         }
         $phone = $cleanPhone;
-        
-        Log::info("Processing WhatsApp message from normalized phone: $phone");$jidType = strpos($jid, '@lid') !== false ? 'lid' : (strpos($jid, '@g.us') !== false ? 'group' : 'phone');
+
+        Log::info("Processing WhatsApp message from normalized phone: $phone");
+        $jidType = strpos($jid, '@lid') !== false ? 'lid' : (strpos($jid, '@g.us') !== false ? 'group' : 'phone');
         $lead = null;
 
         if ($jidType === 'phone') {
@@ -219,7 +222,7 @@ class WhatsAppWebhookController extends Controller
                 }
             }
         }
-        
+
         if (!$lead) {
             // Check if this chat was already manually linked to a lead or created from the CRM
             $existingLinkedChat = DB::table('whatsapp_chats')
@@ -231,7 +234,7 @@ class WhatsAppWebhookController extends Controller
                 // Silently allow it if it's a direct phone JID, a new lead might be created later or it's a reply
                 Log::info("Processing non-lead message as it's a valid phone JID: $jid");
             } elseif (!$existingLinkedChat) {
-                 return response()->json(['status' => 'ignored', 'message' => 'Not a lead number and not a linked chat']);
+                return response()->json(['status' => 'ignored', 'message' => 'Not a lead number and not a linked chat']);
             }
         }
 

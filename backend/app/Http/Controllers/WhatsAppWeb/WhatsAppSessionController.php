@@ -33,7 +33,7 @@ class WhatsAppSessionController extends Controller
                 'userId' => $userId,
                 'companyId' => $companyId,
                 'force' => $force,
-                'webhookUrl' => url('/api/whatsapp-web/webhook')
+                'webhookUrl' => secure_url('/api/whatsapp-web/webhook')
             ]);
 
             if ($response->successful()) {

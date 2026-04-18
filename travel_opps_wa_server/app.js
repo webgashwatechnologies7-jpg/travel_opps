@@ -3,6 +3,7 @@ const bodyParser = require('body-parser');
 const { createSession, logoutSession, sessions, pool } = require('./baileysSessionModule');
 const { sendWhatsAppMessage, sendWhatsAppMedia } = require('./messageHandler');
 require('dotenv').config();
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 
 const path = require('path');
 const multer = require('multer');

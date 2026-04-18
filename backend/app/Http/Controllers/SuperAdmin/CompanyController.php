@@ -11,8 +11,11 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use App\Mail\SendUserCredentials;
+use App\Mail\DnsSetupEmail;
 
 use Illuminate\Support\Facades\Cache;
 
@@ -82,78 +85,95 @@ class CompanyController extends Controller
             ], 422);
         }
 
-        $company = Company::create([
-            'name' => $request->name,
-            'subdomain' => strtolower($request->subdomain),
-            'domain' => $request->domain,
-            'email' => $request->email,
-            'phone' => $request->phone,
-            'address' => $request->address,
-            'status' => 'active',
-            'subscription_plan_id' => $request->subscription_plan_id,
-            'subscription_start_date' => $request->subscription_start_date ?? now(),
-            'subscription_end_date' => $request->subscription_end_date,
-            'notes' => $request->notes,
-        ]);
-
-        // Create admin user for the company
-        $admin = User::create([
-            'name' => $request->admin_name,
-            'email' => $request->admin_email,
-            'password' => Hash::make($request->admin_password),
-            'phone' => $request->phone, // Sync company phone to admin user
-            'company_id' => $company->id,
-            'is_active' => true,
-        ]);
-
-        // Assign Admin role to the user
-        $admin->assignRole('Admin');
-
-        // Create default company settings
-        \App\Models\CompanySettings::create([
-            'company_id' => $company->id,
-            'sidebar_color' => '#2765B0',
-            'dashboard_background_color' => '#D8DEF5',
-            'header_background_color' => '#D8DEF5',
-        ]);
-
-        // Seed default sidebar menu for this company (includes WhatsApp & Email Integration under Settings)
-        Setting::setValue(
-            'company_' . $company->id . '_sidebar_menu',
-            MenuController::getDefaultMenu(),
-            'text',
-            'Sidebar navigation menu (JSON)'
-        );
-
-        // Send credentials email if requested
-        if ($request->boolean('send_credentials_email', true)) {
+        return DB::transaction(function () use ($request) {
             try {
-                Mail::to($request->admin_email)->send(
-                    new SendUserCredentials(
-                        $request->admin_email,
-                        $request->admin_password,
-                        $company->name,
-                        $company->crm_url
-                    )
+                $company = Company::create([
+                    'name' => $request->name,
+                    'subdomain' => strtolower($request->subdomain),
+                    'domain' => $request->domain,
+                    'email' => $request->email,
+                    'phone' => $request->phone,
+                    'address' => $request->address,
+                    'status' => 'active',
+                    'subscription_plan_id' => $request->subscription_plan_id,
+                    'subscription_start_date' => $request->subscription_start_date ?? now(),
+                    'subscription_end_date' => $request->subscription_end_date,
+                    'notes' => $request->notes,
+                ]);
+
+                // Create admin user for the company
+                $admin = User::create([
+                    'name' => $request->admin_name,
+                    'email' => $request->admin_email,
+                    'password' => Hash::make($request->admin_password),
+                    'phone' => $request->phone,
+                    'company_id' => $company->id,
+                    'is_active' => true,
+                    'role' => 'admin',
+                ]);
+
+                // Try assigning role if Spatie permissions are used, otherwise rely on 'role' column
+                if (method_exists($admin, 'assignRole')) {
+                    try {
+                        $admin->assignRole('Admin');
+                    } catch (\Exception $e) {
+                        Log::warning('Role "Admin" not found in Spatie. Using role column only.');
+                    }
+                }
+
+                // Create default company settings
+                \App\Models\CompanySettings::create([
+                    'company_id' => $company->id,
+                    'sidebar_color' => '#2765B0',
+                    'dashboard_background_color' => '#f8f9fa',
+                    'header_background_color' => '#ffffff',
+                ]);
+
+                // Seed default sidebar menu for this company
+                Setting::setValue(
+                    'company_' . $company->id . '_sidebar_menu',
+                    MenuController::getDefaultMenu(),
+                    'text',
+                    'Sidebar navigation menu (JSON)'
                 );
+
+                // 1. Send Login Credentials Email
+                if ($request->boolean('send_credentials_email', true)) {
+                    Mail::to($request->admin_email)->send(
+                        new SendUserCredentials(
+                            $request->admin_email,
+                            $request->admin_password,
+                            $company->name,
+                            $company->crm_url
+                        )
+                    );
+                }
+
+                // 2. Send DNS Setup Instructions Email
+                Mail::to($request->admin_email)->send(
+                    new DnsSetupEmail($company)
+                );
+
+                $companyData = $company->load(['users', 'subscriptionPlan'])->toArray();
+                $companyData['crm_url'] = $company->crm_url;
+
+                Cache::forget('super_admin_stats');
+
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Company created successfully. Credentials and DNS instructions sent.',
+                    'data' => $companyData
+                ], 201);
+
             } catch (\Exception $e) {
-                // Log error but don't fail the request
-                \Log::error('Failed to send credentials email: ' . $e->getMessage());
+                DB::rollBack();
+                Log::error('Company creation failed: ' . $e->getMessage());
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Failed to create company: ' . $e->getMessage()
+                ], 500);
             }
-        }
-
-        // Add CRM URL to response
-        $companyData = $company->load(['users', 'subscriptionPlan'])->toArray();
-        $companyData['crm_url'] = $company->crm_url;
-
-        // Clear dashboard stats cache
-        Cache::forget('super_admin_stats');
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Company created successfully. Admin credentials sent via email.',
-            'data' => $companyData
-        ], 201);
+        });
     }
 
     /**

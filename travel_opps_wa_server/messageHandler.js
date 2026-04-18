@@ -119,7 +119,7 @@ module.exports = (sock, sessionName, pool) => {
                                 // For Documents, use the REAL filename from the message
                                 let realName = mediaMsg.fileName || `${msg.key.id}${ext}`;
                                 const fileName = `${Date.now()}-${realName.replace(/[^a-zA-Z0-9.\-_]/g, '_')}`;
-                                
+
                                 const mediaDir = path.join(__dirname, 'media');
                                 if (!fs.existsSync(mediaDir)) fs.mkdirSync(mediaDir, { recursive: true });
                                 const filePath = path.join(mediaDir, fileName);
@@ -128,7 +128,7 @@ module.exports = (sock, sessionName, pool) => {
                                 mediaUrl = `${process.env.NODE_SERVER_URL || 'http://localhost:3001'}/media/${fileName}`;
                                 mediaType = messageType.replace('Message', '');
                                 mediaCaption = mediaMsg.caption || '';
-                                
+
                                 // Set the message body to the REAL filename
                                 if (messageType === 'documentMessage') {
                                     messageBody = realName;
@@ -252,7 +252,7 @@ module.exports = (sock, sessionName, pool) => {
                             session_name: sessionName,
                             message_id: key.id,
                             status: statusMap[update.status]
-                        }, { headers: { 'x-api-key': process.env.WA_GATEWAY_API_KEY || 'travelops_secret_key_2024' } });
+                        }, { headers: { 'x-api-key': process.env.WA_GATEWAY_API_KEY || 'travelops_secure_gateway_key_99' } });
                     } catch (error) {
                         console.error('Error forwarding receipt to Laravel:', error.message);
                     }
@@ -270,7 +270,7 @@ module.exports = (sock, sessionName, pool) => {
                         session_name: sessionName,
                         chat_id: update.id,
                         chat_name: update.subject
-                    }, { headers: { 'x-api-key': process.env.WA_GATEWAY_API_KEY || 'travelops_secret_key_2024' } });
+                    }, { headers: { 'x-api-key': process.env.WA_GATEWAY_API_KEY || 'travelops_secure_gateway_key_99' } });
                 } catch (error) {
                     console.error('Error forwarding group update to Laravel:', error.message);
                 }
@@ -288,7 +288,7 @@ module.exports = (sock, sessionName, pool) => {
                     session_name: sessionName,
                     chat_id: jid,
                     presence: typeof presence === 'string' ? presence : (presence.lastKnownPresence || 'available')
-                }, { headers: { 'x-api-key': process.env.WA_GATEWAY_API_KEY || 'travelops_secret_key_2024' } });
+                }, { headers: { 'x-api-key': process.env.WA_GATEWAY_API_KEY || 'travelops_secure_gateway_key_99' } });
             }
         } catch (error) {
             console.error('Error forwarding presence to Laravel:', error.message);
