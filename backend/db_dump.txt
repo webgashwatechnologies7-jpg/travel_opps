@@ -1,0 +1,65 @@
+ID: 376 | WA_ID: A56F216A14C5B24234908A69B71889CF | Dir: outbound | Status: received   | Body: I think you are late
+ID: 375 | WA_ID: 3EB0693873EB839C55FC34           | Dir: outbound | Status: read       | Body: ok
+ID: 374 | WA_ID: 3EB0A09AAF424BF5526B57           | Dir: outbound | Status: read       | Body: kb tk ka pla  hai apka course krne ka ?
+ID: 373 | WA_ID: 3EB0EE823C5FBBA6F2E8C9           | Dir: outbound | Status: read       | Body: hnji
+ID: 372 | WA_ID: 3EB0B3D594535AED1B1DEF           | Dir: outbound | Status: read       | Body: 40,000 for 6 months and 75,000 for 6 months
+ID: 371 | WA_ID: ACF4D74DF5A855D48252F3CAB21F1107 | Dir: inbound  | Status: read       | Body: Digital marketing ki btao
+ID: 370 | WA_ID: ACF9307F409841A94D3F38A73021D0CB | Dir: inbound  | Status: read       | Body: Sbhi kii
+ID: 369 | WA_ID: ACFBDF3A95FEB36683F26F98085213E8 | Dir: inbound  | Status: read       | Body: Sbhi kii bta doo
+ID: 368 | WA_ID: AC465C2909B0AFFAF8FC9D58B5B6EE74 | Dir: inbound  | Status: read       | Body: Fees
+ID: 367 | WA_ID: A5FF477248EC86FC779F1407E1964372 | Dir: outbound | Status: read       | Body: Hello 
+How are you?
+
+Yes, We are available to discus. 
+
+In which Course You are Interested? 
+
+1. Web Designing & Development
+2. Graphic Designing
+3. Python & AI
+4. Digital Marketing
+5. Motion Graphics
+6. MERN Stack Development
+7. UI UX Designing
+8. 2D & 3D Animations
+ 9. Any Other?
+ID: 366 | WA_ID: 3EB0CF3E0641D83B0B525E           | Dir: inbound  | Status: read       | Body: Hessl yes
+ID: 365 | WA_ID: 3EB08A3904FFFB6E9ACFBF           | Dir: inbound  | Status: read       | Body: asdasda
+ID: 364 | WA_ID: 3EB037357D6D31DA478F26           | Dir: outbound | Status: read       | Body: dsfsdf
+ID: 363 | WA_ID: A5CC58B049D55D1B2789F337D4A6247A | Dir: outbound | Status: read       | Body: web_designing_development.pdf
+ID: 362 | WA_ID: A57A6A66227AF19A02ADCC981ACBAE4A | Dir: outbound | Status: read       | Body: web_designing.pdf
+ID: 361 | WA_ID: A5FFA861C6FCE22BE88CD372126786AE | Dir: outbound | Status: read       | Body: 6 months - 40,000/- fees for internship
+ID: 360 | WA_ID: A5B440B861D7A122858969D568853C56 | Dir: outbound | Status: read       | Body: Hi
+ID: 359 | WA_ID: 3EB0AE913375C247570EE4           | Dir: inbound  | Status: read       | Body: yes kya haal h apka
+ID: 358 | WA_ID: 3EB032B2A79270F0F19409           | Dir: outbound | Status: read       | Body: hello
+ID: 357 | WA_ID: 4AA03BF7F62FEBD26DEB             | Dir: inbound  | Status: read       | Body: Quotation_92_Prashant_Pipada.pdf
+ID: 356 | WA_ID: 3EB05FFCAF8B991266D940           | Dir: outbound | Status: delivered  | Body: Media: document
+ID: 355 | WA_ID: 3EB05F329077D6B624B83F           | Dir: outbound | Status: delivered  | Body: 12
+ID: 354 | WA_ID: 3A17F26B95E56C55DCDB             | Dir: inbound  | Status: read       | Body: 6
+ID: 353 | WA_ID: 3A44B058CBC277DEB2BD             | Dir: inbound  | Status: read       | Body: 5
+ID: 352 | WA_ID: 3AF690968798F925CA72             | Dir: inbound  | Status: read       | Body: 4
+ID: 351 | WA_ID: 3AFA19E1F013035FF90B             | Dir: inbound  | Status: read       | Body: 3
+ID: 350 | WA_ID: 3A1933CCC3C6C12D6F11             | Dir: inbound  | Status: read       | Body: 2
+ID: 349 | WA_ID: 3A5849258F9F2FCE5069             | Dir: inbound  | Status: read       | Body: 1
+ID: 348 | WA_ID: 3EB043FF6E798FF4C3F1A5           | Dir: outbound | Status: read       | Body: 56
+ID: 347 | WA_ID: 3EB0FB15DF306603A6EDBA           | Dir: outbound | Status: read       | Body: 4
+ID: 346 | WA_ID: 3EB0EF76AB9F4D0C5A0AF7           | Dir: outbound | Status: read       | Body: 3
+ID: 345 | WA_ID: 3EB0A560F25B9C3F3C7DAD           | Dir: outbound | Status: read       | Body: 2
+ID: 344 | WA_ID: 3EB038361DA8E107F46BC2           | Dir: outbound | Status: read       | Body: 1.
+ID: 343 | WA_ID: 3EB085D8687B5706A3FD41           | Dir: outbound | Status: read       | Body: gdfgdf
+ID: 342 | WA_ID: 3EB096E77817E333B422F0           | Dir: inbound  | Status: read       | Body: adasdasdsa
+ID: 341 | WA_ID: 3EB0E34FA63635EE48A6DD           | Dir: outbound | Status: read       | Body: sdsdasd
+ID: 340 | WA_ID: A500BBF5B4B2FDB0D37FCD5C352CCE85 | Dir: outbound | Status: delivered  | Body: 50,000 for 6 months
+ID: 339 | WA_ID: 3A4AEEE6E808FF5C38AA             | Dir: inbound  | Status: read       | Body: hdlsld
+ID: 338 | WA_ID: 3EB0A2A4D687E26843C581           | Dir: outbound | Status: read       | Body: lklkhlkh
+ID: 337 | WA_ID: 3EB0DC09DB81D8D7BE89DB           | Dir: outbound | Status: read       | Body: yes sir
+ID: 336 | WA_ID: 3EB019C0F86534DD19C01D           | Dir: inbound  | Status: read       | Body: Hello sir
+ID: 335 | WA_ID: 3EB02BA20698CE6F3EFD28           | Dir: outbound | Status: delivered  | Body: helo
+ID: 334 | WA_ID: 3AD997A02D98C29E0EF4             | Dir: inbound  | Status: read       | Body: hello
+ID: 333 | WA_ID: AC1A90F3BFEDD4E7D8C210A969371184 | Dir: inbound  | Status: read       | Body: Taxi Service Kullu https://share.google/5lhyulJxmanGbmrnL
+ID: 332 | WA_ID: A543340C77F0195A5AB6454FFB19E6FE | Dir: inbound  | Status: read       | Body: 6th month
+ID: 331 | WA_ID: A5CD06B73D59F1121DE2BC8B9CBA172F | Dir: inbound  | Status: read       | Body: Python & Ai course ki kitni fess h?
+ID: 330 | WA_ID: A53106FB7955ED30B1099EB8041A5FB0 | Dir: inbound  | Status: read       | Body: Hii
+ID: 329 | WA_ID: 3A7F166D98F09D77E56E             | Dir: inbound  | Status: read       | Body: fhrjr
+ID: 328 | WA_ID: 3A8205C9EACCC125293D             | Dir: inbound  | Status: read       | Body: Welcome
+ID: 327 | WA_ID: A505241816889EB239B904454757273C | Dir: outbound | Status: received   | Body: Thank you

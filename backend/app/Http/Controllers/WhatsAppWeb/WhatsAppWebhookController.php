@@ -329,6 +329,30 @@ class WhatsAppWebhookController extends Controller
         }
 
         $direction = isset($data['direction']) ? $data['direction'] : 'inbound';
+
+        // Potential Race Condition: Baileys 'upsert' notification for our own outbound message 
+        // might arrive before 'sendMessage' update code finishes. 
+        // We try to "claim" the pending message if it exists.
+        if ($direction === 'outbound') {
+            $pendingMsg = DB::table('whatsapp_messages')
+                ->where('whatsapp_chat_id', $chatId)
+                ->where('direction', 'outbound')
+                ->where('whatsapp_message_id', 'LIKE', 'pending_%')
+                ->orderBy('created_at', 'desc')
+                ->first();
+            
+            if ($pendingMsg) {
+                DB::table('whatsapp_messages')
+                    ->where('id', $pendingMsg->id)
+                    ->update([
+                        'whatsapp_message_id' => $data['message_id'],
+                        'status' => 'sent',
+                        'updated_at' => $currentTime
+                    ]);
+                return;
+            }
+        }
+
         Log::info("Saving message with direction: $direction", ['msg_id' => $data['message_id']]);
 
         DB::table('whatsapp_messages')->insert([
@@ -342,7 +366,7 @@ class WhatsAppWebhookController extends Controller
             'quoted_message_id' => $data['quoted_message_id'] ?? null,
             'quoted_text' => $data['quoted_text'] ?? null,
             'direction' => $direction,
-            'status' => 'received',
+            'status' => $direction === 'outbound' ? 'sent' : 'received',
             'created_at' => $currentTime,
             'updated_at' => $currentTime
         ]);
@@ -408,7 +432,16 @@ class WhatsAppWebhookController extends Controller
         }
 
         // Avoid downgrading status (e.g. if 'delivered' arrives after 'read')
-        $statusWeights = ['sent' => 1, 'delivered' => 2, 'read' => 3, 'played' => 4];
+        $statusWeights = [
+            'sent' => 1, 
+            'received' => 1, 
+            'pending' => 1,
+            'delivered' => 2, 
+            'read' => 3, 
+            'played' => 4,
+            'viewed' => 4
+        ];
+        
         $currentStatus = $msg->status ?? 'sent';
         if (isset($statusWeights[$status]) && isset($statusWeights[$currentStatus])) {
             if ($statusWeights[$status] <= $statusWeights[$currentStatus]) {
