@@ -296,10 +296,9 @@ const WhatsAppWebLayout = () => {
                         };
                     }));
 
-                    // Fallback: re-sync active chat to ensure status UI stays correct.
-                    if (activeChatRef.current?.chat_id) {
-                        fetchMessages(activeChatRef.current.chat_id, true);
-                    }
+                    // Removed immediate fallback fetch to prevent race conditions with DB updates.
+                    // Background polling already handles eventual consistency.
+
                 } else if (type === 'whatsapp.presence') {
                     if (data.presence === 'composing') {
                         setTypingStatus(prev => ({ ...prev, [data.chat_id]: true }));

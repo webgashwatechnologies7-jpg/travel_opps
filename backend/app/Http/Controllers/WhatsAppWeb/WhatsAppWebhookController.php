@@ -387,8 +387,35 @@ class WhatsAppWebhookController extends Controller
 
     protected function handleMessageReceipt($data)
     {
-        // Point 2: Tracking "Sent", "Delivered", "Read" (Blue Ticks)
+        $whatsappMessageId = $data['message_id'];
         $status = $data['status'];
+
+        // Retry logic for potential race condition: receipt might arrive before 
+        // sendMessage response has updated the whatsapp_message_id in our DB.
+        $msg = null;
+        for ($i = 0; $i < 6; $i++) {
+            $msg = DB::table('whatsapp_messages')
+                ->where('whatsapp_message_id', $whatsappMessageId)
+                ->first();
+            
+            if ($msg) break;
+            if ($i < 5) usleep(300000); // Wait 300ms between retries (up to 1.5s total)
+        }
+
+        if (!$msg) {
+            Log::warning("WhatsApp Receipt: Message ID not found after retries: {$whatsappMessageId}");
+            return;
+        }
+
+        // Avoid downgrading status (e.g. if 'delivered' arrives after 'read')
+        $statusWeights = ['sent' => 1, 'delivered' => 2, 'read' => 3, 'played' => 4];
+        $currentStatus = $msg->status ?? 'sent';
+        if (isset($statusWeights[$status]) && isset($statusWeights[$currentStatus])) {
+            if ($statusWeights[$status] <= $statusWeights[$currentStatus]) {
+                return;
+            }
+        }
+
         $updateData = [
             'status' => $status,
             'updated_at' => now()
@@ -401,19 +428,18 @@ class WhatsAppWebhookController extends Controller
         }
 
         DB::table('whatsapp_messages')
-            ->where('whatsapp_message_id', $data['message_id'])
+            ->where('id', $msg->id)
             ->update($updateData);
 
-        $msg = DB::table('whatsapp_messages')
-            ->where('whatsapp_message_id', $data['message_id'])
-            ->first();
+        // Fetch updated message for current timestamps
+        $updatedMsg = DB::table('whatsapp_messages')->where('id', $msg->id)->first();
 
         $this->dispatchRealTimeEvent('whatsapp.receipt', [
             'session_name' => $data['session_name'],
-            'message_id' => $data['message_id'],
+            'message_id' => $whatsappMessageId,
             'status' => $status,
-            'delivered_at' => $msg->delivered_at ?? null,
-            'read_at' => $msg->read_at ?? null
+            'delivered_at' => $updatedMsg->delivered_at ?? null,
+            'read_at' => $updatedMsg->read_at ?? null
         ]);
     }
 
