@@ -616,7 +616,7 @@ class WhatsAppChatController extends Controller
                     'whatsapp_message_id' => $nodeData['messageId'],
                     'quoted_message_id' => $quotedMessageId,
                     'quoted_text' => $quotedText,
-                    'message' => $caption ?: "Media: $type",
+                    'message' => $type === 'document' ? $request->file('file')->getClientOriginalName() : ($caption ?: "Media: $type"),
                     'media_url' => $nodeData['url'],
                     'media_type' => $type,
                     'media_caption' => $caption,
@@ -913,6 +913,7 @@ class WhatsAppChatController extends Controller
      */
     public function proxyMedia($filename)
     {
+        $filename = urldecode($filename);
         $url = "{$this->nodeServerUrl}/media/{$filename}";
         
         try {

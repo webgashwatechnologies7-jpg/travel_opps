@@ -444,7 +444,9 @@ const ChatWindow = ({ chat, messages, onSendMessage, onSendMedia, isTyping, isSe
                         <FileText size={18} className="text-[#aebac1] group-hover:text-white" />
                     </div>
                     <div className="min-w-0 pr-4">
-                        <p className="text-[12.5px] font-medium truncate max-w-[140px] text-[#e9edef]">{msg.media_caption || filename}</p>
+                        <p className="text-[12.5px] font-medium truncate max-w-[140px] text-[#e9edef]">
+                            {msg.message && !msg.message.includes('📎') ? msg.message : (msg.media_caption || filename)}
+                        </p>
                         <p className="text-[10px] text-[#8696a0] uppercase tracking-wider">Document</p>
                     </div>
                     <Download size={16} className="text-[#8696a0] ml-auto flex-shrink-0 group-hover:text-[#00a884]" />
