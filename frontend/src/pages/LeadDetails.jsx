@@ -7,7 +7,7 @@ import { searchPexelsPhotos } from '../services/pexels';
 import { getDisplayImageUrl, rewriteHtmlImageUrls, sanitizeEmailHtmlForDisplay } from '../utils/imageUrl';
 // Layout removed - handled by nested routing
 import { useSettings } from '../contexts/SettingsContext';
-import { ArrowLeft, Calendar, Mail, Plus, Upload, X, Search, FileText, Printer, Send, MessageCircle, CheckCircle, CheckCircle2, Clock, Briefcase, MapPin, CalendarDays, Users, UserCheck, Leaf, Smartphone, Phone, MoreVertical, Download, Pencil, Trash2, Camera, RefreshCw, Reply, ChevronDown, Paperclip, Eye, Info, Gift, Heart, Building2 } from 'lucide-react';
+import { ArrowLeft, Calendar, Mail, Plus, Upload, X, Search, FileText, Printer, Send, MessageCircle, CheckCircle, CheckCircle2, Clock, Briefcase, MapPin, CalendarDays, Users, UserCheck, Leaf, Smartphone, Phone, MoreVertical, Download, Pencil, Trash2, Camera, RefreshCw, Reply, ChevronDown, Paperclip, Eye, Info, Gift, Heart, Building2, Image as ImageIcon } from 'lucide-react';
 import DetailRow from '../components/Quiries/DetailRow';
 import html2pdf from 'html2pdf.js';
 import { WhatsAppTab, MailsTab, FollowupsTab, BillingTab, HistoryTab, SuppCommTab, PostSalesTab, VoucherTab, DocsTab, InvoiceTab, CallsTab, ItineraryHistoryTab } from '../components/LeadTabs';
@@ -1339,11 +1339,19 @@ const emailTemplate = `
         await leadsAPI.sendEmail(id, { to_email: toEmail, subject, body: emailTemplate });
         fetchLeadEmails();
       }
-      if (lead.phone) {
-        await whatsappAPI.send(id, whatsappMsg);
+      
+      const toPhone = lead.phone || lead.whatsapp_number || '';
+      if (toPhone && waStatus === 'Connected') {
+        const phoneStr = toPhone.replace(/\D/g, '');
+        const chatId = phoneStr.length <= 10 ? `91${phoneStr}@s.whatsapp.net` : `${phoneStr}@s.whatsapp.net`;
+        
+        await whatsappWebAPI.sendMessage({
+          chat_id: chatId,
+          message: whatsappMsg
+        });
         fetchWhatsAppMessages();
       }
-      if (toEmail || lead.phone) {
+      if (toEmail || toPhone) {
         showToastNotification('success', 'Confirmed Shared', 'Final itinerary and payment summary have been sent to the client via Email and WhatsApp. You can see them in the Mails and WhatsApp tabs.');
       }
     } catch (err) {
@@ -2540,6 +2548,19 @@ const emailTemplate = `
   const handleChangePlan = () => {
     setChangePlanMode(true); // Replace mode ON
     setShowInsertItineraryModal(true);
+  };
+  
+  // Called from "Remove Itinerary" button — clears all proposals for this lead
+  const handleRemoveItinerary = async () => {
+    if (window.confirm('Are you sure you want to remove this itinerary from the lead? All associated options will be deleted.')) {
+      try {
+        await saveProposals([]);
+        showToastNotification('success', 'Itinerary Removed', 'The itinerary has been removed from this lead.');
+      } catch (err) {
+        console.error('Failed to remove itinerary:', err);
+        showToastNotification('error', 'Error', 'Failed to remove itinerary. Please try again.');
+      }
+    }
   };
 
 
@@ -5386,10 +5407,10 @@ const emailTemplate = `
                                   >
                                     <span className="text-gray-400 font-bold text-xl uppercase tracking-widest opacity-50">{cardTitle.substring(0, 2)}</span>
                                   </div>
-                                  <div className="absolute bottom-0 left-0 right-0 bg-black/55 p-4">
-                                    <h3 className="text-xl font-semibold text-white">{cardTitle}</h3>
+                                  <div className="absolute bottom-0 left-0 right-0 bg-black/65 p-4 backdrop-blur-sm">
+                                    <h3 className="text-xl font-bold text-white truncate" title={cardTitle}>{cardTitle}</h3>
                                     {cardDestination && (
-                                      <p className="text-sm text-gray-200">{cardDestination}</p>
+                                      <p className="text-sm text-gray-200 truncate" title={cardDestination}>{cardDestination}</p>
                                     )}
                                   </div>
                                 </div>
@@ -5571,6 +5592,13 @@ const emailTemplate = `
                                   {/* Change Plan button (only when nothing is confirmed) */}
                                   {!hasConfirmedProposal && (
                                     <div className="flex justify-end">
+                                      <button
+                                        onClick={handleRemoveItinerary}
+                                        className="inline-flex items-center gap-1.5 text-red-600 hover:text-red-700 hover:bg-red-50 text-sm font-semibold px-3 py-1.5 rounded-lg border border-red-200 transition-colors"
+                                      >
+                                        <Trash2 className="h-4 w-4" />
+                                        Remove Itinerary
+                                      </button>
                                       <button
                                         onClick={handleChangePlan}
                                         className="inline-flex items-center gap-1.5 text-orange-600 hover:text-orange-700 hover:bg-orange-50 text-sm font-semibold px-3 py-1.5 rounded-lg border border-orange-200 transition-colors"
