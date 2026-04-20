@@ -216,12 +216,18 @@ const WhatsAppChat = ({ lead, onMessageSent }) => {
     }
   };
 
-  const localUser = JSON.parse(localStorage.getItem('user') || '{}');
+  const normalizeMediaUrl = (url) => {
+    if (!url) return '';
+    const parts = url.split('/');
+    const filename = parts[parts.length - 1];
+    return `/api/whatsapp-web/media/${filename}`;
+  };
 
   return (
     <div className="flex flex-col h-full bg-white relative">
-      {/* Chat Header */}
+      {/* ... existing header ... */}
       <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-white">
+        {/* ... existing header parts ... */}
         <div className="flex items-center space-x-3">
           <div className="relative">
             <div className="w-10 h-10 bg-green-500 rounded-full flex items-center justify-center text-white font-semibold">
@@ -274,15 +280,20 @@ const WhatsAppChat = ({ lead, onMessageSent }) => {
                 <div className="mb-2">
                   {message.media_type === 'image' ? (
                     <img
-                      src={message.media_url}
+                      src={normalizeMediaUrl(message.media_url)}
                       alt="Shared media"
-                      className="rounded-lg max-w-full h-auto"
+                      className="rounded-lg max-w-full h-auto cursor-pointer"
+                      onClick={() => window.open(normalizeMediaUrl(message.media_url), '_blank')}
+                      onError={(e) => {
+                          e.target.style.display = 'none';
+                          e.target.parentElement.innerHTML = '<div class="p-4 bg-gray-200 text-xs text-gray-500 text-center">Image failed to load via proxy</div>';
+                      }}
                     />
                   ) : (
-                    <div className="flex items-center space-x-2 p-2 bg-gray-100 rounded">
+                    <a href={normalizeMediaUrl(message.media_url)} target="_blank" rel="noreferrer" className="flex items-center space-x-2 p-2 bg-gray-100 rounded hover:bg-gray-200 transition-colors">
                       <Paperclip className="w-4 h-4" />
                       <span className="text-sm">Document</span>
-                    </div>
+                    </a>
                   )}
                   {message.media_caption && (
                     <p className="text-sm mt-1 opacity-90">{message.media_caption}</p>
