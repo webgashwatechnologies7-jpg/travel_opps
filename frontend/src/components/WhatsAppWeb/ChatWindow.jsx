@@ -378,12 +378,14 @@ const ChatWindow = ({ chat, messages, onSendMessage, onSendMedia, isTyping, isSe
 
     const normalizeMediaUrl = (url) => {
         if (!url) return '';
-        // If the URL contains localhost:3001 or 127.0.0.1:3001, replace with current host
-        if (url.includes(':3001')) {
-            const currentHost = window.location.hostname;
-            return url.replace('localhost', currentHost).replace('127.0.0.1', currentHost);
-        }
-        return url;
+        
+        // Extract the filename from the URL (e.g., from .../media/123.jpg)
+        const parts = url.split('/');
+        const filename = parts[parts.length - 1];
+        
+        // Use the secure Laravel proxy route instead of direct cross-origin access
+        // This works even if port 3001 is not publicly open
+        return `/api/whatsapp-web/media/${filename}`;
     };
 
     const renderMedia = (msg) => {

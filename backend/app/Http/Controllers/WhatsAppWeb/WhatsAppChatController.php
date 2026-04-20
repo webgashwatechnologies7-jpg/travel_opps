@@ -200,9 +200,14 @@ class WhatsAppChatController extends Controller
 
         // Step 0: If lead_id passed from frontend, get ALL chats for that lead immediately
         if ($leadId) {
+            $subordinateIds = $user->getAllSubordinateIds();
             $byLead = DB::table('whatsapp_chats')
                 ->where('lead_id', $leadId)
                 ->where('company_id', $effectiveCompanyId)
+                ->where(function ($query) use ($user, $subordinateIds) {
+                    $query->where('user_id', $user->id)
+                          ->orWhereIn('user_id', $subordinateIds);
+                })
                 ->pluck('id')->toArray();
             $allChatIds = array_unique(array_merge($allChatIds, $byLead));
 
@@ -235,9 +240,14 @@ class WhatsAppChatController extends Controller
 
         // Step 2: All chats linked to same lead
         if ($leadId) {
+            $subordinateIds = $user->getAllSubordinateIds();
             $relatedByLead = DB::table('whatsapp_chats')
                 ->where('lead_id', $leadId)
                 ->where('company_id', $effectiveCompanyId)
+                ->where(function ($query) use ($user, $subordinateIds) {
+                    $query->where('user_id', $user->id)
+                          ->orWhereIn('user_id', $subordinateIds);
+                })
                 ->pluck('id')->toArray();
             $allChatIds = array_unique(array_merge($allChatIds, $relatedByLead));
         }
