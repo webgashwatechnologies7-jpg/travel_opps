@@ -411,24 +411,25 @@ class WhatsAppWebhookController extends Controller
 
     protected function handleMessageReceipt($data)
     {
-        $whatsappMessageId = $data['message_id'];
-        $status = $data['status'];
+        $whatsappMessageId = $data['message_id'] ?? ($data['id'] ?? null);
+        if (!$whatsappMessageId) return;
 
-        // Retry logic for potential race condition: receipt might arrive before 
-        // sendMessage response has updated the whatsapp_message_id in our DB.
-        // Wait up to 5 seconds for message to appear in DB (Baileys race condition)
+        // Baileys numeric mapping: 2=sent, 3=delivered, 4=read, 5=played
+        $statusMap = [2 => 'sent', 3 => 'delivered', 4 => 'read', 5 => 'played'];
+        $status = is_numeric($data['status']) ? ($statusMap[$data['status']] ?? 'sent') : strtolower($data['status']);
+
+        // Retry logic for potential race condition
         $msg = null;
         for ($i = 0; $i < 10; $i++) {
             $msg = DB::table('whatsapp_messages')
                 ->where('whatsapp_message_id', $whatsappMessageId)
                 ->first();
-            
             if ($msg) break;
-            if ($i < 9) usleep(500000); // 500ms * 10 = 5 seconds
+            usleep(500000); 
         }
 
         if (!$msg) {
-            Log::warning("WhatsApp Receipt: Message ID not found after retries: {$whatsappMessageId}");
+            Log::warning("WhatsApp Receipt: Message ID not found: {$whatsappMessageId}");
             return;
         }
 
