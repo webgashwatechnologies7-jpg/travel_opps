@@ -416,14 +416,15 @@ class WhatsAppWebhookController extends Controller
 
         // Retry logic for potential race condition: receipt might arrive before 
         // sendMessage response has updated the whatsapp_message_id in our DB.
+        // Wait up to 5 seconds for message to appear in DB (Baileys race condition)
         $msg = null;
-        for ($i = 0; $i < 6; $i++) {
+        for ($i = 0; $i < 10; $i++) {
             $msg = DB::table('whatsapp_messages')
                 ->where('whatsapp_message_id', $whatsappMessageId)
                 ->first();
             
             if ($msg) break;
-            if ($i < 5) usleep(300000); // Wait 300ms between retries (up to 1.5s total)
+            if ($i < 9) usleep(500000); // 500ms * 10 = 5 seconds
         }
 
         if (!$msg) {

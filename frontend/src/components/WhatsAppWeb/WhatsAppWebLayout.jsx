@@ -115,8 +115,15 @@ const WhatsAppWebLayout = () => {
                         const existingIdx = merged.findIndex(m => (m.whatsapp_message_id || m.id) === newId);
 
                         if (existingIdx > -1) {
-                            // Update status/media if changed
-                            merged[existingIdx] = { ...merged[existingIdx], ...newMsg };
+                            // Status Ranking Lock: Never downgrade status via polling 
+                            // (e.g. don't let a stale DB 'sent' overwrite a live 'read' status)
+                            const statusWeights = { 'sent': 1, 'received': 1, 'delivered': 2, 'read': 3, 'played': 4, 'viewed': 4 };
+                            const currentStatus = merged[existingIdx].status || 'sent';
+                            const newStatus = newMsg.status || 'sent';
+
+                            if (statusWeights[newStatus] >= statusWeights[currentStatus]) {
+                                merged[existingIdx] = { ...merged[existingIdx], ...newMsg };
+                            }
                         } else {
                             // It's a truly new message not in local state yet
                             merged.push(newMsg);
