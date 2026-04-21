@@ -26,6 +26,9 @@ const Itineraries = () => {
   const [itineraries, setItineraries] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [searchDuration, setSearchDuration] = useState('');
+  const [searchRoute, setSearchRoute] = useState('');
+  const [sortBy, setSortBy] = useState('newest'); // 'newest', 'oldest', 'name'
   const [error, setError] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
@@ -44,7 +47,8 @@ const Itineraries = () => {
     destinations: '',
     routing: '',
     notes: '',
-    image: null
+    image: null,
+    show_on_website: true
   });
 
   const normalizeImageUrl = (url) => {
@@ -104,7 +108,7 @@ const Itineraries = () => {
           itinerary.image = normalizeImageUrl(itinerary.image);
         }
         return itinerary;
-      });
+      }).sort((a, b) => b.id - a.id);
       setItineraries(processedData);
       setError('');
     } catch (err) {
@@ -145,7 +149,8 @@ const Itineraries = () => {
       destinations: '',
       routing: '',
       notes: '',
-      image: null
+      image: null,
+      show_on_website: true
     });
     setImagePreview(null);
     setShowModal(true);
@@ -241,7 +246,8 @@ const Itineraries = () => {
       destinations: '',
       routing: '',
       notes: '',
-      image: null
+      image: null,
+      show_on_website: true
     });
     setImagePreview(null);
     setShowLibraryModal(false);
@@ -322,6 +328,7 @@ const Itineraries = () => {
       packageData.append('itinerary_name', formData.itinerary_name);
       packageData.append('duration', formData.duration || '1');
       if (formData.destinations) packageData.append('destinations', formData.destinations);
+      packageData.append('show_on_website', formData.show_on_website ? '1' : '0');
       if (formData.routing) packageData.append('routing', formData.routing);
       if (formData.notes) packageData.append('notes', formData.notes);
       if (formData.image) {
@@ -423,11 +430,20 @@ const Itineraries = () => {
   };
 
   const filteredItineraries = itineraries.filter(itinerary => {
-    const searchLower = searchTerm.toLowerCase();
-    return (
-      (itinerary.title || itinerary.itinerary_name || '').toLowerCase().includes(searchLower) ||
-      (itinerary.destination || itinerary.destinations || '').toLowerCase().includes(searchLower)
-    );
+    const nameMatch = (itinerary.title || itinerary.itinerary_name || '').toLowerCase().includes(searchTerm.toLowerCase());
+    const routeMatch = (itinerary.routing || itinerary.destinations || itinerary.destination || '').toLowerCase().includes(searchRoute.toLowerCase());
+    const durationMatch = searchDuration === '' || itinerary.duration?.toString() === searchDuration;
+    
+    return nameMatch && routeMatch && durationMatch;
+  }).sort((a, b) => {
+    if (sortBy === 'name') {
+      return (a.title || a.itinerary_name || '').localeCompare(b.title || b.itinerary_name || '');
+    }
+    if (sortBy === 'oldest') {
+      return a.id - b.id;
+    }
+    // Default: newest (ID DESC)
+    return b.id - a.id;
   });
 
   return (
@@ -439,21 +455,77 @@ const Itineraries = () => {
           <h1 className="text-3xl font-bold text-gray-800">Itineraries</h1>
           <div className="flex items-center gap-4">
             {/* Search Input */}
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
-              <input
-                type="text"
-                placeholder="Search by name"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 pr-4 py-2 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 w-64 text-sm"
-              />
+            {/* Filter Group */}
+            <div className="flex flex-wrap items-center gap-3 bg-white p-2 px-3 rounded-xl border border-gray-200 shadow-sm">
+              {/* Search by Name */}
+              <div className="relative">
+                <Search className="absolute left-2.5 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                <input
+                  type="text"
+                  placeholder="Name..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-8 pr-3 py-1.5 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 w-40 text-xs font-medium"
+                />
+              </div>
+
+              {/* Search by Route */}
+              <div className="relative">
+                <MapPin className="absolute left-2.5 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                <input
+                  type="text"
+                  placeholder="Route/Dest..."
+                  value={searchRoute}
+                  onChange={(e) => setSearchRoute(e.target.value)}
+                  className="pl-8 pr-3 py-1.5 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 w-40 text-xs font-medium"
+                />
+              </div>
+
+              {/* Day Filter */}
+              <div className="relative">
+                <CalendarDays className="absolute left-2.5 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                <input
+                  type="number"
+                  placeholder="Days"
+                  value={searchDuration}
+                  onChange={(e) => setSearchDuration(e.target.value)}
+                  className="pl-8 pr-3 py-1.5 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 w-24 text-xs font-medium"
+                  min="0"
+                />
+              </div>
+
+              {/* Sort Dropdown */}
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+                className="px-3 py-1.5 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs font-bold text-gray-600 cursor-pointer"
+              >
+                <option value="newest">Latest Added</option>
+                <option value="oldest">Oldest First</option>
+                <option value="name">Name A-Z</option>
+              </select>
+
+              {/* Clear Filters */}
+              {(searchTerm || searchDuration || searchRoute || sortBy !== 'newest') && (
+                <button
+                  onClick={() => {
+                    setSearchTerm('');
+                    setSearchDuration('');
+                    setSearchRoute('');
+                    setSortBy('newest');
+                  }}
+                  className="text-xs font-bold text-red-500 hover:text-red-600 px-2 flex items-center gap-1"
+                >
+                  <X className="h-3 w-3" /> Clear
+                </button>
+              )}
             </div>
+
             {/* Add New Button */}
             {hasPermission(user, 'itineraries.create') && (
               <button
                 onClick={handleAddNew}
-                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2 font-medium shadow-sm"
+                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2 font-bold shadow-sm transition-all active:scale-95"
               >
                 <Plus className="h-5 w-5" />
                 Add New

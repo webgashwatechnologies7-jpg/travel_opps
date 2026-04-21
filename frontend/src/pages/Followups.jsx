@@ -19,12 +19,13 @@ const Followups = () => {
 
   const fetchFollowups = async () => {
     try {
-      const [todayRes, overdueRes] = await Promise.all([
-        followupsAPI.today(),
-        followupsAPI.overdue(),
-      ]);
-      setTodayFollowups(todayRes.data.data.followups || []);
-      setOverdueFollowups(overdueRes.data.data.followups || []);
+      const res = await followupsAPI.list();
+      const all = res.data.data.followups || [];
+      
+      const todayStr = new Date().toISOString().split('T')[0];
+      
+      setTodayFollowups(all.filter(f => f.reminder_date === todayStr));
+      setOverdueFollowups(all.filter(f => f.reminder_date < todayStr && f.status !== 'completed'));
     } catch (err) {
       console.error('Failed to fetch followups:', err);
     } finally {

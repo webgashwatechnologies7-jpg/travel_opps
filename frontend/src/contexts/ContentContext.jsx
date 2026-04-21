@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from './AuthContext';
 import { contentAPI } from '../services/api';
 
@@ -96,13 +96,22 @@ export const ContentProvider = ({ children }) => {
   const [content, setContent] = useState({ ...DEFAULT_CONTENT });
   const [loading, setLoading] = useState(true);
 
+  const lastLoadedUserId = useRef(null);
+
   const loadContent = useCallback(async () => {
     if (!user || user.is_super_admin) {
+      setLoading(false);
+      lastLoadedUserId.current = null;
+      return;
+    }
+
+    if (lastLoadedUserId.current === user.id) {
       setLoading(false);
       return;
     }
 
     try {
+      lastLoadedUserId.current = user.id;
       const response = await contentAPI.getAll();
       if (response.data?.success && response.data.data && typeof response.data.data === 'object') {
         setContent(prev => ({ ...DEFAULT_CONTENT, ...response.data.data }));

@@ -77,14 +77,17 @@ const Dashboard = () => {
   const fetchAllData = useCallback(async () => {
     try {
       setLoading(true);
-      const [statsRes, revRes, toursRes, notesRes, flRes, prRes, teamRes] = await Promise.all([
+      const leadParams = roleInfo.isAdmin ? { per_page: 1000 } : { assigned_to: user?.id, per_page: 1000 };
+      
+      const [statsRes, revRes, toursRes, notesRes, flRes, prRes, teamRes, leadsRes] = await Promise.all([
         dashboardAPI.stats(),
         featureFlags.hasAnalytics ? dashboardAPI.getRevenueGrowthMonthly() : Promise.resolve({ data: { data: [] } }),
         dashboardAPI.upcomingTours(),
         dashboardAPI.latestLeadNotes(),
         followupsAPI.today(),
         dashboardAPI.getPresenceStats(),
-        roleInfo.isHighLevel ? dashboardAPI.getCompanyPresenceStats(presencePeriod) : Promise.resolve({ data: { data: { users: [] } } })
+        roleInfo.isHighLevel ? dashboardAPI.getCompanyPresenceStats(presencePeriod) : Promise.resolve({ data: { data: { users: [] } } }),
+        user?.id ? leadsAPI.list(leadParams) : Promise.resolve({ data: { data: { leads: [] } } })
       ]);
 
       setStats(statsRes.data.data);
@@ -105,10 +108,8 @@ const Dashboard = () => {
         title: i.remark || "Followup", color: colors[idx % colors.length]
       })));
 
-      // Scoped Lead Stats
-      if (user?.id) {
-        const params = roleInfo.isAdmin ? { per_page: 1000 } : { assigned_to: user.id, per_page: 1000 };
-        const leadsRes = await leadsAPI.list(params);
+      // Process Leads from combined Promise.all
+      if (leadsRes && user?.id) {
         const leads = leadsRes.data.data?.leads || [];
         const now = new Date();
 

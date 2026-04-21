@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { useAuth } from './AuthContext';
 import { settingsAPI, menuAPI, currenciesAPI, ASSET_URL } from '../services/api';
 
@@ -343,6 +343,8 @@ export const SettingsProvider = ({ children }) => {
     });
   };
 
+  const lastLoadedUserId = useRef(null);
+
   useEffect(() => {
     if (settings?.company_favicon) {
       const faviconEl = document.getElementById('favicon');
@@ -359,9 +361,13 @@ export const SettingsProvider = ({ children }) => {
     }
 
     if (user) {
-      loadSettings();
-      loadPrimaryCurrency();
+      if (lastLoadedUserId.current !== user.id) {
+        lastLoadedUserId.current = user.id;
+        loadSettings();
+        loadPrimaryCurrency();
+      }
     } else {
+      lastLoadedUserId.current = null;
       setLoading(false);
     }
   }, [user]);

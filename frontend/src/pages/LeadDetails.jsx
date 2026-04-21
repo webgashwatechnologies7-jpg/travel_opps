@@ -241,7 +241,6 @@ const LeadDetails = () => {
     fetchSources();
     fetchMaxHotelOptions();
     fetchSuppliers();
-    fetchCompanySettings();
     checkConnectionStatus();
   }, [id]);
 
@@ -346,21 +345,6 @@ const LeadDetails = () => {
     } catch (_) { }
   };
 
-  // Fetch company settings (use /settings not /admin/settings to avoid 500 tenant error)
-  const fetchCompanySettings = async () => {
-    try {
-      const response = await settingsAPI.getAll();
-      if (response.data?.success && response.data?.data) {
-        const raw = response.data.data;
-        const obj = Array.isArray(raw)
-          ? raw.reduce((acc, s) => ({ ...acc, [s.key]: s.value }), {})
-          : raw;
-        setCompanySettings(obj);
-      }
-    } catch (err) {
-      // Non-blocking: page works without company settings
-    }
-  };
 
   // Update subject when lead or confirmed proposal changes
   useEffect(() => {
@@ -442,16 +426,22 @@ const LeadDetails = () => {
         const uniqueHotelIds = [...new Set(uniqueRaw.map(h => h.hotel_id).filter(Boolean))];
         const hotelDataMap = {};
 
-        await Promise.all(uniqueHotelIds.map(async (hid) => {
-          try {
-            const res = await hotelsAPI.get(hid);
-            if (res?.data?.data) {
-              hotelDataMap[hid] = res.data.data;
+        // Performance Check: Limit concurrent hotel fetches and skip if we have enough info
+        const MAX_CONCURRENT = 5;
+        for (let i = 0; i < uniqueHotelIds.length; i += MAX_CONCURRENT) {
+          const chunk = uniqueHotelIds.slice(i, i + MAX_CONCURRENT);
+          await Promise.all(chunk.map(async (hid) => {
+            if (hotelDataMap[hid]) return;
+            try {
+              const res = await hotelsAPI.get(hid);
+              if (res?.data?.data) {
+                hotelDataMap[hid] = res.data.data;
+              }
+            } catch (e) {
+              console.warn(`Failed to fetch hotel ${hid}`, e);
             }
-          } catch (e) {
-            console.warn(`Failed to fetch hotel ${hid}`, e);
-          }
-        }));
+          }));
+        }
 
         const hotelsData = uniqueRaw.map((hotel, index) => {
           const hotelId = hotel.hotel_id;
@@ -2524,7 +2514,8 @@ const emailTemplate = `
     setLoadingItineraries(true);
     packagesAPI.list().then((res) => {
       const data = res.data.data || [];
-      setDayItineraries(data);
+      // Sort by ID DESC (Latest first)
+      setDayItineraries(data.sort((a, b) => b.id - a.id));
     }).catch(() => setDayItineraries([]))
       .finally(() => setLoadingItineraries(false));
   }, [showInsertItineraryModal]);

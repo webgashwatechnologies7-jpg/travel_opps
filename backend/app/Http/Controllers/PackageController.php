@@ -156,7 +156,20 @@ class PackageController extends Controller
             $data['infant'] = $data['infant'] ?? 0;
             $data['price'] = $data['price'] ?? 0;
             $data['website_cost'] = $data['website_cost'] ?? 0;
-            $data['show_on_website'] = $data['show_on_website'] ?? false;
+            // Handle boolean conversion for show_on_website
+            if ($request->has('show_on_website')) {
+                $value = $request->input('show_on_website');
+                if (is_string($value)) {
+                    $data['show_on_website'] = in_array(strtolower($value), ['true', '1', 'yes', 'on'], true);
+                } elseif (is_numeric($value)) {
+                    $data['show_on_website'] = (int)$value === 1;
+                } else {
+                    $data['show_on_website'] = (bool) $value;
+                }
+            } else {
+                $data['show_on_website'] = true;
+            }
+
             $data['duration'] = $data['duration'] ?? null;
 
             $package = Package::create($data);

@@ -22,14 +22,16 @@ const Payments = () => {
 
   const fetchPayments = async () => {
     try {
-      const [dueTodayRes, pendingRes, allRes] = await Promise.all([
-        paymentsAPI.dueToday(),
-        paymentsAPI.pending(),
-        paymentsAPI.list(),
-      ]);
-      setDueToday(dueTodayRes.data.data.payments || []);
-      setPending(pendingRes.data.data.payments || []);
-      setAllPayments(allRes.data.data.payments || []);
+      const res = await paymentsAPI.list();
+      const all = res.data.data.payments || [];
+      setAllPayments(all);
+      
+      // Filter due today: where due_date is today (local time)
+      const todayStr = new Date().toISOString().split('T')[0];
+      setDueToday(all.filter(p => p.due_date && p.due_date.startsWith(todayStr)));
+      
+      // Filter pending: where status is 'pending'
+      setPending(all.filter(p => p.status === 'pending'));
     } catch (err) {
       console.error('Failed to fetch payments:', err);
     } finally {

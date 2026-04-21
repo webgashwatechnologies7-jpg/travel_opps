@@ -236,6 +236,7 @@ export const paymentsAPI = {
 
 // Followups APIs
 export const followupsAPI = {
+  list: (params = {}) => api.get('/followups', { params }),
   today: () => api.get('/followups/today'),
   overdue: () => api.get('/followups/overdue'),
   create: (data) => api.post('/followups', data),

@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { authAPI } from '../services/api';
 import { initPushNotifications, listenForForegroundMessages, removePushToken } from '../services/pushNotifications';
 
@@ -205,17 +205,24 @@ export const AuthProvider = ({ children }) => {
     return null;
   };
 
+  const lastSyncRef = useRef(0);
+  const SYNC_COOLDOWN = 5 * 60 * 1000; // 5 minutes
+
   // Sync profile when window is focused (passive real-time sync)
   useEffect(() => {
     const handleFocus = () => {
-      if (user) {
-        console.log('Window focused - syncing user profile...');
+      const now = Date.now();
+      if (user && (now - lastSyncRef.current > SYNC_COOLDOWN)) {
+        lastSyncRef.current = now;
         refreshUser();
       }
     };
 
     // Listen for custom refresh event from API interceptor
-    const handleCustomRefresh = () => refreshUser();
+    const handleCustomRefresh = () => {
+      lastSyncRef.current = Date.now();
+      refreshUser();
+    };
 
     window.addEventListener('focus', handleFocus);
     window.addEventListener('refresh-user-profile', handleCustomRefresh);
