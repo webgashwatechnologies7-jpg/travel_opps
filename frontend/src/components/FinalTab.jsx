@@ -523,7 +523,17 @@ const FinalTab = ({
                                     {nightCount} Night{nightCount > 1 ? 's' : ''} & {nightCount + 1} Days | {start.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} to {end.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
                                   </span>
                                 ) : (
-                                  <span className="text-[10px] text-gray-500">Day {opt.day}</span>
+                                  <span className="text-[10px] text-gray-500">
+                                    {(() => {
+                                      const dayObj = days.find(d => d.day === opt.day);
+                                      if (dayObj?.isTravelDay) return 'Traveling Day';
+                                      let sightseeingNum = 0;
+                                      for (let i = 0; i < opt.day; i++) {
+                                        if (days[i] && !days[i].isTravelDay) sightseeingNum++;
+                                      }
+                                      return `Day ${sightseeingNum}`;
+                                    })()}
+                                  </span>
                                 )}
                               </div>
                             </div>

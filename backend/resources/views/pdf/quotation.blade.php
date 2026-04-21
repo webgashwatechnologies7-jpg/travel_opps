@@ -469,8 +469,25 @@
             <tr>
                 <td colspan="4" style="padding-top: 10px; border-top: 1px solid #e2e8f0; margin-top: 5px;">
                     <span class="label">Duration</span>
-                    <span class="value">{{ max(0, (int)($quotation->itinerary['duration'] ?? 1) - 1) }} Nights /
-                        {{ $quotation->itinerary['duration'] ?? 1 }} Days</span>
+                    <span class="value">
+                        @php
+                            $durationWeeks = (int)($quotation->itinerary['duration'] ?? 1);
+                            $pkgDaysArr = $quotation->itinerary['days'] ?? [];
+                            $travelDaysCount = 0;
+                            foreach ($pkgDaysArr as $pd) {
+                                if (!empty($pd['isTravelDay'])) {
+                                    $travelDaysCount++;
+                                }
+                            }
+                            $sightseeingDaysCount = max(0, $durationWeeks - $travelDaysCount);
+                        @endphp
+
+                        @if($travelDaysCount > 0)
+                            {{ max(0, $sightseeingDaysCount - 1) }} Nights / {{ $sightseeingDaysCount }} Days Sightseeing
+                        @else
+                            {{ max(0, $durationWeeks - 1) }} Nights / {{ $durationWeeks }} Days
+                        @endif
+                    </span>
                 </td>
             </tr>
             @if(!empty($quotation->itinerary['routing']))
@@ -512,17 +529,30 @@
     @foreach($days as $day)
         @php
             $evts = $dayEvents[$day] ?? [];
-            $dayTitle = "Day $day";
-            // Pass 1: Find the Best Title for the Day
+            
+            // Calculate sightseeing number and travel status
+            $isTravelDay = false;
+            $sightseeingNum = 0;
+            foreach (($quotation->itinerary['days'] ?? []) as $pd) {
+                if (($pd['day'] ?? -1) == $day) {
+                    $isTravelDay = !empty($pd['isTravelDay']);
+                }
+                if (($pd['day'] ?? -1) <= $day && empty($pd['isTravelDay'])) {
+                    $sightseeingNum++;
+                }
+            }
+
+            $dayTitle = $isTravelDay ? "Traveling Day" : "Day $sightseeingNum";
+
+            // Pass 1: Find the Best Title for the Day (higher priority than Day X)
             foreach ($evts as $e) {
                 $t = $e['eventType'] ?? '';
-                // The 'day-itinerary' type with a custom subject is the top priority
                 if ($t === 'day-itinerary' && $e['subject'] !== 'Day Itinerary') {
                     $dayTitle = $e['subject'];
                     break;
                 }
                 // Fallback: The first meaningful non-accommodation event
-                if ($dayTitle === "Day $day" && $t !== 'accommodation' && $e['subject'] !== 'Day Itinerary') {
+                if (($dayTitle === "Day $sightseeingNum" || $dayTitle === "Traveling Day") && $t !== 'accommodation' && $e['subject'] !== 'Day Itinerary') {
                     $dayTitle = $e['subject'];
                 }
             }

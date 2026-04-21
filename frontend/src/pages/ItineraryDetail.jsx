@@ -8,7 +8,7 @@ import { getDisplayImageUrl } from '../utils/imageUrl';
 import { packagesAPI, dayItinerariesAPI, hotelsAPI, activitiesAPI, settingsAPI, destinationsAPI, itineraryPricingAPI, transfersAPI, mealPlansAPI, roomTypesAPI, queryProposalsAPI, leadsAPI } from '../services/api';
 import { searchPexelsPhotos } from '../services/pexels';
 import { getRoadDistance } from '../utils/distanceHelper';
-import { ArrowLeft, Camera, Edit, Plus, ChevronRight, FileText, Search, X, Bed, Image as ImageIcon, Car, FileText as PassportIcon, UtensilsCrossed, Plane, Bus, Train, User, Ship, Star, Calendar, CalendarDays, Hash, Building2, Upload, Clock, RefreshCw } from 'lucide-react';
+import { Check, ArrowLeft, Camera, Edit, Plus, ChevronRight, FileText, Search, X, Bed, Image as ImageIcon, Car, FileText as PassportIcon, UtensilsCrossed, Plane, Bus, Train, User, Ship, Star, Calendar, CalendarDays, Hash, Building2, Upload, Clock, RefreshCw } from 'lucide-react';
 import PricingTab from '../components/PricingTab';
 import FinalTab from '../components/FinalTab';
 
@@ -2537,7 +2537,7 @@ const ItineraryDetail = () => {
                                             checkIn: event.hotelOptions?.[0]?.checkIn || '',
                                             checkInTime: event.hotelOptions?.[0]?.checkInTime || '2:00 PM',
                                             checkOut: event.hotelOptions?.[0]?.checkOut || '',
-                                            checkOutTime: event.hotelOptions?.[0]?.checkOutTime || '11:00',
+                                            checkOutTime: event.hotelOptions?.[0]?.checkOutTime || '11:00 AM',
                                             transferType: event.transferType || 'Private',
                                             mealType: event.mealType || 'Breakfast',
                                             price: event.price || '',
@@ -2780,8 +2780,8 @@ const ItineraryDetail = () => {
                             ) : (
                               activities
                                 .filter(activity => {
-                                  // Filter out already added items
-                                  if (selectedDay && dayEvents[selectedDay]) {
+                                  // Activities can be multiple, so we do not filter out already added items
+                                  if (false && selectedDay && dayEvents[selectedDay]) {
                                     const alreadyAdded = dayEvents[selectedDay].some(e => 
                                       e.eventType === 'activity' && 
                                       (e.master_id === activity.id || (e.name && activity.name && e.name.toLowerCase() === activity.name.toLowerCase()))
@@ -2803,10 +2803,7 @@ const ItineraryDetail = () => {
                                       if (!hasPermission(user, 'itineraries.edit')) return;
                                       if (selectedDay) {
                                         const currentDayEvents = dayEvents[selectedDay] || [];
-                                        const existing = currentDayEvents.find(e => 
-                                          e.eventType === 'activity' && 
-                                          (e.master_id === activity.id || (e.name && activity.name && e.name.toLowerCase() === activity.name.toLowerCase()))
-                                        );
+                                        const existing = null; // Always allow adding multiple instances of an activity
 
                                         if (existing) {
                                           setDayDetailsForm({
@@ -3278,63 +3275,67 @@ const ItineraryDetail = () => {
                                   const query = searchQuery.toLowerCase();
                                   return (meal.name || '').toLowerCase().includes(query);
                                 })
-                                .map((meal) => (
-                                  <div
-                                    key={meal.id}
-                                    className="flex items-start gap-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer"
-                                    onClick={() => {
-                                      if (!hasPermission(user, 'itineraries.edit')) return;
-                                      if (selectedDay) {
-                                        const currentDayEvents = dayEvents[selectedDay] || [];
-                                        const existing = currentDayEvents.find(e => 
-                                          (e.eventType || '').toLowerCase() === 'meal' && 
-                                          ((e.name && meal.name && e.name.toLowerCase() === meal.name.toLowerCase()) || (e.mealPlan && meal.name && e.mealPlan.toLowerCase() === meal.name.toLowerCase()))
-                                        );
+                                .reduce((acc, current) => {
+                                  const trimmedName = (current.name || '').trim().toLowerCase();
+                                  const x = acc.find(item => (item.name || '').trim().toLowerCase() === trimmedName);
+                                  if (!x) {
+                                    return acc.concat([current]);
+                                  } else {
+                                    return acc;
+                                  }
+                                }, [])
+                                .map((meal) => {
+                                  const currentDayEvents = dayEvents[selectedDay] || [];
+                                  const currentMealEvent = currentDayEvents.find(e => (e.eventType || '').toLowerCase() === 'meal');
+                                  
+                                  const isExactMatch = currentMealEvent && (
+                                    (currentMealEvent.name || '').trim().toLowerCase() === (meal.name || '').trim().toLowerCase() ||
+                                    (currentMealEvent.mealPlan || '').trim().toLowerCase() === (meal.name || '').trim().toLowerCase()
+                                  );
+                                  const hasAnotherMeal = currentMealEvent && !isExactMatch;
+                                  
+                                  return (
+                                    <div
+                                      key={meal.id}
+                                      className={`flex items-start gap-3 p-3 border rounded-lg transition-colors cursor-pointer ${
+                                        isExactMatch ? 'border-green-300 bg-green-50' : 
+                                        hasAnotherMeal ? 'border-gray-200 bg-gray-50 opacity-80' : 
+                                        'border-gray-200 hover:bg-gray-50'
+                                      }`}
+                                      onClick={() => {
+                                        if (!hasPermission(user, 'itineraries.edit')) return;
+                                        if (selectedDay) {
+                                          const existing = currentMealEvent;
 
-                                        if (existing) {
-                                          setDayDetailsForm({
-                                            subject: existing.subject || '',
-                                            details: existing.details || '',
-                                            image: existing.image || null,
-                                            eventType: existing.eventType || 'meal',
-                                            id: existing.id,
-                                            destination: existing.destination || '',
-                                            type: existing.type || 'Manual',
-                                            name: existing.name || '',
-                                            date: existing.date || '',
-                                            startTime: existing.startTime || '1:00 PM',
-                                            endTime: existing.endTime || '2:00 PM',
-                                            showTime: existing.showTime || false,
-                                            hotelOptions: existing.hotelOptions || [],
-                                            mealType: existing.mealType || 'Breakfast',
-                                            mealPlan: existing.mealPlan || meal.name || '',
-                                            price: existing.price || ''
-                                          });
-                                          setEventImagePreview(existing.image || null);
-                                          setShowDayDetailsModal(true);
+                                          if (existing) {
+                                            if (isExactMatch) {
+                                              toast.info('This meal plan is already selected for this day.');
+                                            } else {
+                                              toast.warning(`A different plan (${existing.name || 'Meal'}) is already selected. Edit it directly to change.`);
+                                            }
+                                          } else {
+                                            const eventData = {
+                                              id: Date.now(),
+                                              subject: meal.name || 'Meal',
+                                              details: '',
+                                              destination: days[selectedDay - 1]?.destination || '',
+                                              eventType: 'meal',
+                                              image: null,
+                                              type: 'Manual',
+                                              name: meal.name || '',
+                                              date: '',
+                                              startTime: '1:00 PM',
+                                              endTime: '2:00 PM',
+                                              showTime: false,
+                                              hotelOptions: [],
+                                              editingOptionIndex: null,
+                                              mealPlan: meal.name || '',
+                                              mealType: 'Breakfast',
+                                              price: ''
+                                            };
+                                            saveEvent(eventData);
+                                          }
                                         } else {
-                                          const eventData = {
-                                            id: Date.now(),
-                                            subject: meal.name || 'Meal',
-                                            details: '',
-                                            destination: days[selectedDay - 1]?.destination || '',
-                                            eventType: 'meal',
-                                            image: null,
-                                            type: 'Manual',
-                                            name: meal.name || '',
-                                            date: '',
-                                            startTime: '1:00 PM',
-                                            endTime: '2:00 PM',
-                                            showTime: false,
-                                            hotelOptions: [],
-                                            editingOptionIndex: null,
-                                            mealPlan: meal.name || '',
-                                            mealType: 'Breakfast',
-                                            price: ''
-                                          };
-                                          saveEvent(eventData);
-                                        }
-                                      } else {
                                         toast.warning('Please select a day from the left (e.g. DAY 1, DAY 2) first, then add this item.');
                                       }
                                     }}
@@ -3344,6 +3345,16 @@ const ItineraryDetail = () => {
                                     </div>
                                     <div className="flex-1 min-w-0 uppercase">
                                       <h4 className="font-semibold text-gray-900 text-sm mb-1">{meal.name || 'Meal Plan'}</h4>
+                                      {isExactMatch && (
+                                        <span className="text-[10px] text-green-600 font-bold flex items-center gap-1">
+                                          <Check className="h-3 w-3" /> SELECTED
+                                        </span>
+                                      )}
+                                      {hasAnotherMeal && (
+                                        <span className="text-[10px] text-gray-400 font-bold flex items-center gap-1">
+                                          CHANGE PLAN?
+                                        </span>
+                                      )}
                                     </div>
                                     {hasPermission(user, 'itineraries.edit') && (
                                       <button
@@ -3352,13 +3363,16 @@ const ItineraryDetail = () => {
                                           const item = e.target.closest('.cursor-pointer');
                                           if (item) item.click();
                                         }}
-                                        className="w-8 h-8 bg-black text-white rounded-full flex items-center justify-center hover:bg-gray-800 flex-shrink-0"
+                                        className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors flex-shrink-0 ${
+                                          isExactMatch ? 'bg-green-600 text-white' : 'bg-black text-white hover:bg-gray-800'
+                                        }`}
                                       >
-                                        <Plus className="h-4 w-4" />
+                                        {isExactMatch ? <Check className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
                                       </button>
                                     )}
                                   </div>
-                                ))
+                                );
+                              })
                             ) : (
                               <div className="text-center py-8 text-gray-500 text-sm">
                                 No meal plans found. Please add meal plans in Masters → Meal Plan first.
