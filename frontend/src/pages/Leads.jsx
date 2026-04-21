@@ -2023,15 +2023,56 @@ const Leads = () => {
         </div>
       </Dialog>
 
-      {/* Assign Modal */}
-      {showAssignModal && selectedLead && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[150]">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h2 className="text-xl font-bold mb-4">Assign Lead</h2>
-            <p className="mb-4">Assign lead to:</p>
+      {/* Assign Modal - Now Premium & Draggable */}
+      <Dialog
+        visible={showAssignModal && !!selectedLead}
+        onHide={() => {
+          setShowAssignModal(false);
+          setSelectedLead(null);
+        }}
+        modal
+        draggable
+        dismissableMask
+        style={{ width: '95%', maxWidth: '450px' }}
+        header={
+          <div className="flex flex-col">
+            <span className="text-xl font-bold text-slate-800">Assign Lead</span>
+            <span className="text-slate-400 text-xs font-medium mt-1">Select a team member to handle this opportunity</span>
+          </div>
+        }
+        contentClassName="p-0 overflow-hidden rounded-b-2xl"
+        headerClassName="p-6 border-b border-slate-100"
+        footer={
+          <div className="flex justify-end gap-3 p-6 border-t border-slate-100 bg-slate-50/50">
+            <Button
+              label="Cancel"
+              onClick={() => {
+                setShowAssignModal(false);
+                setSelectedLead(null);
+              }}
+              className="px-6 py-2.5 bg-white border border-slate-200 text-slate-600 rounded-xl hover:bg-slate-100 transition-all font-bold text-sm h-auto"
+            />
+            <Button
+              label="Assign Lead"
+              onClick={() => {
+                const userId = document.getElementById('assignUserId').value;
+                if (userId && selectedLead) {
+                  handleAssign(selectedLead.id, parseInt(userId));
+                } else {
+                  toast.warning('Please select a user');
+                }
+              }}
+              className="px-8 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-500/20 font-bold text-sm border-none h-auto"
+            />
+          </div>
+        }
+      >
+        <div className="p-8">
+          <label className="block text-xs font-bold text-slate-500 mb-3 uppercase tracking-wider ml-1">Choose Sales Representative</label>
+          <div className="relative">
             <select
               id="assignUserId"
-              className="w-full px-4 py-2 border rounded-lg mb-4"
+              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-semibold outline-none appearance-none cursor-pointer"
               defaultValue={currentUser?.id || ''}
             >
               <option value={currentUser?.id || ''}>
@@ -2043,66 +2084,74 @@ const Leads = () => {
                 </option>
               ))}
             </select>
-            <div className="flex space-x-2">
-              <button
-                onClick={() => {
-                  const userId = document.getElementById('assignUserId').value;
-                  if (userId && selectedLead) {
-                    handleAssign(selectedLead.id, parseInt(userId));
-                  } else {
-                    toast.warning('Please select a user');
-                  }
-                }}
-                className="flex-1 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700"
-              >
-                Assign
-              </button>
-              <button
-                onClick={() => {
-                  setShowAssignModal(false);
-                  setSelectedLead(null);
-                }}
-                className="flex-1 bg-gray-300 text-gray-700 py-2 rounded-lg hover:bg-gray-400"
-              >
-                Cancel
-              </button>
+            <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+              <ChevronDown size={18} />
             </div>
           </div>
+          <p className="mt-4 text-[10px] text-slate-400 font-bold uppercase tracking-wider text-center">
+            💡 Assigned staff will receive an instant notification.
+          </p>
         </div>
-      )}
+      </Dialog>
 
-      {/* Status Modal */}
-      {showStatusModal && selectedLead && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[150]">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h2 className="text-xl font-bold mb-4">Update Status</h2>
-            <div className="space-y-2">
-              {['processing', 'proposal', 'followup', 'confirmed', 'cancelled'].map((status) => (
-                <button
-                  key={status}
-                  onClick={() => handleStatusChange(selectedLead.id, status)}
-                  className="w-full text-left px-4 py-2 border rounded-lg hover:bg-gray-100 capitalize"
-                >
+      {/* Status Modal - Now Premium & Draggable */}
+      <Dialog
+        visible={showStatusModal && !!selectedLead}
+        onHide={() => {
+          setShowStatusModal(false);
+          setSelectedLead(null);
+        }}
+        modal
+        draggable
+        dismissableMask
+        style={{ width: '95%', maxWidth: '400px' }}
+        header={
+          <div className="flex flex-col">
+            <span className="text-xl font-bold text-slate-800">Update Status</span>
+            <span className="text-slate-400 text-xs font-medium mt-1">Move this lead to a different stage</span>
+          </div>
+        }
+        contentClassName="p-0 overflow-hidden rounded-b-2xl"
+        headerClassName="p-6 border-b border-slate-100"
+      >
+        <div className="p-6 space-y-3">
+          {['processing', 'proposal', 'followup', 'confirmed', 'cancelled'].map((status) => (
+            <button
+              key={status}
+              onClick={() => handleStatusChange(selectedLead.id, status)}
+              className="w-full flex items-center justify-between p-4 rounded-2xl border border-slate-100 hover:border-blue-500 hover:bg-blue-50/50 transition-all group group text-left"
+            >
+              <div className="flex items-center gap-4">
+                <div className={`w-3 h-3 rounded-full ${status === 'confirmed' ? 'bg-emerald-500' :
+                  status === 'cancelled' ? 'bg-rose-500' :
+                    status === 'processing' ? 'bg-indigo-500' :
+                      status === 'proposal' ? 'bg-amber-500' :
+                        'bg-orange-500'
+                  } shadow-sm`}></div>
+                <span className="font-bold text-slate-700 group-hover:text-blue-700 capitalize">
                   {status === 'processing' ? 'Under Process' :
                     status === 'proposal' ? 'Proposal Sent' :
                       status === 'confirmed' ? 'Booked' :
                         status === 'cancelled' ? 'Declined' :
                           status}
-                </button>
-              ))}
-            </div>
-            <button
-              onClick={() => {
-                setShowStatusModal(false);
-                setSelectedLead(null);
-              }}
-              className="mt-4 w-full bg-gray-300 text-gray-700 py-2 rounded-lg hover:bg-gray-400"
-            >
-              Cancel
+                </span>
+              </div>
+              <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                <TrendingUp size={14} className="text-blue-500" />
+              </div>
             </button>
-          </div>
+          ))}
+          <button
+            onClick={() => {
+              setShowStatusModal(false);
+              setSelectedLead(null);
+            }}
+            className="w-full mt-2 py-3 text-sm font-bold text-slate-400 hover:text-slate-600 transition-colors"
+          >
+            Cancel
+          </button>
         </div>
-      )}
+      </Dialog>
 
       {/* Google Sheet Integration Modal */}
       <GoogleSheetModal

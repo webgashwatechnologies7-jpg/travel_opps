@@ -5639,6 +5639,8 @@ const emailTemplate = `
                             loadingHistory={loadingItineraryHistory}
                             getDisplayImageUrl={getDisplayImageUrl}
                             activeProposals={visibleProposals}
+                            onViewQuotation={handleViewQuotation}
+                            leadId={id}
                           />
                         )}
                       </div>
@@ -6195,6 +6197,17 @@ const emailTemplate = `
                           <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-4">Query Details</p>
                           <div className="space-y-2 text-sm font-medium">
                             <div className="flex justify-between border-b border-gray-50 pb-2"><span>Ref ID:</span><span className="font-black text-gray-800">#{formatLeadId(lead?.id)}</span></div>
+                            {quotationData.itinerary && (
+                              <div className="flex justify-between border-b border-gray-50 pb-2">
+                                <span>Itinerary:</span>
+                                <span 
+                                  className="font-black text-blue-600 hover:text-blue-800 hover:underline cursor-pointer transition-colors"
+                                  onClick={() => window.open(`/itineraries/${quotationData.itinerary.id}?fromLead=${id}`, '_blank')}
+                                >
+                                  {quotationData.itinerary?.title || quotationData.itinerary?.itinerary_name || 'View Itinerary'}
+                                </span>
+                              </div>
+                            )}
                             <div className="flex justify-between border-b border-gray-50 pb-2"><span>Adults/Children:</span><span className="font-black text-gray-800">{lead?.adult}A / {lead?.child}C</span></div>
                             <div className="flex justify-between border-b border-gray-50 pb-2"><span>Destinations:</span><span className="font-black text-gray-800">{quotationData.itinerary?.destinations}</span></div>
                             <div className="flex justify-between"><span>Duration:</span><span className="font-black text-gray-800">{quotationData.itinerary?.duration} N / {(parseInt(quotationData.itinerary?.duration) || 0) + 1} D</span></div>

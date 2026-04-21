@@ -1,7 +1,7 @@
 import React, { memo } from 'react';
-import { Clock, MapPin, Calendar, User, ChevronDown, ChevronUp, Package, ArrowRightLeft, CheckCircle2 } from 'lucide-react';
+import { Clock, MapPin, Calendar, User, ChevronDown, ChevronUp, Package, ArrowRightLeft, CheckCircle2, Eye, Pencil } from 'lucide-react';
 
-const ItineraryHistoryTab = memo(({ historyData, totalChanges, loadingHistory, getDisplayImageUrl, activeProposals }) => {
+const ItineraryHistoryTab = memo(({ historyData, totalChanges, loadingHistory, getDisplayImageUrl, activeProposals, onViewQuotation, leadId }) => {
   const [expandedVersion, setExpandedVersion] = React.useState(null);
 
   // Build active itinerary info from current proposals
@@ -94,19 +94,45 @@ const ItineraryHistoryTab = memo(({ historyData, totalChanges, loadingHistory, g
           <div className="flex items-center gap-4 p-4">
             {/* Thumbnail */}
             {imageUrl ? (
-              <div className={`w-16 h-16 rounded-lg overflow-hidden flex-shrink-0 ${isActive ? 'ring-2 ring-green-400' : 'bg-gray-100'}`}>
+              <div 
+                className={`w-16 h-16 rounded-lg overflow-hidden flex-shrink-0 relative group/thumb ${isActive ? 'ring-2 ring-green-400' : 'bg-gray-100'} ${onViewQuotation ? 'cursor-zoom-in' : ''}`}
+                onClick={(e) => {
+                  if (onViewQuotation && firstOption) {
+                    e.stopPropagation();
+                    onViewQuotation(firstOption);
+                  }
+                }}
+              >
                 <img
                   src={imageUrl}
                   alt={itineraryName}
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-cover group-hover/thumb:scale-110 transition-transform duration-500"
                   onError={(e) => { e.target.style.display = 'none'; }}
                 />
+                {onViewQuotation && (
+                  <div className="absolute inset-0 bg-black/20 opacity-0 group-hover/thumb:opacity-100 transition-opacity flex items-center justify-center">
+                    <Eye className="h-5 w-5 text-white" />
+                  </div>
+                )}
               </div>
             ) : (
-              <div className={`w-16 h-16 rounded-lg flex-shrink-0 flex items-center justify-center ${
-                isActive ? 'bg-green-100' : 'bg-gradient-to-br from-gray-200 to-gray-300'
-              }`}>
+              <div 
+                className={`w-16 h-16 rounded-lg flex-shrink-0 flex items-center justify-center relative group/thumb ${
+                  isActive ? 'bg-green-100' : 'bg-gradient-to-br from-gray-200 to-gray-300'
+                } ${onViewQuotation ? 'cursor-zoom-in' : ''}`}
+                onClick={(e) => {
+                  if (onViewQuotation && firstOption) {
+                    e.stopPropagation();
+                    onViewQuotation(firstOption);
+                  }
+                }}
+              >
                 <Package className={`h-6 w-6 ${isActive ? 'text-green-500' : 'text-gray-400'}`} />
+                {onViewQuotation && (
+                  <div className="absolute inset-0 bg-black/20 opacity-0 group-hover/thumb:opacity-100 transition-opacity flex items-center justify-center rounded-lg">
+                    <Eye className="h-5 w-5 text-white" />
+                  </div>
+                )}
               </div>
             )}
 
@@ -133,9 +159,38 @@ const ItineraryHistoryTab = memo(({ historyData, totalChanges, loadingHistory, g
                   </>
                 )}
               </div>
-              <h4 className={`text-base font-semibold truncate ${isActive ? 'text-green-900' : 'text-gray-900'}`}>
-                {itineraryName}
-              </h4>
+              
+              <div className="flex items-center gap-2">
+                <h4 
+                  className={`text-base font-semibold truncate hover:text-blue-600 transition-colors ${isActive ? 'text-green-900 font-bold' : 'text-gray-900'} ${onViewQuotation ? 'cursor-pointer' : ''}`}
+                  onClick={(e) => {
+                    if (onViewQuotation && firstOption) {
+                      e.stopPropagation();
+                      onViewQuotation(firstOption);
+                    }
+                  }}
+                >
+                  {itineraryName}
+                </h4>
+                {(() => {
+                  const itId = firstOption?.itinerary_id || meta?.itinerary_id;
+                  if (!itId) return null;
+                  return (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        window.open(`/itineraries/${itId}?fromLead=${leadId}`, '_blank');
+                      }}
+                      className="p-1 px-2 border border-gray-200 rounded-md bg-white hover:bg-blue-50 hover:border-blue-200 text-gray-500 hover:text-blue-600 transition-all flex items-center gap-1.5"
+                      title="Edit/View Itinerary"
+                    >
+                      <Pencil className="h-3 w-3" />
+                      <span className="text-[10px] font-bold">EDIT</span>
+                    </button>
+                  );
+                })()}
+              </div>
+
               <div className="flex flex-wrap items-center gap-3 text-xs text-gray-500 mt-1">
                 {destination && (
                   <span className="flex items-center gap-1">
@@ -194,10 +249,16 @@ const ItineraryHistoryTab = memo(({ historyData, totalChanges, loadingHistory, g
                   return (
                     <div
                       key={opt.id || optIdx}
-                      className={`rounded-lg border p-3 ${wasConfirmed
+                      className={`rounded-lg border p-3 transition-all ${wasConfirmed
                         ? 'border-green-300 bg-green-50/50'
-                        : isActive ? 'border-green-200 bg-white' : 'border-gray-200 bg-white'
-                      }`}
+                        : isActive ? 'border-green-200 bg-white hover:border-green-300' : 'border-gray-200 bg-white hover:border-blue-200'
+                      } ${onViewQuotation ? 'cursor-pointer hover:shadow-sm' : ''}`}
+                      onClick={(e) => {
+                        if (onViewQuotation) {
+                          e.stopPropagation();
+                          onViewQuotation(opt);
+                        }
+                      }}
                     >
                       <div className="flex items-center justify-between mb-2">
                         <span className="text-sm font-semibold text-gray-800">Option {optNum}</span>
@@ -208,9 +269,16 @@ const ItineraryHistoryTab = memo(({ historyData, totalChanges, loadingHistory, g
                         )}
                       </div>
                       <p className="text-xl font-bold text-gray-900">₹{Math.round(Number(optPrice)).toLocaleString('en-IN')}</p>
-                      {hotelCount > 0 && (
-                        <p className="text-xs text-gray-500 mt-1">{hotelCount} Hotel{hotelCount > 1 ? 's' : ''} included</p>
-                      )}
+                      <div className="flex items-center justify-between mt-1">
+                        {hotelCount > 0 && (
+                          <p className="text-xs text-gray-500">{hotelCount} Hotel{hotelCount > 1 ? 's' : ''}</p>
+                        )}
+                        {onViewQuotation && (
+                          <span className="text-[10px] font-bold text-blue-600 hover:text-blue-800 flex items-center gap-1">
+                            VIEW QUOTATION
+                          </span>
+                        )}
+                      </div>
                     </div>
                   );
                 })}

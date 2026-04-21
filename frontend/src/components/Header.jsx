@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Bell, Plane, Hotel, Settings, Package, LogOut, ChevronDown as ChevronDownIcon } from 'lucide-react';
 import { notificationsAPI } from '../services/api';
+import { toast } from 'react-toastify';
 
 const Header = ({ user, settings, isAdmin, handleLogout }) => {
     const navigate = useNavigate();
@@ -10,6 +11,8 @@ const Header = ({ user, settings, isAdmin, handleLogout }) => {
     const [isNotifDropdownOpen, setIsNotifDropdownOpen] = useState(false);
     const [isUserDropdownOpen, setIsUserDropdownOpen] = useState(false);
     const [imageError, setImageError] = useState(false);
+    const prevNotificationsRef = useRef([]);
+    const isFirstRun = useRef(true);
 
     useEffect(() => {
         setImageError(false);
@@ -20,8 +23,39 @@ const Header = ({ user, settings, isAdmin, handleLogout }) => {
             try {
                 const res = await notificationsAPI.getInApp();
                 if (res.data?.success) {
-                    setNotifications(res.data.data.notifications);
-                    setUnreadCount(res.data.data.unread_count);
+                    const newNotifs = res.data.data.notifications || [];
+                    const newUnreadCount = res.data.data.unread_count;
+
+                    // Trigger toasts for new unread notifications
+                    // Only if it's not the very first load of the page
+                    if (!isFirstRun.current) {
+                        newNotifs.filter(n => !n.is_read).forEach(n => {
+                            const wasAlreadyPresent = prevNotificationsRef.current.some(prev => prev.id === n.id);
+                            if (!wasAlreadyPresent) {
+                                // This is a new incoming unread notification
+                                toast.info(
+                                    <div onClick={() => n.action_url && navigate(n.action_url)} className="cursor-pointer">
+                                        <p className="font-bold text-sm text-slate-800">{n.title}</p>
+                                        <p className="text-xs text-slate-600 mt-0.5">{n.message}</p>
+                                    </div>,
+                                    {
+                                        position: "top-right",
+                                        autoClose: 5000,
+                                        hideProgressBar: false,
+                                        closeOnClick: true,
+                                        pauseOnHover: true,
+                                        draggable: true,
+                                        icon: <Bell className="text-blue-500" size={18} />
+                                    }
+                                );
+                            }
+                        });
+                    }
+
+                    setNotifications(newNotifs);
+                    setUnreadCount(newUnreadCount);
+                    prevNotificationsRef.current = newNotifs;
+                    isFirstRun.current = false;
                 }
             } catch (e) {
                 console.error("Failed to fetch notifications", e);
@@ -33,7 +67,7 @@ const Header = ({ user, settings, isAdmin, handleLogout }) => {
             const interval = setInterval(fetchNotifications, 10000); // Check every 10 seconds
             return () => clearInterval(interval);
         }
-    }, [user]);
+    }, [user, navigate]);
 
     const toggleNotif = () => setIsNotifDropdownOpen(!isNotifDropdownOpen);
     const toggleUser = () => setIsUserDropdownOpen(!isUserDropdownOpen);
