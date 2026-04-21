@@ -3378,6 +3378,7 @@ const ItineraryDetail = () => {
             <PricingTab
               itinerary={itinerary}
               dayEvents={dayEvents}
+              days={days}
               pricingData={pricingData}
               setPricingData={setPricingData}
               finalClientPrices={finalClientPrices}

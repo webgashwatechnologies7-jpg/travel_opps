@@ -428,7 +428,19 @@ const FinalTab = ({
               <h1 className="text-2xl font-bold text-white mb-1">{itinerary?.itinerary_name || 'Itinerary'}</h1>
               <div className="flex flex-wrap items-center gap-4 text-sm text-gray-200">
                 <span className="flex items-center gap-1"><MapPin className="h-4 w-4" />{itinerary?.destinations || 'N/A'}</span>
-                <span className="flex items-center gap-1"><Calendar className="h-4 w-4" />{itinerary?.duration || 0} Days</span>
+                <span className="flex items-center gap-1">
+                  <Calendar className="h-4 w-4" />
+                  {(() => {
+                    const totalDays = parseInt(itinerary?.duration || 0);
+                    const travelDaysCount = days.filter(d => d.isTravelDay).length;
+                    const sightseeingDaysCount = totalDays - travelDaysCount;
+                    if (travelDaysCount > 0) {
+                      const effectiveNights = Math.max(0, sightseeingDaysCount - 1);
+                      return `${effectiveNights} Night${effectiveNights !== 1 ? 's' : ''} | ${sightseeingDaysCount} Day${sightseeingDaysCount !== 1 ? 's' : ''} Sightseeing`;
+                    }
+                    return `${totalDays - 1} Nights & ${totalDays} Days`;
+                  })()}
+                </span>
                 <span className="flex items-center gap-1"><Users className="h-4 w-4" />
                   {itinerary?.adult || 0} Adult{itinerary?.adult !== 1 ? 's' : ''}
                   {itinerary?.child > 0 && ` | ${itinerary.child} Child${itinerary.child !== 1 ? 'ren' : ''}`}
@@ -570,7 +582,16 @@ const FinalTab = ({
                     <h2 className="text-3xl font-black text-gray-900 leading-tight">Day-by-Day Itinerary</h2>
                     <p className="text-gray-500 font-medium flex items-center gap-2 mt-1">
                       <MapPin className="h-4 w-4 text-blue-500" />
-                      {itinerary?.destinations || 'Flexible'} | {itinerary?.duration || 0} Days Plan
+                      {itinerary?.destinations || 'Flexible'} | {(() => {
+                        const totalDays = parseInt(itinerary?.duration || 0);
+                        const travelDaysCount = days.filter(d => d.isTravelDay).length;
+                        const sightseeingDaysCount = totalDays - travelDaysCount;
+                        if (travelDaysCount > 0) {
+                          const effectiveNights = Math.max(0, sightseeingDaysCount - 1);
+                          return `${effectiveNights} Night${effectiveNights !== 1 ? 's' : ''} | ${sightseeingDaysCount} Day${sightseeingDaysCount !== 1 ? 's' : ''} Sightseeing`;
+                        }
+                        return `${totalDays - 1} Nights & ${totalDays} Days`;
+                      })()}
                     </p>
                   </div>
                   <div className="flex items-center gap-3 bg-blue-50 px-4 py-2 rounded-xl border border-blue-100 shadow-sm">
@@ -1453,7 +1474,18 @@ const FinalTab = ({
                   </div>
                   <div>
                     <div className="text-sm text-gray-600">Duration</div>
-                    <div className="font-semibold text-gray-900">{itinerary?.duration || 0} Days</div>
+                    <div className="font-semibold text-gray-900">
+                      {(() => {
+                        const totalDays = parseInt(itinerary?.duration || 0);
+                        const travelDaysCount = days.filter(d => d.isTravelDay).length;
+                        const sightseeingDaysCount = totalDays - travelDaysCount;
+                        if (travelDaysCount > 0) {
+                          const effectiveNights = Math.max(0, sightseeingDaysCount - 1);
+                          return `${effectiveNights} Night${effectiveNights !== 1 ? 's' : ''} | ${sightseeingDaysCount} Day${sightseeingDaysCount !== 1 ? 's' : ''} Sightseeing`;
+                        }
+                        return `${totalDays - 1} Nights & ${totalDays} Days`;
+                      })()}
+                    </div>
                   </div>
                   <div>
                     <div className="text-sm text-gray-600">Adults</div>

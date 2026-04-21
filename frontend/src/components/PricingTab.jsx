@@ -27,7 +27,8 @@ const PricingTab = ({
   setOptionGstSettings,
   showToastNotification,
   onPricingSaveSuccess,
-  readOnly = false
+  readOnly = false,
+  days = []
 }) => {
 
   // Collect all accommodation events with hotel options (preserve optionIdx for key consistency with FinalTab)
@@ -265,7 +266,16 @@ const PricingTab = ({
       <div className="mb-4">
         <h2 className="text-2xl font-bold text-gray-800">{itinerary?.itinerary_name || 'Itinerary'}</h2>
         <p className="text-gray-600 mt-1">
-          {itinerary?.destinations || 'N/A'} - Adult: {itinerary?.adult || 0} | Child: {itinerary?.child || 0}
+          {itinerary?.destinations || 'N/A'} - {(() => {
+            const totalDays = parseInt(itinerary?.duration || 0);
+            const travelDaysCount = days.filter(d => d.isTravelDay).length;
+            const sightseeingDaysCount = totalDays - travelDaysCount;
+            if (travelDaysCount > 0) {
+              const effectiveNights = Math.max(0, sightseeingDaysCount - 1);
+              return `${effectiveNights} Night${effectiveNights !== 1 ? 's' : ''} | ${sightseeingDaysCount} Day${sightseeingDaysCount !== 1 ? 's' : ''} Sightseeing`;
+            }
+            return `${totalDays - 1} Nights & ${totalDays} Days`;
+          })()} | Adult: {itinerary?.adult || 0} | Child: {itinerary?.child || 0}
         </p>
       </div>
 
@@ -291,7 +301,16 @@ const PricingTab = ({
                         Option {optNum}
                       </span>
                       <span className="text-xs text-gray-500">
-                        {sortedOptions.length} Night{sortedOptions.length !== 1 ? 's' : ''}
+                        {(() => {
+                          const totalDays = parseInt(itinerary?.duration || 0);
+                          const travelDaysCount = days.filter(d => d.isTravelDay).length;
+                          const sightseeingDaysCount = totalDays - travelDaysCount;
+                          if (travelDaysCount > 0) {
+                            const effectiveNights = Math.max(0, sightseeingDaysCount - 1);
+                            return `${effectiveNights} Night${effectiveNights !== 1 ? 's' : ''}`;
+                          }
+                          return `${totalDays - 1} Nights`;
+                        })()}
                       </span>
                     </div>
                     <div className="text-right">
