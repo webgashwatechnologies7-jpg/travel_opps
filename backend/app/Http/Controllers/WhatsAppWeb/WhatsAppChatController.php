@@ -19,6 +19,133 @@ class WhatsAppChatController extends Controller
         $this->apiKey = env('WHATSAPP_INTERNAL_API_KEY', 'travelops_secure_gateway_key_99');
     }
 
+    /**
+     * Sync historical messages from Phone via Node Server
+     */
+    public function syncHistory(Request $request)
+    {
+        $user = auth()->user();
+        $chatId = $request->input('chat_id');
+        $count = $request->input('count', 100); // Default to 100 messages
+        $effectiveCompanyId = $user->company_id ?: config('tenant.id');
+
+        if (!$chatId) {
+            return response()->json(['success' => false, 'message' => 'chat_id is required'], 400);
+        }
+
+        try {
+            $response = Http::withHeaders(['x-api-key' => $this->apiKey])
+                ->timeout(60) // History can take time
+                ->get("{$this->nodeServerUrl}/api/chat/history", [
+                    'userId' => $user->id,
+                    'companyId' => $effectiveCompanyId,
+                    'chatId' => $chatId,
+                    'count' => $count
+                ]);
+
+            Log::info("Node History Response: " . $response->body());
+
+            if (!$response->successful()) {
+                $err = $response->json()['error'] ?? 'Node server failed to fetch history';
+                return response()->json(['success' => false, 'message' => $err], 500);
+            }
+
+            $messages = $response->json()['messages'] ?? [];
+            if (empty($messages)) {
+                return response()->json(['success' => true, 'count' => 0, 'message' => 'No older messages found on phone for this chat.']);
+            }
+
+            // Find or Create Chat record locally
+            $chat = DB::table('whatsapp_chats')
+                ->where('chat_id', $chatId)
+                ->where('company_id', $effectiveCompanyId)
+                ->where('user_id', $user->id)
+                ->first();
+
+            if (!$chat) {
+                // Search for lead to link automatically
+                $phone = explode('@', $chatId)[0];
+                if (strlen($phone) > 10 && str_starts_with($phone, '91')) $phone = substr($phone, 2);
+                
+                $lead = DB::table('leads')
+                    ->where('company_id', $effectiveCompanyId)
+                    ->whereNull('deleted_at')
+                    ->where('phone', 'LIKE', '%' . $phone . '%')
+                    ->first();
+
+                $whatsappChatId = DB::table('whatsapp_chats')->insertGetId([
+                    'company_id' => $effectiveCompanyId,
+                    'user_id' => $user->id,
+                    'chat_id' => $chatId,
+                    'lead_id' => $lead ? $lead->id : null,
+                    'created_at' => now(),
+                    'updated_at' => now()
+                ]);
+            } else {
+                $whatsappChatId = $chat->id;
+            }
+
+            $syncedCount = 0;
+            $insertBuffer = [];
+
+            foreach ($messages as $msg) {
+                // Check if message already exists by its WhatsApp UID
+                $exists = DB::table('whatsapp_messages')
+                    ->where('whatsapp_message_id', $msg['message_id'])
+                    ->exists();
+
+                if (!$exists) {
+                    // Normalize timestamp (Baileys gives seconds)
+                    $ts = $msg['timestamp'] ?? time();
+                    $createdAt = date('Y-m-d H:i:s', $ts);
+
+                    $insertBuffer[] = [
+                        'company_id' => $effectiveCompanyId,
+                        'user_id' => $user->id,
+                        'whatsapp_chat_id' => $whatsappChatId,
+                        'whatsapp_message_id' => $msg['message_id'],
+                        'message' => $msg['body'] ?? '',
+                        'media_url' => $msg['media_url'] ?? null,
+                        'media_type' => $msg['media_type'] ?? null,
+                        'media_caption' => $msg['media_caption'] ?? null,
+                        'quoted_message_id' => $msg['quoted_message_id'] ?? null,
+                        'quoted_text' => $msg['quoted_text'] ?? null,
+                        'direction' => $msg['direction'],
+                        'status' => 'read', // History assumed read
+                        'created_at' => $createdAt,
+                        'updated_at' => $createdAt
+                    ];
+                    $syncedCount++;
+
+                    // Write in chunks of 50 to avoid big queries
+                    if (count($insertBuffer) >= 50) {
+                        DB::table('whatsapp_messages')->insert($insertBuffer);
+                        $insertBuffer = [];
+                    }
+                }
+            }
+
+            if (!empty($insertBuffer)) {
+                DB::table('whatsapp_messages')->insert($insertBuffer);
+            }
+
+            // Update last_message_at if we got newer ones during sync (rare but safe)
+            if ($syncedCount > 0) {
+                DB::table('whatsapp_chats')->where('id', $whatsappChatId)->update(['last_message_at' => now()]);
+            }
+
+            return response()->json([
+                'success' => true,
+                'count' => $syncedCount,
+                'message' => "History synced! Found {$syncedCount} older messages."
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error("WhatsApp History Sync Failed: " . $e->getMessage());
+            return response()->json(['success' => false, 'message' => 'Sync failed: ' . $e->getMessage()], 500);
+        }
+    }
+
     public function getChatsList()
     {
         $user = auth()->user();

@@ -326,6 +326,7 @@ export const whatsappWebAPI = {
   sendReaction: (data) => api.post('/whatsapp-web/messages/react', data),
   pinMessage: (data) => api.post('/whatsapp-web/messages/pin', data),
   starMessage: (data) => api.post('/whatsapp-web/messages/star', data),
+  syncHistory: (data) => api.post('/whatsapp-web/chats/sync-history', data),
   createGroup: (data) => api.post('/whatsapp-web/groups/create', data),
 };
 

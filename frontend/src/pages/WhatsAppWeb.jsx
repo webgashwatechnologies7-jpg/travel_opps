@@ -17,6 +17,7 @@ const WhatsAppWeb = () => {
     const [loadingMessages, setLoadingMessages] = useState(false);
     const [sending, setSending] = useState(false);
     const [pollingQr, setPollingQr] = useState(false);
+    const [syncing, setSyncing] = useState(false);
 
     const messagesEndRef = useRef(null);
 
@@ -151,6 +152,46 @@ const WhatsAppWeb = () => {
             toast.error('Failed to send message');
         } finally {
             setSending(false);
+        }
+    };
+
+    const handleSyncHistory = async () => {
+        if (!activeChat || syncing) return;
+        
+        setSyncing(true);
+        const loadToast = toast.loading("Syncing history from phone...");
+        
+        try {
+            const res = await whatsappWebAPI.syncHistory({
+                chat_id: activeChat.chat_id,
+                count: 100 // Pull last 100
+            });
+            
+            if (res.data.success) {
+                toast.update(loadToast, { 
+                    render: res.data.message, 
+                    type: "success", 
+                    isLoading: false,
+                    autoClose: 3000 
+                });
+                loadMessages(activeChat.chat_id);
+            } else {
+                toast.update(loadToast, { 
+                    render: res.data.message || "Sync failed", 
+                    type: "error", 
+                    isLoading: false,
+                    autoClose: 3000 
+                });
+            }
+        } catch (err) {
+            toast.update(loadToast, { 
+                render: "Communication error with WhatsApp gateway", 
+                type: "error", 
+                isLoading: false,
+                autoClose: 3000 
+            });
+        } finally {
+            setSyncing(false);
         }
     };
 
@@ -312,6 +353,13 @@ const WhatsAppWeb = () => {
                                     </div>
                                 </div>
                                 <div className="flex gap-4 text-gray-500">
+                                    <title>Sync older messages from phone</title>
+                                    <RefreshCcw 
+                                        size={18} 
+                                        className={`cursor-pointer hover:text-[#25D366] ${syncing ? 'animate-spin text-[#25D366]' : ''}`} 
+                                        onClick={handleSyncHistory}
+                                        title="Sync History"
+                                    />
                                     <Phone size={18} className="cursor-pointer hover:text-gray-800" />
                                     <Camera size={18} className="cursor-pointer hover:text-gray-800" />
                                     <MoreVertical size={18} className="cursor-pointer hover:text-gray-800" />

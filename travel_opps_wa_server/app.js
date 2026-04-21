@@ -1,7 +1,6 @@
 const express = require('express');
 const bodyParser = require('body-parser');
-const { createSession, logoutSession, sessions, pool } = require('./baileysSessionModule');
-const { sendWhatsAppMessage, sendWhatsAppMedia } = require('./messageHandler');
+const { sendWhatsAppMessage, sendWhatsAppMedia, fetchMessagesHistory } = require('./messageHandler');
 require('dotenv').config();
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 
@@ -357,6 +356,26 @@ app.post('/api/chat/read', async (req, res) => {
         res.json({ success: true, message: 'Marked as read', key });
     } catch (error) {
         console.error('Error marking as read:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Endpoint to fetch history from phone
+app.get('/api/chat/history', async (req, res) => {
+    const { userId, companyId, chatId, count } = req.query;
+    const sessionName = `session_${userId}_${companyId}`;
+    const sock = sessions.get(sessionName);
+
+    if (!sock) {
+        return res.status(404).json({ error: 'Session not active' });
+    }
+
+    try {
+        const jid = chatId.includes('@') ? chatId : `${chatId}@s.whatsapp.net`;
+        const messages = await fetchMessagesHistory(sock, jid, parseInt(count) || 50);
+        res.json({ success: true, messages });
+    } catch (error) {
+        console.error('Error fetching history:', error);
         res.status(500).json({ error: error.message });
     }
 });

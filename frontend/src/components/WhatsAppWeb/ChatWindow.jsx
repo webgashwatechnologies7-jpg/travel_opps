@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
-import { Send, Paperclip, RefreshCw, MoreVertical, Search, FileText, Download, Smile, CheckCheck, Check, Loader2, Reply, Copy, X, Mic, Image, Film, MapPin, User, MessageSquare, Plus, Sticker, Camera, ChevronDown, Info, Pin, Star, Forward, Trash, Circle } from 'lucide-react';
+import { Send, Paperclip, RefreshCw, MoreVertical, Search, FileText, Download, Smile, CheckCheck, Check, Loader2, Reply, Copy, X, Mic, Image, Film, MapPin, User, MessageSquare, Plus, Sticker, Camera, ChevronDown, Info, Pin, Star, Forward, Trash, Circle, History as HistoryIcon } from 'lucide-react';
 import { whatsappWebAPI } from '../../services/api';
 import { toast } from 'react-toastify';
 
@@ -41,8 +41,49 @@ const ChatWindow = ({ chat, messages, onSendMessage, onSendMedia, isTyping, isSe
     const menuRef = useRef(null);
     const inputRef = useRef(null);
     const [localProfilePicUrl, setLocalProfilePicUrl] = useState(null);
+    const [syncing, setSyncing] = useState(false);
 
     const profilePicUrl = externalProfilePicUrl || localProfilePicUrl;
+
+    const handleSyncHistory = async () => {
+        if (!chat?.chat_id || syncing) return;
+        
+        setSyncing(true);
+        const loadToast = toast.loading("Syncing history from phone...");
+        
+        try {
+            const res = await whatsappWebAPI.syncHistory({
+                chat_id: chat.chat_id,
+                count: 100
+            });
+            
+            if (res.data.success) {
+                toast.update(loadToast, { 
+                    render: res.data.message, 
+                    type: "success", 
+                    isLoading: false,
+                    autoClose: 3000 
+                });
+                if (onRefresh) onRefresh();
+            } else {
+                toast.update(loadToast, { 
+                    render: res.data.message || "Sync failed", 
+                    type: "error", 
+                    isLoading: false,
+                    autoClose: 3000 
+                });
+            }
+        } catch (err) {
+            toast.update(loadToast, { 
+                render: "Communication error", 
+                type: "error", 
+                isLoading: false,
+                autoClose: 3000 
+            });
+        } finally {
+            setSyncing(false);
+        }
+    };
 
     // Intelligent Scroll State
     const scrollContainerRef = useRef(null);
@@ -874,6 +915,15 @@ const ChatWindow = ({ chat, messages, onSendMessage, onSendMedia, isTyping, isSe
                 </div>
                 <div className="flex items-center gap-1 text-[#aebac1] relative">
                     <button
+                        onClick={handleSyncHistory}
+                        className={`p-2 rounded-full transition-colors ${syncing ? 'animate-spin text-[#00a884]' : 'hover:bg-white/5'}`}
+                        disabled={syncing}
+                        title="Sync older messages from phone"
+                    >
+                        <HistoryIcon size={18} />
+                    </button>
+
+                    <button
                         onClick={onRefresh}
                         className={`p-2 rounded-full transition-colors ${loadingMessages ? 'animate-spin text-[#00a884]' : 'hover:bg-white/5'}`}
                         disabled={loadingMessages}
@@ -899,6 +949,12 @@ const ChatWindow = ({ chat, messages, onSendMessage, onSendMedia, isTyping, isSe
 
                         {showChatMenu && (
                             <div className="absolute right-0 top-full mt-2 w-48 py-2 rounded-lg shadow-xl z-50 border border-[#2a3942]" style={{ background: '#233138' }}>
+                                <button 
+                                    onClick={() => { handleSyncHistory(); setShowChatMenu(false); }}
+                                    className="w-full px-4 py-2 text-left text-sm hover:bg-[#111b21] transition-colors text-[#00a884] font-bold flex items-center gap-2"
+                                >
+                                    <HistoryIcon size={16} /> Sync History
+                                </button>
                                 <button className="w-full px-4 py-2 text-left text-sm hover:bg-[#111b21] transition-colors text-[#e9edef]">Contact Info</button>
                                 <button className="w-full px-4 py-2 text-left text-sm hover:bg-[#111b21] transition-colors text-[#e9edef]">Select Messages</button>
                                 <button className="w-full px-4 py-2 text-left text-sm hover:bg-[#111b21] transition-colors text-[#e9edef]">Close Chat</button>

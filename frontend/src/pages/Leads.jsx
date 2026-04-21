@@ -334,10 +334,22 @@ const Leads = () => {
       else if (activeFilter === 'unassigned') activeFilterParams = { unassigned: 1 };
       else if (activeFilter === 'today') activeFilterParams = { today: 1 };
 
+      // Smart Status Translation for API
+      const lowerQuery = (destinationFilter || '').toLowerCase().trim();
+      let statusParam = null;
+      let finalDestParam = destinationFilter;
+
+      if (lowerQuery === 'booked') { statusParam = 'confirmed'; finalDestParam = ''; }
+      else if (lowerQuery === 'proposal sent') { statusParam = 'proposal'; finalDestParam = ''; }
+      else if (lowerQuery === 'followup') { statusParam = 'followup'; finalDestParam = ''; }
+      else if (lowerQuery === 'under process') { statusParam = 'processing'; finalDestParam = ''; }
+      else if (lowerQuery === 'declined') { statusParam = 'cancelled'; finalDestParam = ''; }
+
       const params = {
         per_page: perPage,
         page,
-        destination: destinationFilter,
+        destination: finalDestParam,
+        status: statusParam || undefined,
         assigned_to: assignedToFilter,
         ...activeFilterParams,
         ...advancedFilters,
@@ -676,6 +688,41 @@ const Leads = () => {
       result = leads;
     }
 
+    // Global Search Refinement with Smart Keyword Mapping
+    const query = (destinationFilter || '').toLowerCase().trim();
+    if (query) {
+      result = result.filter((lead) => {
+        const assignedUserName = (
+          lead.assigned_name ||
+          lead.assigned_user?.name ||
+          lead.assignedUser?.name ||
+          lead.assigned_to?.name ||
+          lead.assigned_to_name ||
+          lead.assigned_user_name ||
+          ''
+        ).toLowerCase();
+
+        // Smart Status Mapping (UI Label -> DB Value)
+        const statusMap = {
+            'booked': 'confirmed',
+            'under process': 'processing',
+            'proposal sent': 'proposal',
+            'declined': 'cancelled',
+            'followup': 'followup'
+        };
+        const mappedStatus = statusMap[query] || query;
+
+        return (
+          (lead.destination || '').toLowerCase().includes(query) ||
+          (lead.client_name || '').toLowerCase().includes(query) ||
+          (lead.phone || '').includes(query) ||
+          (lead.email || '').toLowerCase().includes(query) ||
+          (lead.status || '').toLowerCase().includes(mappedStatus) ||
+          assignedUserName.includes(query)
+        );
+      });
+    }
+
     // Apply sorting
     if (sortConfig.key) {
       return [...result].sort((a, b) => {
@@ -981,7 +1028,7 @@ const Leads = () => {
               value={destinationFilter}
               onChange={(e) => setDestinationFilter(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && fetchLeads()}
-              placeholder="Search destination or staff..."
+              placeholder="Search by name, phone, destination, status or staff..."
               className="w-full pl-12 pr-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm font-semibold text-slate-700 focus:outline-none focus:ring-4 focus:ring-blue-500/5 focus:border-blue-400 transition-all placeholder:text-slate-400"
             />
           </div>

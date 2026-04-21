@@ -27,6 +27,7 @@ Route::middleware('auth:sanctum')->prefix('whatsapp-web')->group(function () {
     // Chat Management
     Route::get('chats', [WhatsAppChatController::class, 'getChatsList']);
     Route::get('chats/{chatId}/messages', [WhatsAppChatController::class, 'getChatMessages']);
+    Route::post('chats/sync-history', [WhatsAppChatController::class, 'syncHistory']);
     Route::get('messages', [WhatsAppChatController::class, 'getMessagesByChatId']); // accepts ?chat_id=...
     Route::post('messages/send', [WhatsAppChatController::class, 'sendMessage']);
     Route::post('messages/send-media', [WhatsAppChatController::class, 'sendMedia']);

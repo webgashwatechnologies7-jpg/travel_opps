@@ -7,234 +7,180 @@ const { writeFile } = require('fs/promises');
 // In-memory queue storage per session
 const queues = {};
 
+async function normalizeBaileysMessage(sock, sessionName, msg) {
+    if (!msg.message || msg.key.remoteJid.includes('status@broadcast')) return null;
+
+    // technical protocol messages
+    const bodyTextRaw = (msg.message?.conversation || msg.message?.extendedTextMessage?.text || '');
+    if (
+        bodyTextRaw.includes('[protocol message]') ||
+        bodyTextRaw.includes('[messageContextInfo message]') ||
+        bodyTextRaw.includes('[senderKeyDistributionMessage]')
+    ) {
+        return null;
+    }
+
+    let messageBody = '';
+    let mediaUrl = null;
+    let mediaType = null;
+    let mediaCaption = null;
+    let quotedMessageId = null;
+    let quotedText = null;
+    let isReaction = false;
+
+    const msgContent = msg.message || {};
+    const inner = msgContent.viewOnceMessage?.message
+        || msgContent.viewOnceMessageV2?.message?.viewOnceMessage?.message
+        || msgContent.ephemeralMessage?.message
+        || msgContent;
+
+    const METADATA_KEYS = ['messageContextInfo', 'messageSecret', 'contextInfo', 'senderKeyDistributionMessage', 'deviceSentMessage'];
+    const messageType = Object.keys(inner).find(k => !METADATA_KEYS.includes(k)) || Object.keys(inner)[0];
+
+    const contextInfo = inner?.extendedTextMessage?.contextInfo || inner?.imageMessage?.contextInfo || inner?.videoMessage?.contextInfo || inner?.documentMessage?.contextInfo || inner?.audioMessage?.contextInfo;
+    if (contextInfo?.quotedMessage) {
+        quotedMessageId = contextInfo.stanzaId || null;
+        quotedText = contextInfo.quotedMessage.conversation || contextInfo.quotedMessage.extendedTextMessage?.text || null;
+    }
+
+    switch (messageType) {
+        case 'conversation': messageBody = inner.conversation; break;
+        case 'extendedTextMessage': messageBody = inner.extendedTextMessage.text; break;
+        case 'reactionMessage':
+            const reaction = inner.reactionMessage;
+            messageBody = reaction.text || '';
+            isReaction = true;
+            quotedMessageId = reaction.key?.id || null;
+            break;
+        case 'stickerMessage':
+            messageBody = '🎭 Sticker';
+            try {
+                const buffer = await downloadMediaMessage({ message: inner, key: msg.key }, 'buffer', {}, { logger: console, reuploadRequest: sock.updateMediaMessage });
+                const fileName = `${msg.key.id}.webp`;
+                const filePath = path.join(__dirname, 'media', fileName);
+                if (!fs.existsSync(path.join(__dirname, 'media'))) fs.mkdirSync(path.join(__dirname, 'media'), { recursive: true });
+                await writeFile(filePath, buffer);
+                mediaUrl = `${process.env.NODE_SERVER_URL || 'http://localhost:3001'}/media/${fileName}`;
+                mediaType = 'sticker';
+            } catch (e) { }
+            break;
+        case 'audioMessage':
+            messageBody = '🎵 Voice Note';
+            try {
+                const buffer = await downloadMediaMessage({ message: inner, key: msg.key }, 'buffer', {}, { logger: console, reuploadRequest: sock.updateMediaMessage });
+                const fileName = `${msg.key.id}.ogg`;
+                const filePath = path.join(__dirname, 'media', fileName);
+                if (!fs.existsSync(path.join(__dirname, 'media'))) fs.mkdirSync(path.join(__dirname, 'media'), { recursive: true });
+                await writeFile(filePath, buffer);
+                mediaUrl = `${process.env.NODE_SERVER_URL || 'http://localhost:3001'}/media/${fileName}`;
+                mediaType = 'audio';
+            } catch (e) { }
+            break;
+        case 'imageMessage':
+        case 'videoMessage':
+        case 'documentMessage':
+            const mediaMsg = inner[messageType];
+            const ext = messageType === 'imageMessage' ? '.jpg' : messageType === 'videoMessage' ? '.mp4' : '.pdf';
+            try {
+                const buffer = await downloadMediaMessage({ message: inner, key: msg.key }, 'buffer', {}, { logger: console, reuploadRequest: sock.updateMediaMessage });
+                let realName = mediaMsg.fileName || `${msg.key.id}${ext}`;
+                const fileName = `${Date.now()}-${realName.replace(/[^a-zA-Z0-9.\-_]/g, '_')}`;
+                const mediaDir = path.join(__dirname, 'media');
+                if (!fs.existsSync(mediaDir)) fs.mkdirSync(mediaDir, { recursive: true });
+                await writeFile(path.join(mediaDir, fileName), buffer);
+                mediaUrl = `${process.env.NODE_SERVER_URL || 'http://localhost:3001'}/media/${fileName}`;
+                mediaType = messageType.replace('Message', '');
+                mediaCaption = mediaMsg.caption || '';
+                if (messageType === 'documentMessage') messageBody = realName;
+                else if (!messageBody) messageBody = mediaCaption || `Media: ${mediaType}`;
+            } catch (err) {
+                messageBody = mediaMsg.caption || `Media: ${messageType.replace('Message', '')}`;
+            }
+            break;
+        case 'locationMessage':
+            messageBody = `📍 Location: https://maps.google.com/?q=${inner.locationMessage.degreesLatitude},${inner.locationMessage.degreesLongitude}`;
+            break;
+        case 'liveLocationMessage':
+            messageBody = `📍 Live Location: https://maps.google.com/?q=${inner.liveLocationMessage.degreesLatitude},${inner.liveLocationMessage.degreesLongitude}`;
+            break;
+        case 'contactMessage': messageBody = `👤 Contact: ${inner.contactMessage.displayName}`; break;
+        case 'contactsArrayMessage': messageBody = `👥 Contacts (${inner.contactsArrayMessage.contacts?.length || 0})`; break;
+        case 'buttonsResponseMessage': messageBody = inner.buttonsResponseMessage?.selectedDisplayText || '🔘 Button Response'; break;
+        case 'listResponseMessage': messageBody = inner.listResponseMessage?.title || '📋 List Response'; break;
+        case 'templateButtonReplyMessage': messageBody = inner.templateButtonReplyMessage?.selectedDisplayText || '📝 Template Reply'; break;
+        case 'pollUpdateMessage': messageBody = `📊 Poll Vote`; break;
+        case 'pollCreationMessage':
+        case 'pollCreationMessageV2':
+        case 'pollCreationMessageV3':
+            messageBody = `📊 Poll: ${inner[messageType].name}`;
+            break;
+        default:
+            messageBody = inner?.conversation || inner?.extendedTextMessage?.text || inner?.caption || (messageType ? `[${messageType.replace('Message', '')} message]` : '');
+    }
+
+    if (!messageBody && !mediaUrl && !isReaction) return null;
+
+    return {
+        message_id: msg.key.id,
+        from: msg.key.remoteJid.split('@')[0],
+        body: messageBody,
+        media_url: mediaUrl,
+        media_type: mediaType,
+        media_caption: mediaCaption,
+        quoted_message_id: quotedMessageId,
+        quoted_text: quotedText,
+        is_reaction: isReaction,
+        direction: msg.key.fromMe ? 'outbound' : 'inbound',
+        timestamp: msg.messageTimestamp,
+        pushName: msg.pushName || null
+    };
+}
+
 module.exports = (sock, sessionName, pool) => {
 
     sock.ev.on('messages.upsert', async (m) => {
         if (m.type === 'notify') {
             for (const msg of m.messages) {
-                if (!msg.key.remoteJid.includes('status@broadcast')) {
-                    // Sync chat name from sender's pushName or known contact
-                    if (msg.pushName) {
-                        try {
-                            await axios.post(sock.webhookUrl || process.env.LARAVEL_WEBHOOK_URL, {
-                                type: 'chat_update',
-                                session_name: sessionName,
-                                chat_id: msg.key.remoteJid,
-                                chat_name: msg.pushName
-                            }, { headers: { 'x-api-key': process.env.WA_GATEWAY_API_KEY || 'travelops_secure_gateway_key_99' } });
-                        } catch (err) { /* silent sync error */ }
-                    }
+                const normalized = await normalizeBaileysMessage(sock, sessionName, msg);
+                if (!normalized) continue;
 
-                    let messageBody = '';
-                    let mediaUrl = null;
-                    let mediaType = null;
-                    let mediaCaption = null;
-                    let quotedMessageId = null;
-                    let quotedText = null;
-                    let isReaction = false;
-
-
-                    const msgContent = msg.message || {};
-                    // Unwrap viewOnceMessage or ephemeralMessage wrappers
-                    const inner = msgContent.viewOnceMessage?.message
-                        || msgContent.viewOnceMessageV2?.message?.viewOnceMessage?.message
-                        || msgContent.ephemeralMessage?.message
-                        || msgContent;
-
-                    // Keys that are Baileys METADATA, NOT content types — must skip these
-                    const METADATA_KEYS = [
-                        'messageContextInfo', 'messageSecret', 'contextInfo',
-                        'senderKeyDistributionMessage', 'deviceSentMessage'
-                    ];
-
-                    // Pick the FIRST key that is actually a content type
-                    const messageType = Object.keys(inner).find(k => !METADATA_KEYS.includes(k))
-                        || Object.keys(inner)[0];
-
-                    // --- Extract quoted/reply context ---
-                    const contextInfo = inner?.extendedTextMessage?.contextInfo
-                        || inner?.imageMessage?.contextInfo
-                        || inner?.videoMessage?.contextInfo
-                        || inner?.documentMessage?.contextInfo
-                        || inner?.audioMessage?.contextInfo;
-
-                    if (contextInfo?.quotedMessage) {
-                        quotedMessageId = contextInfo.stanzaId || null;
-                        quotedText = contextInfo.quotedMessage.conversation
-                            || contextInfo.quotedMessage.extendedTextMessage?.text
-                            || null;
-                    }
-
-                    switch (messageType) {
-                        case 'conversation':
-                            messageBody = inner.conversation;
-                            break;
-
-                        case 'extendedTextMessage':
-                            messageBody = inner.extendedTextMessage.text;
-                            break;
-
-                        case 'reactionMessage': {
-                            const reaction = inner.reactionMessage;
-                            messageBody = reaction.text || ''; // the emoji like 👍
-                            isReaction = true;
-                            // The key of the message being reacted to
-                            quotedMessageId = reaction.key?.id || null;
-                            break;
-                        }
-
-                        case 'stickerMessage':
-                            messageBody = '🎭 Sticker';
-                            // Try to download sticker
-                            try {
-                                const buffer = await downloadMediaMessage({ message: inner, key: msg.key }, 'buffer', {}, { logger: console, reuploadRequest: sock.updateMediaMessage });
-                                const fileName = `${msg.key.id}.webp`;
-                                const filePath = path.join(__dirname, 'media', fileName);
-                                await writeFile(filePath, buffer);
-                                mediaUrl = `${process.env.NODE_SERVER_URL || 'http://localhost:3001'}/media/${fileName}`;
-                                mediaType = 'sticker';
-                            } catch (e) { /* sticker download failed, show text fallback */ }
-                            break;
-
-                        case 'audioMessage':
-                            messageBody = '🎵 Voice Note';
-                            try {
-                                const buffer = await downloadMediaMessage({ message: inner, key: msg.key }, 'buffer', {}, { logger: console, reuploadRequest: sock.updateMediaMessage });
-                                const fileName = `${msg.key.id}.ogg`;
-                                const filePath = path.join(__dirname, 'media', fileName);
-                                await writeFile(filePath, buffer);
-                                mediaUrl = `${process.env.NODE_SERVER_URL || 'http://localhost:3001'}/media/${fileName}`;
-                                mediaType = 'audio';
-                            } catch (e) { /* audio download failed */ }
-                            break;
-
-                        case 'imageMessage':
-                        case 'videoMessage':
-                        case 'documentMessage': {
-                            const mediaMsg = inner[messageType];
-                            const ext = messageType === 'imageMessage' ? '.jpg'
-                                : messageType === 'videoMessage' ? '.mp4' : '.pdf';
-                            try {
-                                const buffer = await downloadMediaMessage({ message: inner, key: msg.key }, 'buffer', {}, { logger: console, reuploadRequest: sock.updateMediaMessage });
-                                // For Documents, use the REAL filename from the message
-                                let realName = mediaMsg.fileName || `${msg.key.id}${ext}`;
-                                const fileName = `${Date.now()}-${realName.replace(/[^a-zA-Z0-9.\-_]/g, '_')}`;
-
-                                const mediaDir = path.join(__dirname, 'media');
-                                if (!fs.existsSync(mediaDir)) fs.mkdirSync(mediaDir, { recursive: true });
-                                const filePath = path.join(mediaDir, fileName);
-                                await writeFile(filePath, buffer);
-
-                                mediaUrl = `${process.env.NODE_SERVER_URL || 'http://localhost:3001'}/media/${fileName}`;
-                                mediaType = messageType.replace('Message', '');
-                                mediaCaption = mediaMsg.caption || '';
-
-                                // Set the message body to the REAL filename
-                                if (messageType === 'documentMessage') {
-                                    messageBody = realName;
-                                } else if (!messageBody) {
-                                    messageBody = mediaCaption || `Media: ${mediaType}`;
-                                }
-                            } catch (err) {
-                                console.error('Error downloading media:', err.message);
-                                messageBody = mediaMsg.caption || `Media: ${messageType.replace('Message', '')}`;
-                            }
-                            break;
-                        }
-
-                        case 'locationMessage': {
-                            const loc = inner.locationMessage;
-                            messageBody = `📍 Location: https://maps.google.com/?q=${loc.degreesLatitude},${loc.degreesLongitude}`;
-                            break;
-                        }
-
-                        case 'liveLocationMessage': {
-                            const loc = inner.liveLocationMessage;
-                            messageBody = `📍 Live Location: https://maps.google.com/?q=${loc.degreesLatitude},${loc.degreesLongitude}`;
-                            break;
-                        }
-
-                        case 'contactMessage':
-                            messageBody = `👤 Contact: ${inner.contactMessage.displayName}`;
-                            break;
-
-                        case 'contactsArrayMessage':
-                            messageBody = `👥 Contacts (${inner.contactsArrayMessage.contacts?.length || 0})`;
-                            break;
-
-                        case 'buttonsResponseMessage':
-                            messageBody = inner.buttonsResponseMessage?.selectedDisplayText || '🔘 Button Response';
-                            break;
-
-                        case 'listResponseMessage':
-                            messageBody = inner.listResponseMessage?.title || '📋 List Response';
-                            break;
-
-                        case 'templateButtonReplyMessage':
-                            messageBody = inner.templateButtonReplyMessage?.selectedDisplayText || '📝 Template Reply';
-                            break;
-
-                        case 'pollUpdateMessage':
-                            messageBody = `📊 Poll Vote`;
-                            break;
-
-                        case 'pollCreationMessage':
-                        case 'pollCreationMessageV2':
-                        case 'pollCreationMessageV3': {
-                            const poll = inner[messageType];
-                            messageBody = `📊 Poll: ${poll.name}`;
-                            break;
-                        }
-
-                        default:
-                            messageBody = inner?.conversation
-                                || inner?.extendedTextMessage?.text
-                                || inner?.caption
-                                || (messageType ? `[${messageType.replace('Message', '')} message]` : '');
-                    }
-
-                    // Resolve chat name (Group subject or Push name)
-                    let chatName = msg.pushName || null;
-                    if (msg.key.remoteJid.includes('@g.us')) {
-                        try {
-                            // For groups, pushName is the sender. We need the group subject.
-                            // We use a small optimization/cache if possible, but for now just fetch.
-                            const groupMeta = await sock.groupMetadata(msg.key.remoteJid);
-                            chatName = groupMeta.subject;
-                        } catch (e) { }
-                    }
-
-                    if (!messageBody && !mediaUrl && !isReaction) {
-                        continue;
-                    }
-
-                    // Push to Laravel Webhook
+                // Sync chat name from sender's pushName or known contact
+                if (normalized.pushName) {
                     try {
-                        const payload = {
-                            type: 'incoming_message',
+                        await axios.post(sock.webhookUrl || process.env.LARAVEL_WEBHOOK_URL, {
+                            type: 'chat_update',
                             session_name: sessionName,
                             chat_id: msg.key.remoteJid,
-                            remote_jid_alt: msg.key.remoteJidAlt || null, // Include alternate JID (phone) if available
-                            chat_name: chatName, // Capture sender name/group name if available
-                            message_id: msg.key.id,
-                            from: msg.key.remoteJid.split('@')[0],
-                            body: messageBody,
-                            media_url: mediaUrl,
-                            media_type: mediaType,
-                            media_caption: mediaCaption,
-                            quoted_message_id: quotedMessageId,
-                            quoted_text: quotedText,
-                            is_reaction: isReaction,
-                            direction: msg.key.fromMe ? 'outbound' : 'inbound',
-                            timestamp: msg.messageTimestamp,
-                        };
+                            chat_name: normalized.pushName
+                        }, { headers: { 'x-api-key': process.env.WA_GATEWAY_API_KEY || 'travelops_secure_gateway_key_99' } });
+                    } catch (err) { /* silent sync error */ }
+                }
 
-                        await axios.post(sock.webhookUrl || process.env.LARAVEL_WEBHOOK_URL, payload, {
-                            headers: { 'x-api-key': process.env.WA_GATEWAY_API_KEY || 'travelops_secure_gateway_key_99' }
-                        });
-                    } catch (error) {
-                        console.error(`[Webhook Error] Failed to forward to ${sock.webhookUrl || process.env.LARAVEL_WEBHOOK_URL}:`, error.message);
-                    }
+                // Resolve chat name (Group subject)
+                let chatName = normalized.pushName;
+                if (msg.key.remoteJid.includes('@g.us')) {
+                    try {
+                        const groupMeta = await sock.groupMetadata(msg.key.remoteJid);
+                        chatName = groupMeta.subject;
+                    } catch (e) { }
+                }
+
+                // Push to Laravel Webhook
+                try {
+                    const payload = {
+                        type: 'incoming_message',
+                        session_name: sessionName,
+                        chat_id: msg.key.remoteJid,
+                        remote_jid_alt: msg.key.remoteJidAlt || null,
+                        chat_name: chatName,
+                        ...normalized
+                    };
+
+                    await axios.post(sock.webhookUrl || process.env.LARAVEL_WEBHOOK_URL, payload, {
+                        headers: { 'x-api-key': process.env.WA_GATEWAY_API_KEY || 'travelops_secure_gateway_key_99' }
+                    });
+                } catch (error) {
+                    console.error(`[Webhook Error] Failed to forward:`, error.message);
                 }
             }
         }
@@ -246,7 +192,6 @@ module.exports = (sock, sessionName, pool) => {
                 const statusMap = { 2: 'sent', 3: 'delivered', 4: 'read', 5: 'played' };
                 if (statusMap[update.status]) {
                     try {
-                        console.log(`[StatusUpdate] Msg ${key.id} -> ${statusMap[update.status]}`);
                         await axios.post(sock.webhookUrl || process.env.LARAVEL_WEBHOOK_URL, {
                             type: 'message_receipt',
                             session_name: sessionName,
@@ -310,7 +255,6 @@ async function processQueue(sessionName) {
             resolve(result);
         } catch (error) {
             const errMsg = error?.message || '';
-            // If WhatsApp closed the connection, wait 3s and retry ONCE
             if (errMsg.includes('Connection Closed') || errMsg.includes('lost') || errMsg.includes('timed out')) {
                 console.warn(`[Queue ${sessionName}] Connection issue, retrying in 3s: ${errMsg}`);
                 await new Promise(r => setTimeout(r, 3000));
@@ -319,16 +263,13 @@ async function processQueue(sessionName) {
                     const retryResult = await sock.sendMessage(jid, content);
                     resolve(retryResult);
                 } catch (retryErr) {
-                    console.error(`[Queue ${sessionName}] Retry also failed:`, retryErr.message);
                     reject(retryErr);
                 }
             } else {
-                console.error(`[Queue ${sessionName}] Error:`, error.message);
                 reject(error);
             }
         }
 
-        // Anti-ban pause: 300ms between messages prevents WhatsApp from disconnecting
         if (queues[sessionName].items.length > 0) {
             await new Promise(r => setTimeout(r, 300));
         }
@@ -351,7 +292,6 @@ async function sendWhatsAppMessage(sock, sessionName, toPhone, messageBody, quot
     const content = { text: messageBody };
     if (quotedMessageId) {
         const jid = toPhone.includes('@') ? toPhone : `${toPhone}@s.whatsapp.net`;
-        // Basic context info for quoting with text content
         content.contextInfo = {
             stanzaId: quotedMessageId,
             participant: jid,
@@ -369,56 +309,36 @@ async function sendWhatsAppMedia(sock, sessionName, toPhone, filePath, caption, 
 
     if (type === 'document') {
         const ext = (originalFileName || filePath || '').split('.').pop()?.toLowerCase() || 'pdf';
-        const mimeMap = {
-            pdf: 'application/pdf',
-            doc: 'application/msword',
-            docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-            xls: 'application/vnd.ms-excel',
-            xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-            ppt: 'application/vnd.ms-powerpoint',
-            pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-            zip: 'application/zip',
-            rar: 'application/x-rar-compressed',
-            txt: 'text/plain',
-            csv: 'text/csv',
-            rtf: 'application/rtf'
-        };
-        const mimetype = mimeMap[ext] || 'application/octet-stream';
-
-        content = {
-            document: { url: filePath },
-            mimetype,
-            fileName: originalFileName || `document.${ext}`,
-            caption: caption
-        };
+        const mimeMap = { pdf: 'application/pdf', doc: 'application/msword', docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', xls: 'application/vnd.ms-excel', xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' };
+        content = { document: { url: filePath }, mimetype: mimeMap[ext] || 'application/octet-stream', fileName: originalFileName || `document.${ext}`, caption: caption };
     } else if (type === 'audio') {
-        content = {
-            audio: { url: filePath },
-            mimetype: 'audio/mp4', // Common for high compatibility
-            ptt: false
-        };
+        content = { audio: { url: filePath }, mimetype: 'audio/mp4', ptt: false };
     } else if (type === 'video') {
-        content = {
-            video: { url: filePath },
-            caption: caption,
-            mimetype: 'video/mp4'
-        };
+        content = { video: { url: filePath }, caption: caption, mimetype: 'video/mp4' };
     } else if (type === 'sticker') {
-        content = {
-            sticker: { url: filePath }
-        };
+        content = { sticker: { url: filePath } };
     } else {
-        // Default: image
-        content = {
-            image: { url: filePath },
-            caption: caption
-        };
+        content = { image: { url: filePath }, caption: caption };
     }
-
-    if (!content) throw new Error('Unsupported media type: ' + type);
-
     return addToQueue(sock, sessionName, toPhone, content);
+}
+
+async function fetchMessagesHistory(sock, jid, count = 50) {
+    const sessionName = 'history_sync'; // Placeholder if not strictly needed for normalization
+    try {
+        const rawMessages = await sock.fetchMessagesFromWA(jid, count);
+        const normalized = [];
+        for (const msg of rawMessages) {
+            const n = await normalizeBaileysMessage(sock, sessionName, msg);
+            if (n) normalized.push(n);
+        }
+        return normalized;
+    } catch (error) {
+        console.error(`[HistorySync] Error fetching for ${jid}:`, error.message);
+        throw error;
+    }
 }
 
 module.exports.sendWhatsAppMessage = sendWhatsAppMessage;
 module.exports.sendWhatsAppMedia = sendWhatsAppMedia;
+module.exports.fetchMessagesHistory = fetchMessagesHistory;

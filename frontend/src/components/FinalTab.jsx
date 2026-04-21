@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { getDisplayImageUrl } from '../utils/imageUrl';
 import { settingsAPI, masterPointsAPI } from '../services/api';
-import { Building2, Star, Calendar, Hash, X, Eye, MapPin, Users, Clock, Image as ImageIcon, Car, UtensilsCrossed, Plane, User, Ship, FileText, FileText as PassportIcon, File, Download, Mail, MessageCircle, Printer, Plus, Save, CheckCircle } from 'lucide-react';
+import { Building2, Star, Calendar, Hash, X, Eye, MapPin, Users, Clock, Image as ImageIcon, Car, UtensilsCrossed, Plane, Bus, Train, User, Ship, FileText, FileText as PassportIcon, File, Download, Mail, MessageCircle, Printer, Plus, Save, CheckCircle } from 'lucide-react';
 
 const POLICY_KEYS = [
   { key: 'itinerary', label: 'Day-by-Day Itinerary' },
@@ -34,7 +34,8 @@ const FinalTab = ({
   discount,
   maxHotelOptions = 4,
   optionGstSettings = {},
-  readOnly = false
+  readOnly = false,
+  days = []
 }) => {
   const [selectedOption, setSelectedOption] = useState(null);
   const [showFullPlanModal, setShowFullPlanModal] = useState(false);
@@ -59,6 +60,19 @@ const FinalTab = ({
   const [editingMasterText, setEditingMasterText] = useState('');
   const [itemSourceMap, setItemSourceMap] = useState({}); // { [key]: { [currentText]: masterId } }
   const [lastFocusedText, setLastFocusedText] = useState({}); // { [key-idx]: text } to track what it was before edit
+
+  const getTravelIcon = (dayNum, className = "h-4 w-4") => {
+    const events = dayEvents[dayNum] || [];
+    const transportEvent = events.find(e => e.eventType === 'transportation');
+    if (transportEvent) {
+      const subject = (transportEvent.subject || '').toLowerCase();
+      if (subject.includes('flight') || subject.includes('air')) return <Plane className={className} />;
+      if (subject.includes('volvo') || subject.includes('bus')) return <Bus className={className} />;
+      if (subject.includes('train')) return <Train className={className} />;
+      if (subject.includes('car') || subject.includes('taxi') || subject.includes('vehicle') || subject.includes('drive')) return <Car className={className} />;
+    }
+    return <Car className={className} />; // Default to Car for general travel
+  };
 
   useEffect(() => {
     // Helper to get first point content from Master API response
@@ -269,14 +283,14 @@ const FinalTab = ({
 
   const generateDays = () => {
     if (!itinerary || !itinerary.duration) return [];
-    const days = [];
+    const dayNums = [];
     for (let i = 1; i <= itinerary.duration; i++) {
-      days.push(i);
+      dayNums.push(i);
     }
-    return days;
+    return dayNums;
   };
 
-  const days = generateDays();
+  const allDayNumbers = generateDays();
 
   // Active option for itinerary filter: default to Option 1 when options exist
   const activeOption = sidebarSelectedOption || (optionsByNumber && Object.keys(optionsByNumber).length > 0 ? Object.keys(optionsByNumber).sort((a, b) => parseInt(a) - parseInt(b))[0] : null);
@@ -572,7 +586,7 @@ const FinalTab = ({
                   </div>
                 </div>
                 <div className="space-y-8">
-                  {days.map((day) => {
+                  {allDayNumbers.map((day) => {
                     const events = filteredDayEvents[day] || [];
                     const firstEventSubject = events[0]?.subject || events[0]?.eventType || '';
                     const dayTitle = firstEventSubject ? `${firstEventSubject}` : `Day ${day}`;
@@ -581,7 +595,19 @@ const FinalTab = ({
                         <div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-green-500 border-2 border-white shadow"></div>
                         <div className="flex items-center gap-3 mb-4 flex-wrap">
                           <span className="inline-flex items-center px-4 py-1.5 bg-green-500 text-white text-sm font-bold rounded-full">
-                            Day {day}
+                            {(() => {
+                              const dayObj = days.find(d => d.day === parseInt(day));
+                                if (dayObj?.isTravelDay) return (
+                                  <span className="flex items-center gap-1.5">
+                                    {getTravelIcon(day, "h-4 w-4")} Traveling Day
+                                  </span>
+                                );
+                                let sightseeingNum = 0;
+                                for (let i = 0; i < parseInt(day); i++) {
+                                  if (days[i] && !days[i].isTravelDay) sightseeingNum++;
+                                }
+                                return `Day ${sightseeingNum}`;
+                            })()}
                           </span>
                           <span className="text-lg font-semibold text-gray-900">{dayTitle}</span>
                         </div>
@@ -1108,7 +1134,21 @@ const FinalTab = ({
                             <div className="bg-blue-600 text-white rounded-full w-10 h-10 flex items-center justify-center font-bold">
                               {day}
                             </div>
-                            <h5 className="text-lg font-bold text-gray-900">Day {day}</h5>
+                            <h5 className="text-lg font-bold text-gray-900">
+                              {(() => {
+                                const dayObj = days.find(d => d.day === parseInt(day));
+                                if (dayObj?.isTravelDay) return (
+                                  <span className="flex items-center gap-1.5">
+                                    {getTravelIcon(day, "h-4 w-4")} Traveling Day
+                                  </span>
+                                );
+                                let sightseeingNum = 0;
+                                for (let i = 0; i < parseInt(day); i++) {
+                                  if (days[i] && !days[i].isTravelDay) sightseeingNum++;
+                                }
+                                return `Day ${sightseeingNum}`;
+                              })()}
+                            </h5>
                           </div>
 
                           {events.length === 0 ? (
@@ -1269,7 +1309,19 @@ const FinalTab = ({
                                 </div>
                                 <div className="flex items-center gap-2 mb-2">
                                   <span className="px-3 py-1 bg-blue-100 text-blue-700 text-xs font-semibold rounded-full">
-                                    Day {option.day}
+                                    {(() => {
+                                      const dayObj = days.find(d => d.day === parseInt(option.day));
+                                      if (dayObj?.isTravelDay) return (
+                                        <span className="flex items-center gap-1.5">
+                                          {getTravelIcon(option.day, "h-4 w-4")} Traveling Day
+                                        </span>
+                                      );
+                                      let sightseeingNum = 0;
+                                      for (let i = 0; i < parseInt(option.day); i++) {
+                                        if (days[i] && !days[i].isTravelDay) sightseeingNum++;
+                                      }
+                                      return `Day ${sightseeingNum}`;
+                                    })()}
                                   </span>
                                 </div>
                               </div>
@@ -1444,7 +1496,21 @@ const FinalTab = ({
                           <div className="bg-blue-600 text-white rounded-full w-12 h-12 flex items-center justify-center font-bold text-lg">
                             {day}
                           </div>
-                          <h3 className="text-xl font-bold text-gray-900">Day {day}</h3>
+                          <h3 className="text-xl font-bold text-gray-900">
+                            {(() => {
+                              const dayObj = days.find(d => d.day === parseInt(day));
+                              if (dayObj?.isTravelDay) return (
+                                <span className="flex items-center gap-1.5">
+                                  {getTravelIcon(day, "h-5 w-5")} Traveling Day
+                                </span>
+                              );
+                              let sightseeingNum = 0;
+                              for (let i = 0; i < parseInt(day); i++) {
+                                if (days[i] && !days[i].isTravelDay) sightseeingNum++;
+                              }
+                              return `Day ${sightseeingNum}`;
+                            })()}
+                          </h3>
                         </div>
 
                         {events.length === 0 ? (

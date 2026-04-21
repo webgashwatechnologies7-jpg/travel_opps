@@ -8,7 +8,7 @@ import { getDisplayImageUrl } from '../utils/imageUrl';
 import { packagesAPI, dayItinerariesAPI, hotelsAPI, activitiesAPI, settingsAPI, destinationsAPI, itineraryPricingAPI, transfersAPI, mealPlansAPI, roomTypesAPI, queryProposalsAPI, leadsAPI } from '../services/api';
 import { searchPexelsPhotos } from '../services/pexels';
 import { getRoadDistance } from '../utils/distanceHelper';
-import { ArrowLeft, Camera, Edit, Plus, ChevronRight, FileText, Search, X, Bed, Image as ImageIcon, Car, FileText as PassportIcon, UtensilsCrossed, Plane, User, Ship, Star, Calendar, CalendarDays, Hash, Building2, Upload, Clock, RefreshCw } from 'lucide-react';
+import { ArrowLeft, Camera, Edit, Plus, ChevronRight, FileText, Search, X, Bed, Image as ImageIcon, Car, FileText as PassportIcon, UtensilsCrossed, Plane, Bus, Train, User, Ship, Star, Calendar, CalendarDays, Hash, Building2, Upload, Clock, RefreshCw } from 'lucide-react';
 import PricingTab from '../components/PricingTab';
 import FinalTab from '../components/FinalTab';
 
@@ -766,12 +766,16 @@ const ItineraryDetail = () => {
       for (let i = 1; i <= duration; i++) {
         const existingDay = existingDays.find(d => d.day === i);
         if (existingDay) {
-          syncedDays.push(existingDay);
+          syncedDays.push({
+            ...existingDay,
+            isTravelDay: !!existingDay.isTravelDay
+          });
         } else {
           syncedDays.push({
             day: i,
             destination: data.destinations?.split(',')[0]?.trim() || '',
-            details: ''
+            details: '',
+            isTravelDay: false
           });
         }
       }
@@ -827,11 +831,25 @@ const ItineraryDetail = () => {
         newDays.push({
           day: i,
           destination: data.destinations?.split(',')[0]?.trim() || '',
-          details: ''
+          details: '',
+          isTravelDay: false
         });
       }
     }
     setDays(newDays);
+  };
+
+  const getTravelIcon = (dayNum, className = "h-4 w-4") => {
+    const events = dayEvents[dayNum] || [];
+    const transportEvent = events.find(e => e.eventType === 'transportation');
+    if (transportEvent) {
+      const subject = (transportEvent.subject || '').toLowerCase();
+      if (subject.includes('flight') || subject.includes('air')) return <Plane className={className} />;
+      if (subject.includes('volvo') || subject.includes('bus')) return <Bus className={className} />;
+      if (subject.includes('train')) return <Train className={className} />;
+      if (subject.includes('car') || subject.includes('taxi') || subject.includes('vehicle') || subject.includes('drive')) return <Car className={className} />;
+    }
+    return <Car className={className} />; // Default to Car for general travel
   };
 
   const syncItineraryToServer = async (updatedDayEvents, updatedDays, updatedOptions_data) => {
@@ -2030,7 +2048,18 @@ const ItineraryDetail = () => {
                         <div className="flex items-center gap-4 mt-1 text-sm text-gray-550 font-medium">
                           <div className="flex items-center gap-1.5 bg-blue-50/50 px-2 py-1 rounded">
                             <CalendarDays className="h-4 w-4 text-blue-600" />
-                            <span>{parseInt(itinerary?.duration || 0) - 1} Nights & {itinerary?.duration || 0} Days</span>
+                            <span>
+                              {(() => {
+                                const totalDays = parseInt(itinerary?.duration || 0);
+                                const travelDaysCount = days.filter(d => d.isTravelDay).length;
+                                const sightseeingDaysCount = totalDays - travelDaysCount;
+                                if (travelDaysCount > 0) {
+                                  const effectiveNights = Math.max(0, sightseeingDaysCount - 1);
+                                  return `${effectiveNights} Night${effectiveNights !== 1 ? 's' : ''} | ${sightseeingDaysCount} Day${sightseeingDaysCount !== 1 ? 's' : ''} Sightseeing`;
+                                }
+                                return `${totalDays - 1} Nights & ${totalDays} Days`;
+                              })()}
+                            </span>
                           </div>
                           {itinerary.start_date && itinerary.duration && !isNaN(parseInt(itinerary.duration)) && (
                             <div className="flex items-center gap-1.5 bg-green-50/50 px-2 py-1 rounded text-green-700">
@@ -2057,16 +2086,52 @@ const ItineraryDetail = () => {
                         <React.Fragment key={day.day}>
                           <div
                             onClick={() => setSelectedDay(day.day)}
-                            className={`p-3 rounded-lg cursor-pointer transition-colors ${selectedDay === day.day
+                            className={`p-3 rounded-lg cursor-pointer transition-colors relative group ${selectedDay === day.day
                               ? 'bg-blue-50 border-2 border-blue-500'
                               : 'bg-gray-50 border-2 border-transparent hover:bg-gray-100'
                               }`}
                           >
+                            {/* Travel Day Toggle Button */}
+                            {hasPermission(user, 'itineraries.edit') && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const isNowTravel = !day.isTravelDay;
+                                  const updatedDays = days.map(d => 
+                                    d.day === day.day ? { ...d, isTravelDay: isNowTravel } : d
+                                  );
+                                  setDays(updatedDays);
+                                  if (isNowTravel) {
+                                    setCategoryType('transportation');
+                                    setSelectedDay(day.day);
+                                  }
+                                  syncItineraryToServer(dayEvents, updatedDays);
+                                  toast.info(isNowTravel ? 'Marked as Travel Day - Search for Vehicles' : 'Marked as Sightseeing Day');
+                                }}
+                                className={`absolute -top-2 -right-2 p-1.5 rounded-full shadow-md z-10 transition-all opacity-0 group-hover:opacity-100 ${day.isTravelDay ? 'bg-orange-500 text-white' : 'bg-white text-gray-400 hover:text-orange-500'}`}
+                                title={day.isTravelDay ? "Change to Sightseeing" : "Mark as Travel Day"}
+                              >
+                                {getTravelIcon(day.day, "h-3 w-3")}
+                              </button>
+                            )}
+
                             <div className="flex items-center justify-between">
                               <div className="flex items-center gap-2">
                                 <div className="flex flex-col">
-                                  <span className={`font-semibold ${selectedDay === day.day ? 'text-blue-600' : 'text-gray-700'}`}>
-                                    DAY {day.day}
+                                  <span className={`font-semibold test-xs ${selectedDay === day.day ? 'text-blue-600' : 'text-gray-700'}`}>
+                                    {day.isTravelDay ? (
+                                      <span className="flex items-center gap-1 text-orange-600">
+                                        {getTravelIcon(day.day, "h-3 w-3")} Traveling
+                                      </span>
+                                    ) : (
+                                      (() => {
+                                        let sightseeingNum = 0;
+                                        for (let i = 0; i < index + 1; i++) {
+                                          if (!days[i].isTravelDay) sightseeingNum++;
+                                        }
+                                        return `DAY ${sightseeingNum}`;
+                                      })()
+                                    )}
                                   </span>
                                   {calculateDate(day.day) && (
                                     <span className="text-[10px] text-gray-500">
@@ -2147,7 +2212,21 @@ const ItineraryDetail = () => {
                       <>
                         <div className="flex items-center justify-between mb-4">
                           <h3 className="text-lg font-semibold text-gray-800">
-                            Day {selectedDay} 
+                            {days[selectedDay - 1]?.isTravelDay ? (
+                              <span className="text-orange-600 flex items-center gap-2">
+                                {getTravelIcon(selectedDay, "h-5 w-5")} Traveling Day
+                              </span>
+                            ) : (
+                              <>
+                                Day {(() => {
+                                  let sightseeingNum = 0;
+                                  for (let i = 0; i < selectedDay; i++) {
+                                    if (!days[i].isTravelDay) sightseeingNum++;
+                                  }
+                                  return sightseeingNum;
+                                })()}
+                              </>
+                            )}
                             {calculateDate(selectedDay) && (
                               <span className="ml-2 text-sm font-normal text-gray-500">
                                 ({formatDateWithDay(calculateDate(selectedDay))})
@@ -3348,6 +3427,7 @@ const ItineraryDetail = () => {
               discount={discount}
               maxHotelOptions={maxHotelOptions}
               optionGstSettings={optionGstSettings}
+              days={days}
             />
           )}
 
@@ -3359,11 +3439,35 @@ const ItineraryDetail = () => {
                 <div className="flex justify-between items-center p-6 border-b border-gray-200">
                   <div>
                     <h2 className="text-xl font-bold text-gray-800">
-                      {dayDetailsForm.eventType === 'day-itinerary'
-                        ? `Day Itinerary in day ${selectedDay}`
-                        : dayDetailsForm.eventType
-                          ? `${dayDetailsForm.eventType.charAt(0).toUpperCase() + dayDetailsForm.eventType.slice(1).replace('-', ' ')} in day ${selectedDay}`
-                          : `Day ${selectedDay} Details`}
+                      {days[selectedDay - 1]?.isTravelDay ? (
+                        <span>Traveling Day Details</span>
+                      ) : (
+                        <>
+                          {dayDetailsForm.eventType === 'day-itinerary'
+                            ? `Day Itinerary in day ${(() => {
+                                let sightseeingNum = 0;
+                                for (let i = 0; i < selectedDay; i++) {
+                                  if (!days[i].isTravelDay) sightseeingNum++;
+                                }
+                                return sightseeingNum;
+                              })()}`
+                            : dayDetailsForm.eventType
+                              ? `${dayDetailsForm.eventType.charAt(0).toUpperCase() + dayDetailsForm.eventType.slice(1).replace('-', ' ')} in day ${(() => {
+                                  let sightseeingNum = 0;
+                                  for (let i = 0; i < selectedDay; i++) {
+                                    if (!days[i].isTravelDay) sightseeingNum++;
+                                  }
+                                  return sightseeingNum;
+                                })()}`
+                              : `Day ${(() => {
+                                  let sightseeingNum = 0;
+                                  for (let i = 0; i < selectedDay; i++) {
+                                    if (!days[i].isTravelDay) sightseeingNum++;
+                                  }
+                                  return sightseeingNum;
+                                })()} Details`}
+                        </>
+                      )}
                     </h2>
                     {dayDetailsForm.eventType && (
                       <p className="text-sm text-gray-500 mt-1">
