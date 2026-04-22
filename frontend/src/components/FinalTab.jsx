@@ -147,6 +147,21 @@ const FinalTab = ({
           });
         });
         setItemSourceMap(initialMap);
+
+        // Auto-select all master points by default if the package terms are completely empty
+        setPackageTerms(prev => {
+          let updated = false;
+          const nextTerms = { ...prev };
+          Object.keys(masters).forEach(masterKey => {
+            const pKey = masterKey === 'cancellation_policy' ? 'refund_policy' : masterKey;
+            
+            if ((!nextTerms[pKey] || nextTerms[pKey].length === 0) && masters[masterKey].length > 0) {
+              nextTerms[pKey] = masters[masterKey].map(m => String(m.content).trim());
+              updated = true;
+            }
+          });
+          return updated ? nextTerms : prev;
+        });
       } catch (error) {
         console.error("Failed to load policies", error);
       }

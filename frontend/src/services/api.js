@@ -231,7 +231,7 @@ export const paymentsAPI = {
   dueToday: () => api.get('/payments/due-today'),
   pending: () => api.get('/payments/pending'),
   getByLead: (leadId) => api.get(`/payments/lead/${leadId}`),
-  create: (data) => api.post('/payments', data),
+  create: (data) => postWithFile('/payments', data),
 };
 
 // Followups APIs

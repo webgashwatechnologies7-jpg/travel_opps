@@ -119,9 +119,8 @@ const BillingTab = memo(({
             <div className="flex justify-end">
                 <button
                     onClick={() => {
-                        const remainingAmount = Math.max(0, packagePrice - paymentSummary.total_paid);
                         setPaymentFormData({
-                            amount: remainingAmount > 0 ? remainingAmount.toString() : '',
+                            amount: packagePrice > 0 ? packagePrice.toString() : paymentSummary.total_amount?.toString() || '',
                             paid_amount: '',
                             due_date: '',
                         });
@@ -201,13 +200,11 @@ const BillingTab = memo(({
                                             <div className="flex items-center justify-center gap-2">
                                                 {payment.receipt && (
                                                     <a
-                                                        href={payment.receipt}
-                                                        target="_blank"
-                                                        rel="noopener noreferrer"
-                                                        title="View Payment Receipt"
-                                                        className="p-1 text-blue-600 hover:bg-blue-50 rounded-full transition-all"
+                                                        href="/payments"
+                                                        title="Go to Payments Page"
+                                                        className="block hover:opacity-80 transition-opacity"
                                                     >
-                                                        <Eye className="h-4 w-4" />
+                                                        <img src={payment.receipt} alt="Receipt" className="h-8 w-12 object-cover rounded-md border border-gray-200 shadow-sm" />
                                                     </a>
                                                 )}
                                                 {payment.status !== 'paid' && (

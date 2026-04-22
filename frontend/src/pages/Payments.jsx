@@ -268,20 +268,20 @@ const Payments = () => {
               <h4 className="text-sm font-bold text-gray-800 mb-3 flex items-center gap-2">
                 <ImageIcon className="h-4 w-4 text-emerald-500" /> Payment Proof / Screenshot
               </h4>
-              {selectedPayment.screenshot ? (
+              {selectedPayment.receipt ? (
                 <div className="border rounded-lg p-2 bg-white flex justify-center overflow-hidden">
                   <img 
-                    src={selectedPayment.screenshot} 
+                    src={selectedPayment.receipt} 
                     alt="Payment Receipt" 
                     className="max-h-[300px] object-contain hover:scale-105 transition-transform duration-300 pointer-events-auto"
                     style={{ cursor: 'zoom-in' }}
-                    onClick={() => window.open(selectedPayment.screenshot, '_blank')}
+                    onClick={() => window.open(selectedPayment.receipt, '_blank')}
                   />
                 </div>
               ) : (
                 <div className="border border-dashed border-gray-300 rounded-lg p-8 text-center text-gray-400">
                   <ImageIcon className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                  <p className="text-sm italic">No screenshot provided for this payment.</p>
+                  <p className="text-sm italic">No receipt provided for this payment.</p>
                 </div>
               )}
             </div>

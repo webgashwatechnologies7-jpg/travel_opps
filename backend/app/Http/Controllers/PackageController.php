@@ -172,6 +172,39 @@ class PackageController extends Controller
 
             $data['duration'] = $data['duration'] ?? null;
 
+            // Auto-fill master points if not provided
+            $masterMapping = [
+                'inclusions' => 'inclusion',
+                'exclusions' => 'exclusion',
+                'remarks' => 'remarks',
+                'terms_conditions' => 'terms',
+                'confirmation_policy' => 'confirmation',
+                'refund_policy' => 'cancellation',
+                'amendment_policy' => 'amendment',
+                'payment_policy' => 'payment',
+                'thank_you_message' => 'thank_you',
+            ];
+
+            $companyId = $request->header('X-Company-ID') ?: null;
+            $masterPoints = \App\Models\MasterPoint::where('is_active', true)
+                ->when($companyId, function ($query) use ($companyId) {
+                    return $query->where('company_id', $companyId);
+                })
+                ->orderBy('sort_order')
+                ->get()
+                ->groupBy('type');
+
+            foreach ($masterMapping as $packageField => $masterType) {
+                if (empty($data[$packageField])) {
+                    if (isset($masterPoints[$masterType]) && $masterPoints[$masterType]->count() > 0) {
+                        $data[$packageField] = $masterPoints[$masterType]->pluck('content')->map(function($c) { return trim($c); })->toArray();
+                    } else {
+                        // Default to empty array if no master point found
+                        $data[$packageField] = [];
+                    }
+                }
+            }
+
             $package = Package::create($data);
             
             // Calculate duration from dates if not provided
