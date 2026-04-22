@@ -198,14 +198,15 @@ const Settings = () => {
       if (logo) {
         const logoData = new FormData();
         logoData.append('logo', logo);
-        const res = await api.post('/settings/upload-logo', logoData);
+        const res = await settingsAPI.uploadLogo(logoData);
         if (res.data.success) logoUrl = res.data.data.logo_url;
       }
       let faviconUrl = faviconPreview;
       if (favicon) {
         const favData = new FormData();
         favData.append('logo', favicon);
-        const res = await api.post('/settings/upload-logo', favData);
+        favData.append('is_favicon', '1');
+        const res = await settingsAPI.uploadLogo(favData);
         if (res.data.success) faviconUrl = res.data.data.logo_url;
       }
       // Map companyForm keys to backend expected keys

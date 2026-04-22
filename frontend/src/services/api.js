@@ -486,6 +486,9 @@ export const settingsAPI = {
   uploadPaymentQr: (formData) => api.post('/settings/upload-payment-qr', formData, {
     headers: { 'Content-Type': 'multipart/form-data', },
   }),
+  uploadLogo: (formData) => api.post('/settings/upload-logo', formData, {
+    headers: { 'Content-Type': 'multipart/form-data', },
+  }),
 };
 
 // Sidebar menu (dynamic from backend)
