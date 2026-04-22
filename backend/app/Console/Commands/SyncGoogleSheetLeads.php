@@ -218,9 +218,17 @@ class SyncGoogleSheetLeads extends Command
             $email = $row[$this->headerMap['email'] ?? $this->headerMap['email_address'] ?? 3] ?? null;
             $city = $row[$this->headerMap['city'] ?? $this->headerMap['location'] ?? -1] ?? null;
 
-            // If we found Google Ads specific headers, change source
-            if (isset($this->headerMap['campaign_name']) || isset($this->headerMap['ad_id'])) {
-                $source = 'google_ads';
+            // If we found lead-specific headers, change source to meta_ads by default
+            if (isset($this->headerMap['campaign_name']) || isset($this->headerMap['ad_id']) || isset($this->headerMap['ad_name'])) {
+                $source = 'meta_ads';
+            }
+            
+            // Check for explicit platform header (Meta/Facebook often provides this)
+            if (isset($this->headerMap['platform'])) {
+                $platformVal = strtolower((string) ($row[$this->headerMap['platform']] ?? ''));
+                if (str_contains($platformVal, 'facebook') || str_contains($platformVal, 'instagram')) {
+                    $source = 'meta_ads';
+                }
             }
         } else {
             // Fallback to position-based mapping (Original behavior)

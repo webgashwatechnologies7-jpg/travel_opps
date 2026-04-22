@@ -7,7 +7,7 @@ import { searchPexelsPhotos } from '../services/pexels';
 import { getDisplayImageUrl, rewriteHtmlImageUrls, sanitizeEmailHtmlForDisplay } from '../utils/imageUrl';
 // Layout removed - handled by nested routing
 import { useSettings } from '../contexts/SettingsContext';
-import { ArrowLeft, Calendar, Mail, Plus, Upload, X, Search, FileText, Printer, Send, MessageCircle, CheckCircle, CheckCircle2, Clock, Briefcase, MapPin, CalendarDays, Users, UserCheck, Leaf, Smartphone, Phone, MoreVertical, Download, Pencil, Trash2, Camera, RefreshCw, Reply, ChevronDown, Paperclip, Eye, Info, Gift, Heart, Building2, Image as ImageIcon } from 'lucide-react';
+import { ArrowLeft, Calendar, Mail, Plus, Upload, X, Search, FileText, FileText as PassportIcon, Printer, Send, MessageCircle, CheckCircle, CheckCircle2, Clock, Briefcase, MapPin, CalendarDays, Users, UserCheck, Leaf, Smartphone, Phone, MoreVertical, Download, Pencil, Trash2, Camera, RefreshCw, Reply, ChevronDown, Paperclip, Eye, Info, Gift, Heart, Building2, Image as ImageIcon, Plane, Bus, Train, UtensilsCrossed, Ship, User, Star, Car } from 'lucide-react';
 import DetailRow from '../components/Quiries/DetailRow';
 import html2pdf from 'html2pdf.js';
 import { WhatsAppTab, MailsTab, FollowupsTab, BillingTab, HistoryTab, SuppCommTab, PostSalesTab, VoucherTab, DocsTab, InvoiceTab, CallsTab, ItineraryHistoryTab } from '../components/LeadTabs';
@@ -119,7 +119,8 @@ const LeadDetails = () => {
   const [paymentFormData, setPaymentFormData] = useState({
     amount: '',
     paid_amount: '',
-    due_date: ''
+    due_date: '',
+    receipt: null
   });
   const [addingPayment, setAddingPayment] = useState(false);
   const [activityTimeline, setActivityTimeline] = useState([]);
@@ -905,11 +906,18 @@ const LeadDetails = () => {
       const res = await vouchersAPI.preview(id);
       const blob = res.data;
       const html = await blob.text();
+      
+      // Check if the response is actually JSON error (happens if preview fails)
+      if (html.startsWith('{') && html.includes('"success":false')) {
+        const errData = JSON.parse(html);
+        throw new Error(errData.message || 'Failed to load preview');
+      }
+
       setVoucherPopupHtml(html);
       setShowVoucherPopup(true);
     } catch (err) {
       console.error('Voucher preview failed:', err);
-      showToastNotification('error', 'Preview Failed', 'Voucher preview could not be loaded. Please try again.');
+      showToastNotification('error', 'Preview Failed', err.message || 'Voucher preview could not be loaded. Please ensure you have a quotation first.');
     } finally {
       setVoucherActionLoading(null);
     }
@@ -931,24 +939,72 @@ const LeadDetails = () => {
       showToastNotification('success', 'PDF Downloaded', 'Voucher PDF downloaded successfully.');
     } catch (err) {
       console.error('Voucher download failed:', err);
-      showToastNotification('error', 'Download Failed', 'Voucher PDF download failed. Please try again.');
+      showToastNotification('error', 'Download Failed', 'Voucher PDF download failed. Please ensure an option is confirmed or quotation exists.');
     } finally {
       setVoucherActionLoading(null);
     }
   };
 
   const handleVoucherSend = async () => {
-    if (!id) return;
+    if (!id || !lead) return;
+    
     const toEmail = lead?.email || '';
-    const email = window.prompt('Send voucher to email:', toEmail || '');
-    if (email === null) return;
+    const toPhone = lead?.phone || '';
+
+    if (!toEmail && !toPhone) {
+      showToastNotification('warning', 'Missing Contact', 'Client has no email or phone number saved.');
+      return;
+    }
+
+    if (!window.confirm(`Send Confirmation Voucher to client via ${toEmail ? 'Email' : ''}${toEmail && toPhone ? ' and ' : ''}${toPhone ? 'WhatsApp' : ''}?`)) {
+      return;
+    }
+
     setVoucherActionLoading('send');
     try {
-      await vouchersAPI.send(id, { to_email: email || toEmail, subject: 'Travel Voucher' });
-      showToastNotification('success', 'Sent', 'Voucher email sent successfully.');
+      // 1. Send Email via Backend
+      if (toEmail) {
+        await vouchersAPI.send(id, { 
+          to_email: toEmail, 
+          subject: `Confirmation Voucher - Query #${formatLeadId(id)} - TravelFusion` 
+        });
+      }
+
+      // 2. Send WhatsApp with PDF Attachment
+      if (toPhone && waStatus === 'Connected') {
+        const phoneStr = toPhone.replace(/\D/g, '');
+        const chatId = phoneStr.length <= 10 ? `91${phoneStr}@s.whatsapp.net` : `${phoneStr}@s.whatsapp.net`;
+        
+        // Prepare professional message
+        let waMsg = `*CONFIRMATION VOUCHER*\n\n`;
+        waMsg += `Hello *${lead.client_name || 'Guest'}*,\n`;
+        waMsg += `Please find attached your official confirmation voucher for your upcoming trip.\n\n`;
+        waMsg += `Query ID: *#${formatLeadId(id)}*\n`;
+        waMsg += `Destination: *${lead.destination || 'N/A'}*\n\n`;
+        waMsg += `We wish you a wonderful and safe journey!\n\n`;
+        waMsg += `Best regards,\nTravelFusion CRM Team`;
+
+        // Fetch PDF Blob for attachment
+        const pdfRes = await vouchersAPI.download(id);
+        const pdfBlob = new Blob([pdfRes.data], { type: 'application/pdf' });
+        const pdfFile = new File([pdfBlob], `Voucher_#${formatLeadId(id)}.pdf`, { type: 'application/pdf' });
+
+        await whatsappWebAPI.sendMedia({
+          chat_id: chatId,
+          file: pdfFile,
+          caption: waMsg,
+          type: 'document'
+        });
+      }
+
+      showToastNotification('success', 'Sent', 'Voucher sent successfully via ' + 
+        (toEmail && toPhone && waStatus === 'Connected' ? 'Email & WhatsApp' : 
+         toEmail ? 'Email' : 'WhatsApp'));
+      
     } catch (err) {
       console.error('Voucher send failed:', err);
-      showToastNotification('error', 'Send Failed', 'Voucher send failed. Please check client email.');
+      const msg = err.response?.data?.message || err.message || 'Unknown error';
+      showToastNotification('error', 'Send Failed', 'Issue: ' + msg);
     } finally {
       setVoucherActionLoading(null);
     }
@@ -1033,7 +1089,15 @@ const LeadDetails = () => {
         waMsg += `Please find attached your invoice for: *${inv.itinerary_name || 'Package'}*.\n\n`;
         waMsg += `*Invoice Total: ₹${Number(inv.total_amount).toLocaleString('en-IN')}*\n`;
         
-        // Add Bank Details if available from state
+        // Get account details from settings
+        const accountDetailsStr = settings?.account_details;
+        let accountDetails = null;
+        try {
+          if (accountDetailsStr) {
+            accountDetails = typeof accountDetailsStr === 'string' ? JSON.parse(accountDetailsStr) : accountDetailsStr;
+          }
+        } catch (e) { console.error('Failed to parse account details', e); }
+
         if (accountDetails) {
           waMsg += `\n*OFFICIAL PAYMENT DETAILS:*\n`;
           waMsg += `Bank: ${accountDetails.bank_name || 'N/A'}\n`;
@@ -1633,17 +1697,19 @@ const emailTemplate = `
 
     setAddingPayment(true);
     try {
-      const response = await paymentsAPI.create({
-        lead_id: id,
-        amount: amount,
-        paid_amount: paidAmount,
-        due_date: paymentFormData.due_date || null
-      });
+      const formData = new FormData();
+      formData.append('lead_id', id);
+      formData.append('amount', amount);
+      formData.append('paid_amount', paidAmount);
+      if (paymentFormData.due_date) formData.append('due_date', paymentFormData.due_date);
+      if (paymentFormData.receipt) formData.append('receipt', paymentFormData.receipt);
+
+      const response = await paymentsAPI.create(formData);
 
       if (response.data.success) {
         showToastNotification('success', 'Payment Added', 'Payment added successfully!');
         setShowPaymentModal(false);
-        setPaymentFormData({ amount: '', paid_amount: '', due_date: '' });
+        setPaymentFormData({ amount: '', paid_amount: '', due_date: '', receipt: null });
         await fetchPayments();
         await fetchQueryDetail();
       } else {
@@ -2990,30 +3056,38 @@ const emailTemplate = `
         }
       }
 
+      // Map prices for all options from the proposals list
+      const pricesByOption = {};
+      proposals.forEach(p => {
+        const optNum = p.optionNumber || 1;
+        const pPrice = p.price ?? p.metadata?.price ?? p.pricing?.finalClientPrice ?? p.metadata?.pricing?.finalClientPrice ?? 0;
+        pricesByOption[optNum] = pPrice;
+      });
+
       const builtQuotation = {
         itinerary: {
           ...itinerary,
           itinerary_name: itinerary.itinerary_name || proposal.itinerary_name || 'Travel Proposal',
           duration: proposal.duration || itinerary.duration,
           destinations: proposal.destination || itinerary.destinations,
-          day_events: dayEvents, // Include full day-by-day details
-          // Force sync pax counts from the actual lead source of truth
+          day_events: dayEvents, 
           adult: lead.adult || 1,
           child: lead.child || 0,
-          infant: lead.infant || 0
+          infant: lead.infant || 0,
+          prices: pricesByOption
         },
         hotelOptions: hotelOptions,
         policies: {
           inclusions: itinerary.inclusions || [],
           exclusions: itinerary.exclusions || [],
           terms_conditions: itinerary.terms_conditions || '',
-          termsConditions: itinerary.terms_conditions || '', // Match blade
+          termsConditions: itinerary.terms_conditions || '',
           refund_policy: itinerary.refund_policy || '',
-          cancellationPolicy: itinerary.refund_policy || '', // Match blade
+          cancellationPolicy: itinerary.refund_policy || '',
           remarks: itinerary.remarks || '',
-          confirmationPolicy: itinerary.confirmation_policy || '', // Match blade
-          amendmentPolicy: itinerary.amendment_policy || '', // Match blade
-          paymentPolicy: itinerary.payment_policy || '' // Match blade
+          confirmationPolicy: itinerary.confirmation_policy || '',
+          amendmentPolicy: itinerary.amendment_policy || '',
+          paymentPolicy: itinerary.payment_policy || ''
         }
       };
       setQuotationData(builtQuotation);
@@ -3084,18 +3158,36 @@ const emailTemplate = `
       };
     } catch (err) {
       console.error('Failed to load policies:', err);
-      return {
-        remarks: '',
-        termsConditions: '',
-        confirmationPolicy: '',
-        cancellationPolicy: '',
-        amendmentPolicy: '',
-        thankYouMessage: ''
-      };
+      return {};
     }
   };
 
-  // Get Terms & Conditions (for backward compatibility)
+  const getEventIcon = (eventType) => {
+    switch (eventType) {
+      case 'accommodation': return <Building2 className="h-5 w-5" />;
+      case 'activity': return <ImageIcon className="h-5 w-5" />;
+      case 'transportation': return <Car className="h-5 w-5" />;
+      case 'meal': return <UtensilsCrossed className="h-5 w-5" />;
+      case 'flight': return <Plane className="h-5 w-5" />;
+      case 'visa': return <PassportIcon className="h-5 w-5" />;
+      case 'leisure': return <User className="h-5 w-5" />;
+      case 'cruise': return <Ship className="h-5 w-5" />;
+      default: return <Calendar className="h-5 w-5" />;
+    }
+  };
+
+  const getTravelIcon = (dayNum, dayEvents) => {
+    const events = dayEvents?.[dayNum] || [];
+    const transportEvent = events.find(e => e.eventType === 'transportation');
+    if (transportEvent) {
+      const subject = (transportEvent.subject || '').toLowerCase();
+      if (subject.includes('flight') || subject.includes('air')) return <Plane className="h-4 w-4" />;
+      if (subject.includes('volvo') || subject.includes('bus')) return <Bus className="h-4 w-4" />;
+      if (subject.includes('train')) return <Train className="h-4 w-4" />;
+      if (subject.includes('car') || subject.includes('taxi') || subject.includes('vehicle') || subject.includes('drive')) return <Car className="h-4 w-4" />;
+    }
+    return <Car className="h-4 w-4" />;
+  };
   const getTermsAndConditions = async () => {
     const policies = await getAllPolicies();
     return policies.termsConditions;
@@ -4344,7 +4436,15 @@ const emailTemplate = `
     }
 
     try {
-      const response = await whatsappAPI.send(id, message);
+      const phoneStr = lead.phone.replace(/\D/g, '');
+      const chatId = phoneStr.length <= 10 ? `91${phoneStr}@s.whatsapp.net` : `${phoneStr}@s.whatsapp.net`;
+
+      const response = await whatsappWebAPI.sendMessage({
+        chat_id: chatId,
+        message: message,
+        lead_id: id
+      });
+
       if (response.data.success) {
         fetchWhatsAppMessages();
 
@@ -4527,8 +4627,24 @@ const emailTemplate = `
 
     const phone = lead.phone?.replace(/[^0-9]/g, '') || '';
     if (phone) {
-      const whatsappUrl = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
-      window.open(whatsappUrl, '_blank');
+      if (waStatus === 'Connected') {
+        const phoneStr = phone.replace(/\D/g, '');
+        const chatId = phoneStr.length <= 10 ? `91${phoneStr}@s.whatsapp.net` : `${phoneStr}@s.whatsapp.net`;
+        try {
+          await whatsappWebAPI.sendMessage({
+            chat_id: chatId,
+            message: message,
+            lead_id: id
+          });
+          showToastNotification('success', 'Sent!', 'WhatsApp message sent successfully!');
+        } catch (err) {
+          console.error('WhatsApp send failed:', err);
+          showToastNotification('error', 'Send Failed', err.response?.data?.message || 'Failed to send message');
+        }
+      } else {
+        const whatsappUrl = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+        window.open(whatsappUrl, '_blank');
+      }
     } else {
       showToastNotification('warning', 'Phone Missing', 'Phone number not available for this lead.');
     }
@@ -4751,14 +4867,20 @@ const emailTemplate = `
     message += `This is your confirmed itinerary. For detailed quotation with images, please check your email.\n\n`;
     message += `Best regards,\nTravelFusion CRM Team`;
 
-    // Check WhatsApp Connection
-    if (waStatus !== 'Connected') {
-      setShowWaConnectModal(true);
-      return;
-    }
+    const phoneStr = phone.replace(/\D/g, '');
+    const chatId = phoneStr.length <= 10 ? `91${phoneStr}@s.whatsapp.net` : `${phoneStr}@s.whatsapp.net`;
 
-    const whatsappUrl = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
-    window.open(whatsappUrl, '_blank');
+    try {
+      await whatsappWebAPI.sendMessage({
+        chat_id: chatId,
+        message: message,
+        lead_id: id
+      });
+      showToastNotification('success', 'Sent!', 'Confirmation WhatsApp sent successfully!');
+    } catch (err) {
+      console.error('WhatsApp send failed:', err);
+      showToastNotification('error', 'Send Failed', err.response?.data?.message || 'Failed to send confirmation');
+    }
   };
 
 
@@ -6163,101 +6285,249 @@ const emailTemplate = `
               </div>
             </div>
           )}>
-            <div className="p-6 overflow-y-auto max-h-[80vh] text-slate-900">
+            <div className="p-0 overflow-y-auto max-h-[90vh] text-slate-900 bg-white shadow-2xl thin-scrollbar">
               {loadingQuotation ? (
-                <div className="flex items-center justify-center py-20"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div></div>
+                <div className="flex items-center justify-center py-20"><LogoLoader text="Generating Quotation..." /></div>
               ) : quotationData && (
-                <>
-                  {/* Option Selector */}
-                  {quotationData.hotelOptions && (
-                    <div className="mb-8 p-6 bg-blue-50/50 rounded-3xl border border-blue-100 flex flex-col md:flex-row md:items-center gap-6">
-                      <div><p className="text-[10px] font-black text-blue-600 uppercase tracking-widest mb-1">Package Versions</p><p className="text-lg font-black text-gray-800">Select an Option</p></div>
-                      <div className="flex gap-3 flex-wrap">
-                        {Object.keys(quotationData.hotelOptions).map((optionNum) => (
-                          <button key={optionNum} onClick={() => setSelectedOption(optionNum)} className={`px-6 py-3 rounded-2xl font-black transition-all ${selectedOption === optionNum ? 'bg-blue-600 text-white shadow-xl shadow-blue-100 scale-105' : 'bg-white text-gray-400 hover:bg-gray-100 border border-gray-100'}`}>Option {optionNum}</button>
-                        ))}
-                      </div>
+                <div className="space-y-0 font-sans">
+                  {/* PDF Header: Logo & Address */}
+                  <div className="p-8 pb-4 flex justify-between items-start">
+                    <div className="w-48">
+                      {settings?.company_logo ? (
+                        <img src={settings.company_logo} alt="Logo" className="max-w-full h-auto" />
+                      ) : (
+                        <div className="text-2xl font-black text-blue-900 italic">Travel Fusion</div>
+                      )}
+                    </div>
+                    <div className="text-right text-[10px] text-gray-500 max-w-xs leading-relaxed font-medium">
+                      <p className="font-bold text-gray-800 text-xs mb-1">{settings?.company_name || 'Travel Fusion Technologies'}</p>
+                      <p>{settings?.company_address || 'Suite 401, Business District, New Delhi, India'}</p>
+                      <p>Phone: {settings?.company_phone || '+91 98765 43210'}</p>
+                      <p>Email: {settings?.company_email || 'bookings@travelfusion.com'}</p>
+                    </div>
+                  </div>
+
+                  {/* QUOTATION Title Band */}
+                  <div className="bg-[#1e3a8a] text-white px-8 py-2 text-sm font-black uppercase tracking-widest flex justify-between">
+                    <span>Quotation Details</span>
+                    <span>Package ID: #{formatLeadId(lead?.id)}</span>
+                  </div>
+
+                  {/* Basic Details Table */}
+                  <div className="p-8">
+                    <table className="w-full border-collapse border border-gray-100 text-xs">
+                      <thead>
+                        <tr className="bg-gray-50">
+                          <th className="border border-gray-100 p-3 text-left font-bold text-gray-400 uppercase tracking-widest">Traveler</th>
+                          <th className="border border-gray-100 p-3 text-left font-bold text-gray-400 uppercase tracking-widest">Travel Date</th>
+                          <th className="border border-gray-100 p-3 text-left font-bold text-gray-400 uppercase tracking-widest">Guests</th>
+                          <th className="border border-gray-100 p-3 text-left font-bold text-gray-400 uppercase tracking-widest">Amount</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr>
+                          <td className="border border-gray-100 p-4 font-black text-slate-800 uppercase">{lead?.client_name || 'N/A'}</td>
+                          <td className="border border-gray-100 p-4 font-black text-slate-800 uppercase">
+                            {lead?.travel_start_date ? new Date(lead.travel_start_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Flexible'}
+                          </td>
+                          <td className="border border-gray-100 p-4 font-black text-slate-800 uppercase">{(lead?.adult || 0)} Adults, {(lead?.child || 0)} Child</td>
+                          <td className="border border-gray-100 p-4 font-black text-blue-700 text-lg">
+                             ₹{Number(quotationData.itinerary?.prices?.[selectedOption] || 0).toLocaleString('en-IN')}
+                          </td>
+                        </tr>
+                        <tr>
+                          <td colSpan="2" className="border border-gray-100 p-4">
+                             <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-1">Destinations</p>
+                             <p className="font-extrabold text-slate-800">{quotationData.itinerary?.destinations}</p>
+                          </td>
+                          <td colSpan="2" className="border border-gray-100 p-4">
+                             <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-1">Duration</p>
+                             <p className="font-extrabold text-slate-800">{quotationData.itinerary?.duration} Nights / {(parseInt(quotationData.itinerary?.duration) || 0) + 1} Days</p>
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Option Selector (Internal CRM feature, keeping it functional) */}
+                  {quotationData.hotelOptions && Object.keys(quotationData.hotelOptions).length > 1 && (
+                    <div className="px-8 pb-8 flex gap-2">
+                       {Object.keys(quotationData.hotelOptions).sort((a,b)=>parseInt(a)-parseInt(b)).map((optionNum) => (
+                        <button key={optionNum} onClick={() => setSelectedOption(optionNum)} className={`px-5 py-2 rounded-lg text-[10px] font-black tracking-widest uppercase transition-all ${selectedOption === optionNum ? 'bg-blue-600 text-white shadow-lg' : 'bg-gray-100 text-gray-400 hover:bg-gray-200'}`}>Version {optionNum}</button>
+                      ))}
                     </div>
                   )}
 
-                  {selectedOption && quotationData.hotelOptions[selectedOption] && (
-                    <div className="space-y-8">
-                      {/* Header Info */}
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="p-6 bg-white border border-gray-100 shadow-sm rounded-3xl">
-                          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-4">Query Details</p>
-                          <div className="space-y-2 text-sm font-medium">
-                            <div className="flex justify-between border-b border-gray-50 pb-2"><span>Ref ID:</span><span className="font-black text-gray-800">#{formatLeadId(lead?.id)}</span></div>
-                            {quotationData.itinerary && (
-                              <div className="flex justify-between border-b border-gray-50 pb-2">
-                                <span>Itinerary:</span>
-                                <span 
-                                  className="font-black text-blue-600 hover:text-blue-800 hover:underline cursor-pointer transition-colors"
-                                  onClick={() => window.open(`/itineraries/${quotationData.itinerary.id}?fromLead=${id}`, '_blank')}
-                                >
-                                  {quotationData.itinerary?.title || quotationData.itinerary?.itinerary_name || 'View Itinerary'}
-                                </span>
-                              </div>
+                  {/* DETAILED ITINERARY Title Band */}
+                  <div className="bg-[#1e3a8a] text-white px-8 py-3 text-sm font-black uppercase tracking-widest">
+                    Detailed Itinerary
+                  </div>
+
+                  {/* ITINERARY CONTENT */}
+                  <div className="p-8 space-y-12 relative">
+                    <div className="absolute left-[39px] top-8 bottom-8 w-px bg-blue-100 border-l border-dashed border-blue-200" />
+                    
+                    {quotationData.itinerary?.day_events && Object.keys(quotationData.itinerary.day_events).sort((a,b)=>parseInt(a)-parseInt(b)).map((dayNum) => {
+                      const dayEvents = quotationData.itinerary.day_events[dayNum] || [];
+                      return (
+                        <div key={dayNum} className="relative pl-12 space-y-6">
+                           {/* Day Bubble */}
+                          <div className="absolute left-[-15px] top-0 w-8 h-8 rounded-full bg-blue-900 border-4 border-white shadow-md z-10 flex items-center justify-center text-white text-[10px] font-black">
+                            {dayNum}
+                          </div>
+                          
+                          <div className="flex justify-between items-center mb-4 border-b border-gray-50 pb-2">
+                            <h4 className="text-lg font-black text-blue-900 uppercase">Day {dayNum} Explorer</h4>
+                            <span className="text-[10px] font-bold text-gray-300 uppercase tracking-widest">{quotationData.itinerary?.itinerary_name}</span>
+                          </div>
+
+                          <div className="space-y-10">
+                            {dayEvents.map((event, eIdx) => {
+                              const canShowEvent = event.eventType !== 'accommodation' || (event.eventType === 'accommodation' && event.hotelOptions?.[0]?.optionNumber === parseInt(selectedOption));
+                              if (!canShowEvent) return null;
+                              
+                              return (
+                                <div key={eIdx} className="flex flex-col md:flex-row gap-6 items-start group">
+                                  {/* Text Section (Left) */}
+                                  <div className="flex-1 space-y-2">
+                                    <div className="flex items-center gap-2">
+                                       <span className="text-blue-600">{getEventIcon(event.eventType)}</span>
+                                       <h5 className="font-black text-blue-800 text-sm uppercase">{event.subject || event.eventType}</h5>
+                                    </div>
+                                    <p className="text-xs text-gray-600 leading-relaxed font-medium whitespace-pre-wrap">
+                                      {event.details || 'Your day will be filled with exploration and discovery at your own pace.'}
+                                    </p>
+                                    <div className="flex flex-wrap gap-2 pt-2">
+                                       {event.startTime && (
+                                         <span className="px-3 py-1 bg-blue-50 text-blue-600 text-[10px] font-bold rounded-full flex items-center gap-1">
+                                           <Clock className="w-3 h-3" /> {event.startTime} {event.endTime && `- ${event.endTime}`}
+                                         </span>
+                                       )}
+                                       {event.eventType === 'meal' && <span className="px-3 py-1 bg-emerald-50 text-emerald-600 text-[10px] font-bold rounded-full uppercase">Meal Included</span>}
+                                    </div>
+                                  </div>
+                                  {/* Image Section (Right) */}
+                                  <div className="w-full md:w-56 h-36 rounded-2xl overflow-hidden shadow-inner border border-gray-100 flex-shrink-0 bg-gray-50">
+                                    {event.image ? (
+                                      <img src={getDisplayImageUrl(event.image) || event.image} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" alt="Ev" />
+                                    ) : (
+                                      <div className="w-full h-full flex items-center justify-center text-gray-200 italic text-[10px] uppercase font-black">{dayNum} IMG</div>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* TERMS & CONDITIONS Title Band */}
+                  <div className="bg-[#1e3a8a] text-white px-8 py-3 text-sm font-black uppercase tracking-widest">
+                    Terms & Conditions
+                  </div>
+
+                  <div className="p-8 space-y-8">
+                    {/* Inclusions & Exclusions - Side by Side */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="border border-emerald-200 bg-emerald-50/20 rounded-xl p-6">
+                        <h5 className="font-black text-emerald-800 text-[10px] uppercase tracking-widest mb-4 pb-2 border-b border-emerald-100">Inclusions</h5>
+                        <ul className="space-y-2">
+                          {quotationData.policies?.inclusions?.map((item, i) => (
+                            <li key={i} className="flex gap-2 items-start text-[11px] font-semibold text-gray-600">
+                               <span className="text-emerald-500 mt-0.5">✓</span> {item}
+                            </li>
+                          )) || <li className="text-gray-300 text-[10px] italic">Not Specified</li>}
+                        </ul>
+                      </div>
+                      <div className="border border-red-200 bg-red-50/20 rounded-xl p-6">
+                        <h5 className="font-black text-red-800 text-[10px] uppercase tracking-widest mb-4 pb-2 border-b border-red-100">Exclusions</h5>
+                        <ul className="space-y-2">
+                          {quotationData.policies?.exclusions?.map((item, i) => (
+                            <li key={i} className="flex gap-2 items-start text-[11px] font-semibold text-gray-600">
+                               <span className="text-red-400 mt-0.5">✕</span> {item}
+                            </li>
+                          )) || <li className="text-gray-300 text-[10px] italic">Not Specified</li>}
+                        </ul>
+                      </div>
+                    </div>
+
+                    {/* Other Policies List */}
+                    <div className="space-y-8 pt-4">
+                       {[
+                         { title: 'Payment Policy', content: quotationData.policies?.paymentPolicy },
+                         { title: 'Refund & Cancellation Policy', content: quotationData.policies?.refund_policy || quotationData.policies?.cancellationPolicy },
+                         { title: 'Company Policy & Terms', content: quotationData.policies?.terms_conditions || quotationData.policies?.termsConditions },
+                         { title: 'Critical Remarks', content: quotationData.policies?.remarks }
+                       ].map((sec, idx) => sec.content ? (
+                         <div key={idx} className="space-y-3">
+                           <h6 className="text-[10px] font-black text-blue-900 border-b border-blue-50 pb-2 uppercase tracking-widest">{sec.title}</h6>
+                           <div className="text-[11px] text-gray-500 leading-relaxed font-medium whitespace-pre-wrap pl-2 border-l-2 border-gray-50">
+                             {sec.content}
+                           </div>
+                         </div>
+                       ) : null)}
+                    </div>
+                  </div>
+
+                  {/* HOTEL SUMMARY Title Band */}
+                  <div className="bg-[#1e3a8a] text-white px-8 py-3 text-sm font-black uppercase tracking-widest">
+                    Accommodation Summary
+                  </div>
+
+                  <div className="p-8 space-y-6">
+                     {quotationData.hotelOptions[selectedOption]?.map((hotel, idx) => (
+                       <div key={idx} className="flex gap-6 pb-6 border-b border-gray-50 last:border-0 group">
+                          <div className="w-24 h-24 rounded-xl overflow-hidden flex-shrink-0 bg-gray-50 border border-gray-100">
+                            {hotel.image ? (
+                              <img src={getDisplayImageUrl(hotel.image) || hotel.image} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" alt="H" />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-[10px] font-black text-gray-200">HOTEL</div>
                             )}
-                            <div className="flex justify-between border-b border-gray-50 pb-2"><span>Adults/Children:</span><span className="font-black text-gray-800">{lead?.adult}A / {lead?.child}C</span></div>
-                            <div className="flex justify-between border-b border-gray-50 pb-2"><span>Destinations:</span><span className="font-black text-gray-800">{quotationData.itinerary?.destinations}</span></div>
-                            <div className="flex justify-between"><span>Duration:</span><span className="font-black text-gray-800">{quotationData.itinerary?.duration} N / {(parseInt(quotationData.itinerary?.duration) || 0) + 1} D</span></div>
                           </div>
-                        </div>
-                        <div className="p-6 bg-gray-900 text-white rounded-3xl shadow-xl shadow-gray-200 flex flex-col justify-center text-center">
-                          <p className="text-[10px] font-black text-white/40 uppercase tracking-widest mb-2">Package Investment</p>
-                          <p className="text-4xl font-black">₹{quotationData.hotelOptions[selectedOption].reduce((sum, opt) => sum + (parseFloat(opt.price) || 0), 0).toLocaleString('en-IN')}</p>
-                          <p className="text-xs text-white/60 mt-2 font-medium">Inclusive of all hotels & primary services</p>
-                        </div>
-                      </div>
+                          <div className="flex-1 space-y-2">
+                             <div className="flex justify-between items-start">
+                               <h5 className="font-black text-sm text-slate-800 uppercase leading-snug">{hotel.hotelName}</h5>
+                               <span className="text-[10px] font-black bg-blue-50 text-blue-600 px-3 py-1 rounded-full border border-blue-100 uppercase">Night {hotel.day}</span>
+                             </div>
+                             <div className="flex gap-6 text-[10px] font-bold text-gray-400">
+                                <div><span className="uppercase block text-[8px] mb-0.5 tracking-widest">Category</span><span className="text-gray-600">{hotel.category} Star</span></div>
+                                <div><span className="uppercase block text-[8px] mb-0.5 tracking-widest">Room Type</span><span className="text-gray-600">{hotel.roomName || 'N/A'}</span></div>
+                                <div><span className="uppercase block text-[8px] mb-0.5 tracking-widest">Meal Plan</span><span className="text-gray-600">{hotel.mealPlan || 'EP'}</span></div>
+                                <div><span className="uppercase block text-[8px] mb-0.5 tracking-widest">Location</span><span className="font-black text-blue-600">{hotel.location || 'N/A'}</span></div>
+                             </div>
+                          </div>
+                       </div>
+                     ))}
+                  </div>
 
-                      {/* Hotel Timeline/Grid */}
-                      <div className="space-y-4">
-                        <h3 className="text-lg font-black text-gray-800 flex items-center gap-2"><Briefcase className="w-5 h-5 text-blue-600" /> Accommodation Summary</h3>
-                        {quotationData.hotelOptions[selectedOption].map((hotel, idx) => (
-                          <div key={idx} className="p-5 bg-white border-2 border-gray-50 rounded-3xl flex flex-col md:flex-row gap-6 hover:border-blue-100 transition-colors group">
-                            {hotel.image && <div className="w-full md:w-48 h-32 rounded-2xl overflow-hidden shadow-inner"><img src={hotel.image} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" alt="Hotel" /></div>}
-                            <div className="flex-1">
-                              <div className="flex justify-between items-start mb-2">
-                                <h4 className="text-xl font-black text-gray-800">{hotel.hotelName}</h4>
-                                <span className="px-3 py-1 bg-blue-50 text-blue-600 text-[10px] font-black rounded-lg uppercase tracking-widest">Day {hotel.day}</span>
-                              </div>
-                              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs font-bold text-gray-500">
-                                <div><p className="text-[8px] uppercase tracking-widest text-gray-400 mb-1">Room Category</p><p className="text-gray-700">{hotel.roomName}</p></div>
-                                <div><p className="text-[8px] uppercase tracking-widest text-gray-400 mb-1">Meal Plan</p><p className="text-gray-700">{hotel.mealPlan}</p></div>
-                                <div><p className="text-[8px] uppercase tracking-widest text-gray-400 mb-1">Category</p><p className="text-gray-700">{hotel.category} Star</p></div>
-                                <div><p className="text-[8px] uppercase tracking-widest text-gray-400 mb-1">Costing</p><p className="text-blue-600">₹{parseFloat(hotel.price).toLocaleString('en-IN')}</p></div>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
+                  {/* PRICE BANNER - MATCHING PDF */}
+                  <div className="px-8 pb-12">
+                     <div className="bg-[#1e3a8a] text-center py-5 rounded-xl shadow-xl border-4 border-blue-800">
+                        <h4 className="text-2xl font-black text-[#fbbf24] tracking-tight uppercase">
+                          Total Package Cost: INR {Number(quotationData.itinerary?.prices?.[selectedOption] || 0).toLocaleString('en-IN')}
+                        </h4>
+                     </div>
+                  </div>
 
-                      {/* T&C etc */}
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 opacity-60">
-                        {quotationData.itinerary?.terms_conditions && (
-                          <div className="p-6 bg-gray-50 rounded-3xl border border-gray-100">
-                            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">Terms & Conditions</p>
-                            <div className="text-xs leading-relaxed whitespace-pre-wrap">{quotationData.itinerary.terms_conditions}</div>
-                          </div>
-                        )}
-                        {quotationData.itinerary?.refund_policy && (
-                          <div className="p-6 bg-gray-50 rounded-3xl border border-gray-100">
-                            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">Refund Policy</p>
-                            <div className="text-xs leading-relaxed whitespace-pre-wrap">{quotationData.itinerary.refund_policy}</div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </>
+                  {/* PDF Dark Footer */}
+                  <div className="bg-[#0f172a] text-white p-12 text-center space-y-6">
+                     <p className="text-xs font-bold text-gray-400 opacity-80 leading-relaxed uppercase tracking-[.2em]">
+                       This is a computer generated quotation & doesn't require signature. All bookings are subject to availability.
+                     </p>
+                     <div className="space-y-2">
+                        <h5 className="text-2xl font-black text-[#fbbf24] tracking-tight">Thank you for choosing Gashwa Technologies!</h5>
+                        <p className="text-gray-300 font-bold uppercase tracking-widest text-[10px]">Where your travel dreams meet professional reality.</p>
+                     </div>
+                  </div>
+                </div>
               )}
             </div>
           </Dialog>
 
 
 
-          {/* Payment Modal */}
           <Dialog visible={showPaymentModal} style={{ width: '450px' }} onHide={() => setShowPaymentModal(false)} showCloseIcon={false} header={() => (
             <div className="flex justify-between items-center p-4 border-b border-gray-100 bg-gray-50/50">
               <h2 className="text-xl font-bold text-gray-800">Add Payment</h2>
@@ -6271,11 +6541,38 @@ const emailTemplate = `
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Due Date</label>
-                <input type="date" value={paymentFormData.due_date} onChange={(e) => setPaymentFormData({ ...paymentFormData, due_date: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none" />
+                <input type="date" value={paymentFormData.due_date} onChange={(e) => setPaymentFormData({ ...paymentFormData, due_date: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Receipt / Screenshot (Optional)</label>
+                <div className="mt-1 flex items-center justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-lg hover:border-blue-400 transition-colors">
+                  <div className="space-y-1 text-center">
+                    <ImageIcon className="mx-auto h-12 w-12 text-gray-400" />
+                    <div className="flex text-sm text-gray-600">
+                      <label htmlFor="payment-receipt" className="relative cursor-pointer bg-white rounded-md font-medium text-blue-600 hover:text-blue-500">
+                        <span>Upload a file</span>
+                        <input id="payment-receipt" name="payment-receipt" type="file" accept="image/*" className="sr-only" onChange={(e) => setPaymentFormData({ ...paymentFormData, receipt: e.target.files[0] })} />
+                      </label>
+                      <p className="pl-1">or drag and drop</p>
+                    </div>
+                    <p className="text-xs text-gray-500">PNG, JPG, GIF up to 10MB</p>
+                    {paymentFormData.receipt && (
+                      <p className="text-xs font-bold text-green-600 mt-2 flex items-center justify-center gap-1">
+                        <CheckCircle2 className="h-3 w-3" /> {paymentFormData.receipt.name}
+                      </p>
+                    )}
+                  </div>
+                </div>
               </div>
               <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
                 <button type="button" onClick={() => setShowPaymentModal(false)} className="px-4 py-2 text-gray-600">Cancel</button>
-                <button type="submit" disabled={addingPayment} className="bg-blue-600 text-white px-6 py-2 rounded-lg font-bold shadow-md">{addingPayment ? 'Adding...' : 'Add Payment'}</button>
+                <button type="submit" disabled={addingPayment} className="bg-blue-600 text-white px-6 py-2 rounded-lg font-bold shadow-md hover:bg-blue-700 transition-all active:scale-95 disabled:opacity-50">
+                  {addingPayment ? (
+                    <div className="flex items-center gap-2">
+                       <RefreshCw className="h-4 w-4 animate-spin" /> Adding...
+                    </div>
+                  ) : 'Add Payment'}
+                </button>
               </div>
             </form>
           </Dialog>

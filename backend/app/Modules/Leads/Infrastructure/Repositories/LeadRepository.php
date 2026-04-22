@@ -169,7 +169,11 @@ class LeadRepository implements LeadRepositoryInterface
             $query->where(function ($q) use ($search) {
                 $q->where('client_name', 'like', '%' . $search . '%')
                     ->orWhere('email', 'like', '%' . $search . '%')
-                    ->orWhere('phone', 'like', '%' . $search . '%');
+                    ->orWhere('phone', 'like', '%' . $search . '%')
+                    ->orWhere('destination', 'like', '%' . $search . '%')
+                    ->orWhereHas('assignedUser', function($sq) use ($search) {
+                        $sq->where('name', 'like', '%' . $search . '%');
+                    });
             });
         }
     }

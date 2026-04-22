@@ -32,6 +32,7 @@ class Payment extends Model
         'due_date',
         'status',
         'created_by',
+        'receipt',
     ];
 
     /**

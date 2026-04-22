@@ -1,5 +1,5 @@
 import React, { memo } from 'react';
-import { Plus, Bell, Loader2 } from 'lucide-react';
+import { Plus, Bell, Loader2, Eye } from 'lucide-react';
 
 const BillingTab = memo(({
     lead,
@@ -198,21 +198,34 @@ const BillingTab = memo(({
                                             {payment.creator?.name || 'N/A'}
                                         </td>
                                         <td className="px-4 py-3 text-center">
-                                            {payment.status !== 'paid' && (
-                                                <button
-                                                    onClick={() => onSendReminder && onSendReminder(payment)}
-                                                    disabled={remindingPaymentId === payment.id}
-                                                    title="Send Payment Reminder via WhatsApp & Email"
-                                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-orange-50 text-orange-600 border border-orange-100 rounded-md hover:bg-orange-100 transition-colors text-xs font-semibold disabled:opacity-50"
-                                                >
-                                                    {remindingPaymentId === payment.id ? (
-                                                        <Loader2 className="h-3 w-3 animate-spin" />
-                                                    ) : (
-                                                        <Bell className="h-3 w-3" />
-                                                    )}
-                                                    Remind
-                                                </button>
-                                            )}
+                                            <div className="flex items-center justify-center gap-2">
+                                                {payment.receipt && (
+                                                    <a
+                                                        href={payment.receipt}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        title="View Payment Receipt"
+                                                        className="p-1 text-blue-600 hover:bg-blue-50 rounded-full transition-all"
+                                                    >
+                                                        <Eye className="h-4 w-4" />
+                                                    </a>
+                                                )}
+                                                {payment.status !== 'paid' && (
+                                                    <button
+                                                        onClick={() => onSendReminder && onSendReminder(payment)}
+                                                        disabled={remindingPaymentId === payment.id}
+                                                        title="Send Payment Reminder via WhatsApp & Email"
+                                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-orange-50 text-orange-600 border border-orange-100 rounded-md hover:bg-orange-100 transition-colors text-xs font-semibold disabled:opacity-50"
+                                                    >
+                                                        {remindingPaymentId === payment.id ? (
+                                                            <Loader2 className="h-3 w-3 animate-spin" />
+                                                        ) : (
+                                                            <Bell className="h-3 w-3" />
+                                                        )}
+                                                        Remind
+                                                    </button>
+                                                )}
+                                            </div>
                                         </td>
                                     </tr>
                                 ))}

@@ -178,6 +178,20 @@ class LeadImportController extends Controller
                     continue;
                 }
 
+                // Deduplication check - skip if phone already exists in this company
+                $exists = \App\Modules\Leads\Domain\Entities\Lead::where('phone', $phone)
+                    ->where('company_id', $request->user()->company_id)
+                    ->exists();
+
+                if ($exists) {
+                    $failedRows[] = [
+                        'row' => $totalRows,
+                        'data' => $rowData,
+                        'errors' => ["Lead with phone $phone already exists."],
+                    ];
+                    continue;
+                }
+
                 $leadData = [
                     'client_name' => $name,
                     'phone' => $phone,

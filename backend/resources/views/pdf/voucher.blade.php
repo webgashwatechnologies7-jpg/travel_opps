@@ -356,6 +356,7 @@
                 }
             }
         }
+    }
     // Extracting Departure Details (Moved logic before HTML for cleaner structure)
     $accountDetailsJson = \App\Models\Setting::getValue('account_details');
     $accountDetails = $accountDetailsJson ? json_decode($accountDetailsJson, true) : null;

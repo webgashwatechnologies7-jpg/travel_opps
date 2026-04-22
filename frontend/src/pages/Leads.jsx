@@ -348,7 +348,7 @@ const Leads = () => {
       const params = {
         per_page: perPage,
         page,
-        destination: finalDestParam,
+        search: finalDestParam, // Use translated search parameter for global query
         status: statusParam || undefined,
         assigned_to: assignedToFilter,
         ...activeFilterParams,
@@ -386,6 +386,14 @@ const Leads = () => {
       setLoading(false);
     }
   }, [destinationFilter, assignedToFilter, advancedFilters, activeFilter, currentUser, perPage]);
+
+  // Handle Search Input Change with Debounce
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchLeads({}, 1); // Always reset to page 1 on search
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [destinationFilter]);
 
   const handlePerPageChange = (e) => {
     const newPerPage = parseInt(e.target.value);
@@ -688,41 +696,6 @@ const Leads = () => {
       result = leads;
     }
 
-    // Global Search Refinement with Smart Keyword Mapping
-    const query = (destinationFilter || '').toLowerCase().trim();
-    if (query) {
-      result = result.filter((lead) => {
-        const assignedUserName = (
-          lead.assigned_name ||
-          lead.assigned_user?.name ||
-          lead.assignedUser?.name ||
-          lead.assigned_to?.name ||
-          lead.assigned_to_name ||
-          lead.assigned_user_name ||
-          ''
-        ).toLowerCase();
-
-        // Smart Status Mapping (UI Label -> DB Value)
-        const statusMap = {
-            'booked': 'confirmed',
-            'under process': 'processing',
-            'proposal sent': 'proposal',
-            'declined': 'cancelled',
-            'followup': 'followup'
-        };
-        const mappedStatus = statusMap[query] || query;
-
-        return (
-          (lead.destination || '').toLowerCase().includes(query) ||
-          (lead.client_name || '').toLowerCase().includes(query) ||
-          (lead.phone || '').includes(query) ||
-          (lead.email || '').toLowerCase().includes(query) ||
-          (lead.status || '').toLowerCase().includes(mappedStatus) ||
-          assignedUserName.includes(query)
-        );
-      });
-    }
-
     // Apply sorting
     if (sortConfig.key) {
       return [...result].sort((a, b) => {
@@ -811,7 +784,7 @@ const Leads = () => {
   const handleExportData = async () => {
     try {
       // Convert leads to CSV
-      const headers = ['ID', 'Client Name', 'Email', 'Phone', 'Source', 'Destination', 'Status', 'Priority', 'Assigned To', 'Created At'];
+      const headers = ['ID', 'Name', 'Email', 'Phone', 'Source', 'Destination', 'Status', 'Priority', 'Assigned To', 'Created At'];
       const csvContent = [
         headers.join(','),
         ...leads.map(lead => [

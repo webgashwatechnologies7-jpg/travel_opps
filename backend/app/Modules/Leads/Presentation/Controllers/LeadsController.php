@@ -375,6 +375,7 @@ class LeadsController extends Controller
             'remark' => $lead->remark,
             'date_of_birth' => optional($lead->date_of_birth)->format('Y-m-d'),
             'marriage_anniversary' => optional($lead->marriage_anniversary)->format('Y-m-d'),
+            'amount' => $lead->getEstimatedValue(),
             'created_at' => $lead->created_at,
             'updated_at' => $lead->updated_at,
         ];

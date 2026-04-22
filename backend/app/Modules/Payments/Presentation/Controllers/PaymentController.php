@@ -26,6 +26,7 @@ class PaymentController extends Controller
                 'amount' => 'required|numeric|min:0',
                 'paid_amount' => 'nullable|numeric|min:0',
                 'due_date' => 'nullable|date',
+                'receipt' => 'nullable|image|max:10240', // 10MB
             ], [
                 'lead_id.required' => 'The lead_id field is required.',
                 'lead_id.exists' => 'The selected lead does not exist.',
@@ -35,6 +36,8 @@ class PaymentController extends Controller
                 'paid_amount.numeric' => 'The paid_amount must be a number.',
                 'paid_amount.min' => 'The paid_amount must be at least 0.',
                 'due_date.date' => 'The due_date must be a valid date.',
+                'receipt.image' => 'The receipt must be an image file.',
+                'receipt.max' => 'The receipt must not exceed 10MB.',
             ]);
 
             if ($validator->fails()) {
@@ -59,6 +62,14 @@ class PaymentController extends Controller
                 ], 422);
             }
 
+            // Handle file upload
+            $receiptPath = null;
+            if ($request->hasFile('receipt')) {
+                $file = $request->file('receipt');
+                $filename = 'receipt_' . time() . '_' . $file->getClientOriginalName();
+                $receiptPath = $file->storeAs('payments/receipts', $filename, 'public');
+            }
+
             // Auto calculate status
             $status = Payment::calculateStatus($amount, $paidAmount);
 
@@ -69,6 +80,7 @@ class PaymentController extends Controller
                 'due_date' => $request->due_date,
                 'status' => $status,
                 'created_by' => $request->user()->id,
+                'receipt' => $receiptPath,
             ]);
 
             // Load lead relationship
@@ -84,6 +96,7 @@ class PaymentController extends Controller
                     'amount' => $payment->amount,
                     'paid_amount' => $payment->paid_amount,
                     'status' => $payment->status,
+                    'has_receipt' => !!$receiptPath,
                 ],
             ]);
 
@@ -106,6 +119,7 @@ class PaymentController extends Controller
                         'payment_id' => $payment->id,
                         'source' => 'auto_payment',
                         'auto_created_at' => now()->toIso8601String(),
+                        'receipt' => $receiptPath,
                     ],
                     'created_by' => $request->user()->id,
                 ]);
@@ -120,6 +134,7 @@ class PaymentController extends Controller
                         'invoice_number' => $newInvoice->invoice_number,
                         'payment_id' => $payment->id,
                         'amount' => $paidAmount,
+                        'receipt' => $receiptPath,
                     ],
                 ]);
             }
@@ -151,6 +166,7 @@ class PaymentController extends Controller
                         'paid_amount' => $payment->paid_amount,
                         'due_date' => $payment->due_date,
                         'status' => $payment->status,
+                        'receipt' => $payment->receipt ? asset('storage/' . $payment->receipt) : null,
                         'created_by' => $payment->created_by,
                         'creator' => $payment->creator ? [
                             'id' => $payment->creator?->id,
@@ -349,6 +365,7 @@ class PaymentController extends Controller
                             'due_amount' => $payment->amount - $payment->paid_amount,
                             'due_date' => $payment->due_date,
                             'status' => $payment->status,
+                            'receipt' => $payment->receipt ? asset('storage/' . $payment->receipt) : null,
                             'created_by' => $payment->created_by,
                             'creator' => $payment->creator ? [
                                 'id' => $payment->creator->id,
@@ -425,6 +442,7 @@ class PaymentController extends Controller
                             'paid_amount' => $payment->paid_amount,
                             'due_date' => $payment->due_date,
                             'status' => $payment->status,
+                            'receipt' => $payment->receipt ? asset('storage/' . $payment->receipt) : null,
                             'created_by' => $payment->created_by,
                             'creator' => $payment->creator ? [
                                 'id' => $payment->creator->id,
