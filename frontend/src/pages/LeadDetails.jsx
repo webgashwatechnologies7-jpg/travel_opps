@@ -4163,14 +4163,11 @@ const emailTemplate = `
         });
         fetchGmailEmails();
 
-        // Update lead status to PROPOSAL if not already
-        if (lead.status !== 'proposal') {
+        if (lead.status !== 'proposal' && lead.status !== 'confirmed') {
           try {
-            await leadsAPI.updateStatus(id, { status: 'proposal' });
-            await fetchLeadDetails(); // Refresh lead data
+            await handleStatusChange('proposal');
           } catch (statusError) {
             console.error('Failed to update lead status:', statusError);
-            // Don't show error to user as email was sent successfully
           }
         }
 
@@ -4188,14 +4185,11 @@ const emailTemplate = `
       if (response.data.success) {
         fetchLeadEmails();
 
-        // Update lead status to PROPOSAL if not already
-        if (lead.status !== 'proposal') {
+        if (lead.status !== 'proposal' && lead.status !== 'confirmed') {
           try {
-            await leadsAPI.updateStatus(id, { status: 'proposal' });
-            await fetchLeadDetails(); // Refresh lead data
+            await handleStatusChange('proposal');
           } catch (statusError) {
             console.error('Failed to update lead status:', statusError);
-            // Don't show error to user as email was sent successfully
           }
         }
 
@@ -4250,10 +4244,10 @@ const emailTemplate = `
   // PDF includes: company header (logo/name/details), query info, both options A–Z with full price details, all terms & policies.
   // quotationDataOverride: pass when downloading so PDF is not blank.
   // itineraryIdForPricing: when set, fetches final_client_prices + option_gst_settings so PDF shows correct Total Price.
-  const handleDownloadSingleOptionPdf = async (optionNum, quotationDataOverride = null, itineraryIdForPricing = null, showPrice = true) => {
+  const handleDownloadSingleOptionPdf = async (optionNum, quotationDataOverride = null, itineraryIdForPricing = null, showPrice = true, shouldSendToWhatsApp = false, targetChatId = null) => {
     const qData = quotationDataOverride || quotationData;
-    if (!qData) {
-      showToastNotification('warning', 'Quotation Failed', 'Quotation data not loaded. Please open View Quotation first or try again.');
+    if (!qData || !lead) {
+      showToastNotification('warning', 'Quotation Needed', 'Please load quotation first');
       return;
     }
 
@@ -4347,24 +4341,37 @@ const emailTemplate = `
       // 2. Download the PDF
       const downloadRes = await quotationsAPI.download(quotationId);
 
-      // Handle File Download
+      // Handle File Download / WhatsApp Send
       const blob = new Blob([downloadRes.data], { type: 'application/pdf' });
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
       const fileName = `Quotation_${quotationId}_${lead.client_name.replace(/\s+/g, '_')}.pdf`;
-      link.setAttribute('download', fileName);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.URL.revokeObjectURL(url);
 
-      showToastNotification('success', 'PDF Downloaded', 'PDF served from Backend (Blade Template).');
+      if (shouldSendToWhatsApp && targetChatId) {
+        const file = new File([blob], fileName, { type: 'application/pdf' });
+        await whatsappWebAPI.sendMedia({
+          chat_id: targetChatId,
+          file: file,
+          caption: `Professional Quotation PDF for ${qData.itinerary?.itinerary_name || 'Itinerary'}`,
+          type: 'document'
+        });
+      }
+
+      // If not just sending to WhatsApp, trigger browser download
+      if (!shouldSendToWhatsApp) {
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', fileName);
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.URL.revokeObjectURL(url);
+        showToastNotification('success', 'PDF Downloaded', 'PDF served from Backend (Blade Template).');
+      }
 
       // Automatically update lead status to 'Proposal Sent' if it's currently new or processing
-      if (lead && (lead.status === 'new' || lead.status === 'processing')) {
+      if (lead.status !== 'proposal' && lead.status !== 'confirmed') {
         try {
-          await leadsAPI.updateStatus(id, { status: 'proposal' });
+          await handleStatusChange('proposal');
           await fetchLeadDetails(); // Refresh to reflect status change
         } catch (statusError) {
           console.error('Failed to auto-update status on download:', statusError);
@@ -4418,15 +4425,21 @@ const emailTemplate = `
     }
 
     optionNumbers.forEach(optNum => {
+      // Find the corresponding proposal to get the correct price
+      const proposal = (visibleProposals || []).find(p => String(p.optionNumber ?? 1) === String(optNum));
+      const meta = proposal?.metadata || {};
+      const actualPrice = proposal?.price ?? meta.price ?? proposal?.pricing?.finalClientPrice ?? meta.pricing?.finalClientPrice ?? 0;
+
       const hotels = qData.hotelOptions[optNum] || [];
-      const totalPrice = hotels.reduce((sum, h) => sum + (parseFloat(h.price) || 0), 0);
       message += `*Option ${optNum}*\n`;
+      message += `Hotels:\n`;
       hotels.forEach(hotel => {
         message += `• Day ${hotel.day}: ${hotel.hotelName || 'Hotel'} (${hotel.category || 'N/A'} Star)\n`;
         message += `  Room: ${hotel.roomName || 'N/A'} | Meal: ${hotel.mealPlan || 'N/A'}\n`;
       });
-      message += `Total Price: ₹${totalPrice.toLocaleString('en-IN')}\n\n`;
+      message += `Total Price: ₹${Number(actualPrice).toLocaleString('en-IN')}\n\n`;
     });
+    message += `For detailed quotation with images, please check the PDF below.\n\n`;
     message += `Best regards,\nTravelFusion CRM Team`;
 
     // Check WhatsApp Connection
@@ -4448,16 +4461,23 @@ const emailTemplate = `
       if (response.data.success) {
         fetchWhatsAppMessages();
 
-        if (lead.status !== 'proposal') {
+        // Automatically generate and send the PDF as well
+        try {
+          showToastNotification('info', 'Attaching PDF...', 'Generating professional PDF for WhatsApp...');
+          await handleDownloadSingleOptionPdf(optionNumbers.length === 1 ? optionNumbers[0] : null, qData, null, true, true, chatId);
+        } catch (pdfErr) {
+          console.error('Failed to send PDF via WhatsApp:', pdfErr);
+        }
+
+        if (lead.status !== 'proposal' && lead.status !== 'confirmed') {
           try {
-            await leadsAPI.updateStatus(id, { status: 'proposal' });
-            await fetchLeadDetails();
+            await handleStatusChange('proposal');
           } catch (statusError) {
             console.error('Failed to update lead status:', statusError);
           }
         }
 
-        showToastNotification('success', 'WhatsApp Sent!', 'WhatsApp message sent successfully! Lead status updated to Proposal Sent.');
+        showToastNotification('success', 'WhatsApp Sent!', 'Summary and PDF sent successfully!');
       } else {
         showToastNotification('error', 'WhatsApp Error', response.data.message || 'Failed to send WhatsApp message');
       }
@@ -4637,6 +4657,10 @@ const emailTemplate = `
             lead_id: id
           });
           showToastNotification('success', 'Sent!', 'WhatsApp message sent successfully!');
+          fetchWhatsAppMessages();
+          if (lead.status !== 'proposal' && lead.status !== 'confirmed') {
+            await handleStatusChange('proposal');
+          }
         } catch (err) {
           console.error('WhatsApp send failed:', err);
           showToastNotification('error', 'Send Failed', err.response?.data?.message || 'Failed to send message');
@@ -4877,6 +4901,10 @@ const emailTemplate = `
         lead_id: id
       });
       showToastNotification('success', 'Sent!', 'Confirmation WhatsApp sent successfully!');
+      fetchWhatsAppMessages();
+      if (lead.status !== 'confirmed') {
+        await handleStatusChange('confirmed');
+      }
     } catch (err) {
       console.error('WhatsApp send failed:', err);
       showToastNotification('error', 'Send Failed', err.response?.data?.message || 'Failed to send confirmation');
