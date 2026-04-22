@@ -45,16 +45,15 @@ const Sidebar = ({
             }}>
                 <div className="flex flex-col h-full">
                     {/* Logo and Toggle Button */}
-                    <div className="p-4 border-b border-blue-800/50 flex items-center justify-between">
-                        <div className="flex items-center justify-start flex-1">
+                    <div className="p-4 border-b border-white/10 flex items-center justify-between min-h-[80px]">
+                        <div className={`flex items-center ${isSidebarOpen ? 'justify-start' : 'justify-center'} flex-1`}>
                             <Link to="/dashboard" className="flex items-center gap-2">
                                 {settings?.company_logo ? (
                                     <img
                                         src={resolveLogoUrl(settings.company_logo)}
                                         alt="Logo"
-                                        className={`h-8 object-contain transition-all duration-300 ${isSidebarOpen ? 'opacity-100 max-w-[180px]' : 'opacity-100 w-8'}`}
+                                        className={`object-contain transition-all duration-300 ${isSidebarOpen ? 'h-12 max-w-[180px]' : 'h-10 w-10'}`}
                                         onError={(e) => {
-
                                             // Safe fallback to text if image fails
                                             e.target.style.display = 'none';
                                             const parent = e.target.parentElement;
@@ -70,16 +69,25 @@ const Sidebar = ({
                                         }}
                                     />
                                 ) : (
-                                    <h1 className="text-xl font-bold text-white">
+                                    <h1 className="text-xl font-bold text-white transition-all duration-300">
                                         {isSidebarOpen ? (settings?.company_name || 'TravelFusion CRM') : (settings?.company_name?.[0] || 'T')}
                                     </h1>
                                 )}
                             </Link>
                         </div>
-                        <button onClick={toggleSidebar} className="p-1.5 rounded-lg hover:bg-blue-800/50 transition-colors text-white">
-                            {isSidebarOpen ? <ChevronLeft className="h-5 w-5" /> : <ChevronRight className="h-5 w-5" />}
-                        </button>
+                        {isSidebarOpen && (
+                            <button onClick={toggleSidebar} className="p-1.5 rounded-lg hover:bg-white/10 transition-colors text-white ml-2">
+                                <ChevronLeft className="h-5 w-5" />
+                            </button>
+                        )}
                     </div>
+                    {!isSidebarOpen && (
+                         <div className="flex justify-center p-2 border-b border-white/10">
+                            <button onClick={toggleSidebar} className="p-1.5 rounded-lg hover:bg-white/10 transition-colors text-white">
+                                <ChevronRight className="h-5 w-5" />
+                            </button>
+                         </div>
+                    )}
 
                     {/* Navigation */}
                     <nav className="flex-1 p-2 space-y-1 overflow-y-auto overflow-x-hidden custom-scroll">
