@@ -233,6 +233,9 @@
 
     $accountDetailsJson = \App\Models\Setting::getValue('account_details');
     $accountDetails = $accountDetailsJson ? json_decode($accountDetailsJson, true) : null;
+
+    $cabContact = \App\Models\Setting::getValue('cab_booking_contact', '93172-70072');
+    $hotelContact = \App\Models\Setting::getValue('hotel_booking_contact', '93172-67062, 70180-58588');
 @endphp
 
 <body>
@@ -528,11 +531,11 @@
             <tr>
                 <td style="width: 50%">
                     <strong>Cab Booking Contact:-</strong> <br>
-                    93172-70072
+                    {{ $cabContact }}
                 </td>
                 <td>
                     <strong>Hotel Booking Contact:-</strong> <br>
-                    93172-67062, 70180-58588
+                    {{ $hotelContact }}
                 </td>
             </tr>
             <tr>

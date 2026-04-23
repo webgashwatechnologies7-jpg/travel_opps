@@ -69,6 +69,12 @@ const Settings = () => {
   });
   const [savingEmailColors, setSavingEmailColors] = useState(false);
 
+  const [bookingContacts, setBookingContacts] = useState({
+    cab_booking_contact: '93172-70072',
+    hotel_booking_contact: '93172-67062, 70180-58588',
+  });
+  const [savingBookingContacts, setSavingBookingContacts] = useState(false);
+
   useEffect(() => {
     if (settings) {
       setFormData({
@@ -80,6 +86,7 @@ const Settings = () => {
     fetchMaxHotelOptions();
     fetchCompanyDetails();
     fetchEmailColors();
+    fetchBookingContacts();
   }, [settings]);
 
   const fetchMaxHotelOptions = async () => {
@@ -144,6 +151,34 @@ const Settings = () => {
       toast.error('Failed to save email colors.');
     } finally {
       setSavingEmailColors(false);
+    }
+  };
+
+  const fetchBookingContacts = async () => {
+    try {
+      const [cRes, hRes] = await Promise.all([
+        settingsAPI.getByKey('cab_booking_contact'),
+        settingsAPI.getByKey('hotel_booking_contact'),
+      ]);
+      setBookingContacts({
+        cab_booking_contact: cRes?.data?.data?.value || '93172-70072',
+        hotel_booking_contact: hRes?.data?.data?.value || '93172-67062, 70180-58588',
+      });
+    } catch (err) { /* non-blocking */ }
+  };
+
+  const saveBookingContacts = async () => {
+    try {
+      setSavingBookingContacts(true);
+      await Promise.all([
+        settingsAPI.save({ key: 'cab_booking_contact', value: bookingContacts.cab_booking_contact, type: 'string', description: 'Cab booking contact for vouchers' }),
+        settingsAPI.save({ key: 'hotel_booking_contact', value: bookingContacts.hotel_booking_contact, type: 'string', description: 'Hotel booking contact for vouchers' }),
+      ]);
+      toast.success('Booking contacts saved!');
+    } catch (err) {
+      toast.error('Failed to save booking contacts.');
+    } finally {
+      setSavingBookingContacts(false);
     }
   };
 
@@ -351,6 +386,41 @@ const Settings = () => {
                 <input name="company_website" value={companyForm.company_website} onChange={handleCompanyChange} className="w-full px-5 py-3.5 bg-slate-50 border-0 rounded-2xl focus:ring-2 focus:ring-blue-100 font-medium" />
               </div>
             </div>
+          </section>
+
+          <section className="space-y-6 pt-4">
+            <h3 className="text-xs font-bold text-blue-600 uppercase tracking-widest flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-blue-600"></div> Escalation Contacts (Voucher)
+            </h3>
+            <p className="text-xs text-slate-500 font-medium -mt-2 mb-4">
+              These contacts will appear at the bottom of the confirmation voucher PDF.
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div className="space-y-2">
+                <label className="text-sm font-bold text-slate-700 ml-1">Cab Booking Contact</label>
+                <input 
+                  value={bookingContacts.cab_booking_contact} 
+                  onChange={(e) => setBookingContacts(p => ({ ...p, cab_booking_contact: e.target.value }))} 
+                  className="w-full px-5 py-3.5 bg-slate-50 border-0 rounded-2xl focus:ring-2 focus:ring-blue-100 font-medium" 
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-bold text-slate-700 ml-1">Hotel Booking Contact</label>
+                <input 
+                  value={bookingContacts.hotel_booking_contact} 
+                  onChange={(e) => setBookingContacts(p => ({ ...p, hotel_booking_contact: e.target.value }))} 
+                  className="w-full px-5 py-3.5 bg-slate-50 border-0 rounded-2xl focus:ring-2 focus:ring-blue-100 font-medium" 
+                />
+              </div>
+            </div>
+            <button
+              onClick={saveBookingContacts}
+              disabled={savingBookingContacts}
+              className="px-8 py-3 bg-blue-600 text-white rounded-2xl font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-100 active:scale-95 text-xs flex items-center gap-2 mt-4"
+            >
+              <Save className="w-4 h-4" />
+              {savingBookingContacts ? 'SAVING...' : 'SAVE CONTACTS'}
+            </button>
           </section>
 
           <section className="space-y-6 pt-4">
