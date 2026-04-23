@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Modules\Leads\Domain\Entities\Lead;
 use App\Models\Setting;
 use App\Models\Quotation;
+use App\Models\QueryProposal;
+use App\Models\Package;
 use App\Models\LeadInvoice;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
@@ -170,12 +172,7 @@ class VoucherController extends Controller
             return null;
         }
 
-        $lead->load(['company', 'creator']);
-
-        // Find confirmed quotation
-        $quotation = Quotation::where('lead_id', $leadId)
-            ->orderBy('created_at', 'desc')
-            ->first();
+        $lead->load(['company', 'creator', 'payments']);
 
         // Find confirmed invoice to get the option number
         $invoice = LeadInvoice::where('lead_id', $leadId)
@@ -184,6 +181,55 @@ class VoucherController extends Controller
             ->first();
 
         $confirmedOption = $invoice ? (int) $invoice->option_number : 1;
+
+        // Try to find proposal data (Preferred modern way)
+        $proposal = QueryProposal::where('lead_id', $leadId)
+            ->orderBy('created_at', 'desc')
+            ->first();
+
+        $quotation = null;
+        if ($proposal) {
+            // Transform Proposal + Package into a Quotation-like object for the blade
+            $packageId = $proposal->metadata['itinerary_id'] ?? null;
+            $package = $packageId ? Package::find($packageId) : null;
+            
+            $quotation = new \stdClass();
+            $quotation->total_price = $proposal->total_amount;
+            $quotation->pricing_breakdown = [
+                $confirmedOption => [
+                    'final' => $proposal->total_amount,
+                    'breakdown' => $proposal->metadata['breakdown'] ?? []
+                ]
+            ];
+            
+            if ($package) {
+                $quotation->itinerary = [
+                    'days' => $package->days,
+                    'day_events' => $package->day_events,
+                    'routing' => $package->routing,
+                    'inclusions' => $package->inclusions,
+                    'exclusions' => $package->exclusions,
+                    'terms' => $package->terms_conditions,
+                    'transportation' => [
+                        'vehicle' => $package->day_events[1][0]['vehicle'] ?? 'Private Cab' // Simple heuristic
+                    ]
+                ];
+            } else {
+                 $quotation->itinerary = [
+                    'days' => [],
+                    'day_events' => [],
+                    'routing' => 'N/A',
+                    'inclusions' => $proposal->metadata['inclusions'] ?? [],
+                    'exclusions' => $proposal->metadata['exclusions'] ?? [],
+                    'terms' => $proposal->metadata['terms'] ?? []
+                ];
+            }
+        } else {
+            // Fallback to legacy Quotation table
+            $quotation = Quotation::where('lead_id', $leadId)
+                ->orderBy('created_at', 'desc')
+                ->first();
+        }
 
         return [
             'lead' => $lead,

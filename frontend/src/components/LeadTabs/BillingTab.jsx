@@ -158,40 +158,44 @@ const BillingTab = memo(({
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-200">
-                                {payments.map((payment) => (
-                                    <tr key={payment.id} className="hover:bg-gray-50">
-                                        <td className="px-4 py-3 text-sm text-gray-900">
-                                            {payment.created_at ? formatDateForDisplay(payment.created_at) : 'N/A'}
-                                        </td>
-                                        <td className="px-4 py-3 text-sm font-medium text-gray-900">
-                                            ₹{parseFloat(payment.amount).toLocaleString('en-IN')}
-                                        </td>
-                                        <td className="px-4 py-3 text-sm text-green-600 font-medium">
-                                            ₹{parseFloat(payment.paid_amount).toLocaleString('en-IN')}
-                                        </td>
-                                        <td className="px-4 py-3 text-sm text-red-600 font-medium">
-                                            ₹{parseFloat(
-                                                payment.due_amount || payment.amount - payment.paid_amount
-                                            ).toLocaleString('en-IN')}
-                                        </td>
-                                        <td className="px-4 py-3 text-sm text-gray-600">
-                                            {payment.due_date ? formatDateForDisplay(payment.due_date) : 'N/A'}
-                                        </td>
-                                        <td className="px-4 py-3">
-                                            <span
-                                                className={`px-2 py-1 text-xs font-medium rounded-full ${payment.status === 'paid'
-                                                        ? 'bg-green-100 text-green-800'
-                                                        : payment.status === 'partial'
-                                                            ? 'bg-yellow-100 text-yellow-800'
-                                                            : 'bg-red-100 text-red-800'
-                                                    }`}
-                                            >
-                                                {payment.status === 'paid'
-                                                    ? 'Paid'
-                                                    : payment.status === 'partial'
-                                                        ? 'Partial'
-                                                        : 'Pending'}
-                                            </span>
+                                {payments.map((payment) => {
+                                    const isFullyPaid = displayDue <= 0;
+                                    const displayStatus = isFullyPaid ? 'paid' : payment.status;
+
+                                    return (
+                                        <tr key={payment.id} className="hover:bg-gray-50">
+                                            <td className="px-4 py-3 text-sm text-gray-900">
+                                                {payment.created_at ? formatDateForDisplay(payment.created_at) : 'N/A'}
+                                            </td>
+                                            <td className="px-4 py-3 text-sm font-medium text-gray-900">
+                                                ₹{parseFloat(payment.amount).toLocaleString('en-IN')}
+                                            </td>
+                                            <td className="px-4 py-3 text-sm text-green-600 font-medium">
+                                                ₹{parseFloat(payment.paid_amount).toLocaleString('en-IN')}
+                                            </td>
+                                            <td className="px-4 py-3 text-sm text-red-600 font-medium">
+                                                {isFullyPaid ? '₹0' : `₹${parseFloat(
+                                                    payment.due_amount || payment.amount - payment.paid_amount
+                                                ).toLocaleString('en-IN')}`}
+                                            </td>
+                                            <td className="px-4 py-3 text-sm text-gray-600">
+                                                {payment.due_date ? formatDateForDisplay(payment.due_date) : 'N/A'}
+                                            </td>
+                                            <td className="px-4 py-3">
+                                                <span
+                                                    className={`px-2 py-1 text-xs font-medium rounded-full ${displayStatus === 'paid'
+                                                            ? 'bg-green-100 text-green-800'
+                                                            : displayStatus === 'partial'
+                                                                ? 'bg-yellow-100 text-yellow-800'
+                                                                : 'bg-red-100 text-red-800'
+                                                        }`}
+                                                >
+                                                    {displayStatus === 'paid'
+                                                        ? 'Paid'
+                                                        : displayStatus === 'partial'
+                                                            ? 'Partial'
+                                                            : 'Pending'}
+                                                </span>
                                         </td>
                                         <td className="px-4 py-3 text-sm text-gray-600">
                                             {payment.creator?.name || 'N/A'}
@@ -225,7 +229,8 @@ const BillingTab = memo(({
                                             </div>
                                         </td>
                                     </tr>
-                                ))}
+                                    );
+                                })}
                             </tbody>
                         </table>
                     </div>

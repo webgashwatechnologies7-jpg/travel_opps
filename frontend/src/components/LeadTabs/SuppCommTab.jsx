@@ -1,5 +1,5 @@
 import React, { memo } from 'react';
-import { Send } from 'lucide-react';
+import { Send, RefreshCw } from 'lucide-react';
 
 const SuppCommTab = memo(({
     lead,
@@ -8,8 +8,10 @@ const SuppCommTab = memo(({
     formatDateForDisplay,
     supplierEmailForm,
     setSupplierEmailForm,
+    handleSupplierEmailBodyChange,
     handleSendSupplierEmail,
     sendingEmail,
+    resetSupplierEmailBody,
     // Suppliers
     suppliers,
     selectedSuppliers,
@@ -65,12 +67,23 @@ const SuppCommTab = memo(({
 
                 {/* Email Body */}
                 <div className="mb-4">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Email Body
-                    </label>
+                    <div className="flex items-center justify-between mb-1">
+                        <label className="block text-sm font-medium text-gray-700">
+                            Email Body
+                        </label>
+                        <button 
+                            type="button"
+                            onClick={resetSupplierEmailBody}
+                            className="text-xs text-blue-600 hover:text-blue-800 font-medium flex items-center gap-1"
+                            title="Reset body based on current selection"
+                        >
+                            <RefreshCw className="h-3 w-3" />
+                            Reset Message
+                        </button>
+                    </div>
                     <textarea
                         value={supplierEmailForm.body}
-                        onChange={(e) => setSupplierEmailForm({ ...supplierEmailForm, body: e.target.value })}
+                        onChange={(e) => handleSupplierEmailBodyChange(e.target.value)}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                         rows="12"
                         placeholder="Enter email body..."
@@ -114,11 +127,11 @@ const SuppCommTab = memo(({
                         </table>
 
                         {/* Hotel Details */}
-                        {getConfirmedOption()?.hotels && getConfirmedOption().hotels.length > 0 && (
+                        {(getConfirmedOption()?.hotels || getConfirmedOption()?.hotelOptions) && (getConfirmedOption()?.hotels || getConfirmedOption()?.hotelOptions).length > 0 && (
                             <div className="mt-4">
                                 <h5 className="font-semibold text-gray-800 mb-2">Hotel Requirements:</h5>
                                 <div className="space-y-2">
-                                    {getConfirmedOption().hotels.map((hotel, index) => (
+                                    {(getConfirmedOption().hotels || getConfirmedOption().hotelOptions).map((hotel, index) => (
                                         <div key={index} className="bg-white p-2 rounded border border-gray-200">
                                             <div className="text-sm">
                                                 <span className="font-medium">{hotel.hotel_name || 'Hotel'}</span>
@@ -225,8 +238,18 @@ const SuppCommTab = memo(({
                                             </div>
                                         )}
                                         {hotel.day && (
-                                            <div className="text-xs text-gray-500">
-                                                Day {hotel.day}
+                                            <div className="flex items-center justify-between mt-1">
+                                                <span className="text-xs text-gray-500">Day {hotel.day}</span>
+                                                {hotel.status && (
+                                                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                                                        hotel.status === 'Confirmed' ? 'bg-green-100 text-green-700 border border-green-200' :
+                                                        hotel.status === 'Inquiry Sent' ? 'bg-blue-100 text-blue-700 border border-blue-200' :
+                                                        hotel.status === 'Cancelled' ? 'bg-red-100 text-red-700 border border-red-200' :
+                                                        'bg-gray-100 text-gray-600 border border-gray-200'
+                                                    }`}>
+                                                        {hotel.status.toUpperCase()}
+                                                    </span>
+                                                )}
                                             </div>
                                         )}
                                         <div className={`text-xs mt-1 ${hotel.email ? 'text-gray-500' : 'text-orange-600 font-medium'}`}>

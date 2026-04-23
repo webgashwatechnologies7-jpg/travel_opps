@@ -243,7 +243,7 @@ const ItineraryHistoryTab = memo(({ historyData, totalChanges, loadingHistory, g
                   const optMeta = opt.metadata || opt;
                   const optPrice = optMeta.price ?? opt.total_amount ?? opt.price ?? 0;
                   const optNum = optMeta.optionNumber ?? (optIdx + 1);
-                  const hotelCount = (optMeta.hotelOptions || opt.hotelOptions || []).length;
+                  const hotelCount = (optMeta.hotelOptions || opt.hotelOptions || optMeta.hotels || opt.hotels || []).length;
                   const wasConfirmed = opt.is_confirmed || optMeta.confirmed || opt.confirmed;
 
                   return (

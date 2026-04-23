@@ -7,266 +7,63 @@
     <title>Confirmation Voucher - {{ $lead->query_id ?? $lead->id }}</title>
     <style>
         @page {
-            margin: 0px;
+            margin: 20px;
             padding: 0px;
         }
 
         body {
             font-family: 'DejaVu Sans', sans-serif;
             background-color: #fff;
-            color: #333;
+            color: #1a1a1a;
             margin: 0;
-            padding: 20px 40px;
-            line-height: 1.3;
-            font-size: 10px;
+            padding: 0;
+            line-height: 1.25;
+            font-size: 8.5px;
         }
+
+        /* UTILITIES */
+        .w-100 { width: 100%; }
+        .text-center { text-align: center; }
+        .text-right { text-align: right; }
+        .font-bold { font-weight: bold; }
+        .text-uppercase { text-transform: uppercase; }
+        .m-0 { margin: 0; }
+        .mb-1 { margin-bottom: 2px; }
+        .p-1 { padding: 4px; }
+        .table { width: 100%; border-collapse: collapse; }
+        .table th, .table td { border: 0.5px solid #ccc; padding: 4px; vertical-align: top; }
+        .table th { background-color: #f3f4f6; color: #374151; font-weight: bold; text-align: left; }
+        .section-title { background-color: #c6d9f1; border: 0.5px solid #ccc; padding: 3px 8px; font-weight: bold; font-size: 9px; color: #1e3a8a; margin-top: 8px; }
 
         /* HEADER */
-        .header {
-            width: 100%;
-            margin-bottom: 15px;
-        }
+        .main-header { border-bottom: 1px solid #ccc; padding-bottom: 5px; margin-bottom: 10px; }
+        .company-name { font-size: 16px; color: #000; font-weight: bold; margin-bottom: 2px; }
+        .company-addr { color: #4b5563; font-size: 8px; line-height: 1.1; }
 
-        .logo-img {
-            max-height: 60px;
-            max-width: 160px;
-        }
+        .voucher-header-title { font-size: 14px; margin: 5px 0; border-top: 1px dotted #888; border-bottom: 1px dotted #888; padding: 3px 0; font-weight: bold; }
+        .voucher-routing { font-size: 10px; font-weight: bold; margin-bottom: 5px; font-style: italic; }
 
-        .voucher-title-section {
-            text-align: right;
-            vertical-align: top;
-        }
+        /* BOXES */
+        .info-box { border: 0.5px solid #ccc; background-color: #f9fafb; margin-bottom: 5px; }
+        .voucher-meta-table { background-color: #d1d5db; width: 100%; border-collapse: collapse; }
+        .voucher-meta-table td { border: 0.5px solid #9ca3af; padding: 4px; }
 
-        .voucher-date {
-            font-size: 11px;
-            font-weight: bold;
-            margin-bottom: 5px;
-        }
+        /* ITINERARY */
+        .day-header { border-bottom: 0.5px solid #ccc; padding: 2px 5px; font-weight: bold; font-size: 9px; display: block; margin-top: 5px; }
+        .day-img { width: 80px; height: 60px; object-fit: cover; border-radius: 2px; margin-right: 8px; }
+        .day-text { font-size: 8px; color: #333; line-height: 1.3; }
 
-        .voucher-label {
-            font-size: 16px;
-            font-weight: bold;
-            color: #444;
-            text-transform: uppercase;
-        }
+        /* FOOTER */
+        .footer { margin-top: 20px; border-top: 0.5px solid #ccc; padding-top: 10px; }
+        .authorized-sign { width: 100px; height: auto; margin-bottom: 5px; }
+        
+        .escalation-box { border: 0.5px dotted #999; padding: 5px; margin: 10px 0; font-size: 8px; }
+        .cost-row { background-color: #fff; }
+        .cost-total { background-color: #e5e7eb; font-weight: bold; }
 
-        /* INFO SECTION */
-        .info-container {
-            width: 100%;
-            margin-bottom: 20px;
-        }
+        .includes-list, .excludes-list, .tc-list { padding-left: 15px; margin: 5px 0; }
+        .includes-list li, .excludes-list li, .tc-list li { margin-bottom: 2px; }
 
-        .info-table {
-            width: 60%;
-            border-collapse: collapse;
-        }
-
-        .info-table td {
-            padding: 3px 0;
-            vertical-align: top;
-        }
-
-        .info-label {
-            font-weight: bold;
-            width: 120px;
-        }
-
-        .info-separator {
-            width: 15px;
-            text-align: center;
-        }
-
-        .badge-booking {
-            background-color: #10b981;
-            color: white;
-            padding: 2px 6px;
-            border-radius: 3px;
-            font-size: 9px;
-            font-weight: bold;
-        }
-
-        .badge-guest {
-            background-color: #4f46e5;
-            color: white;
-            padding: 2px 6px;
-            border-radius: 3px;
-            font-size: 9px;
-            font-weight: bold;
-        }
-
-        .qr-section {
-            width: 40%;
-            text-align: right;
-            vertical-align: middle;
-        }
-
-        .qr-code {
-            width: 100px;
-            height: 100px;
-        }
-
-        .voucher-no {
-            font-size: 10px;
-            margin-top: 5px;
-            color: #666;
-        }
-
-        /* SECTIONS */
-        .section-header {
-            background-color: #d1d5db;
-            color: #2D3192;
-            padding: 4px 10px;
-            font-weight: bold;
-            font-size: 11px;
-            text-transform: uppercase;
-            margin-bottom: 5px;
-        }
-
-        .data-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 20px;
-        }
-
-        .data-table th {
-            background-color: #d1d5db;
-            border: 1px solid #9ca3af;
-            padding: 4px 6px;
-            text-align: left;
-            font-size: 9px;
-            font-weight: bold;
-            color: #374151;
-        }
-
-        .data-table td {
-            border: 1px solid #9ca3af;
-            padding: 6px;
-            font-size: 9px;
-            vertical-align: top;
-        }
-
-        /* IMPORTANT NOTES */
-        .notes-section {
-            margin-top: 20px;
-        }
-
-        .notes-title {
-            color: #2D3192;
-            font-weight: bold;
-            font-size: 11px;
-            margin-bottom: 8px;
-            text-transform: uppercase;
-        }
-
-        .notes-list {
-            padding-left: 15px;
-            margin: 0;
-        }
-
-        .notes-list li {
-            margin-bottom: 4px;
-            font-size: 9px;
-            color: #4b5563;
-        }
-
-        /* WISH MESSAGE */
-        .wish-message {
-            text-align: center;
-            color: #C42771;
-            font-weight: bold;
-            font-size: 11px;
-            margin: 30px 0;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
-
-        /* ADDRESS FOOTER */
-        .footer-address {
-            background-color: #f3f4f6;
-            border: 1px solid #cbd5e1;
-            padding: 10px;
-            text-align: center;
-        }
-
-        .footer-title {
-            font-weight: bold;
-            color: #1e40af;
-            font-size: 10px;
-            margin-bottom: 3px;
-        }
-
-        .footer-text {
-            font-size: 9px;
-            color: #4b5563;
-        }
-        /* EXTREMELY COMPACT LAYOUT */
-        body { margin: 0; padding: 0; }
-        .payment-block {
-            margin-top: 5px;
-            border: 1px solid {{ $lead->company ? '#2D3192' : '#000' }};
-        }
-
-        .payment-header {
-            background-color: {{ $lead->company ? '#2D3192' : '#000' }};
-            color: #fff;
-            padding: 2px 8px;
-            font-weight: bold;
-            font-size: 10px;
-            text-transform: uppercase;
-        }
-
-        .bank-info-td {
-            padding: 5px;
-            vertical-align: top;
-        }
-
-        .bank-details-subtable td {
-            padding: 1px 0;
-            font-size: 10px;
-            border-bottom: 1px solid #f9fafb;
-        }
-
-        .label-text {
-            color: #6b7280;
-            font-weight: bold;
-            width: 90px;
-            font-size: 8px;
-        }
-
-        .value-text {
-            color: #111827;
-            font-weight: bold;
-            font-size: 10px;
-        }
-
-        .qr-placeholder {
-            width: 100px;
-            text-align: center;
-            border-left: 1px solid #eee;
-            background-color: #fafafa;
-            padding: 4px;
-        }
-
-        .qr-img-large {
-            width: 70px;
-            height: 70px;
-        }
-
-        .payment-footer {
-            background-color: #fff5f5;
-            color: #b91c1c;
-            padding: 3px;
-            text-align: center;
-            font-weight: bold;
-            font-size: 9px;
-        }
-
-        /* TIGHTEN ALL SECTIONS */
-        .notes-section, .terms-section { margin-top: 5px !important; }
-        .notes-list li, .terms-list li { margin-bottom: 0px !important; font-size: 9px !important; }
-        .total-section { margin-top: 5px !important; }
-        h1, h2, h3 { margin: 2px 0 !important; }
-        .header-table { margin-bottom: 5px !important; }
     </style>
 </head>
 
@@ -274,36 +71,70 @@
     function imageToBase64($url)
     {
         try {
-            if (empty($url))
-                return null;
+            if (empty($url)) return null;
+            
+            // Handle relative paths
+            if (strpos($url, 'http') !== 0) {
+                $url = config('app.url') . '/' . ltrim($url, '/');
+            }
+
             $parsed = parse_url($url);
-            $relativePath = $parsed['path'] ?? '';
-            if ($relativePath) {
-                $relativePath = ltrim($relativePath, '/');
-                $publicPath = public_path($relativePath);
-                if (file_exists($publicPath)) {
+            $path = $parsed['path'] ?? '';
+            if (!$path) return null;
+
+            // SMART SEARCH: Try to find local file even if domain is different (e.g. live URL in local DB)
+            $searchPaths = [];
+            
+            // 1. Exact path from URL
+            $searchPaths[] = ltrim($path, '/');
+            
+            // 2. If it contains 'storage/', try to extract everything from 'storage/' onwards
+            if (strpos($path, '/storage/') !== false) {
+                $searchPaths[] = ltrim(strstr($path, '/storage/'), '/');
+            } elseif (strpos($path, 'storage/') !== false) {
+                $searchPaths[] = strstr($path, 'storage/');
+            }
+
+            foreach (array_unique($searchPaths) as $cleanPath) {
+                // Check public directory
+                $publicPath = public_path($cleanPath);
+                if (file_exists($publicPath) && is_file($publicPath)) {
                     $type = pathinfo($publicPath, PATHINFO_EXTENSION);
                     $data = file_get_contents($publicPath);
-                    return 'data:image/' . $type . ';base64,' . base64_encode($data);
+                    return 'data:image/' . ($type ?: 'jpg') . ';base64,' . base64_encode($data);
                 }
-                if (strpos($relativePath, 'storage/') === 0) {
-                    $innerPath = substr($relativePath, 8);
+
+                // Check storage app public directory
+                if (strpos($cleanPath, 'storage/') === 0) {
+                    $innerPath = substr($cleanPath, 8);
                     $storagePath = storage_path('app/public/' . $innerPath);
-                    if (file_exists($storagePath)) {
+                    if (file_exists($storagePath) && is_file($storagePath)) {
                         $type = pathinfo($storagePath, PATHINFO_EXTENSION);
                         $data = file_get_contents($storagePath);
-                        return 'data:image/' . $type . ';base64,' . base64_encode($data);
+                        return 'data:image/' . ($type ?: 'jpg') . ';base64,' . base64_encode($data);
                     }
                 }
             }
-            $ctx = stream_context_create(['ssl' => ['verify_peer' => false], 'http' => ['timeout' => 5]]);
+            
+            // 3. Fallback: Try fetching via HTTP
+            $ctx = stream_context_create(['ssl' => ['verify_peer' => false, 'verify_peer_name' => false], 'http' => ['timeout' => 2]]);
             $data = @file_get_contents($url, false, $ctx);
-            if ($data)
+            if ($data) {
                 return 'data:image/jpg;base64,' . base64_encode($data);
+            }
+            
             return null;
         } catch (\Exception $e) {
             return null;
         }
+    }
+
+    function numberToWords($number) {
+        $formatter = new NumberFormatter("en", NumberFormatter::SPELLOUT);
+        $words = $formatter->format($number);
+        // Clean up formatting
+        $words = str_replace('-', ' ', $words);
+        return ucwords($words);
     }
 
     $company = $lead->company;
@@ -315,310 +146,464 @@
     $companyDomain = $company ? $company->getFullUrlAttribute() : config('app.url');
     $base64Logo = imageToBase64($companyLogo);
 
-    $bookingCode = $lead->query_id ?? ('#' . str_pad($lead->id, 6, '0', STR_PAD_LEFT));
-    $voucherNo = $invoice ? $invoice->invoice_number : ('VHR' . str_pad($lead->id, 6, '0', STR_PAD_LEFT));
-
-    // QR Code API
-    $qrData = $bookingCode . ' | ' . $lead->client_name;
-    $qrUrl = "https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=" . urlencode($qrData);
-
-    // Extracting Hotel Data
-    $hotelDetails = [];
-    if ($quotation && isset($quotation->custom_fields['hotel_options'][$confirmedOption])) {
-        $hotelDetails = $quotation->custom_fields['hotel_options'][$confirmedOption];
+    $voucherNo = $invoice ? ($invoice->invoice_number ?: 'CTB' . str_pad($lead->id, 8, '0', STR_PAD_LEFT)) : ('VHR' . str_pad($lead->id, 6, '0', STR_PAD_LEFT));
+    
+    // Extracting Itinerary Routing
+    $routing = $quotation && !empty($quotation->itinerary['routing']) ? $quotation->itinerary['routing'] : 'N/A';
+    
+    // Calculating Duration
+    $nights = 0;
+    $days = 0;
+    if ($lead->travel_start_date && $lead->travel_end_date) {
+        $diff = $lead->travel_start_date->diff($lead->travel_end_date);
+        $nights = $diff->days;
+        $days = $nights + 1;
     }
 
-    // Extracting Tour & Departure Data
-    $tourDetails = [];
-    $departureDetails = [];
+    // Accommodation extraction
+    $hotels = [];
     if($quotation && isset($quotation->itinerary['day_events'])) {
         foreach($quotation->itinerary['day_events'] as $dayNum => $events) {
             foreach($events as $event) {
-                $type = $event['eventType'] ?? '';
-                $subject = strtolower($event['subject'] ?? '');
-                
-                if($type == 'activity' || ($type == 'transport' && !str_contains($subject, 'flight') && !str_contains($subject, 'airport'))) {
-                    $tourDetails[] = [
+                if(($event['eventType']??'') === 'accommodation' && !empty($event['hotelOptions'])) {
+                    $opt = $event['hotelOptions'][$confirmedOption - 1] ?? $event['hotelOptions'][0];
+                    $dayIndex = (int)$dayNum - 1;
+                    $city = $event['location'] ?? ($quotation->itinerary['days'][$dayIndex]['title'] ?? ($quotation->itinerary['days'][$dayIndex]['location'] ?? 'N/A'));
+                    
+                    $hotels[] = [
                         'day' => $dayNum,
-                        'name' => $event['subject'],
-                        'type' => $type == 'activity' ? 'Activity' : 'Transfer',
-                        'time' => $event['time'] ?? 'TBA',
-                        'details' => $event['details'] ?? ''
-                    ];
-                } elseif($type == 'flight' || str_contains($subject, 'flight') || str_contains($subject, 'airport')) {
-                    $departureDetails[] = [
-                        'day' => $dayNum,
-                        'name' => $event['subject'],
-                        'type' => 'Flight/Transfer',
-                        'time' => $event['time'] ?? 'TBA',
-                        'details' => $event['details'] ?? ''
+                        'city' => $city,
+                        'checkIn' => $opt['checkIn'] ?? '',
+                        'checkOut' => $opt['checkOut'] ?? '',
+                        'hotelName' => $opt['hotelName'] ?? '',
+                        'roomCategory' => $opt['roomName'] ?? '',
+                        'plan' => $opt['mealPlan'] ?? '',
+                        'room' => $opt['roomCount'] ?? 1,
+                        'nights' => 1
                     ];
                 }
             }
         }
     }
-    // Extracting Departure Details (Moved logic before HTML for cleaner structure)
+
+    // Vehicle extraction
+    $vehicles = [];
+    if($quotation && !empty($quotation->itinerary['transportation'])) {
+        $vehicles[] = [
+            'name' => $quotation->itinerary['transportation']['vehicle'] ?? 'Private Cab',
+            'date' => $lead->travel_start_date->format('d/m/y'),
+            'tariff' => 'N/A',
+            'km' => 'Sightseeing',
+            'days' => $days,
+            'driver' => 'Driver details will be shared 24hrs before travel'
+        ];
+    }
+
+    // Pricing extraction
+    $grandTotal = 0;
+    $pricingRows = [];
+    if($quotation && !empty($quotation->pricing_breakdown)) {
+        $optionPricing = $quotation->pricing_breakdown[$confirmedOption] ?? reset($quotation->pricing_breakdown);
+        $grandTotal = $optionPricing['final'] ?? ($optionPricing['total'] ?? $quotation->total_price);
+        
+        // If we have detailed breakdown, use it. Otherwise show package total.
+        if(!empty($optionPricing['breakdown'])) {
+             foreach($optionPricing['breakdown'] as $item) {
+                 $pricingRows[] = [
+                    'type' => $item['label'] ?? 'Tour Package',
+                    'qty' => $item['count'] ?? 1,
+                    'rate' => $item['price'] ?? 0,
+                    'total' => $item['total'] ?? 0
+                ];
+             }
+        }
+    }
+
+    if(empty($pricingRows) && $grandTotal > 0) {
+        $pricingRows[] = [
+            'type' => 'Full Tour Package',
+            'qty' => 1,
+            'rate' => $grandTotal,
+            'total' => $grandTotal
+        ];
+    }
+
+    $advanceReceived = ($lead->payments && count($lead->payments) > 0) ? $lead->payments->sum('paid_amount') : 0;
+    $balanceAmount = $grandTotal - $advanceReceived;
+
     $accountDetailsJson = \App\Models\Setting::getValue('account_details');
     $accountDetails = $accountDetailsJson ? json_decode($accountDetailsJson, true) : null;
 @endphp
 
 <body>
-    <table class="header">
-        <tr>
-            <td>
-                @if($base64Logo)
-                    <img src="{{ $base64Logo }}" class="logo-img" alt="Logo">
-                @endif
-            </td>
-            <td class="voucher-title-section">
-                <div class="voucher-date">{{ now()->format('d-m-Y') }}</div>
-                <div class="voucher-label">Confirmation Voucher</div>
-            </td>
-        </tr>
-    </table>
-
-    <table class="info-container">
-        <tr>
-            <td style="width: 60%; vertical-align: top;">
-                <table class="info-table">
-                    <tr>
-                        <td class="info-label">Booking Code</td>
-                        <td class="info-separator">:</td>
-                        <td>{{ $bookingCode }} <span class="badge-booking">{{ $companyName }}</span></td>
-                    </tr>
-                    <tr>
-                        <td class="info-label">Guest Name</td>
-                        <td class="info-separator">:</td>
-                        <td>{{ $lead->client_name }} <span class="badge-guest">Main Ver</span></td>
-                    </tr>
-                    <tr>
-                        <td class="info-label">Guest Email</td>
-                        <td class="info-separator">:</td>
-                        <td>{{ $lead->email }}</td>
-                    </tr>
-                    <tr>
-                        <td class="info-label">Guest Contact No</td>
-                        <td class="info-separator">:</td>
-                        <td>{{ $lead->phone }}</td>
-                    </tr>
-                    <tr>
-                        <td class="info-label">Total pax</td>
-                        <td class="info-separator">:</td>
-                        <td>{{ ($lead->adult + $lead->child + $lead->infant) }}</td>
-                    </tr>
-                    @if($quotation && !empty($quotation->itinerary['routing']))
-                    <tr>
-                        <td class="info-label">Routing</td>
-                        <td class="info-separator">:</td>
-                        <td style="color: #2D3192; font-weight: bold;">{{ $quotation->itinerary['routing'] }}</td>
-                    </tr>
+    <div class="main-header">
+        <table class="w-100">
+            <tr>
+                <td style="vertical-align: top;">
+                    @if($base64Logo)
+                        <img src="{{ $base64Logo }}" style="max-height: 70px; max-width: 150px;">
+                    @else
+                        <div style="font-weight: bold; font-size: 14px;">{{ $companyName }}</div>
                     @endif
+                </td>
+                <td class="text-right" style="vertical-align: top;">
+                    <div class="company-name">{{ strtoupper($companyName) }}</div>
+                    <div class="company-addr">
+                        @if($companyAddress) {!! nl2br(e($companyAddress)) !!} @else Himachal Pradesh (State Code: 02), Country: India. @endif
+                    </div>
+                </td>
+            </tr>
+        </table>
+    </div>
+
+    <div class="text-center">
+        <div class="voucher-header-title">Tour Confirmation Voucher</div>
+        <div class="voucher-routing">{{ $nights }} Night/s {{ $days }} Day/s ({{ $routing }})</div>
+    </div>
+
+    <table class="w-100" style="margin-bottom: 5px;">
+        <tr>
+            <td style="width: 55%; vertical-align: top; padding-right: 5px;">
+                <div class="p-1 font-bold">From,</div>
+                <div class="p-1">
+                    <div class="font-bold">{{ $lead->client_name }}</div>
+                    @if($lead->address) <div>{{ $lead->address }}</div> @endif
+                    <div>State: {{ $lead->state ?? 'N/A' }}, Country: {{ $lead->country ?? 'India' }}</div>
+                    <div>(M) {{ $lead->phone }}</div>
+                </div>
+            </td>
+            <td style="width: 45%; vertical-align: top;">
+                <table class="voucher-meta-table">
                     <tr>
-                        <td class="info-label">Adult : {{ $lead->adult }}, Child : {{ $lead->child }}, Infant :
-                            {{ $lead->infant }}</td>
-                        <td colspan="2"></td>
+                        <td class="font-bold">Voucher No. :</td>
+                        <td class="font-bold">{{ $voucherNo }}</td>
+                    </tr>
+                    <tr>
+                        <td>Date :</td>
+                        <td>{{ date('d M Y') }}</td>
+                    </tr>
+                    <tr>
+                        <td>Reference No. :</td>
+                        <td>{{ $lead->query_id ?? 'PH-' . $lead->id }}</td>
                     </tr>
                 </table>
             </td>
-            <td class="qr-section">
-                <img src="{{ $qrUrl }}" class="qr-code" alt="QR Code">
-                <div class="voucher-no">Voucher No.: {{ $voucherNo }}</div>
-            </td>
         </tr>
     </table>
 
-    <!-- HOTEL DETAILS -->
-    <div class="section-header">Hotel Details</div>
-    <table class="data-table">
+    <table class="table">
         <thead>
             <tr>
-                <th width="12%">Check In</th>
-                <th width="12%">Check Out</th>
-                <th width="20%">Hotel Name</th>
-                <th width="15%">Room Category</th>
-                <th width="8%">Meal</th>
-                <th width="10%">No of Rooms</th>
-                <th width="10%">Confirmation</th>
-                <th width="13%">Remarks</th>
+                <th>Start Date</th>
+                <th>End Date</th>
+                <th>Night/s</th>
+                <th>Day/s</th>
+                <th>Adult/s</th>
+                <th>Child</th>
+                <th>Total Pax</th>
             </tr>
         </thead>
         <tbody>
-            @if(!empty($hotelDetails))
-                @foreach($hotelDetails as $hotel)
-                    <tr>
-                        <td>{{ $lead->travel_start_date ? $lead->travel_start_date->format('d-m-Y') : 'TBA' }}</td>
-                        <td>{{ $lead->travel_end_date ? $lead->travel_end_date->format('d-m-Y') : 'TBA' }}</td>
-                        <td>{{ $hotel['hotelName'] ?? 'Selected Hotel' }}</td>
-                        <td>{{ $hotel['roomName'] ?? 'Standard Room' }}</td>
-                        <td>
-                            @php
-                                $dayNo = $hotel['day'] ?? null;
-                                $mealP = $hotel['mealPlan'] ?? 'As per Plan';
-                                if ($dayNo && $quotation && isset($quotation->itinerary['day_events'][$dayNo])) {
-                                    foreach ($quotation->itinerary['day_events'][$dayNo] as $evt) {
-                                        if (($evt['eventType'] ?? '') === 'meal') {
-                                            $mealP = $evt['subject'] ?? $evt['mealType'] ?? $mealP;
-                                            break;
-                                        }
-                                    }
-                                }
-                            @endphp
-                            {{ $mealP }}
-                        </td>
-                        <td>{{ $hotel['roomCount'] ?? 1 }}</td>
-                        <td>{{ $hotel['confirmationNo'] ?? 'Pending' }}</td>
-                        <td>{{ $hotel['remarks'] ?? '' }}</td>
-                    </tr>
+            <tr>
+                <td>{{ $lead->travel_start_date ? $lead->travel_start_date->format('d M Y') : 'TBA' }}</td>
+                <td>{{ $lead->travel_end_date ? $lead->travel_end_date->format('d M Y') : 'TBA' }}</td>
+                <td>{{ $nights }}</td>
+                <td>{{ $days }}</td>
+                <td>{{ $lead->adult }}</td>
+                <td>{{ $lead->child }}</td>
+                <td class="font-bold">{{ $lead->adult + $lead->child }}</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <div class="section-title">Traveller Detail</div>
+    <table class="table">
+        <thead>
+            <tr>
+                <th style="width: 30%">Name</th>
+                <th>Gender</th>
+                <th>Birth Date</th>
+                <th>Age</th>
+                <th>Food</th>
+                <th>Notes</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>{{ $lead->client_name }}</td>
+                <td>Male</td>
+                <td>-</td>
+                <td>-</td>
+                <td>Veg</td>
+                <td>Main Guest</td>
+            </tr>
+            @for($i=1; $i < ($lead->adult + $lead->child); $i++)
+            <tr>
+                <td>Guest {{ $i + 1 }}</td>
+                <td>-</td>
+                <td>-</td>
+                <td>-</td>
+                <td>-</td>
+                <td>-</td>
+            </tr>
+            @endfor
+        </tbody>
+    </table>
+
+    <div class="section-title">Itinerary</div>
+    @if($quotation && isset($quotation->itinerary['days']))
+        @foreach($quotation->itinerary['days'] as $index => $day)
+            @php
+                $dayId = $index + 1;
+                $displayImage = $day['image'] ?? null;
+                
+                // If no day image, try to find an image in the events of this day
+                if (!$displayImage && isset($quotation->itinerary['day_events'][$dayId])) {
+                    foreach ($quotation->itinerary['day_events'][$dayId] as $event) {
+                        if (!empty($event['image'])) {
+                            $displayImage = $event['image'];
+                            break;
+                        }
+                        // For accommodation, check hotelOptions image if exists
+                        if (($event['eventType'] ?? '') === 'accommodation' && !empty($event['hotelOptions'])) {
+                            $opt = $event['hotelOptions'][$confirmedOption - 1] ?? $event['hotelOptions'][0];
+                            if (!empty($opt['image'])) {
+                                $displayImage = $opt['image'];
+                                break;
+                            }
+                        }
+                    }
+                }
+                
+                $dayTitle = $day['title'] ?? ($day['location'] ?? 'Tour Day');
+            @endphp
+            <div class="day-header text-uppercase">DAY {{ $dayId }} &nbsp;&nbsp;&nbsp; {{ $dayTitle }} &nbsp;&nbsp;&nbsp; {{ $lead->travel_start_date ? $lead->travel_start_date->copy()->addDays($index)->format('d-M-Y') : '' }}</div>
+            <table class="w-100" style="margin-bottom: 5px; border: 0.5px solid #eee; padding: 5px;">
+                <tr>
+                    <td style="width: 90px; vertical-align: top;">
+                        @if($displayImage)
+                            @php $dayBase64 = imageToBase64($displayImage); @endphp
+                            @if($dayBase64)
+                                <img src="{{ $dayBase64 }}" class="day-img">
+                            @endif
+                        @else
+                           <div style="width: 80px; height: 60px; background-color: #f3f4f6; border: 1px dashed #ccc; text-align: center; line-height: 60px; color: #999; font-size: 7px;">No Image</div>
+                        @endif
+                    </td>
+                    <td>
+                        <div class="day-text">
+                            <strong>Meal Plan:</strong> {{ $day['meal_plan'] ?? 'As Per Itinerary' }} <br>
+                            @if(!empty($day['distance'])) <strong>Distance:</strong> {{ $day['distance'] }} Kilometers <br> @endif
+                            <strong>Tour Description:</strong> <br>
+                            {{ $day['description'] ?? 'Sightseeing and travel as per the planned itinerary.' }}
+                        </div>
+                    </td>
+                </tr>
+            </table>
+        @endforeach
+    @endif
+
+    <div class="section-title">Accommodation</div>
+    <table class="table">
+        <thead>
+            <tr>
+                <th>City</th>
+                <th>Check In</th>
+                <th>Check Out</th>
+                <th>Hotel</th>
+                <th>Room Category</th>
+                <th>Plan</th>
+                <th>Room</th>
+                <th>N/t</th>
+            </tr>
+        </thead>
+        <tbody>
+            @if(!empty($hotels))
+                @foreach($hotels as $h)
+                <tr>
+                    <td>{{ $h['city'] }}</td>
+                    <td>{{ !empty($h['checkIn']) ? date('d/m/y', strtotime($h['checkIn'])) : '-' }}</td>
+                    <td>{{ !empty($h['checkOut']) ? date('d/m/y', strtotime($h['checkOut'])) : '-' }}</td>
+                    <td class="font-bold">{{ $h['hotelName'] }}</td>
+                    <td>{{ $h['roomCategory'] }}</td>
+                    <td>{{ $h['plan'] }}</td>
+                    <td>{{ $h['room'] }}</td>
+                    <td>{{ $h['nights'] }}</td>
+                </tr>
                 @endforeach
             @else
                 <tr>
-                    <td colspan="8" style="text-align: center;">No hotel details available</td>
+                    <td colspan="8" class="text-center">Hotel details will be shared upon confirmation.</td>
                 </tr>
             @endif
         </tbody>
     </table>
 
-    <!-- TOUR DETAILS -->
-    @if(!empty($tourDetails))
-        <div class="section-header">Tour Details</div>
-        <table class="data-table">
-            <thead>
-                <tr>
-                    <th width="12%">Tour Date</th>
-                    <th width="25%">Tour Name</th>
-                    <th width="12%">Transfer Type</th>
-                    <th width="10%">Pickup Time</th>
-                    <th width="10%">Pickup From</th>
-                    <th width="10%">Drop At</th>
-                    <th width="10%">Drop-up Time</th>
-                    <th width="11%">Remarks</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach($tourDetails as $tour)
-                    <tr>
-                        <td>{{ $lead->travel_start_date ? $lead->travel_start_date->copy()->addDays($tour['day'] - 1)->format('d-m-Y') : 'Day ' . $tour['day'] }}
-                        </td>
-                        <td>{{ $tour['name'] }}</td>
-                        <td>{{ $tour['type'] }}</td>
-                        <td>{{ $tour['time'] }}</td>
-                        <td>Hotel / Airport</td>
-                        <td>Airport / Hotel</td>
-                        <td>{{ $tour['drop_time'] ?? 'Hrs' }}</td>
-                        <td>{{ $tour['details'] }}</td>
-                    </tr>
-                @endforeach
-            </tbody>
-        </table>
-    @endif
-
-    <!-- DEPARTURE DETAILS -->
-    @if(!empty($departureDetails))
-    <div class="section-header">Departure Details</div>
-    <table class="data-table">
+    <div class="section-title">Vehicle</div>
+    <table class="table">
         <thead>
             <tr>
-                <th width="12%">Date</th>
-                <th width="25%">Activity</th>
-                <th width="12%">Transfer Type</th>
-                <th width="12%">Flight No.</th>
-                <th width="12%">Arrival Time</th>
-                <th width="12%">Pick From</th>
-                <th width="12%">Drop At</th>
-                <th width="15%">Remark</th>
+                <th>Vehicle</th>
+                <th>On Date</th>
+                <th>Tariff</th>
+                <th>Km(s) Per Day</th>
+                <th>Day/s</th>
+                <th>Driver Detail</th>
             </tr>
         </thead>
         <tbody>
-            @foreach($departureDetails as $dep)
+            @if(!empty($vehicles))
+                @foreach($vehicles as $v)
                 <tr>
-                    <td>{{ $lead->travel_start_date ? $lead->travel_start_date->copy()->addDays($dep['day'] - 1)->format('d-m-Y') : 'Day ' . $dep['day'] }}</td>
-                    <td>{{ $dep['name'] }}</td>
-                    <td>{{ $dep['type'] }}</td>
-                    <td>{{ $dep['flight_no'] ?? 'TBA' }}</td>
-                    <td>{{ $dep['time'] }}</td>
-                    <td>Airport/Hotel</td>
-                    <td>Hotel/Airport</td>
-                    <td>{{ $dep['details'] }}</td>
+                    <td class="font-bold">{{ $v['name'] }}</td>
+                    <td>{{ $v['date'] }}</td>
+                    <td>{{ $v['tariff'] }}</td>
+                    <td>{{ $v['km'] }}</td>
+                    <td>{{ $v['days'] }}</td>
+                    <td>{{ $v['driver'] }}</td>
                 </tr>
-            @endforeach
+                @endforeach
+            @else
+                <tr>
+                    <td colspan="6" class="text-center">Vehicle details available after final confirmation.</td>
+                </tr>
+            @endif
         </tbody>
     </table>
-    @endif
 
-    <!-- PAYMENT DETAILS -->
-    @if($accountDetails)
-    <div class="payment-block">
-        <div class="payment-header">OFFICIAL PAYMENT DETAILS</div>
-        <table class="bank-info-table">
+    <div class="section-title">Tour Cost</div>
+    <table class="table">
+        <thead>
             <tr>
-                <td class="bank-info-td">
-                    <table class="bank-details-subtable">
-                        <tr>
-                            <td class="label-text">Bank Name</td>
-                            <td class="value-text">{{ !empty($accountDetails['bank_name']) ? $accountDetails['bank_name'] : 'N/A' }}</td>
-                        </tr>
-                        <tr>
-                            <td class="label-text">Account Number</td>
-                            <td class="value-text" style="font-size: 14px;">{{ !empty($accountDetails['account_number']) ? $accountDetails['account_number'] : 'N/A' }}</td>
-                        </tr>
-                        <tr>
-                            <td class="label-text">IFSC Code</td>
-                            <td class="value-text">{{ !empty($accountDetails['ifsc_code']) ? $accountDetails['ifsc_code'] : 'N/A' }}</td>
-                        </tr>
-                        <tr>
-                            <td class="label-text">Account Holder</td>
-                            <td class="value-text">{{ !empty($accountDetails['account_holder_name']) ? $accountDetails['account_holder_name'] : 'N/A' }}</td>
-                        </tr>
-                        <tr>
-                            <td class="label-text">UPI ID</td>
-                            <td class="value-text" style="color: {{ $lead->company ? '#2D3192' : '#000' }};">{{ !empty($accountDetails['upi_id']) ? $accountDetails['upi_id'] : 'N/A' }}</td>
-                        </tr>
-                    </table>
+                <th style="width: 40%">Net Rate</th>
+                <th>Rate for</th>
+                <th>Traveller</th>
+                <th>Rate</th>
+                <th>Currency</th>
+                <th>Amount</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach($pricingRows as $p)
+            <tr class="cost-row">
+                <td>-</td>
+                <td class="font-bold">{{ $p['type'] }}</td>
+                <td>{{ $p['qty'] }}</td>
+                <td>{{ number_format($p['rate'], 2) }}</td>
+                <td>₹ (INR)</td>
+                <td class="text-right font-bold">{{ number_format($p['total'], 2) }}</td>
+            </tr>
+            @endforeach
+            <tr class="cost-total">
+                <td colspan="5" class="text-right">Gross Total</td>
+                <td class="text-right">{{ number_format($grandTotal, 2) }}</td>
+            </tr>
+            <tr class="cost-total">
+                <td colspan="5" class="text-right">
+                    <span style="float: left; font-weight: normal; font-style: italic;">{{ numberToWords($grandTotal) }} Rupees Only</span>
+                    Tour Cost in ₹
                 </td>
-                @if(!empty($accountDetails['qr_code']))
-                <td class="qr-placeholder">
-                    @php $qrBase64 = imageToBase64($accountDetails['qr_code']); @endphp
-                    @if($qrBase64)
-                        <img src="{{ $qrBase64 }}" class="qr-img-large" alt="Payment QR">
-                        <div style="font-size: 9px; font-weight: bold; margin-top: 5px;">SCAN & PAY</div>
-                    @endif
+                <td class="text-right" style="font-size: 11px;">{{ number_format($grandTotal, 2) }}</td>
+            </tr>
+            @if($advanceReceived > 0)
+            <tr>
+                <td colspan="5" class="text-right">Advance Received</td>
+                <td class="text-right">{{ number_format($advanceReceived, 2) }}</td>
+            </tr>
+            @endif
+            <tr class="cost-total" style="background-color: #fef3c7;">
+                <td colspan="5" class="text-right">Balance Amount</td>
+                <td class="text-right" style="font-size: 11px; color: #b91c1c;">{{ number_format($balanceAmount, 2) }}</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <div class="escalation-box">
+        <table class="w-100">
+            <tr>
+                <td colspan="2" class="font-bold" style="border-bottom: 0.5px solid #ccc; padding-bottom: 2px; margin-bottom: 5px;">
+                    For any assistance/help please follow the escalation matrix given below
                 </td>
-                @endif
+            </tr>
+            <tr>
+                <td style="width: 50%">
+                    <strong>Cab Booking Contact:-</strong> <br>
+                    93172-70072
+                </td>
+                <td>
+                    <strong>Hotel Booking Contact:-</strong> <br>
+                    93172-67062, 70180-58588
+                </td>
+            </tr>
+            <tr>
+                <td colspan="2" style="padding-top: 5px;">
+                    <strong>Sales Executive Detail:-</strong> <br>
+                    {{ $lead->creator ? $lead->creator->name : 'Manager' }} &nbsp; | &nbsp; 
+                    {{ $lead->creator ? $lead->creator->phone : $companyPhone }} &nbsp; | &nbsp; 
+                    {{ $lead->creator ? $lead->creator->email : $companyEmail }}
+                </td>
             </tr>
         </table>
-        <div class="payment-footer">
-            PLEASE SHARE A SCREENSHOT OF THE PAYMENT RECEIPT AFTER TRANSFER
-        </div>
     </div>
+
+    @if($quotation && !empty($quotation->itinerary['inclusions']))
+    <div style="font-weight: bold; margin-top: 10px; border-bottom: 1px solid #ccc;">Includes</div>
+    <ul class="includes-list">
+        @foreach($quotation->itinerary['inclusions'] as $inc)
+            <li>{{ $inc }}</li>
+        @endforeach
+    </ul>
     @endif
 
-    <!-- IMPORTANT NOTES -->
-    <div class="notes-section">
-        <div class="notes-title">Important Notes :</div>
-        <ul class="notes-list">
-            <li>Rooms are subject to availability at the time of confirmation.</li>
-            <li>Please carry a valid Passport and photo identity proof for all the travellers.</li>
-            <li>In Case of Cancellation in Flight, Bad Weather or Any other Disruption, there is no refund of hotels.
-            </li>
-            <li>Standard check-in time is 02:00 pm and check out time is 10:00 am at most of the hotels.</li>
-            <li>Late check out as per availability only, although guaranteed check out is possible paying at additional
-                cost.</li>
-            <li>Issues regarding child age to be settled with hotels directly.</li>
-            <li>All sightseeing will be depended as per Transport/Ferry timing.</li>
-        </ul>
+    @if($quotation && !empty($quotation->itinerary['exclusions']))
+    <div style="font-weight: bold; margin-top: 5px; border-bottom: 1px solid #ccc;">Excludes</div>
+    <ul class="excludes-list">
+        @foreach($quotation->itinerary['exclusions'] as $exc)
+            <li>{{ $exc }}</li>
+        @endforeach
+    </ul>
+    @endif
+
+    <div style="font-weight: bold; margin-top: 10px; border-bottom: 1px solid #ccc;">Terms and Condition</div>
+    <ul class="tc-list">
+        @if($quotation && !empty($quotation->itinerary['terms']))
+            @foreach($quotation->itinerary['terms'] as $term)
+                <li>{{ $term }}</li>
+            @endforeach
+        @else
+            <li>Standard check-in time at the hotel is normally 1:00 pm and check-out is 11:00 am. An early check-in, or a late check-out is solely based on the discretion of the hotel.</li>
+            <li>Transportation shall be provided as per the itinerary and will not be at disposal.</li>
+            <li>AC will not be functional in hilly areas.</li>
+            <li>Entrance fee, parking and guide charges are not included in the packages.</li>
+            <li>Booking amount is subject to change in case of any changes in booked package.</li>
+            <li>Airline seat and hotel is subject to availability at time of booking.</li>
+            <li>Travelers furnishing incorrect age details may incur penalty at the time of travelling for airline and hotel booking in package.</li>
+            <li>In case of unavailability in the listed hotels, arrangement for an alternate accommodation will be made in a hotel of similar category.</li>
+            <li>The package price does not include expenditure expenses of personal nature.</li>
+            <li>Meals Timings must be followed as per the instructed time of the hotels. For any un-availed meals we shall not be responsible.</li>
+        @endif
+    </ul>
+
+    <table class="w-100" style="margin-top: 20px;">
+        <tr>
+            <td style="width: 50%; vertical-align: bottom;">
+                <div style="border-top: 1px solid #000; display: inline-block; padding-top: 2px; width: 150px;">Customer's Signature</div>
+                <div style="font-size: 7px; color: #666; margin-top: 2px;">(Prepared by: {{ $lead->creator ? $lead->creator->name : 'System' }})</div>
+            </td>
+            <td class="text-right" style="vertical-align: bottom;">
+                <div class="font-bold">for {{ strtoupper($companyName) }}</div>
+                @if($base64Logo)
+                    <img src="{{ $base64Logo }}" class="authorized-sign" style="opacity: 0.6; filter: grayscale(100%);">
+                @endif
+                <div style="font-weight: bold; margin-top: 5px;">Authorized Signatory</div>
+            </td>
+        </tr>
+    </table>
+
+    <div class="text-center" style="font-size: 7px; color: #999; margin-top: 20px;">
+        This is a Computer generated document and does not require any signature.
     </div>
 
-    <div class="wish-message">************************* WISH YOU ALL THE BEST & HAPPY JOURNEY *************************
-    </div>
-
-    <div class="footer-address">
-        <div class="footer-title">{{ $companyName }}</div>
-        <div class="footer-text">
-            {{ $companyAddress }}<br>
-            Tel : {{ $companyPhone }}<br>
-            Email : {{ $companyEmail }} | {{ $companyDomain }}
-        </div>
-    </div>
 </body>
 
 </html>

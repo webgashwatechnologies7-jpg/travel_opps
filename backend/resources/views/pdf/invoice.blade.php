@@ -440,12 +440,48 @@
     $companyDomain = $company ? $company->getFullUrlAttribute() : config('app.url');
     $base64Logo = imageToBase64($companyLogo);
 
-    // Tax calculation (Mocking 5% total as in common travel invoices)
+    // Fetch GST settings from the quotation/proposal if possible, or use 0
+    $proposals = \App\Models\QueryProposal::where('lead_id', $invoice->lead_id)->get();
+    $proposal = $proposals->first(function ($p) use ($invoice) {
+        $meta = is_string($p->metadata) ? json_decode($p->metadata, true) : $p->metadata;
+        return ($meta['optionNumber'] ?? null) == $invoice->option_number;
+    });
+    if (!$proposal) {
+        $proposal = $proposals->first();
+    }
+    
+    $metadata = $proposal ? (is_string($proposal->metadata) ? json_decode($proposal->metadata, true) : $proposal->metadata) : [];
+    
+    $gstConfig = $metadata['pricing']['gstSettings'] ?? [];
+    $cgstRate = (float)($gstConfig['cgst'] ?? 0);
+    $sgstRate = (float)($gstConfig['sgst'] ?? 0);
+    $igstRate = (float)($gstConfig['igst'] ?? 0);
+    
     $totalAmount = (float) $invoice->total_amount;
-    $baseAmount = $totalAmount / 1.05;
-    $totalTax = $totalAmount - $baseAmount;
-    $sgst = $totalTax / 2;
-    $cgst = $totalTax / 2;
+    
+    $totalTaxRate = $cgstRate + $sgstRate + $igstRate;
+    
+    if ($totalTaxRate > 0) {
+        $baseAmount = $totalAmount / (1 + ($totalTaxRate / 100));
+        $cgst = $baseAmount * ($cgstRate / 100);
+        $sgst = $baseAmount * ($sgstRate / 100);
+        $igst = $baseAmount * ($igstRate / 100);
+        $totalTax = $totalAmount - $baseAmount;
+    } else {
+        $baseAmount = $totalAmount;
+        $cgst = 0;
+        $sgst = 0;
+        $igst = 0;
+        $totalTax = 0;
+    }
+
+    // Cumulative sum of payments made up to the exact moment this invoice/receipt was generated
+    $totalPaid = (float) \App\Modules\Payments\Domain\Entities\Payment::where('lead_id', $invoice->lead_id)
+                    ->where('created_at', '<=', $invoice->created_at)
+                    ->sum('paid_amount');
+    $balanceDue = max(0, $totalAmount - $totalPaid);
+
+    $isReceipt = isset($invoice->metadata['source']) && $invoice->metadata['source'] === 'auto_payment';
 
     $paxString = ($invoice->lead->adult ?? 0) . ' Adults';
     if ($invoice->lead->child ?? 0)
@@ -520,27 +556,46 @@
                     <td class="summary-label">TOTAL AMOUNT BEFORE TAX ({{ $invoice->currency ?? 'INR' }}) :</td>
                     <td class="summary-value">{{ number_format($baseAmount, 2) }}</td>
                 </tr>
+                @if($sgst > 0)
                 <tr>
-                    <td class="summary-label">SGST 2.5% :</td>
+                    <td class="summary-label">SGST {{ $sgstRate }}% :</td>
                     <td class="summary-value">{{ number_format($sgst, 2) }}</td>
                 </tr>
+                @endif
+                @if($cgst > 0)
                 <tr>
-                    <td class="summary-label">CGST 2.5% :</td>
+                    <td class="summary-label">CGST {{ $cgstRate }}% :</td>
                     <td class="summary-value">{{ number_format($cgst, 2) }}</td>
                 </tr>
+                @endif
+                @if($igst > 0)
+                <tr>
+                    <td class="summary-label">IGST {{ $igstRate }}% :</td>
+                    <td class="summary-value">{{ number_format($igst, 2) }}</td>
+                </tr>
+                @endif
                 <tr class="total-row">
                     <td class="summary-label">Total :</td>
-                    <td class="summary-value">{{ $invoice->currency ?? 'INR' }} {{ number_format($totalAmount, 2) }}
-                    </td>
+                    <td class="summary-value">{{ $invoice->currency ?? 'INR' }} {{ number_format($totalAmount, 2) }}</td>
                 </tr>
+                @if($isReceipt)
+                <tr>
+                    <td class="summary-label" style="color: #16a34a;">PAID AMOUNT :</td>
+                    <td class="summary-value" style="color: #16a34a;">{{ $invoice->currency ?? 'INR' }} {{ number_format($totalPaid, 2) }}</td>
+                </tr>
+                <tr>
+                    <td class="summary-label" style="color: #dc2626;">BALANCE DUE :</td>
+                    <td class="summary-value" style="color: #dc2626;">{{ $invoice->currency ?? 'INR' }} {{ number_format($balanceDue, 2) }}</td>
+                </tr>
+                @endif
             </table>
         </div>
 
         <div class="words-section">
-            <div class="words-row"><strong>Total GST value in words:</strong> {{ numberToWords(round($totalTax)) }}
-                Only.</div>
-            <div class="words-row"><strong>Total Invoice in words:</strong> {{ numberToWords(round($totalAmount)) }}
-                Only.</div>
+            @if($totalTax > 0)
+            <div class="words-row"><strong>Total GST value in words:</strong> {{ numberToWords(round($totalTax)) }} Only.</div>
+            @endif
+            <div class="words-row"><strong>Total Invoice in words:</strong> {{ numberToWords(round($totalAmount)) }} Only.</div>
         </div>
 
         <div class="terms-section">

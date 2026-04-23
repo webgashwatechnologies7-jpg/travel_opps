@@ -107,10 +107,14 @@ class PaymentController extends Controller
                     ->orderBy('created_at', 'desc')
                     ->first();
 
+                // If this is a payment on an existing invoice, we want the new receipt 
+                // to reflect the complete total, not just the paid amount.
+                $invoiceTotal = $latestInvoice ? $latestInvoice->total_amount : $amount;
+
                 $newInvoice = LeadInvoice::create([
                     'lead_id' => $payment->lead_id,
                     'option_number' => $latestInvoice ? $latestInvoice->option_number : 1,
-                    'total_amount' => $paidAmount,
+                    'total_amount' => $invoiceTotal,
                     'currency' => $latestInvoice ? $latestInvoice->currency : 'INR',
                     'itinerary_name' => $latestInvoice ? $latestInvoice->itinerary_name : 'Travel Payment',
                     'invoice_number' => LeadInvoice::generateInvoiceNumber(),
@@ -127,7 +131,7 @@ class PaymentController extends Controller
                 QueryHistoryLog::logActivity([
                     'lead_id' => $payment->lead_id,
                     'activity_type' => 'invoice_created',
-                    'activity_description' => "Invoice {$newInvoice->invoice_number} automatically created for payment of ₹" . number_format($paidAmount, 2),
+                    'activity_description' => "Payment Receipt Invoice {$newInvoice->invoice_number} automatically created for payment of ₹" . number_format($paidAmount, 2),
                     'module' => 'invoice',
                     'record_id' => $newInvoice->id,
                     'metadata' => [
