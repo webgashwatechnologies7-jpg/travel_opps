@@ -115,13 +115,13 @@ const FollowupsTab = memo(({
                                                         <span>Created by: {followup.user?.name || 'Unknown'}</span>
                                                         <span>•</span>
                                                         <span>
-                                                            {new Date(followup.created_at).toLocaleDateString('en-IN', {
+                                                            {followup.created_at ? new Date(followup.created_at).toLocaleDateString('en-IN', {
                                                                 day: '2-digit',
                                                                 month: 'short',
                                                                 year: 'numeric',
                                                                 hour: '2-digit',
                                                                 minute: '2-digit',
-                                                            })}
+                                                            }) : 'Just now'}
                                                         </span>
                                                     </div>
                                                 </div>

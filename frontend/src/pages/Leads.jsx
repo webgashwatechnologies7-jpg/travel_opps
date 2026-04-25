@@ -6,7 +6,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { Dialog } from 'primereact/dialog';
 import { Button } from 'primereact/button';
 // Layout removed - handled by nested routing
-import { X, Search, Upload, Download, RefreshCw, ChevronDown, Filter, Eye, Mail, MessageSquare, Edit, MoreVertical, History, Plus, TrendingUp, BarChart3, Calendar, FileSpreadsheet, LayoutGrid, List, User, Trash2, ArrowUpDown } from 'lucide-react';
+import { X, Search, Upload, Download, RefreshCw, ChevronDown, Filter, Eye, Mail, MessageSquare, Edit, MoreVertical, History, Plus, TrendingUp, BarChart3, Calendar, FileSpreadsheet, LayoutGrid, List, User, Trash2, ArrowUpDown, Lock } from 'lucide-react';
 import LeadCard from '../components/Quiries/LeadCard';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line
@@ -502,6 +502,7 @@ const Leads = () => {
 
   const handleOpenStatusModal = useCallback((leadId) => {
     const lead = leads.find(l => l.id === leadId);
+    if (lead?.status === 'confirmed') return;
     setSelectedLead(lead);
     setShowStatusModal(true);
   }, [leads]);
@@ -1361,15 +1362,16 @@ const Leads = () => {
               {viewType === 'grid' ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-6 mt-4">
                   {filteredLeads.map((lead) => {
+                    const assignee = lead.assigned_user || lead.assignedUser || lead.assigned_to;
+                    const assigneeRole = assignee?.user_type === 'agent' ? 'Agent' : 
+                                        (assignee?.roles?.[0]?.name || (typeof assignee?.roles?.[0] === 'string' ? assignee.roles[0] : null));
+                    
                     const assignedUserName =
+                      (assignee?.name ? `${assignee.name}${assigneeRole ? ` (${assigneeRole})` : ''}` : null) ||
                       lead.assigned_name ||
-                      lead.assigned_user?.name ||
-                      lead.assignedUser?.name ||
-                      lead.assigned_to?.name ||
                       lead.assigned_to_name ||
                       lead.assigned_user_name ||
-                      (typeof lead.assigned_to === 'object' && lead.assigned_to !== null ? lead.assigned_to.name : null) ||
-                      null;
+                      "Unassigned";
 
                     return (
                       <LeadCard
@@ -1396,6 +1398,7 @@ const Leads = () => {
                         onAssign={canAssign ? handleOpenAssignModal : null}
                         onStatusChange={handleOpenStatusModal}
                         onDelete={handleDelete}
+                        is_locked={lead.is_locked}
                       />
                     );
                   })}
@@ -1481,16 +1484,15 @@ const Leads = () => {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-50">
-                        {filteredLeads.map((lead) => {
-                          const isSelected = selectedLeadIds.includes(lead.id);
+                          const assignee = lead.assigned_user || lead.assignedUser || lead.assigned_to;
+                          const assigneeRole = assignee?.user_type === 'agent' ? 'Agent' :
+                                              (assignee?.roles?.[0]?.name || (typeof assignee?.roles?.[0] === 'string' ? assignee.roles[0] : null));
+                          
                           const assignedUserName =
+                            (assignee?.name ? `${assignee.name}${assigneeRole ? ` (${assigneeRole})` : ''}` : null) ||
                             lead.assigned_name ||
-                            lead.assigned_user?.name ||
-                            lead.assignedUser?.name ||
-                            lead.assigned_to?.name ||
                             lead.assigned_to_name ||
                             lead.assigned_user_name ||
-                            (typeof lead.assigned_to === 'object' && lead.assigned_to !== null ? lead.assigned_to.name : null) ||
                             "Unassigned";
 
                           return (
@@ -1512,7 +1514,10 @@ const Leads = () => {
                                   <div className="w-8 h-8 rounded-xl bg-blue-100 flex items-center justify-center text-blue-600 font-black text-[10px] shadow-sm transform group-hover:scale-110 transition-transform">
                                     {lead.client_name?.substring(0, 2).toUpperCase()}
                                   </div>
-                                  <span className={`font-bold transition-colors ${isSelected ? 'text-blue-700' : 'text-slate-700'}`}>{lead.client_name}</span>
+                                  <div className="flex items-center gap-1.5">
+                                    <span className={`font-bold transition-colors ${isSelected ? 'text-blue-700' : 'text-slate-700'}`}>{lead.client_name}</span>
+                                    {lead.is_locked && <Lock size={12} className="text-amber-500" title="This query is locked" />}
+                                  </div>
                                 </div>
                               </td>
                               <td className="px-6 py-4 text-sm font-bold text-slate-500">{lead.phone || "N/A"}</td>
@@ -1712,7 +1717,7 @@ const Leads = () => {
                     </div>
                     <div>
                       <div className="font-bold text-slate-700 group-hover:text-blue-700">{u.name}</div>
-                      <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{u.roles?.[0]?.name || 'Staff'}</div>
+                      <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{u.user_type === 'agent' ? 'Agent' : (u.roles?.[0]?.name || 'Staff')}</div>
                     </div>
                   </button>
                 ))}
@@ -1851,7 +1856,9 @@ const Leads = () => {
                 >
                   <option value="">Select Staff</option>
                   {users.map((user) => (
-                    <option key={user.id} value={user.id}>{user.name}</option>
+                    <option key={user.id} value={user.id}>
+                      {user.name} ({user.user_type === 'agent' ? 'Agent' : (user.roles?.[0]?.name || 'Staff')})
+                    </option>
                   ))}
                 </select>
               </div>
@@ -2096,11 +2103,11 @@ const Leads = () => {
               defaultValue={currentUser?.id || ''}
             >
               <option value={currentUser?.id || ''}>
-                {currentUser?.name || 'Select User'}
+                {currentUser?.name ? `${currentUser.name} (${userRoles[0] || 'Staff'})` : 'Select User'}
               </option>
               {users.filter(u => u.id !== currentUser?.id).map((user) => (
                 <option key={user.id} value={user.id}>
-                  {user.name}
+                  {user.name} ({user.user_type === 'agent' ? 'Agent' : (user.roles?.[0]?.name || 'Staff')})
                 </option>
               ))}
             </select>

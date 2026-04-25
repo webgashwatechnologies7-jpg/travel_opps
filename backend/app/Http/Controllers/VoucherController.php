@@ -192,7 +192,7 @@ class VoucherController extends Controller
             // Transform Proposal + Package into a Quotation-like object for the blade
             $packageId = $proposal->metadata['itinerary_id'] ?? null;
             $package = $packageId ? Package::find($packageId) : null;
-            
+
             $quotation = new \stdClass();
             $quotation->total_price = $proposal->total_amount;
             $quotation->pricing_breakdown = [
@@ -201,29 +201,43 @@ class VoucherController extends Controller
                     'breakdown' => $proposal->metadata['breakdown'] ?? []
                 ]
             ];
-            
-            if ($package) {
-                $quotation->itinerary = [
-                    'days' => $package->days,
-                    'day_events' => $package->day_events,
-                    'routing' => $package->routing,
-                    'inclusions' => $package->inclusions,
-                    'exclusions' => $package->exclusions,
-                    'terms' => $package->terms_conditions,
-                    'transportation' => [
-                        'vehicle' => $package->day_events[1][0]['vehicle'] ?? 'Private Cab' // Simple heuristic
-                    ]
-                ];
-            } else {
-                 $quotation->itinerary = [
-                    'days' => [],
-                    'day_events' => [],
-                    'routing' => 'N/A',
-                    'inclusions' => $proposal->metadata['inclusions'] ?? [],
-                    'exclusions' => $proposal->metadata['exclusions'] ?? [],
-                    'terms' => $proposal->metadata['terms'] ?? []
-                ];
+
+            // Prioritize metadata for days and events (handles customizations), fallback to package
+            $rawDays = $proposal->metadata['days'] ?? ($package ? $package->days : []);
+            $rawDayEvents = $proposal->metadata['day_events'] ?? ($package ? $package->day_events : []);
+
+            // Ensure day_events are indexed 1, 2, 3... for the blade
+            $dayEvents = [];
+            $i = 1;
+            foreach ($rawDayEvents as $events) {
+                $dayEvents[$i++] = $events;
             }
+
+            $vehicleName = 'Private Cab';
+            if (!empty($dayEvents)) {
+                foreach ($dayEvents as $events) {
+                    if (!is_array($events))
+                        continue;
+                    foreach ($events as $event) {
+                        if (isset($event['eventType']) && in_array($event['eventType'], ['transportation', 'transport'])) {
+                            $vehicleName = $event['subject'] ?? $vehicleName;
+                            break 2;
+                        }
+                    }
+                }
+            }
+
+            $quotation->itinerary = [
+                'days' => $rawDays,
+                'day_events' => $dayEvents,
+                'routing' => $proposal->metadata['destination'] ?? ($proposal->metadata['itinerary_name'] ?? ($package ? $package->routing : 'N/A')),
+                'inclusions' => $proposal->metadata['inclusions'] ?? ($package ? $package->inclusions : []),
+                'exclusions' => $proposal->metadata['exclusions'] ?? ($package ? $package->exclusions : []),
+                'terms' => $proposal->metadata['terms'] ?? ($package ? $package->terms_conditions : []),
+                'transportation' => [
+                    'vehicle' => $vehicleName
+                ]
+            ];
         } else {
             // Fallback to legacy Quotation table
             $quotation = Quotation::where('lead_id', $leadId)

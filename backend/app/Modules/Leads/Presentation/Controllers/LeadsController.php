@@ -10,6 +10,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use App\Models\User;
+use App\Modules\Leads\Domain\Entities\Lead;
 use App\Notifications\GenericNotification;
 use Illuminate\Support\Facades\Notification;
 
@@ -68,7 +69,7 @@ class LeadsController extends Controller
         try {
             $filters = $request->only(['status', 'assigned_to', 'created_by', 'source', 'destination', 'priority', 'birth_month', 'anniversary_month', 'from_date', 'to_date', 'travel_month', 'service', 'adult', 'description', 'today', 'unassigned', 'created_from', 'created_to', 'search']);
             $filters['company_id'] = function_exists('tenant') ? tenant('id') : $request->user()?->company_id;
-            
+
             $timeframe = $request->get('timeframe', 'month');
             $data = $this->leadRepository->getAnalytics($filters, $timeframe);
 
@@ -130,6 +131,17 @@ class LeadsController extends Controller
             $data['status'] = $data['status'] ?? 'new';
 
             $lead = $this->leadRepository->create($data);
+            $lead = $lead->fresh();
+
+            // Log activity
+            \App\Models\QueryHistoryLog::logActivity([
+                'lead_id' => $lead->id,
+                'activity_type' => 'create',
+                'activity_description' => 'Query created from ' . $lead->source,
+                'module' => 'leads',
+                'record_id' => $lead->id,
+                'new_values' => $lead->toArray(),
+            ]);
 
             // Notification logic
             $this->notifyLeadCreation($lead, $request->user());
@@ -171,9 +183,53 @@ class LeadsController extends Controller
             if ($validator->fails())
                 return $this->validationErrorResponse($validator);
 
-            $lead = $this->leadRepository->update($id, $validator->validated());
-            if (!$lead)
+            $oldLead = Lead::find($id);
+            if (!$oldLead)
                 return $this->notFoundResponse('Lead not found');
+
+            // Check if lead is locked
+            if ($this->isLeadLocked($oldLead, $request->user())) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'This query is booked and locked. Please request permission from your manager to make changes.',
+                    'is_locked' => true
+                ], 403);
+            }
+
+            $data = $validator->validated();
+
+            // If status is changed to confirmed, lock it (DISABLED)
+            /*
+            if (isset($data['status']) && $data['status'] === 'confirmed' && $oldLead->status !== 'confirmed') {
+                $data['is_locked'] = true;
+                $data['is_unlocked_for_edit'] = false;
+            }
+            */
+
+            $lead = $this->leadRepository->update($id, $data);
+
+            // Log activity if anything changed
+            $allChanges = array_intersect_key($data, array_flip(array_keys($data)));
+            if (!empty($allChanges)) {
+                $description = 'Lead updated by ' . $request->user()->name;
+                if ($oldLead->status === 'confirmed') {
+                    $description .= ' [BOOKED QUERY MODIFICATION]';
+                }
+
+                \App\Models\QueryHistoryLog::logActivity([
+                    'lead_id' => $lead->id,
+                    'activity_type' => 'update',
+                    'activity_description' => $description,
+                    'module' => 'leads',
+                    'record_id' => $lead->id,
+                    'old_values' => $oldLead->only(array_keys($allChanges)),
+                    'new_values' => $allChanges,
+                    'metadata' => [
+                        'ip' => $request->ip(),
+                        'user_agent' => $request->userAgent()
+                    ]
+                ]);
+            }
 
             return $this->updatedResponse(['lead' => $this->formatLeadBasic($lead)], 'Lead updated successfully');
         } catch (\Exception $e) {
@@ -227,6 +283,17 @@ class LeadsController extends Controller
                 'changed_by' => $request->user()->id,
             ]);
 
+            // Log to QueryHistoryLog
+            $assignedUser = User::find($request->assigned_to);
+            \App\Models\QueryHistoryLog::logActivity([
+                'lead_id' => $lead->id,
+                'activity_type' => 'assigned',
+                'activity_description' => 'Lead assigned to ' . ($assignedUser ? $assignedUser->name : 'User ID: ' . $request->assigned_to),
+                'module' => 'leads',
+                'record_id' => $lead->id,
+                'new_values' => ['assigned_to' => $request->assigned_to],
+            ]);
+
             if ((int) $request->assigned_to !== (int) $oldAssignedTo) {
                 PushNotificationService::sendToUsers(
                     [(int) $request->assigned_to],
@@ -256,14 +323,46 @@ class LeadsController extends Controller
             if (!$lead)
                 return $this->notFoundResponse('Lead not found');
 
+            // Check if lead is locked
+            if ($this->isLeadLocked($lead, $request->user())) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'This query is booked and locked. Please request permission from your manager to change status.',
+                    'is_locked' => true
+                ], 403);
+            }
+
             $oldStatus = $lead->status;
-            $lead->update(['status' => $request->status]);
+            $newStatus = $request->status;
+
+            $updateData = ['status' => $newStatus];
+
+            // If changing to confirmed, lock it automatically (DISABLED)
+            /*
+            if ($newStatus === 'confirmed' && $oldStatus !== 'confirmed') {
+                $updateData['is_locked'] = true;
+                $updateData['is_unlocked_for_edit'] = false;
+            }
+            */
+
+            $lead->update($updateData);
 
             LeadStatusLog::create([
                 'lead_id' => $lead->id,
                 'old_status' => $oldStatus,
-                'new_status' => $request->status,
+                'new_status' => $newStatus,
                 'changed_by' => $request->user()->id,
+            ]);
+
+            // Also log to QueryHistoryLog for history timeline
+            \App\Models\QueryHistoryLog::logActivity([
+                'lead_id' => $lead->id,
+                'activity_type' => 'status_change',
+                'activity_description' => 'Status changed from ' . ucfirst($oldStatus) . ' to ' . ucfirst($newStatus) . ($oldStatus === 'confirmed' ? ' [BYPASS]' : ''),
+                'module' => 'leads',
+                'record_id' => $lead->id,
+                'old_values' => ['status' => $oldStatus],
+                'new_values' => ['status' => $newStatus],
             ]);
 
             return $this->successResponse(['lead' => $this->formatLeadFull($lead->fresh())], 'Lead status updated successfully');
@@ -283,7 +382,7 @@ class LeadsController extends Controller
                 'ids.*' => 'exists:leads,id',
                 'assigned_to' => 'required|exists:users,id'
             ]);
-            
+
             if ($validator->fails())
                 return $this->validationErrorResponse($validator);
 
@@ -298,7 +397,7 @@ class LeadsController extends Controller
 
             // Fetch leads to log status changes correctly
             $leads = \App\Modules\Leads\Domain\Entities\Lead::whereIn('id', $ids)->get(['id', 'status', 'assigned_to']);
-            
+
             $this->leadRepository->bulkAssign($ids, $userId);
 
             foreach ($leads as $lead) {
@@ -333,7 +432,7 @@ class LeadsController extends Controller
                 'ids' => 'required|array',
                 'ids.*' => 'exists:leads,id'
             ]);
-            
+
             if ($validator->fails())
                 return $this->validationErrorResponse($validator);
 
@@ -349,7 +448,102 @@ class LeadsController extends Controller
         }
     }
 
+    /**
+     * Request unlock for a locked lead.
+     */
+    public function requestUnlock(Request $request, int $id): JsonResponse
+    {
+        try {
+            $lead = Lead::find($id);
+            if (!$lead)
+                return $this->notFoundResponse('Lead not found');
+
+            $validator = Validator::make($request->all(), [
+                'reason' => 'required|string|max:500'
+            ]);
+            if ($validator->fails())
+                return $this->validationErrorResponse($validator);
+
+            $lead->update([
+                'unlock_requested' => true,
+                'unlock_request_reason' => $request->reason
+            ]);
+
+            // Log activity
+            \App\Models\QueryHistoryLog::logActivity([
+                'lead_id' => $lead->id,
+                'activity_type' => 'unlock_request',
+                'activity_description' => 'Modification permission requested by ' . $request->user()->name . '. Reason: ' . $request->reason,
+                'module' => 'leads',
+                'record_id' => $lead->id,
+            ]);
+
+            // Notify manager/admin
+            $managers = User::whereHas('roles', fn($q) => $q->whereIn('name', ['Admin', 'Company Admin', 'Super Admin', 'Manager']))->get();
+            Notification::send($managers, new GenericNotification([
+                'type' => 'unlock_request',
+                'title' => 'Modification Request',
+                'message' => $request->user()->name . ' requested permission to edit booked query #' . $lead->id,
+                'action_url' => '/leads/' . $lead->id
+            ]));
+
+            return $this->successResponse(null, 'Unlock request submitted successfully');
+        } catch (\Exception $e) {
+            return $this->serverErrorResponse('Failed to submit unlock request', $e);
+        }
+    }
+
+    /**
+     * Approve or reject unlock request (Manager Only).
+     */
+    public function handleUnlockRequest(Request $request, int $id): JsonResponse
+    {
+        try {
+            if (!$request->user()->can('leads_management.approve_unlock') && !$request->user()->hasRole(['Company Admin', 'Super Admin'])) {
+                return $this->errorResponse('Only authorized personnel can approve modification requests', 403);
+            }
+
+            $validator = Validator::make($request->all(), [
+                'action' => 'required|in:approve,reject',
+            ]);
+            if ($validator->fails())
+                return $this->validationErrorResponse($validator);
+
+            $lead = Lead::find($id);
+            if (!$lead)
+                return $this->notFoundResponse('Lead not found');
+
+            if ($request->action === 'approve') {
+                $lead->update([
+                    'is_unlocked_for_edit' => true,
+                    'unlock_requested' => false
+                ]);
+                $msg = 'request approved';
+            } else {
+                $lead->update(['unlock_requested' => false]);
+                $msg = 'request rejected';
+            }
+
+            \App\Models\QueryHistoryLog::logActivity([
+                'lead_id' => $lead->id,
+                'activity_type' => 'unlock_action',
+                'activity_description' => 'Modification ' . $msg . ' by ' . $request->user()->name,
+                'module' => 'leads',
+                'record_id' => $lead->id,
+            ]);
+
+            return $this->successResponse(['lead' => $this->formatLeadBasic($lead->fresh())], 'Modification request ' . $request->action . 'ed successfully');
+        } catch (\Exception $e) {
+            return $this->serverErrorResponse('Failed to handle unlock request', $e);
+        }
+    }
+
     // ─── Helpers ──────────────────────────────────────────────────────────────────
+
+    private function isLeadLocked(Lead $lead, User $user): bool
+    {
+        return false;
+    }
 
     private function formatLeadBasic($lead)
     {
@@ -376,6 +570,10 @@ class LeadsController extends Controller
             'date_of_birth' => optional($lead->date_of_birth)->format('Y-m-d'),
             'marriage_anniversary' => optional($lead->marriage_anniversary)->format('Y-m-d'),
             'amount' => $lead->getEstimatedValue(),
+            'is_locked' => $lead->is_locked,
+            'is_unlocked_for_edit' => $lead->is_unlocked_for_edit,
+            'unlock_requested' => $lead->unlock_requested,
+            'unlock_request_reason' => $lead->unlock_request_reason,
             'created_at' => $lead->created_at,
             'updated_at' => $lead->updated_at,
         ];
@@ -396,8 +594,11 @@ class LeadsController extends Controller
             'followups' => $lead->followups->map(fn($f) => [
                 'id' => $f->id,
                 'remark' => $f->remark,
-                'reminder_date' => $f->reminder_date,
+                'reminder_date' => $f->reminder_date->toDateString(),
+                'reminder_time' => $f->reminder_time,
                 'is_completed' => $f->is_completed,
+                'created_at' => $f->created_at,
+                'user' => $f->user ? ['id' => $f->user->id, 'name' => $f->user->name] : null,
             ]),
             'status_logs' => $lead->statusLogs->map(fn($l) => [
                 'id' => $l->id,
@@ -405,6 +606,18 @@ class LeadsController extends Controller
                 'new_status' => $l->new_status,
                 'changed_by_name' => $l->changedBy?->name,
             ]),
+            'activity_timeline' => \App\Models\QueryHistoryLog::where('lead_id', $lead->id)
+                ->with('user')
+                ->orderBy('created_at', 'desc')
+                ->get()
+                ->map(fn($h) => [
+                    'id' => $h->id,
+                    'type' => $h->activity_type,
+                    'title' => strtoupper($h->activity_type),
+                    'description' => $h->activity_description,
+                    'created_at' => $h->created_at,
+                    'user' => $h->user ? ['id' => $h->user->id, 'name' => $h->user->name] : null,
+                ]),
             'created_at' => $lead->created_at,
         ]);
     }

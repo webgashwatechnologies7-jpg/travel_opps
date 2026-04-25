@@ -229,7 +229,29 @@ class AccountsController extends Controller
     public function createAgent(Request $request): JsonResponse
     {
         try {
-            $agent = User::create(array_merge($request->all(), [
+            $validator = Validator::make($request->all(), [
+                'name' => 'required|string|max:255',
+                'mobile' => 'required|string|unique:users,phone',
+                'email' => 'required|string|email|max:255|unique:users,email',
+            ], [
+                'mobile.unique' => 'This mobile number is already registered.',
+                'email.unique' => 'This email address is already registered.',
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => $validator->errors()->first(),
+                    'errors' => $validator->errors()
+                ], 422);
+            }
+
+            $data = $request->all();
+            if ($request->has('mobile')) {
+                $data['phone'] = $request->mobile;
+            }
+
+            $agent = User::create(array_merge($data, [
                 'password' => bcrypt('password123'),
                 'user_type' => 'agent',
                 'role' => 'Agent',
@@ -238,7 +260,7 @@ class AccountsController extends Controller
             ]));
             return $this->createdResponse($agent, 'Agent created successfully');
         } catch (\Exception $e) {
-            return $this->serverErrorResponse('Failed to create agent', $e);
+            return $this->serverErrorResponse('Failed to create agent: ' . $e->getMessage(), $e);
         }
     }
 
@@ -248,7 +270,11 @@ class AccountsController extends Controller
             $agent = User::find($id);
             if (!$agent || $agent->user_type !== 'agent')
                 return $this->notFoundResponse('Agent not found');
-            $agent->update($request->all());
+            $data = $request->all();
+            if ($request->has('mobile')) {
+                $data['phone'] = $request->mobile;
+            }
+            $agent->update($data);
             return $this->updatedResponse($agent, 'Agent updated successfully');
         } catch (\Exception $e) {
             return $this->serverErrorResponse('Failed to update agent', $e);

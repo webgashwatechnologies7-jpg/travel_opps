@@ -74,7 +74,11 @@ class Lead extends Model
         'pax_details',
         'contact_person',
         'designation',
-        'service'
+        'service',
+        'is_locked',
+        'is_unlocked_for_edit',
+        'unlock_requested',
+        'unlock_request_reason'
     ];
 
     /**
@@ -85,6 +89,9 @@ class Lead extends Model
     protected $casts = [
         'status' => 'string',
         'priority' => 'string',
+        'is_locked' => 'boolean',
+        'is_unlocked_for_edit' => 'boolean',
+        'unlock_requested' => 'boolean',
         'travel_start_date' => 'date',
         'travel_end_date' => 'date',
         'adult' => 'integer',

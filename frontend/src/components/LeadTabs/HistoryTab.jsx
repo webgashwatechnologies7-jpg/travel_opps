@@ -20,12 +20,12 @@ const HistoryTab = memo(({ loadingHistory, activityTimeline }) => {
                                 <div className="flex items-center gap-2 flex-wrap">
                                     <span
                                         className={`text-xs font-medium px-2 py-0.5 rounded ${item.type === 'payment'
-                                                ? 'bg-green-100 text-green-800'
-                                                : item.type === 'followup'
-                                                    ? 'bg-blue-100 text-blue-800'
-                                                    : item.type === 'call'
-                                                        ? 'bg-purple-100 text-purple-800'
-                                                        : 'bg-gray-200 text-gray-700'
+                                            ? 'bg-green-100 text-green-800'
+                                            : item.type === 'followup'
+                                                ? 'bg-blue-100 text-blue-800'
+                                                : item.type === 'call'
+                                                    ? 'bg-purple-100 text-purple-800'
+                                                    : 'bg-gray-200 text-gray-700'
                                             }`}
                                     >
                                         {item.title}

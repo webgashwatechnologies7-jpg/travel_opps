@@ -487,34 +487,36 @@ const FinalTab = ({
                     role="button"
                     tabIndex={0}
                     onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSidebarSelectedOption(optNum); setRightView('itinerary'); } }}
-                    className={`bg-white rounded-xl shadow-md border-2 overflow-hidden transition-all cursor-pointer ${activeOption === optNum ? 'border-blue-500 ring-2 ring-blue-200' : 'border-gray-200 hover:border-blue-300'
+                    className={`bg-white rounded-2xl shadow-sm border-2 overflow-hidden transition-all duration-300 cursor-pointer ${activeOption === optNum ? 'border-blue-500 ring-4 ring-blue-50' : 'border-gray-100 hover:border-blue-200 hover:shadow-md'
                       }`}
                   >
-                    <div className="p-5">
-                      <div className="text-xs font-semibold text-blue-600 mb-2">Option {optNum}</div>
-                      <div className="flex justify-between items-start mb-2">
-                        <div>
-                          {hasDiscount && (
-                            <div className="text-sm text-gray-500 line-through mb-0.5">
-                              ₹{(totals?.totalGross || 0).toLocaleString('en-IN')}
-                            </div>
-                          )}
-                          <div className="text-2xl font-bold text-gray-900">
-                            ₹{(totals?.clientPrice || totals?.finalTotal || 0).toLocaleString('en-IN')}/-
-                          </div>
-                          <div className="text-sm text-gray-500">Total Price</div>
-                          {hasDiscount && (
-                            <div className="text-sm text-green-600 font-medium mt-1">
-                              Discount ({discountPct}%): -₹{(totals.discountAmount || 0).toLocaleString('en-IN')}
-                            </div>
-                          )}
-                        </div>
-                        <Eye className="h-5 w-5 text-gray-400" />
+                    <div className="p-6">
+                      <div className="flex justify-between items-center mb-3">
+                        <span className="px-3 py-1 bg-blue-50 text-blue-600 text-[10px] font-bold rounded-full uppercase tracking-widest">Option {optNum}</span>
+                        <Eye className="h-4 w-4 text-gray-300" />
                       </div>
-                      <div className="space-y-2 mb-4">
+                      <div className="flex flex-col mb-4">
+                        {hasDiscount && (
+                          <span className="text-sm text-gray-400 line-through">
+                            ₹{(totals?.totalGross || 0).toLocaleString('en-IN')}
+                          </span>
+                        )}
+                        <div className="flex items-baseline gap-1">
+                          <span className="text-3xl font-black text-gray-900 leading-none">
+                            ₹{(totals?.clientPrice || totals?.finalTotal || 0).toLocaleString('en-IN')}
+                          </span>
+                          <span className="text-xs font-bold text-gray-400">Total</span>
+                        </div>
+                        {hasDiscount && (
+                          <div className="text-[10px] text-green-600 font-bold mt-1 bg-green-50 px-2 py-0.5 rounded w-fit">
+                            SAVED {discountPct}% (₹{(totals.discountAmount || 0).toLocaleString('en-IN')})
+                          </div>
+                        )}
+                      </div>
+                      <div className="space-y-3 mb-4">
                         {/* Pax Summary for this option */}
-                        <div className="flex items-center gap-2 text-xs font-semibold text-gray-500 mb-2 bg-gray-50 p-1.5 rounded">
-                           <Users className="h-3.5 w-3.5 text-gray-400" />
+                        <div className="flex items-center gap-2 text-[10px] font-bold text-gray-400 uppercase tracking-tighter mb-2">
+                           <Users className="h-3.5 w-3.5" />
                            <span>{(itinerary?.adult || 1)} Adult{(itinerary?.adult > 1) ? 's' : ''}</span>
                            {(itinerary?.child > 0) && <span>, {itinerary?.child} Child{(itinerary?.child > 1) ? 'ren' : ''}</span>}
                         </div>
@@ -599,7 +601,7 @@ const FinalTab = ({
 
         {/* Right Content - Day-by-Day Itinerary (default) or selected Policy */}
         <div className="flex-1 min-w-0">
-          <div ref={rightContentRef} className="bg-white rounded-xl shadow-lg p-8 mb-8">
+          <div ref={rightContentRef} className="bg-white rounded-xl shadow-lg p-8 mb-8 max-h-[calc(100vh-220px)] overflow-y-auto custom-scrollbar">
             {rightView === 'itinerary' ? (
               <>
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 border-b border-gray-100 pb-6">
@@ -633,124 +635,121 @@ const FinalTab = ({
                 </div>
                 <div className="space-y-8">
                   {allDayNumbers.map((day) => {
+                    const dayObj = days.find(d => d.day === parseInt(day));
                     const events = filteredDayEvents[day] || [];
-                    const firstEventSubject = events[0]?.subject || events[0]?.eventType || '';
-                    const dayTitle = firstEventSubject ? `${firstEventSubject}` : `Day ${day}`;
+                    const dayTitle = dayObj?.destination ? `Day ${day}: ${dayObj.destination}` : `Day ${day}`;
                     return (
-                      <div key={day} className="border-l-2 border-gray-200 pl-6 pb-6 relative">
-                        <div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-green-500 border-2 border-white shadow"></div>
-                        <div className="flex items-center gap-3 mb-4 flex-wrap">
-                          <span className="inline-flex items-center px-4 py-1.5 bg-green-500 text-white text-sm font-bold rounded-full">
-                            {(() => {
-                              const dayObj = days.find(d => d.day === parseInt(day));
-                                if (dayObj?.isTravelDay) return (
-                                  <span className="flex items-center gap-1.5">
-                                    {getTravelIcon(day, "h-4 w-4")} Traveling Day
-                                  </span>
-                                );
-                                let sightseeingNum = 0;
-                                for (let i = 0; i < parseInt(day); i++) {
-                                  if (days[i] && !days[i].isTravelDay) sightseeingNum++;
-                                }
-                                return `Day ${sightseeingNum}`;
-                            })()}
-                          </span>
-                          <span className="text-lg font-semibold text-gray-900">{dayTitle}</span>
+                      <div key={day} className="mb-12">
+                        <div className="flex items-center gap-4 mb-6">
+                           <div className="h-px flex-1 bg-gray-200"></div>
+                           <h3 className="text-xl font-black text-gray-900 uppercase tracking-widest">{dayTitle}</h3>
+                           <div className="h-px flex-1 bg-gray-200"></div>
                         </div>
 
                         {events.length === 0 ? (
-                          <p className="text-gray-500 italic ml-4">No activities added</p>
+                          <div className="text-center py-6 text-gray-400 italic text-sm">No specific plans for this day</div>
                         ) : (
-                          <div className="space-y-4">
-                            {events.map((event, eventIdx) => (
-                              <div key={eventIdx} className="bg-gray-50 rounded-lg p-5 hover:shadow-md transition-shadow flex items-start gap-4">
-                                <div className="flex-shrink-0 text-green-600 mt-0.5">{/* Checkmark style */}<span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-green-100">✓</span></div>
-                                <div className="flex-1 min-w-0">
-                                  {(event.startTime || event.endTime) && (
-                                    <div className="text-sm text-gray-500 mb-1 font-medium">
-                                      <Clock className="h-4 w-4 inline mr-1" />
-                                      {event.startTime || '—'} - {event.endTime || '—'}
+                          <div className="space-y-6">
+                            {events.map((event, index) => {
+                              const eventImage = event.image || (event.eventType === 'accommodation' && event.hotelOptions?.[0]?.image);
+                              return (
+                                <div key={index} className="relative pb-10 last:pb-0">
+                                  {/* Minimalist Timeline Line */}
+                                  {index < events.length - 1 && (
+                                    <div className="absolute left-4 top-8 bottom-0 w-px bg-gray-200"></div>
+                                  )}
+                                  
+                                  <div className="flex gap-6 items-start">
+                                    {/* Professional Icon/Number */}
+                                    <div className="relative z-10 flex-shrink-0 w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-xs shadow-sm">
+                                      {index + 1}
                                     </div>
-                                  )}
-                                  <div className="flex items-center gap-2 mb-2">
-                                    <div className="text-gray-700">{getEventIcon(event.eventType)}</div>
-                                    <h4 className="text-lg font-semibold text-gray-900">
-                                      {event.subject || `${event.eventType}`}
-                                    </h4>
-                                  </div>
 
-                                  {event.details && (
-                                    <p className="text-gray-700 mb-3 whitespace-pre-wrap">{event.details}</p>
-                                  )}
-
-                                  {/* Hotel Options for Accommodation */}
-                                  {event.eventType === 'accommodation' && event.hotelOptions && event.hotelOptions.length > 0 && (
-                                    <div className="mt-4 space-y-3">
-                                      {event.hotelOptions.map((hotel, hotelIdx) => (
-                                        <div key={hotelIdx} className="bg-white rounded-lg p-4 border border-gray-200">
-                                          <div className="flex items-start gap-4">
-                                            {hotel.image && (
-                                              <img
-                                                src={getDisplayImageUrl(hotel.image) || hotel.image}
-                                                alt={hotel.hotelName}
-                                                className="w-24 h-24 object-cover rounded-lg"
-                                                onError={(e) => {
-                                                  e.target.style.display = 'none';
-                                                }}
-                                              />
-                                            )}
-                                            <div className="flex-1">
-                                              <div className="flex items-center gap-2 mb-2">
-                                                <h5 className="font-semibold text-gray-900">{hotel.hotelName || 'Hotel'}</h5>
-                                                {[...Array(parseInt(hotel.category || 1))].map((_, i) => (
-                                                  <Star key={i} className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                                                ))}
-                                              </div>
-                                              <div className="grid grid-cols-2 gap-2 text-sm text-gray-600">
-                                                {hotel.roomName && (
-                                                  <div><Hash className="h-3 w-3 inline mr-1" />Room: {hotel.roomName}</div>
-                                                )}
-                                                {(() => {
-                                                  const d = hotel.day || day;
-                                                  const dEvents = dayEvents[d] || [];
-                                                  const mEvent = dEvents.find(e => e.eventType === 'meal');
-                                                  const mName = mEvent ? (mEvent.subject || mEvent.mealType) : (hotel.mealPlan || 'Room Only');
-                                                  return <div><UtensilsCrossed className="h-3 w-3 inline mr-1" />Meal: {mName}</div>;
-                                                })()}
-                                                {hotel.checkIn && (
-                                                  <div><Calendar className="h-3 w-3 inline mr-1" />Check-in: {new Date(hotel.checkIn).toLocaleDateString('en-GB')}</div>
-                                                )}
-                                                {hotel.checkOut && (
-                                                  <div><Calendar className="h-3 w-3 inline mr-1" />Check-out: {new Date(hotel.checkOut).toLocaleDateString('en-GB')}</div>
-                                                )}
-                                              </div>
+                                    {/* Professional Content Area */}
+                                    <div className="flex-1 min-w-0">
+                                      {/* Event Topic & Time */}
+                                      <div className="flex items-start justify-between gap-4 mb-3">
+                                        <div className="flex-1 min-w-0">
+                                          <div className="flex items-center gap-2 mb-1">
+                                            <div className="p-1.5 bg-blue-50 text-blue-600 rounded-lg">
+                                              {getEventIcon(event.eventType)}
                                             </div>
+                                            <h4 className="text-base font-bold text-gray-900 truncate">
+                                              {event.subject || event.eventType}
+                                            </h4>
+                                          </div>
+                                          <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest pl-1">
+                                             {event.eventType} • {event.destination || dayTitle}
                                           </div>
                                         </div>
-                                      ))}
-                                    </div>
-                                  )}
+                                        {(event.startTime || event.endTime) && (
+                                          <div className="px-3 py-1 bg-blue-50/50 rounded-full border border-blue-100 flex items-center gap-1.5 text-[10px] font-black text-blue-600 uppercase">
+                                            <Clock className="h-3 w-3" />
+                                            {event.startTime || '—'} - {event.endTime || '—'}
+                                          </div>
+                                        )}
+                                      </div>
 
-                                  {/* Other event details */}
-                                  {event.destination && (
-                                    <div className="mt-2 text-sm text-gray-600">
-                                      <MapPin className="h-4 w-4 inline mr-1" />
-                                      {event.destination}
+                                      <div className="flex flex-col md:flex-row gap-5 items-start">
+                                        {/* Description text takes 1fr */}
+                                        <div className="flex-1 min-w-0">
+                                          {event.details && (
+                                            <p className="text-[13px] text-gray-600 leading-relaxed whitespace-pre-wrap break-words">
+                                              {event.details}
+                                            </p>
+                                          )}
+                                        </div>
+
+                                        {/* Small Professional Thumbnail (120px) */}
+                                        {eventImage && (
+                                          <div className="flex-shrink-0 w-28 h-28 rounded-xl overflow-hidden border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
+                                            <img
+                                              src={getDisplayImageUrl(eventImage) || eventImage}
+                                              alt={event.subject || 'Event'}
+                                              className="w-full h-full object-cover"
+                                              onError={(e) => { e.target.parentElement.style.display = 'none'; }}
+                                            />
+                                          </div>
+                                        )}
+                                      </div>
+
+                                      {/* Nested Hotel Details for Accommodation */}
+                                      {event.eventType === 'accommodation' && event.hotelOptions && event.hotelOptions.length > 0 && (
+                                        <div className="bg-gray-50 rounded-xl p-4 border border-gray-100 space-y-4">
+                                          {event.hotelOptions.map((hotel, hIdx) => (
+                                            <div key={hIdx} className="flex gap-4 items-start border-b border-gray-200 last:border-0 pb-4 last:pb-0">
+                                              {hotel.image && (
+                                                <img 
+                                                  src={getDisplayImageUrl(hotel.image) || hotel.image} 
+                                                  className="w-20 h-20 rounded-lg object-cover border border-gray-200" 
+                                                  onError={(e) => { e.target.style.display = 'none'; }} 
+                                                />
+                                              )}
+                                              <div className="flex-1">
+                                                <div className="flex items-center gap-2 mb-1">
+                                                  <span className="font-bold text-gray-900">{hotel.hotelName}</span>
+                                                  <div className="flex gap-0.5">
+                                                    {[...Array(parseInt(hotel.category || 1))].map((_, i) => (
+                                                      <Star key={i} className="h-3 w-3 fill-yellow-400 text-yellow-400" />
+                                                    ))}
+                                                  </div>
+                                                </div>
+                                                <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-gray-500">
+                                                  {hotel.roomName && <div>Room: {hotel.roomName}</div>}
+                                                  {hotel.mealPlan && <div>Meal: {hotel.mealPlan}</div>}
+                                                  {hotel.checkIn && <div>In: {new Date(hotel.checkIn).toLocaleDateString('en-GB')}</div>}
+                                                  {hotel.checkOut && <div>Out: {new Date(hotel.checkOut).toLocaleDateString('en-GB')}</div>}
+                                                </div>
+                                              </div>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      )}
                                     </div>
-                                  )}
-                                </div>
-                                {(event.image || (event.eventType === 'accommodation' && event.hotelOptions?.[0]?.image)) && (
-                                  <div className="flex-shrink-0">
-                                    <img
-                                      src={getDisplayImageUrl(event.image || event.hotelOptions?.[0]?.image) || event.image || event.hotelOptions?.[0]?.image}
-                                      alt={event.subject || 'Event'}
-                                      className="w-24 h-24 object-cover rounded-lg border border-gray-200"
-                                      onError={(e) => { e.target.style.display = 'none'; }}
-                                    />
                                   </div>
-                                )}
-                              </div>
-                            ))}
+                                </div>
+                              );
+                            })}
                           </div>
                         )}
                       </div>

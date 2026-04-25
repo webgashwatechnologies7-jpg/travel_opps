@@ -319,7 +319,11 @@ class CompanySettingsController extends Controller
         }
         $query = User::with(['branch', 'roles'])
             ->where('company_id', $companyId)
-            ->where('is_super_admin', false);
+            ->where('is_super_admin', false)
+            ->where(function($q) {
+                $q->whereNull('user_type')
+                  ->orWhere('user_type', '!=', 'agent');
+            });
 
         // Filter by branch if provided
         if ($request->branch_id) {
@@ -1029,6 +1033,12 @@ class CompanySettingsController extends Controller
                 foreach (['create', 'edit', 'delete'] as $action) {
                     Permission::firstOrCreate(['name' => "{$featureKey}.{$action}", 'guard_name' => 'web']);
                 }
+
+                // Add special permissions for leads_management
+                if ($featureKey === 'leads_management') {
+                    Permission::firstOrCreate(['name' => "leads_management.bypass_lock", 'guard_name' => 'web']);
+                    Permission::firstOrCreate(['name' => "leads_management.approve_unlock", 'guard_name' => 'web']);
+                }
             }
         }
 
@@ -1066,6 +1076,11 @@ class CompanySettingsController extends Controller
                     $allowedNames->push("{$key}.create");
                     $allowedNames->push("{$key}.edit");
                     $allowedNames->push("{$key}.delete");
+
+                    if ($key === 'leads_management') {
+                        $allowedNames->push("leads_management.bypass_lock");
+                        $allowedNames->push("leads_management.approve_unlock");
+                    }
                 }
             }
         }
@@ -1169,6 +1184,11 @@ class CompanySettingsController extends Controller
                         $allowedNames->push("{$key}.create");
                         $allowedNames->push("{$key}.edit");
                         $allowedNames->push("{$key}.delete");
+
+                        if ($key === 'leads_management') {
+                            $allowedNames->push("leads_management.bypass_lock");
+                            $allowedNames->push("leads_management.approve_unlock");
+                        }
                     }
                 }
             }
@@ -1278,6 +1298,11 @@ class CompanySettingsController extends Controller
                         $allowedNames->push("{$key}.create");
                         $allowedNames->push("{$key}.edit");
                         $allowedNames->push("{$key}.delete");
+
+                        if ($key === 'leads_management') {
+                            $allowedNames->push("leads_management.bypass_lock");
+                            $allowedNames->push("leads_management.approve_unlock");
+                        }
                     }
                 }
             }
@@ -1315,8 +1340,19 @@ class CompanySettingsController extends Controller
         $companyId = $this->resolveCompanyId();
 
         $stats = [
-            'total_users' => User::where('company_id', $companyId)->where('is_super_admin', false)->count(),
-            'active_users' => User::where('company_id', $companyId)->where('is_super_admin', false)->where('is_active', true)->count(),
+            'total_users' => User::where('company_id', $companyId)
+                ->where('is_super_admin', false)
+                ->where(function($q) {
+                    $q->whereNull('user_type')
+                      ->orWhere('user_type', '!=', 'agent');
+                })->count(),
+            'active_users' => User::where('company_id', $companyId)
+                ->where('is_super_admin', false)
+                ->where('is_active', true)
+                ->where(function($q) {
+                    $q->whereNull('user_type')
+                      ->orWhere('user_type', '!=', 'agent');
+                })->count(),
             'total_branches' => Branch::where('company_id', $companyId)->count(),
             'active_branches' => Branch::where('company_id', $companyId)->where('is_active', true)->count(),
             'users_by_branch' => Branch::where('company_id', $companyId)

@@ -8,6 +8,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { toast } from 'react-toastify';
 import echo from '../../utils/echo';
 import { Users, RefreshCcw, MessageSquare, Plus, MoreVertical, ArrowLeft } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
 import CommunitiesSidebar from './CommunitiesSidebar';
 import NewChatSidebar from './NewChatSidebar';
 import ChannelsSidebar from './ChannelsSidebar';
@@ -89,9 +90,12 @@ const WhatsAppWebLayout = () => {
                     return true;
                 });
                 setChats(uniqueChats);
+                return uniqueChats;
             }
+            return [];
         } catch (e) {
             console.error("Chats fetch failed", e);
+            return [];
         } finally {
             setLoading(false);
         }
@@ -197,12 +201,34 @@ const WhatsAppWebLayout = () => {
         return () => stopPolling();
     }, [fetchStatus, stopPolling]);
 
-    // 2. Fetch Chats on connection
+    const [searchParams] = useSearchParams();
+
+    // 2. Fetch Chats and handle deep link on connection
     useEffect(() => {
         if (status === 'Connected') {
-            fetchChats();
+            fetchChats().then((currentChats) => {
+                const mobile = searchParams.get('mobile');
+                if (mobile && currentChats) {
+                    const cleanPhone = mobile.replace(/[^0-9]/g, '');
+                    const jid = cleanPhone.length === 10 ? `91${cleanPhone}@s.whatsapp.net` : `${cleanPhone}@s.whatsapp.net`;
+                    
+                    // Try to find existing chat
+                    const existing = currentChats.find(c => c.chat_id.includes(cleanPhone));
+                    if (existing) {
+                        setActiveChat(existing);
+                    } else {
+                        // Create temp chat object for opening chat window
+                        setActiveChat({
+                            chat_id: jid,
+                            chat_name: `+${cleanPhone}`,
+                            last_message_body: '',
+                            last_message_at: null
+                        });
+                    }
+                }
+            });
         }
-    }, [status, fetchChats]);
+    }, [status, fetchChats, searchParams]);
 
     // 3. Polling Lifecycle Effect
     useEffect(() => {

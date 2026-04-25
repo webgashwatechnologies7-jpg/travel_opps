@@ -7,7 +7,7 @@ import { searchPexelsPhotos } from '../services/pexels';
 import { getDisplayImageUrl, rewriteHtmlImageUrls, sanitizeEmailHtmlForDisplay } from '../utils/imageUrl';
 // Layout removed - handled by nested routing
 import { useSettings } from '../contexts/SettingsContext';
-import { ArrowLeft, Calendar, Mail, Plus, Upload, X, Search, FileText, FileText as PassportIcon, Printer, Send, MessageCircle, CheckCircle, CheckCircle2, Clock, Briefcase, MapPin, CalendarDays, Users, UserCheck, Leaf, Smartphone, Phone, MoreVertical, Download, Pencil, Trash2, Camera, RefreshCw, Reply, ChevronDown, Paperclip, Eye, Info, Gift, Heart, Building2, Image as ImageIcon, Plane, Bus, Train, UtensilsCrossed, Ship, User, Star, Car } from 'lucide-react';
+import { ArrowLeft, Calendar, Mail, Plus, Upload, X, Search, FileText, FileText as PassportIcon, Printer, Send, MessageCircle, CheckCircle, CheckCircle2, Clock, Briefcase, MapPin, CalendarDays, Users, UserCheck, Leaf, Smartphone, Phone, MoreVertical, Download, Pencil, Trash2, Camera, RefreshCw, Reply, ChevronDown, Paperclip, Eye, Info, Gift, Heart, Building2, Image as ImageIcon, Plane, Bus, Train, UtensilsCrossed, Ship, User, Star, Car, Lock } from 'lucide-react';
 import DetailRow from '../components/Quiries/DetailRow';
 import html2pdf from 'html2pdf.js';
 import { WhatsAppTab, MailsTab, FollowupsTab, BillingTab, HistoryTab, SuppCommTab, PostSalesTab, VoucherTab, DocsTab, InvoiceTab, CallsTab, ItineraryHistoryTab } from '../components/LeadTabs';
@@ -97,6 +97,26 @@ const LeadDetails = () => {
     set_reminder: 'Yes'
   });
   const [addingFollowup, setAddingFollowup] = useState(false);
+  const [showUnlockRequestModal, setShowUnlockRequestModal] = useState(false);
+  const [showUnlockHandleModal, setShowUnlockHandleModal] = useState(false);
+  const [unlockReason, setUnlockReason] = useState('');
+  const [isSubmittingUnlock, setIsSubmittingUnlock] = useState(false);
+
+  const isAdminOrManager = useMemo(() => {
+    if (!user) return false;
+    // Explicit bypass permission per user request
+    if (user.permissions?.includes('leads_management.bypass_lock')) return true;
+
+    return user.is_super_admin || user.roles?.some(r => {
+      const roleName = typeof r === 'string' ? r : r.name;
+      return ['Company Admin', 'Super Admin'].includes(roleName);
+    });
+  }, [user]);
+
+  const isLeadLocked = useMemo(() => {
+    return false;
+  }, []);
+
   const [suppliers, setSuppliers] = useState([]);
   const [hotelsFromConfirmedOption, setHotelsFromConfirmedOption] = useState([]);
   const [vehiclesFromProposals, setVehiclesFromProposals] = useState([]);
@@ -814,6 +834,7 @@ const LeadDetails = () => {
 
   // Confirm an option – creates voucher + invoice and logs to history
   const handleConfirmOption = async (optionId) => {
+
     const updatedProposals = proposals.map(proposal => ({
       ...proposal,
       confirmed: proposal.id === optionId ? true : false // Only one option can be confirmed at a time
@@ -2193,6 +2214,7 @@ const LeadDetails = () => {
   };
 
   const handlePaxModalOpen = () => {
+
     let currentPax = lead?.pax_details || [];
     if (!Array.isArray(currentPax)) currentPax = [];
 
@@ -2288,6 +2310,7 @@ const LeadDetails = () => {
   };
 
   const handleAddNote = async () => {
+
     const finalNote = noteReason === 'Other' ? noteText.trim() : noteReason;
 
     if (!finalNote) {
@@ -2470,7 +2493,6 @@ const LeadDetails = () => {
       });
       setShowFollowupModal(false);
       setEditingFollowupId(null);
-      showToastNotification('success', 'Follow-up Added', 'Follow-up added successfully!');
     } catch (err) {
       console.error('Failed to add followup:', err);
       const errorMsg = err.response?.data?.message ||
@@ -2484,6 +2506,7 @@ const LeadDetails = () => {
   };
 
   const handleCreateItinerary = () => {
+
     setItineraryFormData({
       itinerary_name: '',
       destinations: '',
@@ -2629,18 +2652,21 @@ const LeadDetails = () => {
     : [];
 
   const handleInsertItinerary = () => {
+
     setChangePlanMode(false); // Normal insert — append mode
     setShowInsertItineraryModal(true);
   };
 
   // Called from "Change Plan" button — replaces existing proposals instead of appending
   const handleChangePlan = () => {
+
     setChangePlanMode(true); // Replace mode ON
     setShowInsertItineraryModal(true);
   };
 
   // Called from "Remove Itinerary" button — clears all proposals for this lead
   const handleRemoveItinerary = async () => {
+
     if (window.confirm('Are you sure you want to remove this itinerary from the lead? All associated options will be deleted.')) {
       try {
         await saveProposals([]);
@@ -4945,12 +4971,49 @@ const LeadDetails = () => {
 
 
   const handleStatusChange = async (newStatus) => {
+
     try {
       await leadsAPI.updateStatus(id, newStatus);
       fetchLeadDetails();
     } catch (err) {
       console.error('Failed to update status:', err);
       showToastNotification('error', 'Update Failed', 'Failed to update status');
+    }
+  };
+
+  const handleRequestUnlock = async (e) => {
+    e.preventDefault();
+    if (!unlockReason.trim()) {
+      showToastNotification('warning', 'Reason Required', 'Please provide a reason for editing this booked query.');
+      return;
+    }
+    setIsSubmittingUnlock(true);
+    try {
+      await leadsAPI.requestUnlock(id, unlockReason);
+      showToastNotification('success', 'Request Sent', 'Unlock request has been sent to your manager.');
+      setShowUnlockRequestModal(false);
+      setUnlockReason('');
+      fetchLeadDetails();
+    } catch (err) {
+      console.error('Failed to request unlock:', err);
+      showToastNotification('error', 'Request Failed', err.response?.data?.message || 'Failed to send unlock request');
+    } finally {
+      setIsSubmittingUnlock(false);
+    }
+  };
+
+  const handleApproveRejectUnlock = async (action) => {
+    setIsSubmittingUnlock(true);
+    try {
+      await leadsAPI.handleUnlockRequest(id, { action });
+      showToastNotification('success', 'Success', `Unlock request ${action}ed successfully.`);
+      setShowUnlockHandleModal(false);
+      fetchLeadDetails();
+    } catch (err) {
+      console.error('Failed to handle unlock request:', err);
+      showToastNotification('error', 'Action Failed', err.response?.data?.message || 'Failed to process request');
+    } finally {
+      setIsSubmittingUnlock(false);
     }
   };
 
@@ -5031,6 +5094,54 @@ const LeadDetails = () => {
                   {lead.status === 'cancelled' && (
                     <span className="px-3 py-1 text-xs font-bold bg-gray-100 text-gray-600 rounded-full border border-gray-200 uppercase tracking-wider">Declined</span>
                   )}
+
+                  {lead.is_locked && (
+                    <div className={`flex items-center gap-2 px-3 py-1 border rounded-full text-xs font-bold uppercase tracking-tight shadow-sm ${lead.is_unlocked_for_edit ? 'bg-indigo-50 border-indigo-200 text-indigo-700' : 'bg-amber-50 border-amber-200 text-amber-700'}`}>
+                      <Lock size={12} className={lead.is_unlocked_for_edit ? 'animate-pulse' : ''} />
+                      {lead.is_unlocked_for_edit ? 'Unlocked for Edit' : 'Locked'}
+                    </div>
+                  )}
+
+                  {isLeadLocked && !lead.unlock_requested && (
+                    <button
+                      onClick={() => setShowUnlockRequestModal(true)}
+                      className="px-4 py-2 text-xs font-bold text-amber-600 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-xl transition-all flex items-center gap-2 active:scale-95 shadow-sm"
+                    >
+                      <RefreshCw className="h-4 w-4" />
+                      Request Unlock
+                    </button>
+                  )}
+
+                  {isLeadLocked && lead.unlock_requested && (
+                    <div className="flex items-center gap-2 px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-gray-500 text-xs font-semibold cursor-default">
+                      <Clock size={14} className="animate-spin" />
+                      Unlock Requested...
+                    </div>
+                  )}
+
+                  {(user.permissions?.includes('leads_management.approve_unlock') || user.permissions?.includes('leads_management.bypass_lock') || isAdminOrManager) && lead.unlock_requested && !lead.is_unlocked_for_edit && (
+                    <button
+                      onClick={() => setShowUnlockHandleModal(true)}
+                      className="px-4 py-2 text-xs font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-xl transition-all flex items-center gap-2 active:scale-95 shadow-sm animate-pulse"
+                    >
+                      <Info className="h-4 w-4" />
+                      Handle Unlock Request
+                    </button>
+                  )}
+
+                  {lead.status !== 'confirmed' && lead.status !== 'cancelled' && !isLeadLocked && (
+                    <button
+                      onClick={() => {
+                        if (window.confirm('Are you sure you want to decline this query? This will mark it as Declined.')) {
+                          handleStatusChange('cancelled');
+                        }
+                      }}
+                      className="px-4 py-2 text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 border border-red-200 rounded-xl transition-all flex items-center gap-2 active:scale-95 shadow-sm"
+                    >
+                      <X className="h-4 w-4" />
+                      Decline Query
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
@@ -5045,6 +5156,10 @@ const LeadDetails = () => {
                     <h2 className="text-xl font-bold text-gray-900">Query Information</h2>
                     <button
                       onClick={() => {
+                        if (isLeadLocked) {
+                          showToastNotification('warning', 'Lead Locked', 'This booking is locked. Please request approval from your manager to edit.');
+                          return;
+                        }
                         setEditQueryFormData({
                           destination: lead.destination || '',
                           travel_start_date: lead.travel_start_date ? lead.travel_start_date.split('T')[0] : '',
@@ -5059,8 +5174,8 @@ const LeadDetails = () => {
                         });
                         setShowEditQueryModal(true);
                       }}
-                      className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                      title="Edit Query"
+                      className={`p-1.5 rounded-lg transition-colors ${isLeadLocked ? 'text-gray-400 cursor-not-allowed bg-gray-50' : 'text-blue-600 hover:bg-blue-50'}`}
+                      title={isLeadLocked ? "LOCKED: Cannot Edit" : "Edit Query"}
                     >
                       <Pencil className="w-4 h-4" />
                     </button>
@@ -5169,9 +5284,15 @@ const LeadDetails = () => {
                       Travellers (Pax)
                     </h2>
                     <button
-                      onClick={handlePaxModalOpen}
-                      className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                      title="Edit Travellers"
+                      onClick={() => {
+                        if (isLeadLocked) {
+                          showToastNotification('warning', 'Lead Locked', 'This booking is locked. Please request approval from your manager to edit.');
+                          return;
+                        }
+                        handlePaxModalOpen();
+                      }}
+                      className={`p-1.5 rounded-lg transition-colors ${isLeadLocked ? 'text-gray-400 cursor-not-allowed bg-gray-50' : 'text-blue-600 hover:bg-blue-50'}`}
+                      title={isLeadLocked ? "LOCKED: Cannot Edit" : "Edit Travellers"}
                     >
                       <Pencil className="w-4 h-4" />
                     </button>
@@ -5210,6 +5331,10 @@ const LeadDetails = () => {
                     </h2>
                     <button
                       onClick={() => {
+                        if (isLeadLocked) {
+                          showToastNotification('warning', 'Lead Locked', 'This booking is locked. Please request approval from your manager to edit.');
+                          return;
+                        }
                         setEditLeadFormData({
                           client_name: lead.client_name || '',
                           client_title: lead.client_title || '',
@@ -5220,8 +5345,8 @@ const LeadDetails = () => {
                         });
                         setShowEditLeadModal(true);
                       }}
-                      className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                      title="Edit Customer"
+                      className={`p-1.5 rounded-lg transition-colors ${isLeadLocked ? 'text-gray-400 cursor-not-allowed bg-gray-50' : 'text-blue-600 hover:bg-blue-50'}`}
+                      title={isLeadLocked ? "LOCKED: Cannot Edit" : "Edit Customer"}
                     >
                       <Pencil className="w-4 h-4" />
                     </button>
@@ -5434,7 +5559,6 @@ const LeadDetails = () => {
                         { key: 'whatsapp', label: 'WhatsApp' },
                         { key: 'followups', label: "Followup's" },
                         { key: 'suppComm', label: 'Supp. Comm.' },
-                        { key: 'postSales', label: 'Post Sales' },
                         { key: 'voucher', label: 'Voucher' },
                         { key: 'docs', label: 'Docs.' },
                         { key: 'invoice', label: 'Invoice' },
@@ -5465,8 +5589,8 @@ const LeadDetails = () => {
                           <button
                             onClick={() => setProposalSubTab('active')}
                             className={`px-5 py-2.5 text-sm font-semibold border-b-2 transition-all ${proposalSubTab === 'active'
-                                ? 'border-blue-600 text-blue-600'
-                                : 'border-transparent text-gray-500 hover:text-gray-700'
+                              ? 'border-blue-600 text-blue-600'
+                              : 'border-transparent text-gray-500 hover:text-gray-700'
                               }`}
                           >
                             Active Itinerary
@@ -5474,15 +5598,15 @@ const LeadDetails = () => {
                           <button
                             onClick={() => setProposalSubTab('history')}
                             className={`px-5 py-2.5 text-sm font-semibold border-b-2 transition-all flex items-center gap-2 ${proposalSubTab === 'history'
-                                ? 'border-orange-500 text-orange-600'
-                                : 'border-transparent text-gray-500 hover:text-gray-700'
+                              ? 'border-orange-500 text-orange-600'
+                              : 'border-transparent text-gray-500 hover:text-gray-700'
                               }`}
                           >
                             Itinerary History
                             {itineraryHistoryTotal > 0 && (
                               <span className={`text-xs px-1.5 py-0.5 rounded-full font-bold ${proposalSubTab === 'history'
-                                  ? 'bg-orange-100 text-orange-700'
-                                  : 'bg-gray-100 text-gray-600'
+                                ? 'bg-orange-100 text-orange-700'
+                                : 'bg-gray-100 text-gray-600'
                                 }`}>
                                 {itineraryHistoryTotal}
                               </span>
@@ -5549,6 +5673,10 @@ const LeadDetails = () => {
                                     <div
                                       className="relative h-48 sm:h-60 w-full overflow-hidden rounded-t-xl cursor-pointer bg-gray-100"
                                       onClick={() => {
+                                        if (isLeadLocked) {
+                                          showToastNotification('warning', 'Lead Locked', 'This booking is locked. Please request approval from your manager to edit.');
+                                          return;
+                                        }
                                         const meta = first?.metadata || {};
                                         const itineraryId = first?.itinerary_id || meta.itinerary_id || proposals[0]?.itinerary_id;
                                         if (itineraryId) {
@@ -5746,6 +5874,10 @@ const LeadDetails = () => {
                                                       <button
                                                         type="button"
                                                         onClick={async (e) => {
+                                                          if (isLeadLocked) {
+                                                            showToastNotification('warning', 'Lead Locked', 'This booking is locked. Please request approval from your manager to edit.');
+                                                            return;
+                                                          }
                                                           e.stopPropagation();
                                                           const itId = opt.itinerary_id;
                                                           setLoadingHotelManager(true);
@@ -5817,7 +5949,14 @@ const LeadDetails = () => {
                                                       </button>
                                                       <button
                                                         type="button"
-                                                        onClick={(e) => { e.stopPropagation(); window.open(`/itineraries/${opt.itinerary_id}?fromLead=${id}`, '_blank'); }}
+                                                        onClick={(e) => {
+                                                          if (isLeadLocked) {
+                                                            showToastNotification('warning', 'Lead Locked', 'This booking is locked. Please request approval from your manager to edit.');
+                                                            return;
+                                                          }
+                                                          e.stopPropagation();
+                                                          window.open(`/itineraries/${opt.itinerary_id}?fromLead=${id}`, '_blank');
+                                                        }}
                                                         className="w-full text-gray-600 hover:text-gray-800 hover:bg-gray-100 text-sm font-medium px-3 py-2 rounded-lg border border-gray-300 transition-colors"
                                                       >
                                                         Edit Itinerary
@@ -5960,66 +6099,62 @@ const LeadDetails = () => {
                                 handleSelectAllVehicles={handleSelectAllVehicles}
                                 selectAllVehicles={selectAllVehicles}
                               />
+                            ) : activeTab === 'voucher' ? (
+                              <VoucherTab
+                                lead={lead}
+                                getConfirmedOption={getConfirmedOption}
+                                quotationData={quotationData}
+                                handleVoucherPreview={handleVoucherPreview}
+                                handleVoucherDownload={handleVoucherDownload}
+                                handleVoucherSend={handleVoucherSend}
+                                voucherActionLoading={voucherActionLoading}
+                              />
                             ) :
-                              activeTab === 'postSales' ? (
-                                <PostSalesTab />
+                              activeTab === 'docs' ? (
+                                <DocsTab />
                               ) :
-                                activeTab === 'voucher' ? (
-                                  <VoucherTab
-                                    lead={lead}
-                                    getConfirmedOption={getConfirmedOption}
-                                    quotationData={quotationData}
-                                    handleVoucherPreview={handleVoucherPreview}
-                                    handleVoucherDownload={handleVoucherDownload}
-                                    handleVoucherSend={handleVoucherSend}
-                                    voucherActionLoading={voucherActionLoading}
+                                activeTab === 'invoice' ? (
+                                  <InvoiceTab
+                                    loadingHistory={loadingHistory}
+                                    queryDetailInvoices={queryDetailInvoices}
+                                    handleInvoicePreview={handleInvoicePreview}
+                                    handleInvoiceDownload={handleInvoiceDownload}
+                                    handleInvoiceSend={handleInvoiceSend}
+                                    invoiceActionLoading={invoiceActionLoading}
                                   />
                                 ) :
-                                  activeTab === 'docs' ? (
-                                    <DocsTab />
-                                  ) :
-                                    activeTab === 'invoice' ? (
-                                      <InvoiceTab
-                                        loadingHistory={loadingHistory}
-                                        queryDetailInvoices={queryDetailInvoices}
-                                        handleInvoicePreview={handleInvoicePreview}
-                                        handleInvoiceDownload={handleInvoiceDownload}
-                                        handleInvoiceSend={handleInvoiceSend}
-                                        invoiceActionLoading={invoiceActionLoading}
-                                      />
-                                    ) :
-                                      activeTab === 'billing' ? (
-                                        <BillingTab
-                                          lead={lead}
-                                          getConfirmedOption={getConfirmedOption}
-                                          quotationData={quotationData}
-                                          paymentSummary={paymentSummary}
-                                          payments={payments}
-                                          loadingPayments={loadingPayments}
-                                          setPaymentFormData={setPaymentFormData}
-                                          setShowPaymentModal={setShowPaymentModal}
-                                          formatDateForDisplay={formatDateForDisplay}
-                                          onSendReminder={handleSendPaymentReminder}
-                                          remindingPaymentId={remindingPaymentId}
-                                        />
-                                      ) : activeTab === 'calls' ? (
-                                        <CallsTab
-                                          calls={leadCalls}
-                                          loading={loadingCalls}
-                                          onPlayRecording={handlePlayRecording}
-                                          onDeleteCall={handleDeleteCall}
-                                          recordingUrls={recordingUrls}
-                                          activeRecordingId={activeRecordingId}
-                                        />
+                                  activeTab === 'billing' ? (
+                                    <BillingTab
+                                      lead={lead}
+                                      getConfirmedOption={getConfirmedOption}
+                                      quotationData={quotationData}
+                                      paymentSummary={paymentSummary}
+                                      payments={payments}
+                                      loadingPayments={loadingPayments}
+                                      setPaymentFormData={setPaymentFormData}
+                                      setShowPaymentModal={setShowPaymentModal}
+                                      formatDateForDisplay={formatDateForDisplay}
+                                      onSendReminder={handleSendPaymentReminder}
+                                      remindingPaymentId={remindingPaymentId}
+                                    />
+                                  ) : activeTab === 'calls' ? (
+                                    <CallsTab
+                                      calls={leadCalls}
+                                      loading={loadingCalls}
+                                      onPlayRecording={handlePlayRecording}
+                                      onDeleteCall={handleDeleteCall}
+                                      recordingUrls={recordingUrls}
+                                      activeRecordingId={activeRecordingId}
+                                    />
 
-                                      )
-                                        :
-                                        activeTab === 'history' && (
-                                          <HistoryTab
-                                            loadingHistory={loadingHistory}
-                                            activityTimeline={activityTimeline}
-                                          />
-                                        )}
+                                  )
+                                    :
+                                    activeTab === 'history' && (
+                                      <HistoryTab
+                                        loadingHistory={loadingHistory}
+                                        activityTimeline={activityTimeline}
+                                      />
+                                    )}
                   </div>
                 </div>
               </div>
@@ -6114,6 +6249,21 @@ const LeadDetails = () => {
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     min="1"
                     placeholder="e.g. 3"
+                  />
+                </div>
+
+
+                {/* Routing / Destinations */}
+                <div className="col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Routing
+                  </label>
+                  <input
+                    type="text"
+                    value={itineraryFormData.routing || itineraryFormData.destinations}
+                    onChange={(e) => setItineraryFormData({ ...itineraryFormData, routing: e.target.value, destinations: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="e.g. Delhi (1N) - Shimla (2N) - Manali (3N) - Delhi"
                   />
                 </div>
 
@@ -6334,7 +6484,7 @@ const LeadDetails = () => {
                     </div>
                     <div className="flex-1 min-w-0">
                       <h3 className="font-bold truncate">{it.title || it.itinerary_name}</h3>
-                      <p className="text-sm text-gray-500">{it.duration} Days - {it.destination}</p>
+                      <p className="text-sm text-gray-500">{it.duration} Days - {it.routing || it.destination || it.destinations}</p>
                     </div>
                     <button className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm transition-colors flex-shrink-0">Insert</button>
                   </div>
@@ -6462,8 +6612,8 @@ const LeadDetails = () => {
                         </tr>
                         <tr>
                           <td colSpan="2" className="border border-gray-100 p-4">
-                            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-1">Destinations</p>
-                            <p className="font-extrabold text-slate-800">{quotationData.itinerary?.destinations}</p>
+                            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-1">Routing</p>
+                            <p className="font-extrabold text-slate-800">{quotationData.itinerary?.routing || quotationData.itinerary?.destinations}</p>
                           </td>
                           <td colSpan="2" className="border border-gray-100 p-4">
                             <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-1">Duration</p>
@@ -6642,7 +6792,7 @@ const LeadDetails = () => {
                       This is a computer generated quotation & doesn't require signature. All bookings are subject to availability.
                     </p>
                     <div className="space-y-2">
-                      <h5 className="text-2xl font-black text-[#fbbf24] tracking-tight">Thank you for choosing Gashwa Technologies!</h5>
+                      <h5 className="text-2xl font-black text-[#fbbf24] tracking-tight">Thank you for choosing {settings?.company_name || 'our services'}!</h5>
                       <p className="text-gray-300 font-bold uppercase tracking-widest text-[10px]">Where your travel dreams meet professional reality.</p>
                     </div>
                   </div>
@@ -7042,8 +7192,8 @@ const LeadDetails = () => {
                                 setHotelManagerData(updated);
                               }}
                               className={`w-full bg-white border rounded-lg px-3 py-2 text-sm focus:ring-2 outline-none transition-all ${hotel.status === 'Confirmed' ? 'border-green-300 bg-green-50 text-green-700 font-bold' :
-                                  hotel.status === 'Inquiry Sent' ? 'border-blue-300 bg-blue-50 text-blue-700 font-bold' :
-                                    hotel.status === 'Cancelled' ? 'border-red-300 bg-red-50 text-red-700 font-bold' : 'border-gray-200'
+                                hotel.status === 'Inquiry Sent' ? 'border-blue-300 bg-blue-50 text-blue-700 font-bold' :
+                                  hotel.status === 'Cancelled' ? 'border-red-300 bg-red-50 text-red-700 font-bold' : 'border-gray-200'
                                 }`}
                             >
                               <option value="Pending">Pending</option>
@@ -7101,6 +7251,10 @@ const LeadDetails = () => {
                       <button
                         disabled={savingHotelManager}
                         onClick={async () => {
+                          if (isLeadLocked) {
+                            showToastNotification('warning', 'Lead Locked', 'This booking is locked. Please request approval from your manager to edit.');
+                            return;
+                          }
                           setSavingHotelManager(true);
                           try {
                             const itId = hotelManagerData[0]?.itineraryId;
@@ -7151,6 +7305,67 @@ const LeadDetails = () => {
               </div>
             </div>
           )}
+
+          {/* Unlock Request Modal */}
+          <Dialog visible={showUnlockRequestModal} style={{ width: '450px' }} onHide={() => setShowUnlockRequestModal(false)} header="Request Edit Permission">
+            <div className="p-4 space-y-4">
+              <div className="flex items-center gap-3 p-4 bg-amber-50 border border-amber-100 rounded-xl">
+                <Info className="h-5 w-5 text-amber-600" />
+                <p className="text-sm text-amber-800">
+                  This query is **Booked** and currently locked for editing. Please provide a reason to request temporary access from your manager.
+                </p>
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Reason for Editing</label>
+                <textarea
+                  value={unlockReason}
+                  onChange={(e) => setUnlockReason(e.target.value)}
+                  placeholder="e.g. Need to update flight timings / Change in pax details requested by client..."
+                  className="w-full p-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-amber-500 outline-none h-32 text-sm"
+                />
+              </div>
+              <div className="flex justify-end gap-3 pt-2">
+                <button onClick={() => setShowUnlockRequestModal(false)} className="px-4 py-2 text-gray-600 font-medium">Cancel</button>
+                <button
+                  onClick={handleRequestUnlock}
+                  disabled={isSubmittingUnlock}
+                  className="px-6 py-2 bg-amber-600 text-white rounded-xl font-bold shadow-lg hover:bg-amber-700 transition-all disabled:opacity-50 flex items-center gap-2"
+                >
+                  {isSubmittingUnlock ? <RefreshCw className="animate-spin h-4 w-4" /> : <Send className="h-4 w-4" />}
+                  Send Request
+                </button>
+              </div>
+            </div>
+          </Dialog>
+
+          {/* Handle Unlock Modal (Manager View) */}
+          <Dialog visible={showUnlockHandleModal} style={{ width: '450px' }} onHide={() => setShowUnlockHandleModal(false)} header="Review Unlock Request">
+            <div className="p-4 space-y-4">
+              <div className="bg-gray-50 border border-gray-100 rounded-xl p-4">
+                <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Requester Reason</label>
+                <p className="text-gray-800 text-sm whitespace-pre-wrap font-medium italic">
+                  "{lead.unlock_request_reason || 'No reason provided.'}"
+                </p>
+              </div>
+              <div className="flex gap-3 pt-4">
+                <button
+                  onClick={() => handleApproveRejectUnlock('reject')}
+                  disabled={isSubmittingUnlock}
+                  className="flex-1 py-3 px-4 border border-red-200 text-red-600 font-bold rounded-xl hover:bg-red-50 transition-all disabled:opacity-50"
+                >
+                  Reject
+                </button>
+                <button
+                  onClick={() => handleApproveRejectUnlock('approve')}
+                  disabled={isSubmittingUnlock}
+                  className="flex-1 py-3 px-4 bg-green-600 text-white font-bold rounded-xl shadow-lg hover:bg-green-700 transition-all shadow-green-100 disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {isSubmittingUnlock ? <RefreshCw className="animate-spin h-4 w-4" /> : <CheckCircle size={18} />}
+                  Approve & Unlock
+                </button>
+              </div>
+            </div>
+          </Dialog>
 
         </>
       )}

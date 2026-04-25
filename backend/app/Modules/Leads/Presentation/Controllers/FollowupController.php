@@ -12,6 +12,75 @@ use Illuminate\Support\Facades\Validator;
 class FollowupController extends Controller
 {
     /**
+     * Get all pending followups for the authenticated user.
+     *
+     * @param Request $request
+     * @return JsonResponse
+     */
+    public function index(Request $request): JsonResponse
+    {
+        try {
+            $followups = LeadFollowup::with(['lead' => function($q) {
+                    $q->withTrashed();
+                }, 'lead.assignedUser', 'lead.creator', 'user'])
+                ->where('is_completed', false)
+                ->orderBy('reminder_date', 'asc')
+                ->orderBy('reminder_time', 'asc')
+                ->get();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Followups retrieved successfully',
+                'data' => [
+                    'followups' => $followups->map(function ($followup) {
+                        return [
+                            'id' => $followup->id,
+                            'lead_id' => $followup->lead_id,
+                            'lead' => $followup->lead ? [
+                                'id' => $followup->lead->id,
+                                'client_name' => $followup->lead->client_name,
+                                'email' => $followup->lead->email,
+                                'phone' => $followup->lead->phone,
+                                'source' => $followup->lead->source,
+                                'destination' => $followup->lead->destination,
+                                'status' => $followup->lead->status,
+                                'priority' => $followup->lead->priority,
+                                'assigned_to' => $followup->lead->assigned_to,
+                                'assigned_user' => $followup->lead->assignedUser ? [
+                                    'id' => $followup->lead->assignedUser->id,
+                                    'name' => $followup->lead->assignedUser->name,
+                                    'email' => $followup->lead->assignedUser->email,
+                                ] : null,
+                                'is_deleted' => $followup->lead ? $followup->lead->trashed() : true,
+                            ] : null,
+                            'user_id' => $followup->user_id,
+                            'user' => $followup->user ? [
+                                'id' => $followup->user->id,
+                                'name' => $followup->user->name,
+                                'email' => $followup->user->email,
+                            ] : null,
+                            'remark' => $followup->remark,
+                            'reminder_date' => $followup->reminder_date ? $followup->reminder_date->toDateString() : null,
+                            'reminder_time' => $followup->reminder_time,
+                            'is_completed' => $followup->is_completed,
+                            'created_at' => $followup->created_at,
+                            'updated_at' => $followup->updated_at,
+                        ];
+                    }),
+                    'count' => $followups->count(),
+                ],
+            ], 200);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'An error occurred while retrieving followups',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
+            ], 500);
+        }
+    }
+
+    /**
      * Create a new followup.
      *
      * @param Request $request
@@ -333,7 +402,9 @@ class FollowupController extends Controller
         try {
             $today = now()->toDateString();
 
-            $followups = LeadFollowup::with(['lead.assignedUser', 'lead.creator', 'user'])
+            $followups = LeadFollowup::with(['lead' => function($q) {
+                    $q->withTrashed();
+                }, 'lead.assignedUser', 'lead.creator', 'user'])
                 ->where('reminder_date', $today)
                 ->where('is_completed', false)
                 ->orderBy('reminder_time', 'asc')
@@ -362,6 +433,7 @@ class FollowupController extends Controller
                                     'name' => $followup->lead->assignedUser->name,
                                     'email' => $followup->lead->assignedUser->email,
                                 ] : null,
+                                'is_deleted' => $followup->lead ? $followup->lead->trashed() : true,
                             ] : null,
                             'user_id' => $followup->user_id,
                             'user' => $followup->user ? [
@@ -400,7 +472,9 @@ class FollowupController extends Controller
         try {
             $today = now()->toDateString();
 
-            $followups = LeadFollowup::with(['lead.assignedUser', 'lead.creator', 'user'])
+            $followups = LeadFollowup::with(['lead' => function($q) {
+                    $q->withTrashed();
+                }, 'lead.assignedUser', 'lead.creator', 'user'])
                 ->where('reminder_date', '<', $today)
                 ->where('is_completed', false)
                 ->orderBy('reminder_date', 'asc')
@@ -430,6 +504,7 @@ class FollowupController extends Controller
                                     'name' => $followup->lead->assignedUser->name,
                                     'email' => $followup->lead->assignedUser->email,
                                 ] : null,
+                                'is_deleted' => $followup->lead ? $followup->lead->trashed() : true,
                             ] : null,
                             'user_id' => $followup->user_id,
                             'user' => $followup->user ? [

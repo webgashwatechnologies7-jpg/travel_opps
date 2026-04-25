@@ -22,10 +22,14 @@ const Followups = () => {
       const res = await followupsAPI.list();
       const all = res.data.data.followups || [];
       
-      const todayStr = new Date().toISOString().split('T')[0];
+      const today = new Date();
+      const year = today.getFullYear();
+      const month = String(today.getMonth() + 1).padStart(2, '0');
+      const day = String(today.getDate()).padStart(2, '0');
+      const todayStr = `${year}-${month}-${day}`;
       
       setTodayFollowups(all.filter(f => f.reminder_date === todayStr));
-      setOverdueFollowups(all.filter(f => f.reminder_date < todayStr && f.status !== 'completed'));
+      setOverdueFollowups(all.filter(f => (f.reminder_date < todayStr || !f.reminder_date) && !f.is_completed));
     } catch (err) {
       console.error('Failed to fetch followups:', err);
     } finally {
@@ -40,6 +44,17 @@ const Followups = () => {
       toast.success('Follow-up marked as complete');
     } catch (err) {
       toast.error('Failed to mark as complete');
+    }
+  };
+
+  const handleDelete = async (id) => {
+    if (!window.confirm('Are you sure you want to delete this follow-up?')) return;
+    try {
+      await followupsAPI.delete(id);
+      fetchFollowups();
+      toast.success('Follow-up deleted successfully');
+    } catch (err) {
+      toast.error('Failed to delete follow-up');
     }
   };
 
@@ -85,6 +100,7 @@ const Followups = () => {
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Lead</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Remark</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Reminder</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Created By</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
             </tr>
           </thead>
@@ -102,8 +118,13 @@ const Followups = () => {
                 }}
               >
                 <td className="px-6 py-4">
-                  <div className="text-sm font-medium text-gray-900">
-                    {followup.lead?.client_name || 'N/A'}
+                  <div className="flex items-center gap-2">
+                    <div className="text-sm font-medium text-gray-900">
+                      {followup.lead?.client_name || 'N/A'}
+                    </div>
+                    {followup.lead?.is_deleted && (
+                      <span className="px-2 py-0.5 bg-red-100 text-red-700 text-[10px] font-bold uppercase rounded">Deleted Lead</span>
+                    )}
                   </div>
                   <div className="text-sm text-gray-500">{followup.lead?.phone || 'N/A'}</div>
                 </td>
@@ -111,16 +132,26 @@ const Followups = () => {
                 <td className="px-6 py-4 text-sm text-gray-500">
                   {followup.reminder_date} {followup.reminder_time || ''}
                 </td>
+                <td className="px-6 py-4 text-sm text-gray-500">{followup.user?.name || 'Unknown'}</td>
                 <td className="px-6 py-4 whitespace-nowrap">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleComplete(followup.id);
-                    }}
-                    className="text-green-600 hover:text-green-900 font-medium"
-                  >
-                    Mark Complete
-                  </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleComplete(followup.id);
+                      }}
+                      className="text-green-600 hover:text-green-900 font-medium mr-4"
+                    >
+                      Mark Complete
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDelete(followup.id);
+                      }}
+                      className="text-red-600 hover:text-red-900 font-medium"
+                    >
+                      Delete
+                    </button>
                 </td>
               </tr>
             ))}

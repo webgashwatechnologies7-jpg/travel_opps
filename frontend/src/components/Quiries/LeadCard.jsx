@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, memo, useCallback } from 'react';
 import { useNavigate } from "react-router-dom";
 import { toast } from 'react-toastify';
-import { MoreVertical, Trash2, MapPin, MessageCircle, Mail, User as UserIcon, Calendar } from 'lucide-react';
+import { MoreVertical, Trash2, MapPin, MessageCircle, Mail, User as UserIcon, Calendar, Lock } from 'lucide-react';
 
 function LeadCard({
   name,
@@ -20,6 +20,7 @@ function LeadCard({
   email,
   isSelected,
   onSelect,
+  is_locked,
 }) {
   const navigate = useNavigate();
   const [showMenu, setShowMenu] = useState(false);
@@ -80,23 +81,22 @@ function LeadCard({
   const currentStatus = statusConfig[status?.toLowerCase()] || { color: 'bg-slate-500', glow: '', label: status };
 
   // Robust name detection
-  const currentAssigneeName = assignedUserName || 
-                             assignedTo?.name || 
-                             (typeof assignedTo === 'object' && assignedTo !== null ? assignedTo.name : null);
-                             
+  const currentAssigneeName = assignedUserName ||
+    assignedTo?.name ||
+    (typeof assignedTo === 'object' && assignedTo !== null ? assignedTo.name : null);
+
   const isAssigned = !!currentAssigneeName;
 
   return (
     <div
       onClick={handleCardClick}
-      className={`group relative w-full rounded-xl border transition-all duration-300 flex flex-col h-full animate-in-scale cursor-pointer ${
-        isSelected 
-        ? 'border-blue-500 ring-4 ring-blue-500/10 shadow-xl bg-blue-50/50' 
-        : 'border-slate-200/60 bg-white shadow-sm hover:shadow-xl hover:translate-y-[-4px]'
-      }`}
+      className={`group relative w-full rounded-xl border transition-all duration-300 flex flex-col h-full animate-in-scale cursor-pointer ${isSelected
+          ? 'border-blue-500 ring-4 ring-blue-500/10 shadow-xl bg-blue-50/50'
+          : 'border-slate-200/60 bg-white shadow-sm hover:shadow-xl hover:translate-y-[-4px]'
+        }`}
     >
       {/* Selection Checkbox */}
-      <div 
+      <div
         className={`absolute top-4 left-4 z-50 transition-opacity duration-300 opacity-100`}
         onClick={(e) => e.stopPropagation()}
       >
@@ -111,12 +111,18 @@ function LeadCard({
       {/* Background Subtle Accent */}
       <div className={`absolute top-0 left-0 w-1 h-full rounded-l-xl ${currentStatus.color}`}></div>
 
+      {is_locked && (
+        <div className="absolute top-4 right-12 z-20 bg-amber-100/80 backdrop-blur-sm p-1.5 rounded-lg border border-amber-200 shadow-sm animate-in zoom-in duration-300">
+          <Lock size={14} className="text-amber-600 fill-amber-600/10" />
+        </div>
+      )}
+
       <div className="rounded-xl p-5 h-full flex flex-col relative z-10">
         {/* Top Header */}
         <div className="flex justify-between items-start mb-4">
           <div className={`flex-1 min-w-0 pl-10 transition-all duration-300`}>
             <div className={`flex items-center gap-2 mb-1 transition-transform duration-300`}>
-               <h3 className="font-bold text-lg text-slate-900 truncate leading-tight group-hover:text-blue-600 transition-colors tracking-tight">
+              <h3 className="font-bold text-lg text-slate-900 truncate leading-tight group-hover:text-blue-600 transition-colors tracking-tight">
                 {name}
               </h3>
               {tag && (
@@ -126,8 +132,8 @@ function LeadCard({
               )}
             </div>
             <div className="flex items-center gap-1.5 text-slate-500 font-semibold text-xs">
-               <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-               {phone}
+              <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+              {phone}
             </div>
           </div>
 
@@ -163,42 +169,47 @@ function LeadCard({
             </div>
 
             <div className="flex items-center justify-between gap-3">
-               <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 rounded-lg border border-slate-100 group-hover:bg-white transition-colors">
-                  <Calendar size={13} className="text-slate-400" />
-                  <span className="text-[11px] font-bold text-slate-500 tracking-tight whitespace-nowrap">{date}</span>
-               </div>
-               
-                <button
-                  onClick={(e) => { e.stopPropagation(); onStatusChange?.(id); }}
-                  className={`px-4 py-1.5 rounded-lg text-white text-[10px] font-bold uppercase tracking-wider shadow-lg border border-white/20 backdrop-blur-md ${currentStatus.color} ${currentStatus.glow} hover:brightness-110 active:scale-95 transition-all duration-300`}
-                >
-                  {currentStatus.label}
-                </button>
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 rounded-lg border border-slate-100 group-hover:bg-white transition-colors">
+                <Calendar size={13} className="text-slate-400" />
+                <span className="text-[11px] font-bold text-slate-500 tracking-tight whitespace-nowrap">{date}</span>
+              </div>
+
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (status === 'confirmed') return;
+                  onStatusChange?.(id);
+                }}
+                disabled={status === 'confirmed'}
+                className={`px-4 py-1.5 rounded-lg text-white text-[10px] font-bold uppercase tracking-wider shadow-lg border border-white/20 backdrop-blur-md ${currentStatus.color} ${currentStatus.glow} ${status === 'confirmed' ? 'cursor-not-allowed' : 'hover:brightness-110 active:scale-95'} transition-all duration-300`}
+              >
+                {currentStatus.label}
+              </button>
             </div>
           </div>
 
           {/* Quick Actions */}
-           <div className="flex items-center justify-between pt-2">
-             <div className="flex gap-2">
-                <button 
-                  onClick={handleWhatsAppClick} 
-                  className="bg-emerald-50 text-emerald-600 p-2 rounded-lg hover:bg-emerald-600 hover:text-white transition-all shadow-sm border border-emerald-100 active:scale-90"
-                  title="WhatsApp"
-                >
-                  <MessageCircle className="h-4 w-4" />
-                </button>
-                <button 
-                  onClick={handleEmailClick} 
-                  className="bg-indigo-50 text-indigo-600 p-2 rounded-lg hover:bg-indigo-600 hover:text-white transition-all shadow-sm border border-indigo-100 active:scale-90"
-                  title="Email"
-                >
-                  <Mail className="h-4 w-4" />
-                </button>
-             </div>
-             
-              <div className="text-[10px] font-bold text-slate-400 bg-slate-50 border border-slate-100 px-3 py-1 rounded-md tracking-wider">
-                #{id}
-              </div>
+          <div className="flex items-center justify-between pt-2">
+            <div className="flex gap-2">
+              <button
+                onClick={handleWhatsAppClick}
+                className="bg-emerald-50 text-emerald-600 p-2 rounded-lg hover:bg-emerald-600 hover:text-white transition-all shadow-sm border border-emerald-100 active:scale-90"
+                title="WhatsApp"
+              >
+                <MessageCircle className="h-4 w-4" />
+              </button>
+              <button
+                onClick={handleEmailClick}
+                className="bg-indigo-50 text-indigo-600 p-2 rounded-lg hover:bg-indigo-600 hover:text-white transition-all shadow-sm border border-indigo-100 active:scale-90"
+                title="Email"
+              >
+                <Mail className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="text-[10px] font-bold text-slate-400 bg-slate-50 border border-slate-100 px-3 py-1 rounded-md tracking-wider">
+              #{id}
+            </div>
           </div>
         </div>
 
@@ -208,11 +219,10 @@ function LeadCard({
             {onAssign ? (
               <button
                 onClick={(e) => { e.stopPropagation(); onAssign?.(id); }}
-                className={`flex-1 flex items-center justify-between gap-2 px-4 py-2 rounded-lg text-xs font-semibold border transition-all duration-300 ${
-                  isAssigned
+                className={`flex-1 flex items-center justify-between gap-2 px-4 py-2 rounded-lg text-xs font-semibold border transition-all duration-300 ${isAssigned
                     ? 'bg-slate-50 text-slate-700 border-slate-200/60 hover:border-blue-300 hover:bg-white hover:text-blue-600 shadow-sm'
                     : 'bg-orange-50 text-orange-700 border-orange-200/60'
-                }`}
+                  }`}
               >
                 <div className="flex items-center gap-2 truncate">
                   <div className={`p-1 rounded-md ${isAssigned ? "bg-blue-100/50" : "bg-orange-100/50"}`}>
@@ -224,10 +234,10 @@ function LeadCard({
               </button>
             ) : (
               <div className="flex-1 flex items-center gap-2.5 px-4 py-2 bg-slate-50/50 border border-slate-100 rounded-lg text-xs text-slate-500 font-semibold truncate">
-                  <div className="p-1 bg-slate-100 rounded-md">
-                    <UserIcon size={12} className="text-slate-400" />
-                  </div>
-                  <span className="truncate uppercase tracking-wider">{currentAssigneeName || "Unassigned"}</span>
+                <div className="p-1 bg-slate-100 rounded-md">
+                  <UserIcon size={12} className="text-slate-400" />
+                </div>
+                <span className="truncate uppercase tracking-wider">{currentAssigneeName || "Unassigned"}</span>
               </div>
             )}
           </div>
@@ -239,15 +249,15 @@ function LeadCard({
 
 // Helper component for dropdown arrow
 const ChevronDown = ({ size, className }) => (
-  <svg 
-    width={size} 
-    height={size} 
-    viewBox="0 0 24 24" 
-    fill="none" 
-    stroke="currentColor" 
-    strokeWidth="3" 
-    strokeLinecap="round" 
-    strokeLinejoin="round" 
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="3"
+    strokeLinecap="round"
+    strokeLinejoin="round"
     className={className}
   >
     <polyline points="6 9 12 15 18 9"></polyline>

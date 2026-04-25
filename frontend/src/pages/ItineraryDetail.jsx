@@ -258,6 +258,19 @@ const ItineraryDetail = () => {
   const [tcs, setTcs] = useState(0);
   const [discount, setDiscount] = useState(0);
   const [optionGstSettings, setOptionGstSettings] = useState({});
+  const [lead, setLead] = useState(null);
+  const [isLeadLocked, setIsLeadLocked] = useState(false);
+
+  useEffect(() => {
+    if (fromLeadId && user) {
+      leadsAPI.get(fromLeadId).then(res => {
+        const l = res.data.data.lead || res.data.data;
+        setLead(l);
+        setIsLeadLocked(false);
+      }).catch(() => {});
+    }
+  }, [fromLeadId, user]);
+
   const [days, setDays] = useState([]);
   const [smartFlow, setSmartFlow] = useState(true); // Auto-advance feature
   const [dayDistances, setDayDistances] = useState({}); // Road distance in KM between days
@@ -688,7 +701,9 @@ const ItineraryDetail = () => {
     if (!id || !isLoaded || (days.length === 0 && Object.keys(dayEvents).length === 0)) return;
     
     const timer = setTimeout(() => {
-      syncItineraryToServer();
+      if (!isLeadLocked) {
+        syncItineraryToServer();
+      }
     }, 1000);
     
     return () => clearTimeout(timer);
@@ -719,7 +734,9 @@ const ItineraryDetail = () => {
       };
       
       const timer = setTimeout(() => {
-        syncTerms();
+        if (!isLeadLocked) {
+          syncTerms();
+        }
       }, 1500); // 1.5s debounce
 
       return () => clearTimeout(timer);
@@ -854,6 +871,7 @@ const ItineraryDetail = () => {
 
   const syncItineraryToServer = async (updatedDayEvents, updatedDays, updatedOptions_data) => {
     if (!id) return;
+
     try {
       // Use the provided values or fallback to current state
       const events = updatedDayEvents || dayEvents;
@@ -1334,6 +1352,7 @@ const ItineraryDetail = () => {
 
   // Handle cover photo save
   const handleCoverPhotoSave = async () => {
+
     try {
       if (coverPhotoFile) {
         // Upload file
@@ -1373,6 +1392,7 @@ const ItineraryDetail = () => {
 
   const saveEvent = (eventData) => {
     if (!selectedDay) return;
+
 
     // Auto-calculate dates for accommodation if missing
     if ((eventData.eventType || '').toLowerCase() === 'accommodation' && eventData.hotelOptions) {
@@ -1846,6 +1866,7 @@ const ItineraryDetail = () => {
 
   const handleEditItinerarySave = async (e) => {
     e.preventDefault();
+
     setItinerarySaving(true);
     try {
       const pkgData = new FormData();
@@ -2148,44 +2169,26 @@ const ItineraryDetail = () => {
                               <ChevronRight className={`h-4 w-4 ${selectedDay === day.day ? 'text-blue-600' : 'text-gray-400'}`} />
                             </div>
                             <Dropdown
-                              value={day.destination || ''}
-                              options={[
-                                ...destinations.map(dest => ({ label: dest, value: dest })),
-                                ...(day.destination && !destinations.includes(day.destination) && day.destination !== 'Destination' 
-                                  ? [{ label: day.destination, value: day.destination }] 
-                                  : [])
-                              ].sort((a, b) => a.label.localeCompare(b.label))}
-                              onChange={(e) => {
-                                handleDayDestinationChange(day.day, e.value);
-                              }}
-                              filter
-                              placeholder="Select Destination"
-                              className="mt-2 w-full text-sm itinerary-dest-dropdown"
-                              disabled={!hasPermission(user, 'itineraries.edit')}
-                              panelStyle={{ minWidth: '200px' }}
-                              appendTo="self"
-                            />
+                               value={day.destination || ''}
+                               options={[
+                                 ...destinations.map(dest => ({ label: dest, value: dest })),
+                                 ...(day.destination && !destinations.includes(day.destination) && day.destination !== 'Destination' 
+                                   ? [{ label: day.destination, value: day.destination }] 
+                                   : [])
+                               ].sort((a, b) => a.label.localeCompare(b.label))}
+                               onChange={(e) => {
+                                 handleDayDestinationChange(day.day, e.value);
+                               }}
+                               filter
+                               placeholder="Select Destination"
+                               className="mt-2 w-full text-xs font-bold border-none bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors"
+                               disabled={!hasPermission(user, 'itineraries.edit')}
+                               panelStyle={{ minWidth: '200px' }}
+                               appendTo="self"
+                             />
                           </div>
                           
-                          {/* Distance Indicator between days */}
-                          {index < days.length - 1 && day.destination && days[index + 1]?.destination && day.destination !== days[index + 1].destination && (
-                            <div className="flex items-center justify-center my-1">
-                              <div className="w-0.5 h-3 bg-gray-300 rounded-full"></div>
-                              <div className="px-2">
-                                {dayDistances[`${day.destination}_${days[index + 1].destination}`] ? (
-                                  <div className="flex items-center gap-1 text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-100 shadow-sm animate-fade-in">
-                                    <Car className="h-3 w-3" />
-                                    <span className="text-[10px] font-bold whitespace-nowrap">
-                                      {dayDistances[`${day.destination}_${days[index + 1].destination}`]} KM
-                                    </span>
-                                  </div>
-                                ) : (
-                                  <div className="w-1 h-1 bg-gray-300 rounded-full"></div>
-                                )}
-                              </div>
-                              <div className="w-0.5 h-3 bg-gray-300 rounded-full"></div>
-                            </div>
-                          )}
+                          {/* Distance removed */}
                         </React.Fragment>
                       ))}
                       <div className="mt-4 pt-4 border-t border-gray-200">
@@ -2500,7 +2503,9 @@ const ItineraryDetail = () => {
                                           )}
                                         </div>
                                       ) : (
-                                        <p className="text-sm text-gray-600">{event.details || 'No details provided'}</p>
+                                        <p className="text-sm text-gray-600 leading-relaxed" style={{ whiteSpace: 'pre-wrap', wordWrap: 'break-word' }}>
+                                          {event.details || 'No details provided'}
+                                        </p>
                                       )}
                                     </div>
                                     {/* Edit Button on Right */}
@@ -2935,41 +2940,41 @@ const ItineraryDetail = () => {
                                         .map((hotel) => (
                                           <div
                                             key={hotel.id}
-                                            className="flex items-start gap-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer"
+                                            className="group flex items-start gap-4 p-4 border border-gray-100 rounded-2xl bg-white hover:bg-blue-50/30 hover:border-blue-100 transition-all duration-300 cursor-pointer shadow-sm hover:shadow-md"
                                             onClick={() => hasPermission(user, 'itineraries.edit') && handleHotelSelect(hotel)}
                                           >
-                                            <div className="w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center overflow-hidden border border-gray-200 flex-shrink-0">
+                                            <div className="w-16 h-16 bg-gray-50 rounded-xl flex items-center justify-center overflow-hidden border border-gray-100 flex-shrink-0 shadow-inner group-hover:border-blue-200">
                                               {hotel.image ? (
                                                 <img
                                                   src={getDisplayImageUrl(hotel.image) || hotel.image}
                                                   alt={hotel.hotelName || hotel.name || 'Hotel'}
-                                                  className="w-full h-full object-cover"
+                                                  className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                                                   onError={(e) => {
                                                     e.target.style.display = 'none';
                                                     const parent = e.target.parentElement;
                                                     if (parent && !parent.querySelector('.no-photo-text')) {
                                                       const span = document.createElement('span');
-                                                      span.className = 'no-photo-text text-xs text-gray-400 font-medium';
+                                                      span.className = 'no-photo-text text-[10px] text-gray-400 font-bold';
                                                       span.textContent = 'NO PHOTO';
                                                       parent.appendChild(span);
                                                     }
                                                   }}
                                                 />
                                               ) : (
-                                                <Bed className="h-6 w-6 text-gray-400" />
+                                                <Building2 className="h-6 w-6 text-gray-300" />
                                               )}
                                             </div>
                                             <div className="flex-1 min-w-0">
-                                              <h4 className="font-semibold text-gray-900 text-sm mb-1">{hotel.hotelName || hotel.name || 'Hotel'}</h4>
+                                              <h4 className="font-bold text-gray-900 text-sm mb-1 leading-tight group-hover:text-blue-700 transition-colors">{hotel.hotelName || hotel.name || 'Hotel'}</h4>
                                               {hotel.rating && (
-                                                <div className="flex items-center gap-1 mb-1">
+                                                <div className="flex items-center gap-0.5 mb-1.5 p-1 bg-yellow-50 rounded w-fit">
                                                   {[...Array(Math.floor(hotel.rating))].map((_, i) => (
-                                                    <Star key={i} className="h-3 w-3 fill-yellow-400 text-yellow-400" />
+                                                    <Star key={i} className="h-2.5 w-2.5 fill-yellow-400 text-yellow-400" />
                                                   ))}
                                                 </div>
                                               )}
                                               {hotel.address && (
-                                                <p className="text-xs text-gray-600 line-clamp-2">{hotel.address}</p>
+                                                <p className="text-[11px] text-gray-500 line-clamp-2 leading-relaxed italic">{hotel.address}</p>
                                               )}
                                             </div>
                                             {hasPermission(user, 'itineraries.edit') && (
@@ -2978,7 +2983,7 @@ const ItineraryDetail = () => {
                                                   e.stopPropagation();
                                                   handleHotelSelect(hotel);
                                                 }}
-                                                className="w-8 h-8 bg-black text-white rounded-full flex items-center justify-center hover:bg-gray-800 flex-shrink-0"
+                                                className="w-8 h-8 bg-blue-600 text-white rounded-xl flex items-center justify-center hover:bg-blue-700 active:scale-95 transition-all shadow-sm hover:shadow-blue-200 flex-shrink-0"
                                               >
                                                 <Plus className="h-4 w-4" />
                                               </button>
@@ -3426,24 +3431,24 @@ const ItineraryDetail = () => {
           )}
 
           {activeTab === 'final' && (
-            <FinalTab
-              itinerary={itinerary}
-              dayEvents={dayEvents}
-              pricingData={pricingData}
-              finalClientPrices={finalClientPrices}
-              packageTerms={packageTerms}
-              setPackageTerms={setPackageTerms}
-              baseMarkup={baseMarkup}
-              extraMarkup={extraMarkup}
-              cgst={cgst}
-              sgst={sgst}
-              igst={igst}
-              tcs={tcs}
-              discount={discount}
-              maxHotelOptions={maxHotelOptions}
-              optionGstSettings={optionGstSettings}
-              days={days}
-            />
+              <FinalTab
+                itinerary={itinerary}
+                dayEvents={dayEvents}
+                pricingData={pricingData}
+                finalClientPrices={finalClientPrices}
+                packageTerms={packageTerms}
+                setPackageTerms={setPackageTerms}
+                baseMarkup={baseMarkup}
+                extraMarkup={extraMarkup}
+                cgst={cgst}
+                sgst={sgst}
+                igst={igst}
+                tcs={tcs}
+                discount={discount}
+                maxHotelOptions={maxHotelOptions}
+                optionGstSettings={optionGstSettings}
+                days={days}
+              />
           )}
 
           {/* Day Details Modal */}
@@ -5643,27 +5648,15 @@ const ItineraryDetail = () => {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                  <div className="space-y-2">
-                    <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider">Destinations</label>
-                    <input
-                      type="text"
-                      className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all font-medium text-gray-800"
-                      value={itineraryFormData.destinations}
-                      onChange={(e) => setItineraryFormData({ ...itineraryFormData, destinations: e.target.value })}
-                      placeholder="e.g. Delhi - Shimla - Manali"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider">Routing</label>
-                    <input
-                      type="text"
-                      className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all font-medium text-gray-800"
-                      value={itineraryFormData.routing}
-                      onChange={(e) => setItineraryFormData({ ...itineraryFormData, routing: e.target.value })}
-                      placeholder="e.g. Delhi (1N) - Shimla (2N) - Manali (3N) - Delhi"
-                    />
-                  </div>
+                <div className="space-y-2">
+                  <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider">Routing</label>
+                  <input
+                    type="text"
+                    className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all font-medium text-gray-800"
+                    value={itineraryFormData.routing || itineraryFormData.destinations}
+                    onChange={(e) => setItineraryFormData({ ...itineraryFormData, routing: e.target.value, destinations: e.target.value })}
+                    placeholder="e.g. Delhi (1N) - Shimla (2N) - Manali (3N) - Delhi"
+                  />
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">

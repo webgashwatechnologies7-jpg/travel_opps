@@ -25,7 +25,7 @@ Route::post('/facebook/webhook', [\App\Http\Controllers\FacebookLeadController::
 Route::get('/facebook/insights', [\App\Http\Controllers\FacebookLeadController::class, 'getAdsInsights'])->middleware('auth:sanctum');
 
 // Leads routes - require authentication
-Route::middleware('auth:sanctum')->prefix('leads')->group(function () {
+Route::middleware(['auth:sanctum'])->prefix('leads')->group(function () {
     // Import routes (must come before /{id} routes)
     Route::get('/import-template', [LeadImportController::class, 'downloadTemplate']);
     Route::get('/analytics', [LeadsController::class, 'analytics']);
@@ -39,11 +39,13 @@ Route::middleware('auth:sanctum')->prefix('leads')->group(function () {
     Route::get('/{id}/calls', [CallController::class, 'leadHistory']);
     Route::put('/{id}/assign', [LeadsController::class, 'assign']);
     Route::put('/{id}/status', [LeadsController::class, 'updateStatus']);
-    
+    Route::post('/{id}/unlock-request', [LeadsController::class, 'requestUnlock']);
+    Route::post('/{id}/handle-unlock', [LeadsController::class, 'handleUnlockRequest']);
+
     // Bulk actions
     Route::post('/bulk-assign', [LeadsController::class, 'bulkAssign']);
     Route::post('/bulk-delete', [LeadsController::class, 'bulkDelete']);
-    
+
     Route::apiResource('/', LeadsController::class)->parameters(['' => 'id']);
 
     // Lead email routes
@@ -59,6 +61,7 @@ Route::middleware('auth:sanctum')->prefix('leads')->group(function () {
 
 // Followup routes - require authentication
 Route::middleware('auth:sanctum')->prefix('followups')->group(function () {
+    Route::get('/', [FollowupController::class, 'index']);
     Route::get('/today', [FollowupController::class, 'today']);
     Route::get('/overdue', [FollowupController::class, 'overdue']);
     Route::post('/', [FollowupController::class, 'store']);

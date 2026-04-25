@@ -7,13 +7,13 @@ const resolveUrl = (url) => {
   if (!url || typeof url !== 'string') return null;
   if (url.startsWith('http')) return url;
   if (url.startsWith('data:')) return url;
-  
+
   // Clean trailing/multiple slashes and remove leading storage/ if present
   let cleanPath = url.trim().replace(/^(?:\/)?storage\//gi, '').replace(/\/+/g, '/').replace(/^\//, '');
-  
+
   // If it's a public asset, return as root-relative
   if (cleanPath.startsWith('assets/')) return '/' + cleanPath;
-  
+
   // For everything else, ensure it has exactly one /storage/ prefix
   return '/storage/' + cleanPath;
 };

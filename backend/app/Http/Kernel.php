@@ -78,5 +78,6 @@ class Kernel extends HttpKernel
         'feature' => \App\Http\Middleware\CheckFeatureAccess::class,
         'plan.feature' => \App\Http\Middleware\CheckPlanFeature::class,
         'tenant.param' => \App\Http\Middleware\EnsureTenantFromCompanyParam::class,
+        'lead.not_locked' => \App\Http\Middleware\EnsureLeadNotLocked::class,
     ];
 }

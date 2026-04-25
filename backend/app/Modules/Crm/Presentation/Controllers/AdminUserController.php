@@ -157,7 +157,7 @@ class AdminUserController extends Controller
                   });
             });
 
-            $users = $query->select('id', 'name', 'email', 'phone', 'is_active', 'reports_to', 'created_at', 'updated_at')
+            $users = $query->select('id', 'name', 'email', 'phone', 'is_active', 'reports_to', 'user_type', 'created_at', 'updated_at')
                 ->get()
                 ->map(function ($user) {
                     return [
@@ -168,6 +168,7 @@ class AdminUserController extends Controller
                         'is_active' => $user->is_active,
                         'roles' => $user->roles,
                         'reports_to' => $user->reports_to,
+                        'user_type' => $user->user_type,
                         'is_online' => $user->is_online,
                         'last_seen_at' => $user->last_seen_at,
                         'created_at' => $user->created_at,

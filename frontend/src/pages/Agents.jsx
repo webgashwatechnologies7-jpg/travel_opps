@@ -3,7 +3,8 @@ import { accountsAPI } from '../services/api';
 // Layout removed - handled by nested routing
 import AddAgentModal from '../components/AddAgentModal';
 import { toast } from 'react-toastify';
-import { Edit2, Trash2, Plus, Search } from 'lucide-react';
+import { Edit2, Trash2, Plus, Search, MessageCircle, Mail, Phone } from 'lucide-react';
+import { Link, useSearchParams } from 'react-router-dom';
 import LogoLoader from '../components/LogoLoader';
 
 const Agents = () => {
@@ -13,6 +14,7 @@ const Agents = () => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedAgent, setSelectedAgent] = useState(null);
+  const [searchParams] = useSearchParams();
 
   useEffect(() => {
     fetchAgents();
@@ -180,10 +182,41 @@ const Agents = () => {
                       <div className="text-sm font-medium text-gray-900">{agent.name}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{agent.mobile}</div>
+                      <div className="flex items-center gap-2">
+                        <div className="text-sm text-gray-900">{agent.mobile}</div>
+                        {agent.mobile && (
+                          <div className="flex gap-2 ml-2">
+                            <Link
+                              to={`/whatsapp-web?mobile=${agent.mobile.replace(/\D/g, '')}`}
+                              className="text-green-600 hover:text-green-700 transition-colors"
+                              title="Chat in CRM"
+                            >
+                              <MessageCircle className="h-4 w-4" />
+                            </Link>
+                            <a
+                              href={`tel:${agent.mobile}`}
+                              className="text-blue-600 hover:text-blue-700 transition-colors"
+                              title="Call Agent"
+                            >
+                              <Phone className="h-4 w-4" />
+                            </a>
+                          </div>
+                        )}
+                      </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{agent.email}</div>
+                      <div className="flex items-center gap-2">
+                        <div className="text-sm text-gray-900">{agent.email}</div>
+                        {agent.email && (
+                          <a
+                            href={`mailto:${agent.email}`}
+                            className="text-orange-600 hover:text-orange-700 transition-colors ml-2"
+                            title="Email Agent"
+                          >
+                            <Mail className="h-4 w-4" />
+                          </a>
+                        )}
+                      </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-900">{agent.queries}</div>

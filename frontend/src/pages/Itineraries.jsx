@@ -668,10 +668,10 @@ const Itineraries = () => {
                         <CalendarDays className="w-3 h-3" />
                         {itinerary.duration ? `${itinerary.duration} Days` : "N/A"}
                       </span>
-                      {itinerary.routing && (
+                      {(itinerary.routing || itinerary.destination || itinerary.destinations) && (
                         <span className="flex items-center gap-1 truncate max-w-[150px]">
                           <MapPin className="w-3 h-3" />
-                          {itinerary.routing}
+                          {itinerary.routing || itinerary.destination || itinerary.destinations}
                         </span>
                       )}
                     </div>
