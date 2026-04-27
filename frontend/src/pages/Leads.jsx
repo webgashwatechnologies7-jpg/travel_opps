@@ -6,7 +6,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { Dialog } from 'primereact/dialog';
 import { Button } from 'primereact/button';
 // Layout removed - handled by nested routing
-import { X, Search, Upload, Download, RefreshCw, ChevronDown, Filter, Eye, Mail, MessageSquare, Edit, MoreVertical, History, Plus, TrendingUp, BarChart3, Calendar, FileSpreadsheet, LayoutGrid, List, User, Trash2, ArrowUpDown, Lock } from 'lucide-react';
+import { X, Search, Upload, Download, RefreshCw, ChevronDown, Filter, Eye, Mail, MessageSquare, Edit, MoreVertical, History, Plus, TrendingUp, BarChart3, Calendar, FileSpreadsheet, LayoutGrid, List, User, Trash2, ArrowUpDown, Lock, Loader2 } from 'lucide-react';
 import LeadCard from '../components/Quiries/LeadCard';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line
@@ -88,6 +88,7 @@ const Leads = () => {
   const [selectedLeadIds, setSelectedLeadIds] = useState([]);
   const [isBulkAssignModalOpen, setIsBulkAssignModalOpen] = useState(false);
   const [sortConfig, setSortConfig] = useState({ key: 'created_at', direction: 'desc' });
+  const [backendStats, setBackendStats] = useState(null);
 
   // Prevent background scroll when any modal is open
   useEffect(() => {
@@ -174,6 +175,7 @@ const Leads = () => {
       else if (activeFilter === 'followUp') activeFilterParams = { status: 'followup' };
       else if (activeFilter === 'confirmed') activeFilterParams = { status: 'confirmed' };
       else if (activeFilter === 'cancel') activeFilterParams = { status: 'cancelled' };
+      else if (activeFilter === 'processing') activeFilterParams = { status: 'processing' };
       else if (activeFilter === 'hotLead') activeFilterParams = { priority: 'hot' };
       else if (activeFilter === 'assignedToMe') activeFilterParams = { assigned_to: currentUser?.id };
       else if (activeFilter === 'unassigned') activeFilterParams = { unassigned: 1 };
@@ -329,6 +331,7 @@ const Leads = () => {
       else if (activeFilter === 'followUp') activeFilterParams = { status: 'followup' };
       else if (activeFilter === 'confirmed') activeFilterParams = { status: 'confirmed' };
       else if (activeFilter === 'cancel') activeFilterParams = { status: 'cancelled' };
+      else if (activeFilter === 'processing') activeFilterParams = { status: 'processing' };
       else if (activeFilter === 'hotLead') activeFilterParams = { priority: 'hot' };
       else if (activeFilter === 'assignedToMe') activeFilterParams = { assigned_to: currentUser?.id };
       else if (activeFilter === 'unassigned') activeFilterParams = { unassigned: 1 };
@@ -379,6 +382,9 @@ const Leads = () => {
       if (paginationData) {
         setPagination(paginationData);
       }
+      if (response.data?.data?.stats) {
+        setBackendStats(response.data.data.stats);
+      }
       setCurrentPage(page);
     } catch {
       setLeads([]);
@@ -387,10 +393,15 @@ const Leads = () => {
     }
   }, [destinationFilter, assignedToFilter, advancedFilters, activeFilter, currentUser, perPage]);
 
+  // Handle Filter Changes Automatically
+  useEffect(() => {
+    fetchLeads({}, 1); // Always reset to page 1 on filter change
+  }, [activeFilter, perPage, assignedToFilter, advancedFilters]);
+
   // Handle Search Input Change with Debounce
   useEffect(() => {
     const timer = setTimeout(() => {
-      fetchLeads({}, 1); // Always reset to page 1 on search
+      fetchLeads({}, 1);
     }, 500);
     return () => clearTimeout(timer);
   }, [destinationFilter]);
@@ -525,6 +536,7 @@ const Leads = () => {
   const getStatusColor = useCallback((status) => {
     const colors = {
       new: 'bg-blue-100 text-blue-800',
+      processing: 'bg-indigo-100 text-indigo-800',
       proposal: 'bg-yellow-100 text-yellow-800',
       followup: 'bg-purple-100 text-purple-800',
       confirmed: 'bg-green-100 text-green-800',
@@ -544,6 +556,9 @@ const Leads = () => {
 
   // Calculate summary statistics — memoized to avoid recalculation on unrelated renders
   const stats = useMemo(() => {
+    if (backendStats) return backendStats;
+    
+    // Fallback to page-wise only if backend stats haven't arrived yet
     const today = new Date();
     const isSameDay = (date) => {
       const d = new Date(date);
@@ -551,40 +566,24 @@ const Leads = () => {
         && d.getMonth() === today.getMonth()
         && d.getDate() === today.getDate();
     };
-    const startOfWeek = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-    startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
-    const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-    const startOfYear = new Date(today.getFullYear(), 0, 1);
-    const inRange = (date, start) => {
-      const d = new Date(date);
-      return d >= start;
-    };
-    const stats = {
+    return {
       total: pagination.total,
       new: leads.filter(l => l.status === 'new').length,
       processing: leads.filter(l => l.status === 'processing').length,
       proposalSent: leads.filter(l => l.status === 'proposal').length,
-      noConnect: 0, // Not in current data model
+      noConnect: 0,
       hotLead: leads.filter(l => l.priority === 'hot').length,
-      proposalConfirmed: leads.filter(l => l.status === 'confirmed' && l.priority === 'hot').length,
       cancel: leads.filter(l => l.status === 'cancelled').length,
       followUp: leads.filter(l => l.status === 'followup').length,
       confirmed: leads.filter(l => l.status === 'confirmed').length,
       today: leads.filter(l => l.created_at && isSameDay(l.created_at)).length,
-      weekly: leads.filter(l => l.created_at && inRange(l.created_at, startOfWeek)).length,
-      monthly: leads.filter(l => l.created_at && inRange(l.created_at, startOfMonth)).length,
-      yearly: leads.filter(l => l.created_at && inRange(l.created_at, startOfYear)).length,
-      postponed: 0, // Not in current data model
-      invalid: 0, // Not in current data model
-      anniversaries: leads.filter(l => l.marriage_anniversary && new Date(l.marriage_anniversary).getMonth() === today.getMonth()).length,
-      unassigned: leads.filter(l => !l.assigned_to && !l.assigned_to_id).length,
+      unassigned: leads.filter(l => !l.assigned_to).length,
       assignedToMe: leads.filter(l => {
         const id = l.assigned_to?.id ?? l.assigned_to_id ?? l.assigned_to;
         return Number(id) === currentUser?.id;
       }).length,
     };
-    return stats;
-  }, [leads]);
+  }, [leads, backendStats, pagination.total, currentUser?.id]);
 
   // Filter leads based on active filter — memoized so it only recalculates when leads or filter changes
   const filteredLeads = useMemo(() => {
@@ -847,8 +846,11 @@ const Leads = () => {
 
   return (
     <div className={`p-6 bg-[#F8FAFC] min-h-screen relative page-transition ${loading && leads.length > 0 ? 'opacity-80' : ''}`}>
-      {loading && (
-        <div className="absolute top-0 left-0 right-0 h-1 z-[1000] side-progress-bar" />
+      {/* Full-screen loader only for initial load (when leads list is empty) */}
+      {loading && leads.length === 0 && (
+        <div className="fixed inset-0 bg-white z-[9999] flex items-center justify-center">
+          <LogoLoader text="Initializing CRM..." />
+        </div>
       )}
 
       {/* Header Section */}
@@ -992,97 +994,103 @@ const Leads = () => {
         </div>
       </div>
 
-      {/* Action/Filter Bar */}
-      <div className="bg-white p-2 rounded-2xl border border-slate-200 shadow-sm flex flex-col lg:flex-row gap-3 transition-all duration-300 sticky top-4 z-40 mb-8">
-        <div className="flex-1 flex flex-col md:flex-row gap-2">
-          <div className="relative flex-1 group">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-hover:text-blue-500 transition-colors" size={18} />
-            <input
-              type="text"
-              value={destinationFilter}
-              onChange={(e) => setDestinationFilter(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && fetchLeads()}
-              placeholder="Search by name, phone, destination, status or staff..."
-              className="w-full pl-12 pr-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm font-semibold text-slate-700 focus:outline-none focus:ring-4 focus:ring-blue-500/5 focus:border-blue-400 transition-all placeholder:text-slate-400"
-            />
+      {/* Action/Filter Bar Area */}
+      <div className="sticky top-4 z-40 mb-8 space-y-3">
+        {/* Search & Main Actions Row */}
+        <div className="bg-white p-2 rounded-2xl border border-slate-200 shadow-sm flex flex-col lg:flex-row gap-3 transition-all duration-300">
+          <div className="flex-1 flex flex-col md:flex-row gap-2">
+            <div className="relative flex-1 group">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-hover:text-blue-500 transition-colors" size={18} />
+              <input
+                type="text"
+                value={destinationFilter}
+                onChange={(e) => setDestinationFilter(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && fetchLeads()}
+                placeholder="Search by name, phone, destination, status or staff..."
+                className="w-full pl-12 pr-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm font-semibold text-slate-700 focus:outline-none focus:ring-4 focus:ring-blue-500/5 focus:border-blue-400 transition-all placeholder:text-slate-400"
+              />
+            </div>
           </div>
 
-          <div className="relative min-w-[200px]">
-            <select
-              value={activeFilter}
-              onChange={(e) => {
-                const val = e.target.value;
-                setActiveFilter(val);
-                if (val === 'total') fetchLeads({});
-                else if (val === 'new') fetchLeads({ status: 'new' });
-                else if (val === 'proposalSent') fetchLeads({ status: 'proposal' });
-                else if (val === 'followUp') fetchLeads({ status: 'followup' });
-                else if (val === 'confirmed') fetchLeads({ status: 'confirmed' });
-                else if (val === 'cancel') fetchLeads({ status: 'cancelled' });
-                else if (val === 'hotLead') fetchLeads({ priority: 'hot' });
-                else if (val === 'assignedToMe') fetchLeads({ assigned_to: currentUser?.id });
-                else if (val === 'unassigned') fetchLeads({ unassigned: 1 });
-                else if (val === 'today') fetchLeads({ today: 1 });
-              }}
-              className="w-full pl-4 pr-10 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm font-semibold text-slate-700 focus:outline-none focus:ring-4 focus:ring-blue-500/5 appearance-none cursor-pointer mt-1 lg:mt-0"
+          <div className="flex gap-2 p-1 lg:p-0">
+            <button
+              type="button"
+              onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+              className={`flex items-center gap-2 px-6 py-3.5 rounded-[1.5rem] text-sm font-black transition-all border ${showAdvancedFilters
+                ? 'bg-blue-600 text-white border-blue-600 shadow-lg shadow-blue-200'
+                : 'bg-white text-slate-600 border-slate-100 hover:bg-slate-50'
+                }`}
             >
-              <option value="total">ALL QUERIES ({stats.total})</option>
-              {stats.assignedToMe > 0 && <option value="assignedToMe">{currentUser?.name || 'ASSIGNED TO ME'} ({stats.assignedToMe})</option>}
-              <option value="today">TODAY LEAD ({stats.today})</option>
-              {canAssign && <option value="unassigned">UNASSIGNED ({stats.unassigned})</option>}
-              <option value="new">NEW INCOMING ({stats.new})</option>
-              <option value="processing">UNDER PROCESS ({stats.processing})</option>
-              <option value="proposalSent">PROPOSAL SENT ({stats.proposalSent})</option>
-              <option value="hotLead">HOT LEADS ({stats.hotLead})</option>
-              <option value="cancel">DECLINED ({stats.cancel})</option>
-              <option value="followUp">FOLLOW UPS ({stats.followUp})</option>
-              <option value="confirmed">BOOKED ({stats.confirmed})</option>
-            </select>
-            <ChevronDown size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+              <Filter size={18} />
+              <span>Filters</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setShowAnalytics(!showAnalytics)}
+              className={`flex items-center gap-2.5 px-6 py-3.5 rounded-[1.5rem] text-sm font-black shadow-lg transition-all border ${showAnalytics
+                ? 'bg-emerald-600 border-emerald-600 text-white shadow-emerald-200'
+                : 'bg-white border-slate-100 text-emerald-600 hover:bg-emerald-50'
+                }`}
+            >
+              <TrendingUp size={18} />
+              <span>{showAnalytics ? 'Close Stats' : 'Stats'}</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleRefresh}
+              className="flex items-center justify-center w-12 h-12 border border-slate-200 rounded-2xl text-slate-500 hover:bg-slate-50 transition-all active:rotate-180 duration-500 shadow-sm"
+              title="Reset Filters"
+            >
+              <RefreshCw size={18} />
+            </button>
+
+            <button
+              type="button"
+              onClick={() => fetchLeads()}
+              className="btn-primary text-white px-8 py-3.5 rounded-[1.5rem] text-sm font-black active:scale-95 transition-all"
+            >
+              Go!
+            </button>
           </div>
         </div>
 
-        <div className="flex gap-2 p-1 lg:p-0">
-          <button
-            type="button"
-            onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
-            className={`flex items-center gap-2 px-6 py-3.5 rounded-[1.5rem] text-sm font-black transition-all border ${showAdvancedFilters
-                ? 'bg-blue-600 text-white border-blue-600 shadow-lg shadow-blue-200'
-                : 'bg-white text-slate-600 border-slate-100 hover:bg-slate-50'
-              }`}
-          >
-            <Filter size={18} />
-            <span>Filters</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setShowAnalytics(!showAnalytics)}
-            className={`flex items-center gap-2.5 px-6 py-3.5 rounded-[1.5rem] text-sm font-black shadow-lg transition-all border ${showAnalytics
-                ? 'bg-emerald-600 border-emerald-600 text-white shadow-emerald-200'
-                : 'bg-white border-slate-100 text-emerald-600 hover:bg-emerald-50'
-              }`}
-          >
-            <TrendingUp size={18} />
-            <span>{showAnalytics ? 'Close Stats' : 'Stats'}</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={handleRefresh}
-            className="flex items-center justify-center w-12 h-12 border border-slate-200 rounded-2xl text-slate-500 hover:bg-slate-50 transition-all active:rotate-180 duration-500 shadow-sm"
-            title="Reset Filters"
-          >
-            <RefreshCw size={18} />
-          </button>
-
-          <button
-            type="button"
-            onClick={() => fetchLeads()}
-            className="btn-primary text-white px-8 py-3.5 rounded-[1.5rem] text-sm font-black active:scale-95 transition-all"
-          >
-            Go!
-          </button>
+        {/* Quick Filter Tabs Row */}
+        <div className="bg-white/80 backdrop-blur-md p-2 rounded-2xl border border-white/40 shadow-[0_8px_30px_rgb(0,0,0,0.04)] flex items-center gap-3 overflow-x-auto scrollbar-hide no-scrollbar transition-all duration-300">
+          {[
+            { id: 'total', label: 'All', key: 'total', color: 'from-blue-600 to-blue-700 shadow-blue-200 hover:shadow-blue-300', icon: LayoutGrid },
+            { id: 'assignedToMe', label: 'My Leads', key: 'assignedToMe', color: 'from-indigo-600 to-indigo-700 shadow-indigo-200 hover:shadow-indigo-300', icon: User },
+            { id: 'today', label: 'Today', key: 'today', color: 'from-emerald-600 to-emerald-700 shadow-emerald-200 hover:shadow-emerald-300', icon: Calendar },
+            { id: 'unassigned', label: 'Unassigned', key: 'unassigned', color: 'from-slate-700 to-slate-800 shadow-slate-200 hover:shadow-slate-300', icon: Lock },
+            { id: 'new', label: 'New', key: 'new', color: 'from-sky-500 to-sky-600 shadow-sky-200 hover:shadow-sky-300', icon: Plus },
+            { id: 'processing', label: 'Processing', key: 'processing', color: 'from-blue-400 to-blue-500 shadow-blue-100 hover:shadow-blue-200', icon: Loader2 },
+            { id: 'confirmed', label: 'Booked', key: 'confirmed', color: 'from-green-600 to-green-700 shadow-green-200 hover:shadow-green-300', icon: BarChart3 },
+            { id: 'proposalSent', label: 'Proposal', key: 'proposalSent', color: 'from-amber-500 to-amber-600 shadow-amber-200 hover:shadow-amber-300', icon: FileSpreadsheet },
+            { id: 'hotLead', label: 'Hot', key: 'hotLead', color: 'from-rose-500 to-rose-600 shadow-rose-200 hover:shadow-rose-300', icon: TrendingUp },
+            { id: 'cancel', label: 'Declined', key: 'cancel', color: 'from-gray-500 to-gray-600 shadow-gray-200 hover:shadow-gray-300', icon: X },
+            { id: 'followUp', label: 'Follow Up', key: 'followUp', color: 'from-purple-600 to-purple-700 shadow-purple-200 hover:shadow-purple-300', icon: RefreshCw },
+          ].map((filter) => (
+            <button
+              key={filter.id}
+              onClick={() => setActiveFilter(filter.id)}
+              className={`px-3 py-2 rounded-xl text-[10px] font-bold uppercase tracking-tight transition-all border flex items-center gap-1.5 whitespace-nowrap active:scale-95 group relative overflow-hidden flex-shrink-0 ${activeFilter === filter.id
+                ? `bg-gradient-to-br ${filter.color} text-white border-transparent shadow-md scale-105 z-10`
+                : 'bg-white border-slate-100 text-slate-500 hover:bg-slate-50 hover:border-slate-200 hover:text-slate-700'
+                }`}
+            >
+              <filter.icon size={13} className={`${activeFilter === filter.id ? 'text-white' : 'text-slate-400 group-hover:text-slate-600'} flex-shrink-0`} strokeWidth={activeFilter === filter.id ? 3 : 2} />
+              <span className="relative z-10">{filter.label}</span>
+              <span className={`px-1.5 py-0.5 rounded-md text-[9px] font-black transition-all flex-shrink-0 ${activeFilter === filter.id ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'}`}>
+                {stats[filter.key] || 0}
+              </span>
+              
+              {/* Subtle animated shine for active tab */}
+              {activeFilter === filter.id && (
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full animate-[shimmer_2s_infinite] skew-x-12"></div>
+              )}
+            </button>
+          ))}
         </div>
       </div>
 
@@ -1347,302 +1355,273 @@ const Leads = () => {
       {/* End of Analytics if open */}
 
       {!showAnalytics && (
-        loading && leads.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-10 bg-white rounded-2xl border border-slate-100 shadow-sm mx-4">
-            <LogoLoader text="Synchronizing records..." />
-          </div>
-        ) : (
-          filteredLeads.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 bg-white rounded-lg shadow">
-              <p className="text-gray-500 text-lg mb-2">No leads found</p>
-              <p className="text-gray-400 text-sm">Click "+ Add New" to create your first lead</p>
+        <div className="relative min-h-[500px]">
+          {/* Localized Loader Overlay */}
+          {loading && (
+            <div className="absolute inset-0 bg-white/40 backdrop-blur-[2px] z-20 flex flex-col items-center justify-start pt-32 rounded-3xl animate-in fade-in duration-300">
+              <div className="p-10 bg-white shadow-2xl rounded-[2.5rem] border border-slate-100 flex flex-col items-center gap-4 animate-in-scale">
+                <LogoLoader text="Syncing Records..." compact={true} />
+              </div>
             </div>
-          ) : (
-            <>
-              {viewType === 'grid' ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-6 mt-4">
-                  {filteredLeads.map((lead) => {
-                    const assignee = lead.assigned_user || lead.assignedUser || lead.assigned_to;
-                    const assigneeRole = assignee?.user_type === 'agent' ? 'Agent' : 
-                                        (assignee?.roles?.[0]?.name || (typeof assignee?.roles?.[0] === 'string' ? assignee.roles[0] : null));
-                    
-                    const assignedUserName =
-                      (assignee?.name ? `${assignee.name}${assigneeRole ? ` (${assigneeRole})` : ''}` : null) ||
-                      lead.assigned_name ||
-                      lead.assigned_to_name ||
-                      lead.assigned_user_name ||
-                      "Unassigned";
+          )}
 
-                    return (
-                      <LeadCard
-                        id={lead.id}
-                        key={lead.id}
-                        name={lead.client_name}
-                        isSelected={selectedLeadIds.includes(lead.id)}
-                        onSelect={toggleSelectLead}
-                        phone={lead.phone || "N/A"}
-                        email={lead.email}
-                        tag={
-                          lead.status === "confirmed"
-                            ? "Booked"
-                            : lead.status === "new"
-                              ? "New"
-                              : ""
-                        }
-                        location={lead.destination || "N/A"}
-                        date={formatDate(lead.created_at)}
-                        amount={lead.amount || 0}
-                        status={lead.status}
-                        assignedTo={lead.assignedUser || lead.assigned_user || lead.assigned_to}
-                        assignedUserName={assignedUserName}
-                        onAssign={canAssign ? handleOpenAssignModal : null}
-                        onStatusChange={handleOpenStatusModal}
-                        onDelete={handleDelete}
-                        is_locked={lead.is_locked}
-                      />
-                    );
-                  })}
+          {/* Main Leads Area */}
+          <div className="leads-content-container">
+            {filteredLeads.length === 0 && !loading ? (
+              <div className="flex flex-col items-center justify-center py-24 bg-white/40 backdrop-blur-sm rounded-[2.5rem] border border-dashed border-slate-200 mx-4 mt-8 animate-in fade-in zoom-in duration-500">
+                <div className="w-20 h-20 bg-slate-50 rounded-[2rem] flex items-center justify-center mb-6 shadow-sm ring-1 ring-slate-100">
+                  <LayoutGrid className="w-10 h-10 text-slate-300" />
                 </div>
-              ) : (
-                <div className="mt-4 bg-white rounded-[2rem] border border-slate-200/60 overflow-hidden shadow-sm animate-in-fade">
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse">
-                      <thead>
-                        <tr className="bg-slate-50/80 border-b border-slate-100 uppercase text-[10px] font-black tracking-widest text-slate-400">
-                          <th className="px-6 py-5 w-10">
-                            <input
-                              type="checkbox"
-                              checked={filteredLeads.length > 0 && selectedLeadIds.length === filteredLeads.length}
-                              onChange={(e) => handleSelectAll(e.target.checked)}
-                              className="w-5 h-5 rounded border-2 border-slate-200 text-blue-600 focus:ring-blue-500/20 cursor-pointer"
-                            />
-                          </th>
-                          <th
-                            className="px-6 py-5 cursor-pointer hover:bg-slate-100/50 transition-colors group"
-                            onClick={() => handleSort('client_name')}
-                          >
-                            <div className="flex items-center gap-1.5">
-                              Client Name
-                              <ArrowUpDown size={12} className={`transition-all ${sortConfig.key === 'client_name' ? 'opacity-100 text-blue-600 scale-110' : 'opacity-20 group-hover:opacity-50'}`} />
-                            </div>
-                          </th>
-                          <th
-                            className="px-6 py-5 cursor-pointer hover:bg-slate-100/50 transition-colors group"
-                            onClick={() => handleSort('phone')}
-                          >
-                            <div className="flex items-center gap-1.5">
-                              Mobile
-                              <ArrowUpDown size={12} className={`transition-all ${sortConfig.key === 'phone' ? 'opacity-100 text-blue-600 scale-110' : 'opacity-20 group-hover:opacity-50'}`} />
-                            </div>
-                          </th>
-                          <th
-                            className="px-6 py-5 cursor-pointer hover:bg-slate-100/50 transition-colors group"
-                            onClick={() => handleSort('email')}
-                          >
-                            <div className="flex items-center gap-1.5">
-                              Email
-                              <ArrowUpDown size={12} className={`transition-all ${sortConfig.key === 'email' ? 'opacity-100 text-blue-600 scale-110' : 'opacity-20 group-hover:opacity-50'}`} />
-                            </div>
-                          </th>
-                          <th
-                            className="px-6 py-5 cursor-pointer hover:bg-slate-100/50 transition-colors group"
-                            onClick={() => handleSort('destination')}
-                          >
-                            <div className="flex items-center gap-1.5">
-                              Destination
-                              <ArrowUpDown size={12} className={`transition-all ${sortConfig.key === 'destination' ? 'opacity-100 text-blue-600 scale-110' : 'opacity-20 group-hover:opacity-50'}`} />
-                            </div>
-                          </th>
-                          <th
-                            className="px-6 py-5 cursor-pointer hover:bg-slate-100/50 transition-colors group"
-                            onClick={() => handleSort('source')}
-                          >
-                            <div className="flex items-center gap-1.5">
-                              Source
-                              <ArrowUpDown size={12} className={`transition-all ${sortConfig.key === 'source' ? 'opacity-100 text-blue-600 scale-110' : 'opacity-20 group-hover:opacity-50'}`} />
-                            </div>
-                          </th>
-                          <th
-                            className="px-6 py-5 cursor-pointer hover:bg-slate-100/50 transition-colors group"
-                            onClick={() => handleSort('assigned_to')}
-                          >
-                            <div className="flex items-center gap-1.5">
-                              Assigned To
-                              <ArrowUpDown size={12} className={`transition-all ${sortConfig.key === 'assigned_to' ? 'opacity-100 text-blue-600 scale-110' : 'opacity-20 group-hover:opacity-50'}`} />
-                            </div>
-                          </th>
-                          <th
-                            className="px-6 py-5 cursor-pointer hover:bg-slate-100/50 transition-colors group"
-                            onClick={() => handleSort('status')}
-                          >
-                            <div className="flex items-center gap-1.5">
-                              Status
-                              <ArrowUpDown size={12} className={`transition-all ${sortConfig.key === 'status' ? 'opacity-100 text-blue-600 scale-110' : 'opacity-20 group-hover:opacity-50'}`} />
-                            </div>
-                          </th>
-                          <th className="px-2 py-5 text-right w-16 whitespace-nowrap">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-50">
-                        {filteredLeads.map((lead) => {
-                          const isSelected = selectedLeadIds.includes(lead.id);
-                          const assignee = lead.assigned_user || lead.assignedUser || lead.assigned_to;
-                          const assigneeRole = assignee?.user_type === 'agent' ? 'Agent' :
-                                              (assignee?.roles?.[0]?.name || (typeof assignee?.roles?.[0] === 'string' ? assignee.roles[0] : null));
-                          
-                          const assignedUserName =
-                            (assignee?.name ? `${assignee.name}${assigneeRole ? ` (${assigneeRole})` : ''}` : null) ||
-                            lead.assigned_name ||
-                            lead.assigned_to_name ||
-                            lead.assigned_user_name ||
-                            "Unassigned";
+                <h3 className="text-slate-600 text-xl font-bold mb-2">No queries found</h3>
+                <p className="text-slate-400 text-sm max-w-xs text-center leading-relaxed">
+                  We couldn't find any leads matching your current selection. Try a different filter.
+                </p>
+              </div>
+            ) : (
+              <div className="relative">
+                {viewType === 'grid' ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-6 mt-6">
+                    {filteredLeads.map((lead) => {
+                      const assignee = lead.assigned_user || lead.assignedUser || lead.assigned_to;
+                      const assigneeRole = assignee?.user_type === 'agent' ? 'Agent' :
+                        (assignee?.roles?.[0]?.name || (typeof assignee?.roles?.[0] === 'string' ? assignee.roles[0] : null));
 
-                          return (
-                            <tr
-                              key={lead.id}
-                              className={`${isSelected ? 'bg-blue-50/80' : 'hover:bg-slate-50'} border-b border-slate-50 transition-colors group cursor-pointer`}
-                              onClick={() => navigate(`/leads/${lead.id}`)}
-                            >
-                              <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
-                                <input
-                                  type="checkbox"
-                                  checked={isSelected}
-                                  onChange={() => toggleSelectLead(lead.id)}
-                                  className="w-5 h-5 rounded border-2 border-slate-200 text-blue-600 focus:ring-blue-500/20 cursor-pointer"
-                                />
-                              </td>
-                              <td className="px-6 py-4">
-                                <div className="flex items-center gap-3">
-                                  <div className="w-8 h-8 rounded-xl bg-blue-100 flex items-center justify-center text-blue-600 font-black text-[10px] shadow-sm transform group-hover:scale-110 transition-transform">
-                                    {lead.client_name?.substring(0, 2).toUpperCase()}
-                                  </div>
-                                  <div className="flex items-center gap-1.5">
-                                    <span className={`font-bold transition-colors ${isSelected ? 'text-blue-700' : 'text-slate-700'}`}>{lead.client_name}</span>
-                                  </div>
-                                </div>
-                              </td>
-                              <td className="px-6 py-4 text-sm font-bold text-slate-500">{lead.phone || "N/A"}</td>
-                              <td className="px-6 py-4 text-sm font-bold text-slate-500">{lead.email || "N/A"}</td>
-                              <td className="px-6 py-4 text-sm font-bold text-slate-500">{lead.destination || "N/A"}</td>
-                              <td className="px-6 py-4">
-                                <span className="px-3 py-1 bg-slate-100 text-slate-600 rounded-lg text-[10px] font-black uppercase tracking-wider border border-slate-200">
-                                  {lead.source || "Direct"}
-                                </span>
-                              </td>
-                              <td className="px-6 py-4 text-sm font-bold text-slate-600 italic">
-                                {assignedUserName}
-                              </td>
-                              <td className="px-6 py-4">
-                                <span className={`px-4 py-1.5 rounded-xl text-white text-[9px] font-black uppercase tracking-widest shadow-sm ${lead.status === 'confirmed' ? 'bg-emerald-600' :
-                                    lead.status === 'new' ? 'bg-blue-600' :
-                                      lead.status === 'processing' ? 'bg-indigo-600' :
-                                        lead.status === 'proposal' ? 'bg-amber-500' :
-                                          lead.status === 'followup' ? 'bg-orange-600' :
-                                            lead.status === 'cancelled' ? 'bg-rose-600' :
-                                              'bg-slate-500'
-                                  }`}>
-                                  {lead.status === 'confirmed' ? 'Booked' :
-                                    lead.status === 'processing' ? 'Under Process' :
-                                      lead.status === 'proposal' ? 'Proposal Sent' :
-                                        lead.status === 'cancelled' ? 'Declined' :
-                                          lead.status}
-                                </span>
-                              </td>
-                              <td className="px-6 py-4">
-                                <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                  <button
-                                    onClick={(e) => { e.stopPropagation(); navigate(`/leads/${lead.id}?tab=whatsapp`); }}
-                                    className="p-2 bg-emerald-50 text-emerald-600 rounded-lg hover:bg-emerald-600 hover:text-white transition-all shadow-sm border border-emerald-100"
-                                  >
-                                    <MessageSquare size={14} />
-                                  </button>
-                                  <button
-                                    onClick={(e) => { e.stopPropagation(); navigate(`/leads/${lead.id}?tab=mails`); }}
-                                    className="p-2 bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-600 hover:text-white transition-all shadow-sm border border-indigo-100"
-                                  >
-                                    <Mail size={14} />
-                                  </button>
-                                </div>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
+                      const assignedUserName =
+                        (assignee?.name ? `${assignee.name}${assigneeRole ? ` (${assigneeRole})` : ''}` : null) ||
+                        lead.assigned_name ||
+                        lead.assigned_to_name ||
+                        lead.assigned_user_name ||
+                        "Unassigned";
+
+                      return (
+                        <LeadCard
+                          id={lead.id}
+                          key={lead.id}
+                          name={lead.client_name}
+                          isSelected={selectedLeadIds.includes(lead.id)}
+                          onSelect={toggleSelectLead}
+                          phone={lead.phone || "N/A"}
+                          email={lead.email}
+                          tag={
+                            lead.status === "confirmed"
+                              ? "Booked"
+                              : lead.status === "new"
+                                ? "New"
+                                : lead.status === "processing"
+                                  ? "Under Process"
+                                  : ""
+                          }
+                          location={lead.destination || "N/A"}
+                          date={formatDate(lead.created_at)}
+                          amount={lead.amount || 0}
+                          status={lead.status}
+                          assignedTo={lead.assignedUser || lead.assigned_user || lead.assigned_to}
+                          assignedName={assignedUserName}
+                          onClick={() => navigate(`/leads/${lead.id}`)}
+                          onStatusChange={handleOpenStatusModal}
+                          onAssign={handleOpenAssignModal}
+                          onAddNote={() => openFollowUpModal(lead.id)}
+                          onDelete={() => handleDelete(lead.id)}
+                        />
+                      );
+                    })}
                   </div>
-                </div>
-              )}
+                ) : (
+                  <div className="mt-8 bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
+                    <div className="overflow-x-auto custom-scrollbar">
+                      <table className="w-full text-left border-collapse">
+                        <thead>
+                          <tr className="bg-slate-50/50">
+                            <th className="px-6 py-5 w-12">
+                              <input
+                                type="checkbox"
+                                checked={selectedLeadIds.length === filteredLeads.length && filteredLeads.length > 0}
+                                onChange={(e) => handleSelectAll(e.target.checked)}
+                                className="w-5 h-5 rounded border-2 border-slate-200 text-blue-600 focus:ring-blue-500/20 cursor-pointer"
+                              />
+                            </th>
+                            <th className="px-6 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">Client Detail</th>
+                            <th className="px-6 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">Destination</th>
+                            <th className="px-6 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">Amount</th>
+                            <th className="px-6 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">Status</th>
+                            <th className="px-6 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">Assigned To</th>
+                            <th className="px-2 py-5 text-right w-16 whitespace-nowrap">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-50">
+                          {filteredLeads.map((lead) => {
+                            const isSelected = selectedLeadIds.includes(lead.id);
+                            const assignee = lead.assigned_user || lead.assignedUser || lead.assigned_to;
+                            const assigneeRole = assignee?.user_type === 'agent' ? 'Agent' :
+                              (assignee?.roles?.[0]?.name || (typeof assignee?.roles?.[0] === 'string' ? assignee.roles[0] : null));
 
-              {/* Pagination Controls */}
-              {pagination.total > 0 && (
-                <div className="flex flex-col md:flex-row items-center justify-between mt-6 bg-white rounded-lg shadow px-4 py-3 gap-4">
-                  <div className="flex items-center gap-6">
-                    <p className="text-sm text-gray-600">
-                      Showing <span className="font-semibold">{((currentPage - 1) * perPage) + 1}</span>–<span className="font-semibold">{Math.min(currentPage * perPage, pagination.total)}</span> of <span className="font-semibold">{pagination.total}</span> leads
-                    </p>
+                            const assignedUserName =
+                              (assignee?.name ? `${assignee.name}${assigneeRole ? ` (${assigneeRole})` : ''}` : null) ||
+                              lead.assigned_name ||
+                              lead.assigned_to_name ||
+                              lead.assigned_user_name ||
+                              "Unassigned";
 
-                    <div className="flex items-center gap-2 border-l border-gray-200 pl-6">
-                      <label htmlFor="perPageSelect" className="text-xs font-bold text-gray-400 uppercase tracking-wider">Queries per page:</label>
+                            return (
+                              <tr
+                                key={lead.id}
+                                className={`${isSelected ? 'bg-blue-50/80' : 'hover:bg-slate-50'} border-b border-slate-50 transition-colors group cursor-pointer`}
+                                onClick={() => navigate(`/leads/${lead.id}`)}
+                              >
+                                <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
+                                  <input
+                                    type="checkbox"
+                                    checked={isSelected}
+                                    onChange={() => toggleSelectLead(lead.id)}
+                                    className="w-5 h-5 rounded border-2 border-slate-200 text-blue-600 focus:ring-blue-500/20 cursor-pointer"
+                                  />
+                                </td>
+                                <td className="px-6 py-4">
+                                  <div className="flex items-center gap-3">
+                                    <div className="w-8 h-8 rounded-xl bg-blue-100 flex items-center justify-center text-blue-600 font-black text-[10px] shadow-sm transform group-hover:scale-110 transition-transform">
+                                      {lead.client_name?.substring(0, 2).toUpperCase()}
+                                    </div>
+                                    <div className="flex items-center gap-1.5">
+                                      <span className={`font-bold transition-colors ${isSelected ? 'text-blue-700' : 'text-slate-700'}`}>{lead.client_name}</span>
+                                    </div>
+                                  </div>
+                                  <div className="mt-1 flex items-center gap-2 text-[10px] text-slate-400 font-medium">
+                                    <span>{lead.phone || 'No Phone'}</span>
+                                    <span>•</span>
+                                    <span>{formatDate(lead.created_at)}</span>
+                                  </div>
+                                </td>
+                                <td className="px-6 py-4">
+                                  <div className="flex items-center gap-2 text-slate-600">
+                                    <div className="p-1.5 bg-slate-100 rounded-lg group-hover:bg-white transition-colors">
+                                      <Search size={12} className="text-slate-400" />
+                                    </div>
+                                    <span className="text-xs font-semibold">{lead.destination || 'N/A'}</span>
+                                  </div>
+                                </td>
+                                <td className="px-6 py-4">
+                                  <div className="text-xs font-black text-slate-700">₹{Number(lead.amount || 0).toLocaleString()}</div>
+                                  <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mt-0.5">Package Value</div>
+                                </td>
+                                <td className="px-6 py-4">
+                                  <span className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest ${lead.status === 'confirmed' ? 'bg-emerald-100 text-emerald-600 border border-emerald-200' :
+                                    lead.status === 'followup' ? 'bg-amber-100 text-amber-600 border border-amber-200' :
+                                      lead.status === 'cancelled' ? 'bg-rose-100 text-rose-600 border border-rose-200' :
+                                        lead.status === 'processing' ? 'bg-indigo-100 text-indigo-600 border border-indigo-200' :
+                                          'bg-blue-100 text-blue-600 border border-blue-200'
+                                    }`}>
+                                    {lead.status === 'confirmed' ? 'Booked' : lead.status === 'processing' ? 'Under Process' : lead.status || 'New'}
+                                  </span>
+                                </td>
+                                <td className="px-6 py-4">
+                                  <div className="flex items-center gap-2">
+                                    <div className="w-6 h-6 rounded-lg bg-slate-100 flex items-center justify-center text-[8px] font-bold text-slate-500 border border-slate-200">
+                                      {assignedUserName.substring(0, 1)}
+                                    </div>
+                                    <span className="text-[11px] font-bold text-slate-600">{assignedUserName}</span>
+                                  </div>
+                                </td>
+                                <td className="px-6 py-4 text-right" onClick={(e) => e.stopPropagation()}>
+                                  <div className="flex items-center justify-end gap-1">
+                                    <button onClick={() => navigate(`/leads/${lead.id}`)} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all" title="View Details">
+                                      <LayoutGrid size={16} />
+                                    </button>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        if (window.confirm(`Are you sure you want to delete query of ${lead.client_name}?`)) {
+                                          handleDelete(lead.id);
+                                        }
+                                      }}
+                                      className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all"
+                                      title="Delete Lead"
+                                    >
+                                      <Trash2 size={16} />
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+
+                  </div>
+                )}
+
+                {/* Shared Pagination for Grid & Table */}
+                {pagination.last_page >= 1 && (
+                  <div className="mt-8 bg-white rounded-xl border border-slate-200 shadow-sm p-4 flex flex-col md:flex-row items-center justify-between gap-4">
+                    <div className="flex items-center text-sm text-slate-500">
+                      Showing <span className="font-bold text-slate-800 mx-1">{pagination.from || 0}-{pagination.to || 0}</span> of <span className="font-bold text-slate-800 mx-1">{pagination.total || 0}</span> leads
+                    </div>
+
+                    <div className="flex items-center gap-3 px-6 border-l border-slate-100">
+                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Queries Per Page:</span>
                       <select
-                        id="perPageSelect"
                         value={perPage}
-                        onChange={handlePerPageChange}
-                        className="text-sm border border-gray-200 rounded-md px-2 py-1 bg-gray-50 font-bold text-gray-700 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all cursor-pointer"
+                        onChange={(e) => {
+                          const val = parseInt(e.target.value);
+                          setPerPage(val);
+                          localStorage.setItem('leads_per_page', val);
+                          fetchLeads({}, 1);
+                        }}
+                        className="bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500/20 transition-all"
                       >
-                        {[8, 10, 20, 30, 40, 50].map(val => (
-                          <option key={val} value={val}>{val}</option>
+                        {[8, 10, 20, 50, 100].map(num => (
+                          <option key={num} value={num}>{num}</option>
                         ))}
                       </select>
                     </div>
-                  </div>
-
-                  {pagination.last_page > 1 && (
-                    <div className="flex items-center gap-1">
+                    
+                    <div className="flex items-center gap-1.5">
                       <button
                         onClick={() => { fetchLeads({}, currentPage - 1); }}
                         disabled={currentPage === 1}
-                        className="px-3 py-1.5 text-sm border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed font-medium transition-colors"
+                        className="px-3 py-1.5 text-xs font-bold text-slate-500 border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
                       >
                         ← Prev
                       </button>
-                      {Array.from({ length: Math.min(5, pagination.last_page) }, (_, i) => {
-                        let page;
-                        if (pagination.last_page <= 5) {
-                          page = i + 1;
-                        } else if (currentPage <= 3) {
-                          page = i + 1;
-                        } else if (currentPage >= pagination.last_page - 2) {
-                          page = pagination.last_page - 4 + i;
-                        } else {
-                          page = currentPage - 2 + i;
-                        }
-                        return (
-                          <button
-                            key={page}
-                            onClick={() => fetchLeads({}, page)}
-                            className={`px-3 py-1.5 text-sm border rounded-md font-medium transition-all ${page === currentPage
-                              ? 'bg-blue-600 text-white border-blue-600 shadow-md shadow-blue-500/20'
-                              : 'border-gray-300 hover:bg-gray-50 text-gray-600'
-                              }`}
-                          >
-                            {page}
-                          </button>
-                        );
-                      })}
+                      
+                      <div className="flex items-center gap-1.5">
+                        {[...Array(pagination.last_page)].map((_, i) => {
+                          const page = i + 1;
+                          if (page === 1 || page === pagination.last_page || (page >= currentPage - 2 && page <= currentPage + 2)) {
+                            return (
+                              <button
+                                key={page}
+                                onClick={() => fetchLeads({}, page)}
+                                className={`w-8 h-8 flex items-center justify-center text-xs font-bold rounded-lg transition-all ${page === currentPage
+                                  ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20'
+                                  : 'text-slate-500 border border-slate-200 hover:bg-slate-50'
+                                  }`}
+                              >
+                                {page}
+                              </button>
+                            );
+                          }
+                          if (page === 2 || page === pagination.last_page - 1) {
+                            return <span key={page} className="text-slate-300 px-0.5 text-xs">...</span>;
+                          }
+                          return null;
+                        })}
+                      </div>
+
                       <button
                         onClick={() => { fetchLeads({}, currentPage + 1); }}
                         disabled={currentPage === pagination.last_page}
-                        className="px-3 py-1.5 text-sm border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed font-medium transition-colors"
+                        className="px-3 py-1.5 text-xs font-bold text-slate-500 border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
                       >
                         Next →
                       </button>
                     </div>
-                  )}
-                </div>
-              )}
-            </>
-          )
-        )
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
       )}
 
       {/* Bulk Action Bar - Floating */}
@@ -2419,4 +2398,3 @@ const GoogleSheetModal = ({ onClose, onSyncComplete, visible }) => {
 };
 
 export default Leads;
-

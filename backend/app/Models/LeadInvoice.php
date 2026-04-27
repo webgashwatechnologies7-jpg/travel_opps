@@ -44,8 +44,24 @@ class LeadInvoice extends Model
     {
         $prefix = 'INV';
         $date = now()->format('Ymd');
-        $last = self::whereDate('created_at', today())->count() + 1;
-        return $prefix . '-' . $date . '-' . str_pad((string) $last, 4, '0', STR_PAD_LEFT);
+        
+        // Use withoutGlobalScopes() to ensure we see ALL invoices across the system to avoid duplicates
+        // Also use a more robust way to find the next number by looking at the last one created today
+        $lastInvoice = self::withoutGlobalScopes()
+            ->where('invoice_number', 'LIKE', "{$prefix}-{$date}-%")
+            ->orderBy('invoice_number', 'desc')
+            ->first();
+
+        if ($lastInvoice) {
+            // Extract the number part: INV-20260427-0001 -> 0001
+            $parts = explode('-', $lastInvoice->invoice_number);
+            $lastNum = (int) end($parts);
+            $nextNum = $lastNum + 1;
+        } else {
+            $nextNum = 1;
+        }
+
+        return $prefix . '-' . $date . '-' . str_pad((string) $nextNum, 4, '0', STR_PAD_LEFT);
     }
 
     protected static function booted()

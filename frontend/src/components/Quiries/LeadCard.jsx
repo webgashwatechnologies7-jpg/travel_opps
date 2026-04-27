@@ -173,9 +173,12 @@ function LeadCard({
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  onStatusChange?.(id);
+                  if (status?.toLowerCase() !== 'confirmed') {
+                    onStatusChange?.(id);
+                  }
                 }}
-                className={`px-4 py-1.5 rounded-lg text-white text-[10px] font-bold uppercase tracking-wider shadow-lg border border-white/20 backdrop-blur-md ${currentStatus.color} ${currentStatus.glow} hover:brightness-110 active:scale-95 transition-all duration-300`}
+                className={`px-4 py-1.5 rounded-lg text-white text-[10px] font-bold uppercase tracking-wider shadow-lg border border-white/20 backdrop-blur-md ${currentStatus.color} ${currentStatus.glow} ${status?.toLowerCase() === 'confirmed' ? 'cursor-default' : 'hover:brightness-110 active:scale-95 cursor-pointer'} transition-all duration-300`}
+                disabled={status?.toLowerCase() === 'confirmed'}
               >
                 {currentStatus.label}
               </button>

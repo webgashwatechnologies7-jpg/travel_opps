@@ -116,17 +116,24 @@ const HotelSearch = lazy(() => import('./pages/HotelSearch'));
 
 import LogoLoader from './components/LogoLoader';
 
-// Fallback loader
+// Full-screen loader for initial auth check ONLY
+const InitialLoader = () => (
+  <LogoLoader text="Initializing CRM..." />
+);
+
+// A subtle top progress bar for route transitions
 const PageLoader = () => (
-  <LogoLoader text="Loading System..." />
+  <div className="fixed top-0 left-0 right-0 h-1 z-[10001] bg-blue-100 overflow-hidden">
+    <div className="h-full bg-blue-600 animate-shimmer origin-left shadow-[0_0_10px_rgba(37,99,235,0.5)]"></div>
+  </div>
 );
 
 const AppRoutes = () => {
   const { user, loading } = useAuth();
 
-  // Show loading only on initial load
+  // Show full-screen loading ONLY on initial application boot
   if (loading) {
-    return <PageLoader />;
+    return <InitialLoader />;
   }
 
   return (

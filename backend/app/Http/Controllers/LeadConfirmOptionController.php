@@ -130,7 +130,8 @@ class LeadConfirmOptionController extends Controller
             // 2) Update Lead status to 'confirmed' and log it
             $oldStatus = $lead->status;
             if ($oldStatus !== 'confirmed') {
-                $lead->update(['status' => 'confirmed']);
+                $lead->status = 'confirmed';
+                $lead->save();
                 
                 \App\Modules\Leads\Domain\Entities\LeadStatusLog::create([
                     'lead_id' => $lead->id,
@@ -174,6 +175,7 @@ class LeadConfirmOptionController extends Controller
                 'success' => true,
                 'message' => 'Option confirmed. Invoice and voucher created.',
                 'data' => [
+                    'lead_status' => 'confirmed',
                     'invoice' => [
                         'id' => $invoice->id,
                         'invoice_number' => $invoice->invoice_number,
@@ -187,8 +189,9 @@ class LeadConfirmOptionController extends Controller
         } catch (\Throwable $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to confirm option',
-                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
+                'message' => 'Failed to confirm option: ' . $e->getMessage(),
+                'error' => $e->getMessage(),
+                'trace' => config('app.debug') ? $e->getTraceAsString() : null
             ], 500);
         }
     }

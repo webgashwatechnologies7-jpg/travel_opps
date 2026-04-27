@@ -75,5 +75,12 @@ interface LeadRepositoryInterface
      * @return bool
      */
     public function bulkAssign(array $ids, int $userId): bool;
+    /**
+     * Get summary statistics for leads.
+     *
+     * @param array $filters
+     * @return array
+     */
+    public function getSummaryStats(array $filters = []): array;
 }
 

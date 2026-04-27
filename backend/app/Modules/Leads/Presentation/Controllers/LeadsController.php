@@ -42,6 +42,7 @@ class LeadsController extends Controller
 
             $perPage = $request->get('per_page', 8);
             $leads = $this->leadRepository->getPaginated($filters, $perPage);
+            $stats = $this->leadRepository->getSummaryStats(['company_id' => $filters['company_id']]);
 
             return response()->json([
                 'success' => true,
@@ -54,6 +55,7 @@ class LeadsController extends Controller
                         'per_page' => $leads->perPage(),
                         'total' => $leads->total(),
                     ],
+                    'stats' => $stats,
                 ]
             ], 200);
         } catch (\Exception $e) {
@@ -594,7 +596,7 @@ class LeadsController extends Controller
             'followups' => $lead->followups->map(fn($f) => [
                 'id' => $f->id,
                 'remark' => $f->remark,
-                'reminder_date' => $f->reminder_date->toDateString(),
+                'reminder_date' => optional($f->reminder_date)->toDateString(),
                 'reminder_time' => $f->reminder_time,
                 'is_completed' => $f->is_completed,
                 'created_at' => $f->created_at,

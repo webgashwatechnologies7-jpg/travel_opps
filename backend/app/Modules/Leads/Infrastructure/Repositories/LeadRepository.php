@@ -261,5 +261,34 @@ class LeadRepository implements LeadRepositoryInterface
     {
         return Lead::whereIn('id', $ids)->update(['assigned_to' => $userId]) > 0;
     }
+    /**
+     * Get summary statistics for leads.
+     *
+     * @param array $filters
+     * @return array
+     */
+    public function getSummaryStats(array $filters = []): array
+    {
+        $query = Lead::query();
+
+        // Apply basic filters like company_id if present
+        if (isset($filters['company_id']) && $filters['company_id']) {
+            $query->where('company_id', $filters['company_id']);
+        }
+
+        return [
+            'total' => (clone $query)->count(),
+            'assignedToMe' => (clone $query)->where('assigned_to', auth()->id())->count(),
+            'today' => (clone $query)->whereDate('created_at', now()->toDateString())->count(),
+            'unassigned' => (clone $query)->whereNull('assigned_to')->count(),
+            'new' => (clone $query)->where('status', 'new')->count(),
+            'processing' => (clone $query)->where('status', 'processing')->count(),
+            'proposalSent' => (clone $query)->where('status', 'proposal')->count(),
+            'hotLead' => (clone $query)->where('priority', 'hot')->count(),
+            'cancel' => (clone $query)->where('status', 'cancelled')->count(),
+            'followUp' => (clone $query)->where('status', 'followup')->count(),
+            'confirmed' => (clone $query)->where('status', 'confirmed')->count(),
+        ];
+    }
 }
 

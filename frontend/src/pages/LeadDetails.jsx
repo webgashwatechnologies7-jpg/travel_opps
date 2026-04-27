@@ -20,6 +20,7 @@ const LeadDetails = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
+  const userRoles = useMemo(() => user?.roles?.map(r => typeof r === 'string' ? r : r.name) || [], [user]);
   const { settings } = useSettings();
   const [lead, setLead] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -848,13 +849,20 @@ const LeadDetails = () => {
       const itineraryName = confirmedProposal.itinerary_name || quotationData?.itinerary?.itinerary_name || '';
 
       try {
-        await leadsAPI.confirmOption(id, {
+        const confirmRes = await leadsAPI.confirmOption(id, {
           option_number: optionNumber,
           total_amount: totalAmount,
           itinerary_name: itineraryName,
         });
+
+        // Update local lead status immediately from response
+        if (confirmRes?.data?.success && confirmRes?.data?.data?.lead_status) {
+          setLead(prev => ({ ...prev, status: confirmRes.data.data.lead_status }));
+        }
       } catch (err) {
         console.error('Confirm option API failed:', err);
+        const serverError = err.response?.data?.message || 'Server error';
+        showToastNotification('error', 'Booking Failed', serverError);
       }
 
       try {
@@ -1451,12 +1459,14 @@ const LeadDetails = () => {
       // but the page reloaded before the server-side status update or sync was complete.
       // We now rely on queryProposalsAPI.sync and server-side truth.
       // Auto-transition 'new' leads to 'Under Process' (processing)
-      if (leadData && leadData.id && (leadData.status?.toLowerCase() === 'new')) {
+      // IMPORTANT: Only do this if lead is actually 'new' and NOT confirmed/proposal sent
+      if (leadData && leadData.id && leadData.status?.toLowerCase() === 'new') {
         try {
           // Perform the update synchronously before setting the lead state
           await leadsAPI.updateStatus(leadData.id, 'processing');
           // Update the local data object to reflect the change immediately
           leadData.status = 'processing';
+          console.log("Auto transitioned lead to Under Process");
         } catch (err) {
           console.error("Auto transition to processing failed:", err);
         }
@@ -5160,6 +5170,26 @@ const LeadDetails = () => {
                     >
                       <X className="h-4 w-4" />
                       Decline Query
+                    </button>
+                  )}
+
+                  {(userRoles.includes('Admin') || userRoles.includes('Company Admin') || userRoles.includes('Super Admin')) && (
+                    <button
+                      onClick={async () => {
+                        if (window.confirm(`Are you sure you want to PERMANENTLY DELETE query of ${lead.client_name}? This cannot be undone.`)) {
+                          try {
+                            await leadsAPI.delete(id);
+                            toast.success('Query deleted successfully');
+                            navigate('/leads');
+                          } catch (err) {
+                            toast.error('Failed to delete query');
+                          }
+                        }
+                      }}
+                      className="px-4 py-2 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 border border-rose-700 rounded-xl transition-all flex items-center gap-2 active:scale-95 shadow-lg shadow-rose-500/20"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      Delete Query
                     </button>
                   )}
                 </div>
