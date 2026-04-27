@@ -1,5 +1,5 @@
 import React, { memo } from 'react';
-import { Eye, RefreshCw, Download, Send } from 'lucide-react';
+import { Eye, RefreshCw, Download, Send, Trash2 } from 'lucide-react';
 
 const InvoiceTab = memo(({
     loadingHistory,
@@ -7,6 +7,7 @@ const InvoiceTab = memo(({
     handleInvoicePreview,
     handleInvoiceDownload,
     handleInvoiceSend,
+    handleInvoiceDelete,
     invoiceActionLoading
 }) => {
     return (
@@ -72,6 +73,15 @@ const InvoiceTab = memo(({
                                                     className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-full transition-all disabled:opacity-50"
                                                 >
                                                     {invoiceActionLoading === 'send' ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleInvoiceDelete(inv.id)}
+                                                    disabled={!!invoiceActionLoading}
+                                                    title="Delete Invoice"
+                                                    className="p-2 text-red-600 hover:bg-red-50 rounded-full transition-all disabled:opacity-50"
+                                                >
+                                                    {invoiceActionLoading === 'delete' ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
                                                 </button>
                                             </div>
                                         </td>

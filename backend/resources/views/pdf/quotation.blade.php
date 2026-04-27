@@ -377,35 +377,10 @@
 <body>
     @php
         // IMAGE HELPER
-        if (!function_exists('imageToBase64')) {
-            function imageToBase64($url)
-            {
-                try {
-                    if (empty($url))
-                        return null;
-                    $parsed = parse_url($url);
-                    $relativePath = $parsed['path'] ?? '';
-                    if ($relativePath) {
-                        $relativePath = ltrim($relativePath, '/');
-                        $publicPath = public_path($relativePath);
-                        if (file_exists($publicPath)) {
-                            $type = pathinfo($publicPath, PATHINFO_EXTENSION);
-                            $data = file_get_contents($publicPath);
-                            return 'data:image/' . $type . ';base64,' . base64_encode($data);
-                        }
-                    }
-                    $ctx = stream_context_create(['ssl' => ['verify_peer' => false], 'http' => ['timeout' => 5]]);
-                    $data = @file_get_contents($url, false, $ctx);
-                    if ($data)
-                        return 'data:image/jpg;base64,' . base64_encode($data);
-                    return null;
-                } catch (\Exception $e) {
-                    return null;
-                }
-            }
+        $company = $quotation->lead_id ? ($quotation->lead->company ?? null) : null;
+        if (!$company) {
+            $company = $quotation->lead->company;
         }
-
-        $company = $quotation->lead->company;
         $logo = $company->logo ? imageToBase64($company->logo) : null;
         $mainImg = isset($quotation->itinerary['image']) ? imageToBase64($quotation->itinerary['image']) : null;
     @endphp

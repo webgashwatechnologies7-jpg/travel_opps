@@ -214,33 +214,6 @@
     $companyAddress = $company ? $company->address : \App\Models\Setting::getValue('company_address');
     $companyDomain = $company ? $company->getFullUrlAttribute() : config('app.url');
     // Robust image helper (copied from quotation.blade.php)
-    if (!function_exists('imageToBase64')) {
-        function imageToBase64($url)
-        {
-            try {
-                if (empty($url)) return null;
-                $parsed = parse_url($url);
-                $relativePath = $parsed['path'] ?? '';
-                if ($relativePath) {
-                    $relativePath = ltrim($relativePath, '/');
-                    $publicPath = public_path($relativePath);
-                    if (file_exists($publicPath)) {
-                        $type = pathinfo($publicPath, PATHINFO_EXTENSION);
-                        $data = file_get_contents($publicPath);
-                        return 'data:image/' . ($type ?: 'jpg') . ';base64,' . base64_encode($data);
-                    }
-                }
-                // Fallback for external URLs
-                $ctx = stream_context_create(['ssl' => ['verify_peer' => false], 'http' => ['timeout' => 5]]);
-                $data = @file_get_contents($url, false, $ctx);
-                if ($data) return 'data:image/jpg;base64,' . base64_encode($data);
-                return null;
-            } catch (\Exception $e) {
-                return null;
-            }
-        }
-    }
-
     $base64Logo = imageToBase64($companyLogo);
 
     $voucherNo = $invoice ? ($invoice->invoice_number ?: 'CTB' . str_pad($lead->id, 8, '0', STR_PAD_LEFT)) : ('VHR' . str_pad($lead->id, 6, '0', STR_PAD_LEFT));

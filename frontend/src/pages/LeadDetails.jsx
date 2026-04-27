@@ -1138,6 +1138,26 @@ const LeadDetails = () => {
     }
   };
 
+  const handleInvoiceDelete = async (invoiceId) => {
+    if (!id || !invoiceId) return;
+    if (!window.confirm('Are you sure you want to delete this invoice? This action cannot be undone.')) {
+      return;
+    }
+
+    setInvoiceActionLoading('delete');
+    try {
+      await leadInvoicesAPI.delete(id, invoiceId);
+      showToastNotification('success', 'Invoice Deleted', 'Invoice has been removed successfully.');
+      fetchQueryDetail(); // Refresh the list
+    } catch (err) {
+      console.error('Invoice delete failed:', err);
+      const msg = err.response?.data?.message || err.message || 'Unknown error';
+      showToastNotification('error', 'Delete Failed', 'Issue: ' + msg);
+    } finally {
+      setInvoiceActionLoading(null);
+    }
+  };
+
   // NEW: Send Payment Reminder via Email and WhatsApp
   const [remindingPaymentId, setRemindingPaymentId] = useState(null);
 
@@ -6120,6 +6140,7 @@ const LeadDetails = () => {
                                     handleInvoicePreview={handleInvoicePreview}
                                     handleInvoiceDownload={handleInvoiceDownload}
                                     handleInvoiceSend={handleInvoiceSend}
+                                    handleInvoiceDelete={handleInvoiceDelete}
                                     invoiceActionLoading={invoiceActionLoading}
                                   />
                                 ) :
