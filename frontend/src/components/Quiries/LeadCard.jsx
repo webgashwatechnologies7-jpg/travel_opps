@@ -111,11 +111,7 @@ function LeadCard({
       {/* Background Subtle Accent */}
       <div className={`absolute top-0 left-0 w-1 h-full rounded-l-xl ${currentStatus.color}`}></div>
 
-      {is_locked && (
-        <div className="absolute top-4 right-12 z-20 bg-amber-100/80 backdrop-blur-sm p-1.5 rounded-lg border border-amber-200 shadow-sm animate-in zoom-in duration-300">
-          <Lock size={14} className="text-amber-600 fill-amber-600/10" />
-        </div>
-      )}
+
 
       <div className="rounded-xl p-5 h-full flex flex-col relative z-10">
         {/* Top Header */}
@@ -177,11 +173,9 @@ function LeadCard({
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  if (status === 'confirmed') return;
                   onStatusChange?.(id);
                 }}
-                disabled={status === 'confirmed'}
-                className={`px-4 py-1.5 rounded-lg text-white text-[10px] font-bold uppercase tracking-wider shadow-lg border border-white/20 backdrop-blur-md ${currentStatus.color} ${currentStatus.glow} ${status === 'confirmed' ? 'cursor-not-allowed' : 'hover:brightness-110 active:scale-95'} transition-all duration-300`}
+                className={`px-4 py-1.5 rounded-lg text-white text-[10px] font-bold uppercase tracking-wider shadow-lg border border-white/20 backdrop-blur-md ${currentStatus.color} ${currentStatus.glow} hover:brightness-110 active:scale-95 transition-all duration-300`}
               >
                 {currentStatus.label}
               </button>

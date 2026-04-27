@@ -213,6 +213,34 @@
     $companyPhone = $company ? $company->phone : \App\Models\Setting::getValue('company_phone');
     $companyAddress = $company ? $company->address : \App\Models\Setting::getValue('company_address');
     $companyDomain = $company ? $company->getFullUrlAttribute() : config('app.url');
+    // Robust image helper (copied from quotation.blade.php)
+    if (!function_exists('imageToBase64')) {
+        function imageToBase64($url)
+        {
+            try {
+                if (empty($url)) return null;
+                $parsed = parse_url($url);
+                $relativePath = $parsed['path'] ?? '';
+                if ($relativePath) {
+                    $relativePath = ltrim($relativePath, '/');
+                    $publicPath = public_path($relativePath);
+                    if (file_exists($publicPath)) {
+                        $type = pathinfo($publicPath, PATHINFO_EXTENSION);
+                        $data = file_get_contents($publicPath);
+                        return 'data:image/' . ($type ?: 'jpg') . ';base64,' . base64_encode($data);
+                    }
+                }
+                // Fallback for external URLs
+                $ctx = stream_context_create(['ssl' => ['verify_peer' => false], 'http' => ['timeout' => 5]]);
+                $data = @file_get_contents($url, false, $ctx);
+                if ($data) return 'data:image/jpg;base64,' . base64_encode($data);
+                return null;
+            } catch (\Exception $e) {
+                return null;
+            }
+        }
+    }
+
     $base64Logo = imageToBase64($companyLogo);
 
     $voucherNo = $invoice ? ($invoice->invoice_number ?: 'CTB' . str_pad($lead->id, 8, '0', STR_PAD_LEFT)) : ('VHR' . str_pad($lead->id, 6, '0', STR_PAD_LEFT));
@@ -462,10 +490,22 @@
                 $dayMealPlan = $day['meal_plan'] ?? null;
                 if (empty($dayMealPlan) || $dayMealPlan === 'As Per Itinerary') {
                     if (isset($quotation->itinerary['day_events'][$dayId])) {
+                        // First pass: look for explicit meal events
                         foreach ($quotation->itinerary['day_events'][$dayId] as $e) {
-                            if (!empty($e['mealType']) || !empty($e['mealPlan'])) {
-                                $dayMealPlan = $e['mealType'] ?? $e['mealPlan'];
+                            if (isset($e['eventType']) && strtolower($e['eventType']) === 'meal') {
+                                $dayMealPlan = $e['subject'] ?? ($e['mealType'] ?? $e['mealPlan']);
                                 break;
+                            }
+                        }
+                        
+                        // Second pass: fallback to any event with meal info if no explicit meal event found
+                        if (empty($dayMealPlan)) {
+                            foreach ($quotation->itinerary['day_events'][$dayId] as $e) {
+                                if (!empty($e['mealType']) || !empty($e['mealPlan'])) {
+                                    // But don't use subject here as it might be 'TEST' or something else
+                                    $dayMealPlan = $e['mealType'] ?? $e['mealPlan'];
+                                    break;
+                                }
                             }
                         }
                     }

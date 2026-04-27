@@ -1484,6 +1484,8 @@ const Leads = () => {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-50">
+                        {filteredLeads.map((lead) => {
+                          const isSelected = selectedLeadIds.includes(lead.id);
                           const assignee = lead.assigned_user || lead.assignedUser || lead.assigned_to;
                           const assigneeRole = assignee?.user_type === 'agent' ? 'Agent' :
                                               (assignee?.roles?.[0]?.name || (typeof assignee?.roles?.[0] === 'string' ? assignee.roles[0] : null));
@@ -1516,7 +1518,6 @@ const Leads = () => {
                                   </div>
                                   <div className="flex items-center gap-1.5">
                                     <span className={`font-bold transition-colors ${isSelected ? 'text-blue-700' : 'text-slate-700'}`}>{lead.client_name}</span>
-                                    {lead.is_locked && <Lock size={12} className="text-amber-500" title="This query is locked" />}
                                   </div>
                                 </div>
                               </td>
