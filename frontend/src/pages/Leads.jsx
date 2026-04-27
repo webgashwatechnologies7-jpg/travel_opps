@@ -41,6 +41,7 @@ const getDefaultFormData = () => ({
 
 const Leads = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user: currentUser } = useAuth();
   const [leads, setLeads] = useState([]);
   const [leadSources, setLeadSources] = useState([]);
@@ -89,6 +90,28 @@ const Leads = () => {
   const [isBulkAssignModalOpen, setIsBulkAssignModalOpen] = useState(false);
   const [sortConfig, setSortConfig] = useState({ key: 'created_at', direction: 'desc' });
   const [backendStats, setBackendStats] = useState(null);
+
+  const fetchLeadSources = useCallback(async () => {
+    try {
+      const response = await leadSourcesAPI.list();
+      if (response.data?.success) {
+        setLeadSources(Array.isArray(response.data.data) ? response.data.data : []);
+      }
+    } catch (err) {
+      console.error('Failed to fetch lead sources:', err);
+    }
+  }, []);
+
+  const fetchUsers = useCallback(async () => {
+    try {
+      const response = await usersAPI.list();
+      if (response.data?.success) {
+        setUsers(Array.isArray(response.data.data) ? response.data.data : []);
+      }
+    } catch (err) {
+      console.error('Failed to fetch users:', err);
+    }
+  }, []);
 
   // Prevent background scroll when any modal is open
   useEffect(() => {
@@ -156,39 +179,100 @@ const Leads = () => {
   useEffect(() => {
     fetchLeadSources();
     fetchUsers();
+  }, [fetchLeadSources, fetchUsers]);
+
+  //Consolidated Fetch logic: URL is the source of truth
+  const fetchLeads = useCallback(async () => {
+    try {
+      setLoading(true);
+      const params = new URLSearchParams(location.search);
+      const filter = params.get('filter') || 'total';
+      const dest = params.get('destination') || '';
+      const page = parseInt(params.get('page') || '1');
+      const assigned_to = params.get('assigned_to') || '';
+
+      let apiParams = {
+        page,
+        per_page: perPage,
+        destination: dest,
+        assigned_to: assigned_to,
+        ...advancedFilters
+      };
+
+      // Map filter key to API parameters
+      if (filter === 'new') apiParams.status = 'new';
+      else if (filter === 'proposalSent') apiParams.status = 'proposal';
+      else if (filter === 'followUp') apiParams.status = 'followup';
+      else if (filter === 'confirmed') apiParams.status = 'confirmed';
+      else if (filter === 'cancel') apiParams.status = 'cancelled';
+      else if (filter === 'processing') apiParams.status = 'processing';
+      else if (filter === 'hotLead') apiParams.priority = 'hot';
+      else if (filter === 'assignedToMe') apiParams.assigned_to = currentUser?.id;
+      else if (filter === 'unassigned') apiParams.unassigned = 1;
+      else if (filter === 'today') apiParams.today = 1;
+
+      // Smart Status Translation (for Search bar if used)
+      const lowerQuery = dest.toLowerCase().trim();
+      if (lowerQuery === 'booked') { apiParams.status = 'confirmed'; apiParams.destination = ''; }
+      else if (lowerQuery === 'proposal sent') { apiParams.status = 'proposal'; apiParams.destination = ''; }
+      else if (lowerQuery === 'under process') { apiParams.status = 'processing'; apiParams.destination = ''; }
+
+      const response = await leadsAPI.list(apiParams);
+      if (response.data?.success) {
+        setLeads(response.data.data.leads || []);
+        setPagination(response.data.data.pagination || pagination);
+        setBackendStats(response.data.data.stats || null);
+      }
+    } catch (err) {
+      console.error('Failed to fetch leads:', err);
+      toast.error('Failed to load leads');
+    } finally {
+      setLoading(false);
+    }
+  }, [location.search, perPage, advancedFilters, currentUser?.id]);
+
+  // Trigger fetch whenever URL search changes
+  useEffect(() => {
     fetchLeads();
-  }, []);
+    // Update local state to match URL for UI consistency
+    const params = new URLSearchParams(location.search);
+    setActiveFilter(params.get('filter') || 'total');
+    setDestinationFilter(params.get('destination') || '');
+    setAssignedToFilter(params.get('assigned_to') || '');
+    setCurrentPage(parseInt(params.get('page') || '1'));
+  }, [location.search, fetchLeads]);
 
   useEffect(() => {
     if (showAnalytics) {
       fetchAnalytics();
     }
-  }, [showAnalytics, analyticsTimeframe, advancedFilters, assignedToFilter, destinationFilter]);
+  }, [showAnalytics, analyticsTimeframe, location.search]);
 
   const fetchAnalytics = async () => {
     try {
       setAnalyticsLoading(true);
-
-      let activeFilterParams = {};
-      if (activeFilter === 'new') activeFilterParams = { status: 'new' };
-      else if (activeFilter === 'proposalSent') activeFilterParams = { status: 'proposal' };
-      else if (activeFilter === 'followUp') activeFilterParams = { status: 'followup' };
-      else if (activeFilter === 'confirmed') activeFilterParams = { status: 'confirmed' };
-      else if (activeFilter === 'cancel') activeFilterParams = { status: 'cancelled' };
-      else if (activeFilter === 'processing') activeFilterParams = { status: 'processing' };
-      else if (activeFilter === 'hotLead') activeFilterParams = { priority: 'hot' };
-      else if (activeFilter === 'assignedToMe') activeFilterParams = { assigned_to: currentUser?.id };
-      else if (activeFilter === 'unassigned') activeFilterParams = { unassigned: 1 };
-      else if (activeFilter === 'today') activeFilterParams = { today: 1 };
-
-      const response = await leadsAPI.analytics({
+      const params = new URLSearchParams(location.search);
+      const filter = params.get('filter') || 'total';
+      
+      let analyticsParams = {
         timeframe: analyticsTimeframe,
         destination: destinationFilter,
         assigned_to: assignedToFilter,
-        ...activeFilterParams,
         ...advancedFilters
-      });
+      };
 
+      if (filter === 'new') analyticsParams.status = 'new';
+      else if (filter === 'proposalSent') analyticsParams.status = 'proposal';
+      else if (filter === 'followUp') analyticsParams.status = 'followup';
+      else if (filter === 'confirmed') analyticsParams.status = 'confirmed';
+      else if (filter === 'cancel') analyticsParams.status = 'cancelled';
+      else if (filter === 'processing') analyticsParams.status = 'processing';
+      else if (filter === 'hotLead') analyticsParams.priority = 'hot';
+      else if (filter === 'assignedToMe') analyticsParams.assigned_to = currentUser?.id;
+      else if (filter === 'unassigned') analyticsParams.unassigned = 1;
+      else if (filter === 'today') analyticsParams.today = 1;
+
+      const response = await leadsAPI.analytics(analyticsParams);
       if (response.data?.success) {
         setAnalyticsData(response.data.data);
       }
@@ -199,107 +283,38 @@ const Leads = () => {
     }
   };
 
-  const location = useLocation();
-
-  useEffect(() => {
+  // Helper to change filters via URL
+  const handleFilterChange = (filterId) => {
     const params = new URLSearchParams(location.search);
-    const assignedName = params.get('assigned_name');
-    if (assignedName) {
-      setAssignedNameFilter(assignedName);
-      const normalized = assignedName.toLowerCase().trim();
-      const matchedUser = users.find((u) => {
-        const name = (u.name || '').toLowerCase().trim();
-        return name && name === normalized;
-      });
-      if (matchedUser?.id) {
-        setAssignedToFilter(String(matchedUser.id));
-        setActiveFilter('assigned_to');
-        fetchLeads({ assigned_to: matchedUser.id });
-      } else {
-        setActiveFilter('assigned_name');
-        fetchLeads();
-      }
-      return;
-    }
-    const assignedTo = params.get('assigned_to');
-    if (assignedTo) {
-      setAssignedToFilter(assignedTo);
-      setActiveFilter('assigned_to');
-      fetchLeads({ assigned_to: assignedTo });
-      return;
-    }
-    const destination = params.get('destination');
-    if (destination) {
-      setDestinationFilter(destination);
-      setActiveFilter('destination');
-      fetchLeads({ destination });
-      return;
-    }
-    if (params.get('today') === '1') {
-      setActiveFilter('today');
-      fetchLeads();
-      return;
-    }
-    const range = params.get('range');
-    if (range === 'week') {
-      setActiveFilter('weekly');
-      fetchLeads();
-      return;
-    }
-    if (range === 'month') {
-      setActiveFilter('monthly');
-      fetchLeads();
-      return;
-    }
-    if (range === 'year') {
-      setActiveFilter('yearly');
-      fetchLeads();
-      return;
-    }
-    const status = params.get('status');
-    if (status === 'new') {
-      setActiveFilter('new');
-      fetchLeads({ status: 'new' });
-      return;
-    }
-    if (status === 'proposal') {
-      setActiveFilter('pending');
-      fetchLeads({ status: 'proposal' });
-      return;
-    }
-    if (status === 'cancelled') {
-      setActiveFilter('closed');
-      fetchLeads({ status: 'cancelled' });
-      return;
-    }
-    if (status === 'unassigned') {
-      setActiveFilter('unassigned');
-      fetchLeads();
-      return;
-    }
-    const priority = params.get('priority');
-    if (priority === 'hot') {
-      setActiveFilter('hot');
-      fetchLeads({ priority: 'hot' });
-      return;
-    }
-    const birthMonth = params.get('birth_month');
-    if (birthMonth) {
-      setActiveFilter('birthdays');
-      fetchLeads({ birth_month: birthMonth });
-      return;
-    }
-    const anniversaryMonth = params.get('anniversary_month');
-    if (anniversaryMonth) {
-      setActiveFilter('anniversaries');
-      fetchLeads({ anniversary_month: anniversaryMonth });
-      return;
-    }
-    setDestinationFilter('');
-    setAssignedToFilter('');
-    setAssignedNameFilter('');
-    fetchLeads();
-  }, [location.search, users]);
+    if (filterId === 'total') params.delete('filter');
+    else params.set('filter', filterId);
+    params.delete('page'); // Reset to page 1 on filter change
+    navigate({ search: params.toString() }, { replace: true });
+  };
+
+  const handlePageChange = (newPage) => {
+    const params = new URLSearchParams(location.search);
+    if (newPage === 1) params.delete('page');
+    else params.set('page', newPage);
+    navigate({ search: params.toString() }, { replace: true });
+  };
+
+  const handlePerPageChange = (e) => {
+    const val = parseInt(e.target.value);
+    setPerPage(val);
+    localStorage.setItem('leads_per_page', val);
+    const params = new URLSearchParams(location.search);
+    params.set('page', 1);
+    navigate({ search: params.toString() }, { replace: true });
+  };
+
+  const handleSearch = () => {
+    const params = new URLSearchParams(location.search);
+    if (destinationFilter) params.set('destination', destinationFilter);
+    else params.delete('destination');
+    params.delete('page');
+    navigate({ search: params.toString() }, { replace: true });
+  };
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -321,119 +336,6 @@ const Leads = () => {
     localStorage.setItem('leads_view_type', viewType);
   }, [viewType]);
 
-  const fetchLeads = useCallback(async (filters = {}, page = 1) => {
-    try {
-      setLoading(true);
-
-      let activeFilterParams = {};
-      if (activeFilter === 'new') activeFilterParams = { status: 'new' };
-      else if (activeFilter === 'proposalSent') activeFilterParams = { status: 'proposal' };
-      else if (activeFilter === 'followUp') activeFilterParams = { status: 'followup' };
-      else if (activeFilter === 'confirmed') activeFilterParams = { status: 'confirmed' };
-      else if (activeFilter === 'cancel') activeFilterParams = { status: 'cancelled' };
-      else if (activeFilter === 'processing') activeFilterParams = { status: 'processing' };
-      else if (activeFilter === 'hotLead') activeFilterParams = { priority: 'hot' };
-      else if (activeFilter === 'assignedToMe') activeFilterParams = { assigned_to: currentUser?.id };
-      else if (activeFilter === 'unassigned') activeFilterParams = { unassigned: 1 };
-      else if (activeFilter === 'today') activeFilterParams = { today: 1 };
-
-      // Smart Status Translation for API
-      const lowerQuery = (destinationFilter || '').toLowerCase().trim();
-      let statusParam = null;
-      let finalDestParam = destinationFilter;
-
-      if (lowerQuery === 'booked') { statusParam = 'confirmed'; finalDestParam = ''; }
-      else if (lowerQuery === 'proposal sent') { statusParam = 'proposal'; finalDestParam = ''; }
-      else if (lowerQuery === 'followup') { statusParam = 'followup'; finalDestParam = ''; }
-      else if (lowerQuery === 'under process') { statusParam = 'processing'; finalDestParam = ''; }
-      else if (lowerQuery === 'declined') { statusParam = 'cancelled'; finalDestParam = ''; }
-
-      const params = {
-        per_page: perPage,
-        page,
-        search: finalDestParam, // Use translated search parameter for global query
-        status: statusParam || undefined,
-        assigned_to: assignedToFilter,
-        ...activeFilterParams,
-        ...advancedFilters,
-        ...filters // filters passed explicitly override current state
-      };
-      const response = await leadsAPI.list(params);
-
-      // Handle different response structures
-      let leadsData = [];
-      let paginationData = null;
-      if (response.data?.data?.leads) {
-        // Standard paginated response: { success: true, data: { leads: [...], pagination: {...} } }
-        leadsData = response.data.data.leads;
-        paginationData = response.data.data.pagination;
-      } else if (response.data?.data && Array.isArray(response.data.data)) {
-        // Direct array response: { success: true, data: [...] }
-        leadsData = response.data.data;
-      } else if (response.data?.leads) {
-        // Alternative structure: { success: true, leads: [...] }
-        leadsData = response.data.leads;
-      } else if (Array.isArray(response.data)) {
-        // Direct array: [...]
-        leadsData = response.data;
-      }
-
-      setLeads(leadsData);
-      if (paginationData) {
-        setPagination(paginationData);
-      }
-      if (response.data?.data?.stats) {
-        setBackendStats(response.data.data.stats);
-      }
-      setCurrentPage(page);
-    } catch {
-      setLeads([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [destinationFilter, assignedToFilter, advancedFilters, activeFilter, currentUser, perPage]);
-
-  // Handle Filter Changes Automatically
-  useEffect(() => {
-    fetchLeads({}, 1); // Always reset to page 1 on filter change
-  }, [activeFilter, perPage, assignedToFilter, advancedFilters]);
-
-  // Handle Search Input Change with Debounce
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      fetchLeads({}, 1);
-    }, 500);
-    return () => clearTimeout(timer);
-  }, [destinationFilter]);
-
-  const handlePerPageChange = (e) => {
-    const newPerPage = parseInt(e.target.value);
-    setPerPage(newPerPage);
-    localStorage.setItem('leads_per_page', newPerPage);
-    // Directly pass the new value to fetchLeads because state update is async
-    fetchLeads({ per_page: newPerPage }, 1);
-  };
-
-  const fetchLeadSources = useCallback(async () => {
-    try {
-      const response = await leadSourcesAPI.list();
-      const sources = response.data.data || response.data || [];
-      // Filter only active lead sources
-      const activeSources = sources.filter(source => source.status === 'active');
-      setLeadSources(activeSources);
-    } catch (err) {
-      console.error('Failed to fetch lead sources:', err);
-    }
-  }, []);
-
-  const fetchUsers = useCallback(async () => {
-    try {
-      const response = await usersAPI.list();
-      setUsers(response.data.data.users || []);
-    } catch (err) {
-      console.error('Failed to fetch users:', err);
-    }
-  }, []);
 
   const handleCreate = useCallback(async (e) => {
     e.preventDefault();
@@ -555,7 +457,7 @@ const Leads = () => {
     return colors[priority] || 'bg-gray-100 text-gray-800';
   }, []);
 
-  // Calculate summary statistics — memoized to avoid recalculation on unrelated renders
+  // Calculate summary statistics â€” memoized to avoid recalculation on unrelated renders
   const stats = useMemo(() => {
     if (backendStats) return backendStats;
     
@@ -586,7 +488,7 @@ const Leads = () => {
     };
   }, [leads, backendStats, pagination.total, currentUser?.id]);
 
-  // Filter leads based on active filter — memoized so it only recalculates when leads or filter changes
+  // Filter leads based on active filter â€” memoized so it only recalculates when leads or filter changes
   const filteredLeads = useMemo(() => {
     let result = [];
     if (activeFilter === 'assigned_name') {
@@ -819,11 +721,7 @@ const Leads = () => {
   };
 
   const handleRefresh = () => {
-    setActiveFilter("total");
-    setDestinationFilter('');
-    setAssignedToFilter('');
-    setAssignedNameFilter('');
-    const resetFilters = {
+    setAdvancedFilters({
       from_date: '',
       to_date: '',
       travel_month: '',
@@ -831,9 +729,8 @@ const Leads = () => {
       service: '',
       adult: '',
       description: '',
-    };
-    setAdvancedFilters(resetFilters);
-    fetchLeads({ destination: '', assigned_to: '', ...resetFilters });
+    });
+    navigate('/leads', { replace: true });
   };
 
   const handleAdvancedFilterChange = (e) => {
@@ -1006,7 +903,7 @@ const Leads = () => {
                 type="text"
                 value={destinationFilter}
                 onChange={(e) => setDestinationFilter(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && fetchLeads()}
+                onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
                 placeholder="Search by name, phone, destination, status or staff..."
                 className="w-full pl-12 pr-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm font-semibold text-slate-700 focus:outline-none focus:ring-4 focus:ring-blue-500/5 focus:border-blue-400 transition-all placeholder:text-slate-400"
               />
@@ -1049,7 +946,7 @@ const Leads = () => {
 
             <button
               type="button"
-              onClick={() => fetchLeads()}
+              onClick={() => handleSearch()}
               className="btn-primary text-white px-8 py-3.5 rounded-[1.5rem] text-sm font-black active:scale-95 transition-all"
             >
               Go!
@@ -1074,7 +971,7 @@ const Leads = () => {
           ].map((filter) => (
             <button
               key={filter.id}
-              onClick={() => setActiveFilter(filter.id)}
+              onClick={() => handleFilterChange(filter.id)}
               className={`px-3 py-2 rounded-xl text-[10px] font-bold uppercase tracking-tight transition-all border flex items-center gap-1.5 whitespace-nowrap active:scale-95 group relative overflow-hidden flex-shrink-0 ${activeFilter === filter.id
                 ? `bg-gradient-to-br ${filter.color} text-white border-transparent shadow-md scale-105 z-10`
                 : 'bg-white border-slate-100 text-slate-500 hover:bg-slate-50 hover:border-slate-200 hover:text-slate-700'
@@ -1140,7 +1037,7 @@ const Leads = () => {
                 className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
               >
                 <option value="">All Sources</option>
-                {leadSources.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
+                {leadSources?.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
               </select>
             </div>
             <div className="space-y-1.5">
@@ -1173,7 +1070,7 @@ const Leads = () => {
                 className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
               >
                 <option value="">All Staff</option>
-                {users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+                {users?.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
               </select>
             </div>
             <div className="space-y-1.5">
@@ -1346,7 +1243,7 @@ const Leads = () => {
 
               <div className="mt-auto bg-white/60 backdrop-blur-sm p-4 rounded-xl border border-gray-100">
                 <p className="text-[10px] text-gray-500 font-bold leading-relaxed">
-                  💡 Pro-Tip: Comparison helps identify seasonal peaks. Use it to plan your marketing spend!
+                  ðŸ’¡ Pro-Tip: Comparison helps identify seasonal peaks. Use it to plan your marketing spend!
                 </p>
               </div>
             </div>
@@ -1421,7 +1318,7 @@ const Leads = () => {
                           onClick={() => navigate(`/leads/${lead.id}`)}
                           onStatusChange={handleOpenStatusModal}
                           onAssign={handleOpenAssignModal}
-                          onAddNote={() => openFollowUpModal(lead.id)}
+                          onAddNote={() => navigate(`/leads/${lead.id}?tab=followups`)}
                           onDelete={() => handleDelete(lead.id)}
                         />
                       );
@@ -1488,7 +1385,7 @@ const Leads = () => {
                                   </div>
                                   <div className="mt-1 flex items-center gap-2 text-[10px] text-slate-400 font-medium">
                                     <span>{lead.phone || 'No Phone'}</span>
-                                    <span>•</span>
+                                    <span>â€¢</span>
                                     <span>{formatDate(lead.created_at)}</span>
                                   </div>
                                 </td>
@@ -1501,7 +1398,7 @@ const Leads = () => {
                                   </div>
                                 </td>
                                 <td className="px-6 py-4">
-                                  <div className="text-xs font-black text-slate-700">₹{Number(lead.amount || 0).toLocaleString()}</div>
+                                  <div className="text-xs font-black text-slate-700">â‚¹{Number(lead.amount || 0).toLocaleString()}</div>
                                   <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mt-0.5">Package Value</div>
                                 </td>
                                 <td className="px-6 py-4">
@@ -1561,13 +1458,7 @@ const Leads = () => {
                     <div className="flex items-center gap-3 px-6 border-l border-slate-100">
                       <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Queries Per Page:</span>
                       <select
-                        value={perPage}
-                        onChange={(e) => {
-                          const val = parseInt(e.target.value);
-                          setPerPage(val);
-                          localStorage.setItem('leads_per_page', val);
-                          fetchLeads({}, 1);
-                        }}
+                                          onChange={handlePerPageChange}
                         className="bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500/20 transition-all"
                       >
                         {[8, 10, 20, 50, 100].map(num => (
@@ -1578,7 +1469,7 @@ const Leads = () => {
                     
                     <div className="flex items-center gap-1.5">
                       <button
-                        onClick={() => { fetchLeads({}, currentPage - 1); }}
+                        onClick={() => handlePageChange(currentPage - 1)}
                         disabled={currentPage === 1}
                         className="px-3 py-1.5 text-xs font-bold text-slate-500 border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
                       >
@@ -1592,7 +1483,7 @@ const Leads = () => {
                             return (
                               <button
                                 key={page}
-                                onClick={() => fetchLeads({}, page)}
+                                onClick={() => handlePageChange(page)}
                                 className={`w-8 h-8 flex items-center justify-center text-xs font-bold rounded-lg transition-all ${page === currentPage
                                   ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20'
                                   : 'text-slate-500 border border-slate-200 hover:bg-slate-50'
@@ -1610,7 +1501,7 @@ const Leads = () => {
                       </div>
 
                       <button
-                        onClick={() => { fetchLeads({}, currentPage + 1); }}
+                        onClick={() => handlePageChange(currentPage + 1)}
                         disabled={currentPage === pagination.last_page}
                         className="px-3 py-1.5 text-xs font-bold text-slate-500 border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
                       >
@@ -1704,7 +1595,7 @@ const Leads = () => {
                 ))}
               </div>
               <p className="mt-6 text-[10px] text-slate-400 font-bold uppercase tracking-wider text-center bg-slate-50 py-3 rounded-xl border border-slate-100">
-                💡 High-volume assignment may take a moment to sync.
+                ðŸ’¡ High-volume assignment may take a moment to sync.
               </p>
             </div>
           </div>
@@ -1817,7 +1708,7 @@ const Leads = () => {
                 className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-semibold outline-none appearance-none cursor-pointer"
               >
                 <option value="">Select Source</option>
-                {leadSources.map((source) => (
+                {leadSources?.map((source) => (
                   <option key={source.id} value={source.name}>{source.name}</option>
                 ))}
               </select>
@@ -1836,7 +1727,7 @@ const Leads = () => {
                   className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-semibold outline-none appearance-none cursor-pointer"
                 >
                   <option value="">Select Staff</option>
-                  {users.map((user) => (
+                  {users?.map((user) => (
                     <option key={user.id} value={user.id}>
                       {user.name} ({user.user_type === 'agent' ? 'Agent' : (user.roles?.[0]?.name || 'Staff')})
                     </option>
@@ -2097,7 +1988,7 @@ const Leads = () => {
             </div>
           </div>
           <p className="mt-4 text-[10px] text-slate-400 font-bold uppercase tracking-wider text-center">
-            💡 Assigned staff will receive an instant notification.
+            ðŸ’¡ Assigned staff will receive an instant notification.
           </p>
         </div>
       </Dialog>

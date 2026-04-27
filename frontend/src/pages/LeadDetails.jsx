@@ -651,7 +651,7 @@ const LeadDetails = () => {
           try {
             const [pkgRes, prRes] = await Promise.all([
               packagesAPI.get(tid),
-              itineraryPricingAPI.get(tid)
+              itineraryPricingAPI.get(tid, id)
             ]);
             if (pkgRes.data.data) packageMap[tid] = pkgRes.data.data;
             if (prRes.data.data) pricingMap[tid] = prRes.data.data;
@@ -793,7 +793,7 @@ const LeadDetails = () => {
       const priceMapByItinerary = {};
       for (const tid of itineraryIds) {
         try {
-          const res = await itineraryPricingAPI.get(tid);
+          const res = await itineraryPricingAPI.get(tid, id);
           const data = res?.data?.data;
           const fp = data?.final_client_prices;
           if (fp && typeof fp === 'object' && !Array.isArray(fp)) priceMapByItinerary[tid] = fp;
@@ -2721,7 +2721,7 @@ const LeadDetails = () => {
       // Fetch FULL package details to ensure day_events and days are cloned
       const [pkgRes, prRes] = await Promise.all([
         packagesAPI.get(tid),
-        itineraryPricingAPI.get(tid)
+        itineraryPricingAPI.get(tid, id)
       ]);
       fullPackage = pkgRes.data.data;
       pricingDataFromServer = prRes.data.data;
@@ -3063,7 +3063,7 @@ const LeadDetails = () => {
           // Fetch from server
           const [pkgRes, pricingRes] = await Promise.all([
             packagesAPI.get(tid),
-            itineraryPricingAPI.get(tid)
+            itineraryPricingAPI.get(tid, id)
           ]);
 
           const pkgData = pkgRes?.data?.data;
@@ -4342,7 +4342,7 @@ const LeadDetails = () => {
     let optionPriceMap = null;
     if (itineraryIdForPricing) {
       try {
-        const res = await itineraryPricingAPI.get(itineraryIdForPricing);
+        const res = await itineraryPricingAPI.get(itineraryIdForPricing, id);
         const data = res?.data?.data;
         const fp = data?.final_client_prices;
         const ogst = data?.option_gst_settings || {};

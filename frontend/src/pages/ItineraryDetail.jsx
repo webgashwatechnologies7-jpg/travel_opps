@@ -283,7 +283,7 @@ const ItineraryDetail = () => {
     fetchMaxHotelOptions();
     loadPricingFromServer();
     fetchRoomTypes();
-  }, [id]);
+  }, [id, fromLeadId]);
 
   // One-time legacy migration: move old browser-only itinerary data to DB
   useEffect(() => {
@@ -374,7 +374,7 @@ const ItineraryDetail = () => {
 
   const loadPricingFromServer = async () => {
     try {
-      const response = await itineraryPricingAPI.get(id);
+      const response = await itineraryPricingAPI.get(id, fromLeadId);
       if (response.data?.success && response.data.data) {
         const data = response.data.data;
         if (data.pricing_data) setPricingData(data.pricing_data);
@@ -3427,6 +3427,7 @@ const ItineraryDetail = () => {
                 else toast.info(text);
               }}
               readOnly={!hasPermission(user, 'itineraries.edit')}
+              leadId={fromLeadId}
             />
           )}
 

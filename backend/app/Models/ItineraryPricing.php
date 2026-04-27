@@ -14,6 +14,7 @@ class ItineraryPricing extends Model
 
     protected $fillable = [
         'package_id',
+        'lead_id',
         'pricing_data',
         'final_client_prices',
         'option_gst_settings',

@@ -13,7 +13,7 @@ class ItineraryPricingController extends Controller
     /**
      * Get pricing configuration for a package (itinerary).
      */
-    public function show(int $packageId): JsonResponse
+    public function show(Request $request, int $packageId): JsonResponse
     {
         try {
             $package = Package::find($packageId);
@@ -25,7 +25,20 @@ class ItineraryPricingController extends Controller
                 ], 404);
             }
 
-            $pricing = ItineraryPricing::where('package_id', $packageId)->first();
+            $leadId = $request->query('lead_id');
+            $pricing = null;
+
+            if ($leadId) {
+                $pricing = ItineraryPricing::where('package_id', $packageId)
+                    ->where('lead_id', $leadId)
+                    ->first();
+            }
+
+            if (!$pricing) {
+                $pricing = ItineraryPricing::where('package_id', $packageId)
+                    ->whereNull('lead_id')
+                    ->first();
+            }
 
             if (!$pricing) {
                 return response()->json([
@@ -98,12 +111,14 @@ class ItineraryPricingController extends Controller
             }
 
             $data = $validator->validated();
+            $leadId = $request->input('lead_id');
 
             $pricing = ItineraryPricing::updateOrCreate(
-                ['package_id' => $packageId],
+                ['package_id' => $packageId, 'lead_id' => $leadId],
                 array_merge(
                     [
                         'package_id' => $packageId,
+                        'lead_id' => $leadId,
                     ],
                     $data
                 )

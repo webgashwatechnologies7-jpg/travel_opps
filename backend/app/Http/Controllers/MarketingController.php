@@ -2246,7 +2246,10 @@ class MarketingController extends Controller
 
         } catch (\Exception $e) {
             \Log::error('WhatsApp campaign processing failed: ' . $e->getMessage());
-            $campaign->update(['status' => 'failed']);
+            $campaign->update([
+                'status' => 'failed',
+                'failure_reason' => $e->getMessage()
+            ]);
         }
     }
 

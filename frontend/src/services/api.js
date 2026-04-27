@@ -643,7 +643,7 @@ export const packagesAPI = {
 
 // Itinerary Pricing APIs
 export const itineraryPricingAPI = {
-  get: (packageId) => api.get(`/packages/${packageId}/pricing`),
+  get: (packageId, leadId = null) => api.get(`/packages/${packageId}/pricing`, { params: { lead_id: leadId } }),
   save: (packageId, data) => api.put(`/packages/${packageId}/pricing`, data),
 };
 

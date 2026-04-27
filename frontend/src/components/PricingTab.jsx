@@ -28,7 +28,8 @@ const PricingTab = ({
   showToastNotification,
   onPricingSaveSuccess,
   readOnly = false,
-  days = []
+  days = [],
+  leadId = null
 }) => {
 
   // Collect all accommodation events with hotel options (preserve optionIdx for key consistency with FinalTab)
@@ -250,6 +251,7 @@ const PricingTab = ({
         igst,
         tcs,
         discount,
+        lead_id: leadId
       };
 
       await itineraryPricingAPI.save(itinerary.id, payload);
