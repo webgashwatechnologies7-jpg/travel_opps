@@ -1051,12 +1051,10 @@ class MarketingController extends Controller
                     'error' => $templateError->getMessage()
                 ]);
 
-                $campaign->update(['status' => 'failed']);
-                return [
+                $campaign->update([
                     'status' => 'failed',
-                    'sent_count' => 0,
-                    'reason' => 'Template not found or inaccessible',
-                ];
+                    'failure_reason' => 'Template not found or inaccessible'
+                ]);
             }
 
             if (!$template || !$template->is_active || $template->type !== 'email') {
@@ -1067,12 +1065,10 @@ class MarketingController extends Controller
                     'template_type' => $template?->type
                 ]);
 
-                $campaign->update(['status' => 'failed']);
-                return [
+                $campaign->update([
                     'status' => 'failed',
-                    'sent_count' => 0,
-                    'reason' => 'Invalid or inactive email template',
-                ];
+                    'failure_reason' => 'Invalid or inactive email template'
+                ]);
             }
 
             // Load leads with error handling
@@ -1108,12 +1104,8 @@ class MarketingController extends Controller
                     'status' => 'failed',
                     'sent_at' => now(),
                     'sent_count' => 0,
+                    'failure_reason' => 'No leads with valid email addresses'
                 ]);
-                return [
-                    'status' => 'failed',
-                    'sent_count' => 0,
-                    'reason' => 'No leads with valid email addresses',
-                ];
             }
 
             // Prepare company mail settings with error handling
@@ -1216,6 +1208,7 @@ class MarketingController extends Controller
                     'status' => $status,
                     'sent_at' => now(),
                     'sent_count' => $sentCount,
+                    'failure_reason' => $status === 'failed' ? ($lastError ?: 'Unknown error') : null,
                 ]);
             } catch (\Exception $updateError) {
                 \Log::error('Error updating campaign status', [
@@ -2201,7 +2194,10 @@ class MarketingController extends Controller
         try {
             $template = $campaign->template;
             if (!$template) {
-                $campaign->update(['status' => 'failed']);
+                $campaign->update([
+                    'status' => 'failed',
+                    'failure_reason' => 'Template not found'
+                ]);
                 return;
             }
 
@@ -2245,6 +2241,7 @@ class MarketingController extends Controller
             $campaign->update([
                 'status' => $sentCount > 0 ? 'sent' : 'failed',
                 'sent_at' => now(),
+                'failure_reason' => $sentCount == 0 ? 'No messages were successfully sent. Check your WhatsApp credentials or lead phone numbers.' : null,
             ]);
 
         } catch (\Exception $e) {

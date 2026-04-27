@@ -308,6 +308,33 @@ class AccountsController extends Controller
             if ($validator->fails())
                 return $this->validationErrorResponse($validator);
 
+            $companyId = auth()->user()->company_id;
+
+            // Check for duplicates
+            if ($request->mobile) {
+                $exists = Lead::where('company_id', $companyId)
+                    ->where('phone', $request->mobile)
+                    ->exists();
+                if ($exists) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'An account with this mobile number (' . $request->mobile . ') already exists.'
+                    ], 422);
+                }
+            }
+
+            if ($request->email) {
+                $exists = Lead::where('company_id', $companyId)
+                    ->where('email', $request->email)
+                    ->exists();
+                if ($exists) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'An account with this email address (' . $request->email . ') already exists.'
+                    ], 422);
+                }
+            }
+
             $data = [
                 'client_name' => $request->name ?? $request->companyName,
                 'client_title' => $request->title ?? $request->industry,

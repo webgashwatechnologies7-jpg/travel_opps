@@ -5084,9 +5084,9 @@ const LeadDetails = () => {
               <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                 <div className="flex items-center gap-4">
                   <button
-                    onClick={() => navigate('/leads')}
+                    onClick={() => navigate(-1)}
                     className="p-2.5 hover:bg-gray-100 rounded-full transition-colors text-gray-600 border border-gray-100"
-                    title="Back to Queries"
+                    title="Back"
                   >
                     <ArrowLeft className="h-5 w-5" />
                   </button>
@@ -5618,7 +5618,12 @@ const LeadDetails = () => {
                       ].map(({ key, label }, index) => (
                         <button
                           key={key}
-                          onClick={() => setActiveTab(key)}
+                          onClick={() => {
+                            setActiveTab(key);
+                            const params = new URLSearchParams(location.search);
+                            params.set('tab', key);
+                            navigate({ search: params.toString() }, { replace: true });
+                          }}
                           className={`px-4 py-2.5 rounded-lg text-sm font-semibold whitespace-nowrap transition-all ${activeTab === key
                             ? 'bg-blue-600 text-white shadow-sm'
                             : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50'

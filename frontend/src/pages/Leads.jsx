@@ -471,7 +471,8 @@ const Leads = () => {
       fetchLeads();
       toast.success('Lead created successfully');
     } catch (err) {
-      toast.error('Failed to create lead');
+      const errorMessage = err.response?.data?.message || 'Failed to create lead';
+      toast.error(errorMessage);
       console.error(err);
     }
   }, [formData, currentUser, fetchLeads]);

@@ -22,6 +22,7 @@ class WhatsAppCampaign extends Model
         'scheduled_at',
         'sent_at',
         'status',
+        'failure_reason',
         'sent_count',
         'delivered_count',
         'read_count',

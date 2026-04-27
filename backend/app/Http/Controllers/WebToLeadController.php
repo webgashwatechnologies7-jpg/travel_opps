@@ -58,6 +58,31 @@ class WebToLeadController extends Controller
 
         $sourceStr = $request->source ?? 'Website';
 
+        // Check for duplicates within the same company
+        if ($request->phone) {
+            $exists = Lead::where('company_id', $company->id)
+                ->where('phone', $request->phone)
+                ->exists();
+            if ($exists) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'This phone number is already registered as a lead.'
+                ], 422);
+            }
+        }
+
+        if ($request->email) {
+            $exists = Lead::where('company_id', $company->id)
+                ->where('email', $request->email)
+                ->exists();
+            if ($exists) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'This email address is already registered as a lead.'
+                ], 422);
+            }
+        }
+
         $remarkText = '';
         if ($request->campaign_name) {
             $remarkText .= "Campaign: " . $request->campaign_name . "\n";

@@ -129,8 +129,36 @@ class LeadsController extends Controller
                 return $this->validationErrorResponse($validator);
 
             $data = $validator->validated();
+            $companyId = $request->user()->company_id;
+
+            // Check for duplicates within the same company
+            if (!empty($data['phone'])) {
+                $exists = Lead::where('company_id', $companyId)
+                    ->where('phone', $data['phone'])
+                    ->exists();
+                if ($exists) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'A query with this phone number (' . $data['phone'] . ') already exists in your records.'
+                    ], 422);
+                }
+            }
+
+            if (!empty($data['email'])) {
+                $exists = Lead::where('company_id', $companyId)
+                    ->where('email', $data['email'])
+                    ->exists();
+                if ($exists) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'A query with this email (' . $data['email'] . ') already exists in your records.'
+                    ], 422);
+                }
+            }
+
             $data['created_by'] = $request->user()->id;
             $data['status'] = $data['status'] ?? 'new';
+            $data['company_id'] = $companyId;
 
             $lead = $this->leadRepository->create($data);
             $lead = $lead->fresh();

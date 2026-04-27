@@ -395,8 +395,10 @@ const Campaigns = () => {
                                     className="w-full border border-gray-300 rounded-xl p-2.5 focus:ring-2 focus:ring-opacity-50 transition-all outline-none"
                                 >
                                     <option value="">Select Template</option>
-                                    {templates.filter(t => t.type === (activeTab === 'email' ? 'email' : 'whatsapp')).map(t => (
-                                        <option key={t.id} value={t.id}>{t.name}</option>
+                                    {templates.map(t => (
+                                        <option key={t.id} value={t.id}>
+                                            [{t.type.toUpperCase()}] {t.name}
+                                        </option>
                                     ))}
                                 </select>
                             </div>

@@ -21,6 +21,7 @@ class EmailCampaign extends Model
         'scheduled_at',
         'sent_at',
         'status',
+        'failure_reason',
         'sent_count',
         'failed_count',
         'delivered_count',

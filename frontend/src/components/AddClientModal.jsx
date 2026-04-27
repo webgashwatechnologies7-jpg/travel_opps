@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 import { accountsAPI } from '../services/api';
 import { Dialog } from 'primereact/dialog';
+import { toast } from 'react-toastify';
 
 const AddClientModal = ({ isOpen, onClose, onSave, editMode = false, initialData = null }) => {
   const [formData, setFormData] = useState({
@@ -175,6 +176,8 @@ const AddClientModal = ({ isOpen, onClose, onSave, editMode = false, initialData
       await onSave(clientData);
       handleClose();
     } catch (error) {
+      const errorMessage = error.response?.data?.message || 'Error saving client';
+      toast.error(errorMessage);
       console.error('Error saving client:', error);
     } finally {
       setLoading(false);
