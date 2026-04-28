@@ -54,6 +54,7 @@ class Package extends Model
         'remarks',
         'thank_you_message',
         'created_by',
+        'lead_id',
     ];
 
     /**

@@ -766,6 +766,25 @@ const ItineraryDetail = () => {
       const response = await packagesAPI.get(id);
       const data = response.data.data;
 
+      // --- ISOLATION GUARD ---
+      // If this is a Master Template (lead_id is null) but being accessed from a Lead context,
+      // we must clone it immediately to prevent contaminating the template.
+      if (fromLeadId && (data.lead_id === null || data.lead_id === undefined)) {
+        console.log('Master Template detected in Lead context. Cloning for isolation...');
+        try {
+          const dupRes = await packagesAPI.duplicate(id, { lead_id: fromLeadId });
+          if (dupRes.data?.success && dupRes.data?.data?.id) {
+            const newId = dupRes.data.data.id;
+            // Redirect to the new lead-specific package ID
+            navigate(`/itineraries/${newId}?fromLead=${fromLeadId}`, { replace: true });
+            return; // Stop processing this old ID
+          }
+        } catch (dupErr) {
+          console.error('Auto-isolation failed:', dupErr);
+        }
+      }
+      // -----------------------
+
       setItinerary(data);
       
       // Load events and days from server; keep database as source-of-truth

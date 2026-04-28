@@ -2560,6 +2560,7 @@ const LeadDetails = () => {
       formData.append('duration', itineraryFormData.duration);
       formData.append('notes', itineraryFormData.notes);
       formData.append('show_on_website', itineraryFormData.show_on_website ? 1 : 0);
+      formData.append('lead_id', id);
 
       if (itineraryFormData.image && itineraryFormData.image.file) {
         formData.append('image', itineraryFormData.image.file);
@@ -2710,15 +2711,22 @@ const LeadDetails = () => {
 
 
   const handleSelectItinerary = async (itinerary) => {
-    const tid = itinerary.id;
-    const itineraryName = itinerary.title || itinerary.itinerary_name || 'Untitled Itinerary';
+    let tid = itinerary.id;
+    let itineraryName = itinerary.title || itinerary.itinerary_name || 'Untitled Itinerary';
 
     setLoadingItineraries(true);
     let fullPackage = null;
     let pricingDataFromServer = null;
 
     try {
-      // Fetch FULL package details to ensure day_events and days are cloned
+      // 1. Duplicate the package for THIS lead immediately to ensure isolation
+      // This prevents editing one lead's itinerary from affecting others or the template
+      const dupRes = await packagesAPI.duplicate(tid, { lead_id: id });
+      if (dupRes.data?.success && dupRes.data?.data?.id) {
+        tid = dupRes.data.data.id;
+      }
+
+      // 2. Fetch FULL package details from the newly created clone
       const [pkgRes, prRes] = await Promise.all([
         packagesAPI.get(tid),
         itineraryPricingAPI.get(tid, id)

@@ -58,6 +58,7 @@ class PackageController extends Controller
                         'last_updated' => $package->updated_at ? $package->updated_at->format('d-m-Y') : null,
                         'updated_at' => $package->updated_at,
                         'created_at' => $package->created_at,
+                        'lead_id' => $package->lead_id,
                     ];
                 });
 
@@ -127,6 +128,7 @@ class PackageController extends Controller
                 'options_data' => 'nullable|array',
                 'inclusions' => 'nullable',
                 'exclusions' => 'nullable',
+                'lead_id' => 'nullable|integer',
             ], [
                 'itinerary_name.required' => 'The itinerary name field is required.',
                 'end_date.after_or_equal' => 'The end date must be after or equal to start date.',
@@ -252,6 +254,7 @@ class PackageController extends Controller
                     'last_updated' => $package->updated_at ? $package->updated_at->format('d-m-Y') : null,
                     'updated_at' => $package->updated_at,
                     'created_at' => $package->created_at,
+                    'lead_id' => $package->lead_id,
                 ],
             ], 201);
 
@@ -324,6 +327,7 @@ class PackageController extends Controller
                     'last_updated' => $package->updated_at ? $package->updated_at->format('d-m-Y') : null,
                     'updated_at' => $package->updated_at,
                     'created_at' => $package->created_at,
+                    'lead_id' => $package->lead_id,
                 ],
             ], 200);
 
@@ -400,6 +404,7 @@ class PackageController extends Controller
                 'options_data' => 'nullable|array',
                 'inclusions' => 'nullable',
                 'exclusions' => 'nullable',
+                'lead_id' => 'nullable|integer',
             ], [
                 'itinerary_name.required' => 'The itinerary name field is required.',
                 'end_date.after_or_equal' => 'The end date must be after or equal to start date.',
@@ -497,6 +502,7 @@ class PackageController extends Controller
                     'last_updated' => $package->updated_at ? $package->updated_at->format('d-m-Y') : null,
                     'updated_at' => $package->updated_at,
                     'created_at' => $package->created_at,
+                    'lead_id' => $package->lead_id,
                 ],
             ], 200);
 
@@ -554,7 +560,7 @@ class PackageController extends Controller
      * @param int $id
      * @return JsonResponse
      */
-    public function duplicate(int $id): JsonResponse
+    public function duplicate(Request $request, int $id): JsonResponse
     {
         try {
             $originalPackage = Package::find($id);
@@ -568,8 +574,17 @@ class PackageController extends Controller
 
             // Replicate the main package model
             $newPackage = $originalPackage->replicate();
-            // Append (Copy) to the name
-            $newPackage->itinerary_name = $originalPackage->itinerary_name . ' (Copy)';
+            
+            // If lead_id is provided, link it to the lead
+            if ($request->has('lead_id')) {
+                $newPackage->lead_id = $request->lead_id;
+                // Keep the same name if it's for a specific lead to avoid clutter
+                $newPackage->itinerary_name = $originalPackage->itinerary_name;
+            } else {
+                // Append (Copy) to the name only if it's a general duplication
+                $newPackage->itinerary_name = $originalPackage->itinerary_name . ' (Copy)';
+            }
+            
             $newPackage->created_by = auth()->id();
             $newPackage->save();
 
@@ -578,6 +593,10 @@ class PackageController extends Controller
             if ($originalPricing) {
                 $newPricing = $originalPricing->replicate();
                 $newPricing->package_id = $newPackage->id;
+                // Sync lead_id to pricing as well if available
+                if ($request->has('lead_id')) {
+                    $newPricing->lead_id = $request->lead_id;
+                }
                 $newPricing->save();
             }
 
@@ -587,6 +606,7 @@ class PackageController extends Controller
                 'data' => [
                     'id' => $newPackage->id,
                     'itinerary_name' => $newPackage->itinerary_name,
+                    'lead_id' => $newPackage->lead_id
                 ],
             ], 201);
 

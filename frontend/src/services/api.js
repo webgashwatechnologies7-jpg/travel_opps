@@ -638,7 +638,7 @@ export const packagesAPI = {
   create: (data) => postWithFile('/packages', data),
   update: (id, data) => postWithFile(`/packages/${id}`, data, 'PUT'),
   delete: (id) => api.delete(`/packages/${id}`),
-  duplicate: (id) => api.post(`/packages/${id}/duplicate`),
+  duplicate: (id, data = {}) => api.post(`/packages/${id}/duplicate`, data),
 };
 
 // Itinerary Pricing APIs
