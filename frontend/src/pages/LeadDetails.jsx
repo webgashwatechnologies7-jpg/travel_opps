@@ -6200,7 +6200,7 @@ const LeadDetails = () => {
                               />
                             ) :
                               activeTab === 'docs' ? (
-                                <DocsTab />
+                                <DocsTab leadId={id} />
                               ) :
                                 activeTab === 'invoice' ? (
                                   <InvoiceTab

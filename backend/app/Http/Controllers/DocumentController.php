@@ -210,7 +210,7 @@ class DocumentController extends Controller
                 
                 \Log::info('Lead validated successfully', [
                     'lead_id' => $lead->id,
-                    'user_id' => $user->id()
+                    'user_id' => $user->id
                 ]);
             } catch (\Exception $leadError) {
                 \Log::error('Error validating lead for document', [
@@ -290,13 +290,16 @@ class DocumentController extends Controller
                     'title' => $request->input('title'),
                     'description' => $request->input('description'),
                     'file_path' => $path,
+                    'file_name' => $file->getClientOriginalName(),
+                    'file_type' => $file->getClientOriginalExtension(),
+                    'file_size' => $file->getSize(),
                     'expiry_date' => $request->input('expiry_date'),
                     'is_required' => $request->input('is_required', false),
                     'access_level' => $request->input('access_level', 'public'),
                     'tags' => $request->input('tags', []),
                     'metadata' => $request->input('metadata', []),
                     'status' => $request->input('status', 'pending'),
-                    'uploaded_by' => $user->id(),
+                    'uploaded_by' => $user->id,
                     'company_id' => $companyId,
                 ]);
                 
@@ -306,7 +309,7 @@ class DocumentController extends Controller
                     'title' => $document->title,
                     'document_type' => $document->document_type,
                     'file_path' => $path,
-                    'user_id' => $user->id()
+                    'user_id' => $user->id
                 ]);
                 
                 return response()->json([
@@ -322,7 +325,7 @@ class DocumentController extends Controller
                         'is_required' => $document->is_required,
                         'access_level' => $document->access_level,
                         'status' => $document->status,
-                        'uploaded_by' => $user->id(),
+                        'uploaded_by' => $user->id,
                         'company_id' => $companyId,
                     ],
                 ], 201);

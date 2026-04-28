@@ -262,6 +262,7 @@ export const documentsAPI = {
     });
   },
   download: (id) => api.get(`/documents/${id}/download`, { responseType: 'blob' }),
+  delete: (id) => api.delete(`/documents/${id}`),
 };
 
 // Vouchers APIs

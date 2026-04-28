@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use App\Modules\Leads\Domain\Entities\Lead;
 
 class QueryDocument extends Model
 {
@@ -30,7 +31,8 @@ class QueryDocument extends Model
         'metadata',
         'uploaded_by',
         'verified_by',
-        'verified_at'
+        'verified_at',
+        'company_id'
     ];
 
     protected $casts = [
