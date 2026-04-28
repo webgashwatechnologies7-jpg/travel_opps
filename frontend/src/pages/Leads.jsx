@@ -188,6 +188,7 @@ const Leads = () => {
       setLoading(true);
       const params = new URLSearchParams(location.search);
       const filter = params.get('filter') || 'total';
+      const search = params.get('search') || '';
       const dest = params.get('destination') || '';
       const page = parseInt(params.get('page') || '1');
       const assigned_to = params.get('assigned_to') || '';
@@ -195,6 +196,7 @@ const Leads = () => {
       let apiParams = {
         page,
         per_page: perPage,
+        search: search,
         destination: dest,
         assigned_to: assigned_to,
         ...advancedFilters
@@ -238,7 +240,7 @@ const Leads = () => {
     // Update local state to match URL for UI consistency
     const params = new URLSearchParams(location.search);
     setActiveFilter(params.get('filter') || 'total');
-    setDestinationFilter(params.get('destination') || '');
+    setDestinationFilter(params.get('search') || params.get('destination') || '');
     setAssignedToFilter(params.get('assigned_to') || '');
     setCurrentPage(parseInt(params.get('page') || '1'));
   }, [location.search, fetchLeads]);
@@ -257,7 +259,8 @@ const Leads = () => {
       
       let analyticsParams = {
         timeframe: analyticsTimeframe,
-        destination: destinationFilter,
+        search: destinationFilter,
+        destination: params.get('destination') || '',
         assigned_to: assignedToFilter,
         ...advancedFilters
       };
@@ -311,8 +314,14 @@ const Leads = () => {
 
   const handleSearch = () => {
     const params = new URLSearchParams(location.search);
-    if (destinationFilter) params.set('destination', destinationFilter);
-    else params.delete('destination');
+    if (destinationFilter) {
+      // If it looks like a phone number or email, or just general search
+      params.set('search', destinationFilter);
+      params.delete('destination'); 
+    } else {
+      params.delete('search');
+      params.delete('destination');
+    }
     params.delete('page');
     navigate({ search: params.toString() }, { replace: true });
   };
