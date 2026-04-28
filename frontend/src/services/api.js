@@ -939,6 +939,7 @@ export const quotationsAPI = {
 // Master Points (Inclusions, Exclusions, Terms)
 export const masterPointsAPI = {
   list: (type) => api.get('/master-points', { params: { type } }),
+  bulkList: () => api.get('/master-points-bulk'),
   create: (data) => api.post('/master-points', data),
   update: (id, data) => api.put(`/master-points/${id}`, data),
   delete: (id) => api.delete(`/master-points/${id}`),

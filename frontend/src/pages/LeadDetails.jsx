@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback, memo } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef, memo } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { useAuth } from '../contexts/AuthContext';
@@ -208,6 +208,7 @@ const LeadDetails = () => {
     marriage_anniversary: '',
   });
   const [savingLead, setSavingLead] = useState(false);
+  const isInsertingRef = useRef(false);
 
   const [showEditQueryModal, setShowEditQueryModal] = useState(false);
   const [editQueryFormData, setEditQueryFormData] = useState({
@@ -2709,131 +2710,152 @@ const LeadDetails = () => {
     }
   };
 
-
   const handleSelectItinerary = async (itinerary) => {
-    let tid = itinerary.id;
-    let itineraryName = itinerary.title || itinerary.itinerary_name || 'Untitled Itinerary';
-
-    setLoadingItineraries(true);
-    let fullPackage = null;
-    let pricingDataFromServer = null;
+    if (isInsertingRef.current) return;
+    isInsertingRef.current = true;
 
     try {
-      // 1. Duplicate the package for THIS lead immediately to ensure isolation
-      // BUT skip if it's already a lead-specific itinerary (to avoid double duplication)
-      if (!itinerary.lead_id || String(itinerary.lead_id) !== String(id)) {
-        const dupRes = await packagesAPI.duplicate(tid, { lead_id: id });
-        if (dupRes.data?.success && dupRes.data?.data?.id) {
-          tid = dupRes.data.data.id;
+      let tid = itinerary.id;
+      let itineraryName = itinerary.title || itinerary.itinerary_name || 'Untitled Itinerary';
+
+      setLoadingItineraries(true);
+      let fullPackage = null;
+      let pricingDataFromServer = null;
+
+      try {
+        // 1. Duplicate the package for THIS lead immediately to ensure isolation
+        if (!itinerary.lead_id || String(itinerary.lead_id) !== String(id)) {
+          const dupRes = await packagesAPI.duplicate(tid, { lead_id: id });
+          if (dupRes.data?.success && dupRes.data?.data?.id) {
+            tid = dupRes.data.data.id;
+          }
         }
+
+        // 2. Fetch FULL package details from the newly created clone
+        const [pkgRes, prRes] = await Promise.all([
+          packagesAPI.get(tid),
+          itineraryPricingAPI.get(tid, id)
+        ]);
+        fullPackage = pkgRes.data.data;
+        pricingDataFromServer = prRes.data.data;
+      } catch (err) {
+        console.warn('Failed to fetch full itinerary details from server, using basic info:', err);
       }
 
-      // 2. Fetch FULL package details from the newly created clone
-      const [pkgRes, prRes] = await Promise.all([
-        packagesAPI.get(tid),
-        itineraryPricingAPI.get(tid, id)
-      ]);
-      fullPackage = pkgRes.data.data;
-      pricingDataFromServer = prRes.data.data;
-    } catch (err) {
-      console.warn('Failed to fetch full itinerary details from server, using basic info:', err);
-    }
+      const pkg = fullPackage || itinerary;
+      const baseInfo = {
+        itinerary_id: pkg.id,
+        itinerary_name: itineraryName,
+        destination: pkg.destinations || pkg.destination || '',
+        duration: pkg.duration || 0,
+        image: pkg.image || null,
+        notes: pkg.notes || '',
+        day_events: pkg.day_events || {},
+        days: pkg.days || [],
+        created_at: new Date().toISOString(),
+        inserted_at: new Date().toISOString()
+      };
 
-    const pkg = fullPackage || itinerary;
-    const baseInfo = {
-      itinerary_id: pkg.id,
-      itinerary_name: itineraryName,
-      destination: pkg.destinations || pkg.destination || '',
-      duration: pkg.duration || 0,
-      image: pkg.image || null,
-      notes: pkg.notes || '',
-      day_events: pkg.day_events || {},
-      days: pkg.days || [],
-      created_at: new Date().toISOString(),
-      inserted_at: new Date().toISOString()
-    };
-
-    // Use server-synced options/prices so any device sees the same data
-    let optionsToAdd = [];
-    try {
-      let finalClientPricesMap = pricingDataFromServer?.final_client_prices || {};
-      if (Array.isArray(pkg.options_data) && pkg.options_data.length > 0) {
-        optionsToAdd = pkg.options_data;
-      }
-
-      // If no saved options found, reconstruct from server events/pricing
-      if (optionsToAdd.length === 0) {
-        if (fullPackage) {
-          optionsToAdd = reconstructOptionsFromServerData(fullPackage, pricingDataFromServer, baseInfo);
+      // Use server-synced options/prices so any device sees the same data
+      let optionsToAdd = [];
+      try {
+        let finalClientPricesMap = pricingDataFromServer?.final_client_prices || {};
+        if (Array.isArray(pkg.options_data) && pkg.options_data.length > 0) {
+          optionsToAdd = pkg.options_data;
         }
+
+        // If no saved options found, reconstruct from server events/pricing
+        if (optionsToAdd.length === 0) {
+          if (fullPackage) {
+            optionsToAdd = reconstructOptionsFromServerData(fullPackage, pricingDataFromServer, baseInfo);
+          }
+        }
+
+        // Map and format options for proposals list
+        if (optionsToAdd.length > 0) {
+          optionsToAdd = optionsToAdd.map((opt, idx) => {
+            const optNum = opt.optionNumber != null ? opt.optionNumber : idx + 1;
+            const latestPrice = finalClientPricesMap[String(optNum)] ?? finalClientPricesMap[optNum];
+            const price = latestPrice !== undefined && latestPrice !== null && latestPrice !== ''
+              ? Number(latestPrice)
+              : (opt.price ?? opt.pricing?.finalClientPrice ?? 0);
+            return {
+              ...opt,
+              id: Date.now() + idx + (tid * 100),
+              itinerary_id: tid,
+              itinerary_name: opt.itinerary_name || itineraryName,
+              destination: opt.destination || baseInfo.destination,
+              duration: opt.duration ?? baseInfo.duration,
+              image: opt.image || baseInfo.image,
+              price,
+              pricing: { ...(opt.pricing || {}), finalClientPrice: price },
+              day_events: opt.day_events || baseInfo.day_events,
+              days: opt.days || baseInfo.days,
+              created_at: baseInfo.created_at,
+              inserted_at: baseInfo.inserted_at
+            };
+          });
+        }
+      } catch (e) {
+        console.error('Error loading itinerary options:', e);
+      } finally {
+        setLoadingItineraries(false);
       }
 
-      // Map and format options for proposals list
+      let updatedProposals;
       if (optionsToAdd.length > 0) {
-        optionsToAdd = optionsToAdd.map((opt, idx) => {
-          const optNum = opt.optionNumber != null ? opt.optionNumber : idx + 1;
-          const latestPrice = finalClientPricesMap[String(optNum)] ?? finalClientPricesMap[optNum];
-          const price = latestPrice !== undefined && latestPrice !== null && latestPrice !== ''
-            ? Number(latestPrice)
-            : (opt.price ?? opt.pricing?.finalClientPrice ?? 0);
-          return {
-            ...opt,
-            id: Date.now() + idx + (tid * 100),
-            itinerary_id: tid,
-            itinerary_name: opt.itinerary_name || itineraryName,
-            destination: opt.destination || baseInfo.destination,
-            duration: opt.duration ?? baseInfo.duration,
-            image: opt.image || baseInfo.image,
-            price,
-            pricing: { ...(opt.pricing || {}), finalClientPrice: price },
-            day_events: opt.day_events || baseInfo.day_events,
-            days: opt.days || baseInfo.days,
-            created_at: baseInfo.created_at,
-            inserted_at: baseInfo.inserted_at
-          };
-        });
-      }
-    } catch (e) {
-      console.error('Error loading itinerary options:', e);
-    } finally {
-      setLoadingItineraries(false);
-    }
+        // ── Change Plan mode or Re-insert: Avoid duplicates ──
+        const newItineraryId = optionsToAdd[0]?.itinerary_id;
+        const otherProposals = proposals.filter(p => p.itinerary_id !== newItineraryId);
 
-    let updatedProposals;
-    if (optionsToAdd.length > 0) {
-      // ── Change Plan mode: REPLACE old proposals with new itinerary ──
-      // ── Normal Insert mode: APPEND to existing proposals ──
-      updatedProposals = changePlanMode ? optionsToAdd : [...proposals, ...optionsToAdd];
-      saveProposals(updatedProposals);
+        if (changePlanMode) {
+          updatedProposals = optionsToAdd;
+        } else {
+          updatedProposals = [...otherProposals, ...optionsToAdd];
+        }
+
+        await saveProposals(updatedProposals);
+        setShowInsertItineraryModal(false);
+        setItinerarySearchTerm('');
+        setChangePlanMode(false);
+        const actionMsg = changePlanMode ? 'Plan Changed' : 'Itinerary Updated';
+        const detailMsg = changePlanMode
+          ? `Plan has been changed to "${itineraryName}". Previous itinerary saved in history.`
+          : `Itinerary "${itineraryName}" has been updated in proposals.`;
+        showToastNotification('success', actionMsg, detailMsg);
+        return;
+      }
+
+      // No options in Final tab – add single proposal (whole itinerary)
+      const newProposal = {
+        id: Date.now(),
+        ...baseInfo,
+        price: pkg.price || 0,
+        website_cost: pkg.website_cost || 0
+      };
+
+      if (changePlanMode) {
+        updatedProposals = [newProposal];
+      } else {
+        const otherProposals = proposals.filter(p => p.itinerary_id !== newProposal.itinerary_id);
+        updatedProposals = [...otherProposals, newProposal];
+      }
+
+      await saveProposals(updatedProposals);
+      setChangePlanMode(false);
       setShowInsertItineraryModal(false);
       setItinerarySearchTerm('');
-      setChangePlanMode(false); // Reset after use
-      const actionMsg = changePlanMode ? 'Plan Changed' : 'Itinerary Added';
-      const detailMsg = changePlanMode
+      const actionMsg2 = changePlanMode ? 'Plan Changed' : 'Itinerary Added';
+      const detailMsg2 = changePlanMode
         ? `Plan has been changed to "${itineraryName}". Previous itinerary saved in history.`
-        : `${optionsToAdd.length} option(s) of "${itineraryName}" have been added to proposals.`;
-      showToastNotification('success', actionMsg, detailMsg);
-      return;
+        : `Itinerary "${itineraryName}" has been added to proposals.`;
+      showToastNotification('success', actionMsg2, detailMsg2);
+    } catch (err) {
+      console.error('Final itinerary select error:', err);
+      showToastNotification('error', 'Error', 'Failed to add itinerary. Please try again.');
+    } finally {
+      isInsertingRef.current = false;
     }
-
-    // No options in Final tab – add single proposal (whole itinerary)
-    const newProposal = {
-      id: Date.now(),
-      ...baseInfo,
-      price: pkg.price || 0,
-      website_cost: pkg.website_cost || 0
-    };
-    updatedProposals = changePlanMode ? [newProposal] : [...proposals, newProposal];
-    saveProposals(updatedProposals);
-    setChangePlanMode(false); // Reset after use
-
-    setShowInsertItineraryModal(false);
-    setItinerarySearchTerm('');
-    const actionMsg2 = changePlanMode ? 'Plan Changed' : 'Itinerary Added';
-    const detailMsg2 = changePlanMode
-      ? `Plan has been changed to "${itineraryName}". Previous itinerary saved in history.`
-      : `Itinerary "${itineraryName}" has been added to proposals.`;
-    showToastNotification('success', actionMsg2, detailMsg2);
   };
 
   const handleDuplicateProposal = (proposal) => {
@@ -6071,7 +6093,9 @@ const LeadDetails = () => {
                               </button>
                               <button
                                 onClick={handleInsertItinerary}
-                                className="bg-[#E78175] text-white px-6 py-2.5 rounded-lg hover:bg-[#d9706a] flex items-center gap-2 font-medium text-sm"
+                                disabled={proposals.length > 0}
+                                className={`bg-[#E78175] text-white px-6 py-2.5 rounded-lg flex items-center gap-2 font-medium text-sm transition-all ${proposals.length > 0 ? 'opacity-50 cursor-not-allowed grayscale' : 'hover:bg-[#d9706a]'}`}
+                                title={proposals.length > 0 ? "Itinerary already added" : ""}
                               >
                                 <Upload className="h-4 w-4" />
                                 Insert itinerary
@@ -6552,7 +6576,7 @@ const LeadDetails = () => {
                       <h3 className="font-bold truncate">{it.title || it.itinerary_name}</h3>
                       <p className="text-sm text-gray-500">{it.duration} Days - {it.routing || it.destination || it.destinations}</p>
                     </div>
-                    <button className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm transition-colors flex-shrink-0">Insert</button>
+                    <button onClick={(e) => { e.stopPropagation(); handleSelectItinerary(it); }} className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm transition-colors flex-shrink-0">Insert</button>
                   </div>
                 ))}
               </div>

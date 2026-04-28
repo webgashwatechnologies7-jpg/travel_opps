@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { toast } from 'react-toastify';
 import { getDisplayImageUrl } from '../utils/imageUrl';
 import { settingsAPI, masterPointsAPI } from '../services/api';
 import { Building2, Star, Calendar, Hash, X, Eye, MapPin, Users, Clock, Image as ImageIcon, Car, UtensilsCrossed, Plane, Bus, Train, User, Ship, FileText, FileText as PassportIcon, File, Download, Mail, MessageCircle, Printer, Plus, Save, CheckCircle } from 'lucide-react';
@@ -103,37 +104,19 @@ const FinalTab = ({
 
     const loadPolicies = async () => {
       try {
-        const [
-          incRes,
-          excRes,
-          remarksRes,
-          termsRes,
-          confirmRes,
-          cancelRes,
-          amendRes,
-          paymentRes,
-          thankYouRes
-        ] = await Promise.all([
-          masterPointsAPI.list('inclusion'),
-          masterPointsAPI.list('exclusion'),
-          masterPointsAPI.list('remarks'),
-          masterPointsAPI.list('terms'),
-          masterPointsAPI.list('confirmation'),
-          masterPointsAPI.list('cancellation'),
-          masterPointsAPI.list('amendment'),
-          masterPointsAPI.list('payment'),
-          masterPointsAPI.list('thank_you')
-        ]);
+        const res = await masterPointsAPI.bulkList();
+        const data = res.data;
+        
         const masters = {
-          inclusions: getMasterList(incRes),
-          exclusions: getMasterList(excRes),
-          remarks: getMasterList(remarksRes),
-          terms_conditions: getMasterList(termsRes),
-          confirmation_policy: getMasterList(confirmRes),
-          cancellation_policy: getMasterList(cancelRes),
-          amendment_policy: getMasterList(amendRes),
-          payment_policy: getMasterList(paymentRes),
-          thank_you_message: getMasterList(thankYouRes)
+          inclusions: getMasterList({ data: data.inclusion }),
+          exclusions: getMasterList({ data: data.exclusion }),
+          remarks: getMasterList({ data: data.remarks || data.remark }),
+          terms_conditions: getMasterList({ data: data.terms }),
+          confirmation_policy: getMasterList({ data: data.confirmation }),
+          cancellation_policy: getMasterList({ data: data.cancellation }),
+          amendment_policy: getMasterList({ data: data.amendment }),
+          payment_policy: getMasterList({ data: data.payment }),
+          thank_you_message: getMasterList({ data: data.thank_you })
         };
         
         setPolicyContent(masters);
@@ -164,6 +147,7 @@ const FinalTab = ({
         });
       } catch (error) {
         console.error("Failed to load policies", error);
+        toast.error("Failed to load policy templates. Please refresh.");
       }
     };
 
@@ -601,7 +585,7 @@ const FinalTab = ({
 
         {/* Right Content - Day-by-Day Itinerary (default) or selected Policy */}
         <div className="flex-1 min-w-0">
-          <div ref={rightContentRef} className="bg-white rounded-xl shadow-lg p-8 mb-8 max-h-[calc(100vh-220px)] overflow-y-auto custom-scrollbar">
+          <div ref={rightContentRef} className="bg-white rounded-xl shadow-lg p-8 mb-8 h-[1140px] overflow-y-auto custom-scrollbar">
             {rightView === 'itinerary' ? (
               <>
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 border-b border-gray-100 pb-6">

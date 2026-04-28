@@ -95,4 +95,23 @@ class MasterPointController extends Controller
 
         return response()->json($points);
     }
+
+    /**
+     * Get all master points in a single request, grouped by type.
+     */
+    public function bulkList(Request $request)
+    {
+        $companyId = $request->user()->company_id;
+
+        $points = MasterPoint::where(function ($q) use ($companyId) {
+            $q->where('company_id', $companyId)
+                ->orWhereNull('company_id');
+        })
+            ->where('is_active', true)
+            ->orderBy('sort_order')
+            ->get()
+            ->groupBy('type');
+
+        return response()->json($points);
+    }
 }

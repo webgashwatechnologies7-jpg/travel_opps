@@ -29,7 +29,10 @@ class PushNotificationService
             return false;
         }
 
-        return self::sendToTokens($tokens, $title, $body, $data);
+        // Dispatch job for background processing
+        \App\Jobs\SendPushNotification::dispatch($tokens, $title, $body, $data);
+
+        return true;
     }
 
     /**
@@ -90,17 +93,21 @@ class PushNotificationService
         string $body,
         array $data
     ): void {
-        $client = new \Google_Client();
-        $client->setAuthConfig($serviceAccountPath);
-        $client->addScope('https://www.googleapis.com/auth/firebase.messaging');
-        $client->fetchAccessTokenWithAssertion();
-        $accessToken = $client->getAccessToken();
-        if (empty($accessToken['access_token'])) {
+        $accessToken = \Illuminate\Support\Facades\Cache::remember('fcm_access_token', 3000, function () use ($serviceAccountPath) {
+            $client = new \Google_Client();
+            $client->setAuthConfig($serviceAccountPath);
+            $client->addScope('https://www.googleapis.com/auth/firebase.messaging');
+            $client->fetchAccessTokenWithAssertion();
+            $token = $client->getAccessToken();
+            return $token['access_token'] ?? null;
+        });
+
+        if (empty($accessToken)) {
             throw new \RuntimeException('Failed to get FCM access token');
         }
         $url = 'https://fcm.googleapis.com/v1/projects/' . $projectId . '/messages:send';
         $headers = [
-            'Authorization' => 'Bearer ' . $accessToken['access_token'],
+            'Authorization' => 'Bearer ' . $accessToken,
             'Content-Type' => 'application/json',
         ];
         foreach ($tokens as $token) {

@@ -14,16 +14,13 @@ class PerformanceMiddleware
      */
     public function handle(Request $request, Closure $next): Response
     {
-        // Add response headers for better caching
+        $startTime = microtime(true);
+        
         $response = $next($request);
         
-        // Add caching headers for GET requests
-        if ($request->isMethod('GET')) {
-            $response->headers->set('Cache-Control', 'public, max-age=300');
-        }
-        
-        // Log slow queries (can be enhanced with actual query time tracking)
-        $startTime = microtime(true);
+        // Add response time header for monitoring
+        $duration = round((microtime(true) - $startTime) * 1000, 2);
+        $response->headers->set('X-Response-Time', $duration . 'ms');
         
         return $response;
     }

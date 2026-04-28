@@ -269,25 +269,48 @@ class LeadRepository implements LeadRepositoryInterface
      */
     public function getSummaryStats(array $filters = []): array
     {
-        $query = Lead::query();
+        $companyId = $filters['company_id'] ?? (auth()->user() ? auth()->user()->company_id : null);
+        $currentUserId = auth()->id();
+        $today = now()->toDateString();
 
-        // Apply basic filters like company_id if present
-        if (isset($filters['company_id']) && $filters['company_id']) {
-            $query->where('company_id', $filters['company_id']);
+        if (!$companyId) {
+            return [
+                'total' => 0, 'assignedToMe' => 0, 'today' => 0, 'unassigned' => 0,
+                'new' => 0, 'processing' => 0, 'proposalSent' => 0, 'hotLead' => 0,
+                'cancel' => 0, 'followUp' => 0, 'confirmed' => 0,
+            ];
         }
 
+        $stats = \Illuminate\Support\Facades\DB::table('leads')
+            ->where('company_id', $companyId)
+            ->whereNull('deleted_at')
+            ->selectRaw("
+                COUNT(*) as total,
+                SUM(CASE WHEN assigned_to = ? THEN 1 ELSE 0 END) as assignedToMe,
+                SUM(CASE WHEN DATE(created_at) = ? THEN 1 ELSE 0 END) as today,
+                SUM(CASE WHEN assigned_to IS NULL THEN 1 ELSE 0 END) as unassigned,
+                SUM(CASE WHEN status = 'new' THEN 1 ELSE 0 END) as new,
+                SUM(CASE WHEN status = 'processing' THEN 1 ELSE 0 END) as processing,
+                SUM(CASE WHEN status = 'proposal' THEN 1 ELSE 0 END) as proposalSent,
+                SUM(CASE WHEN priority = 'hot' THEN 1 ELSE 0 END) as hotLead,
+                SUM(CASE WHEN status = 'cancelled' THEN 1 ELSE 0 END) as cancel,
+                SUM(CASE WHEN status = 'followup' THEN 1 ELSE 0 END) as followUp,
+                SUM(CASE WHEN status = 'confirmed' THEN 1 ELSE 0 END) as confirmed
+            ", [$currentUserId, $today])
+            ->first();
+
         return [
-            'total' => (clone $query)->count(),
-            'assignedToMe' => (clone $query)->where('assigned_to', auth()->id())->count(),
-            'today' => (clone $query)->whereDate('created_at', now()->toDateString())->count(),
-            'unassigned' => (clone $query)->whereNull('assigned_to')->count(),
-            'new' => (clone $query)->where('status', 'new')->count(),
-            'processing' => (clone $query)->where('status', 'processing')->count(),
-            'proposalSent' => (clone $query)->where('status', 'proposal')->count(),
-            'hotLead' => (clone $query)->where('priority', 'hot')->count(),
-            'cancel' => (clone $query)->where('status', 'cancelled')->count(),
-            'followUp' => (clone $query)->where('status', 'followup')->count(),
-            'confirmed' => (clone $query)->where('status', 'confirmed')->count(),
+            'total' => (int) ($stats->total ?? 0),
+            'assignedToMe' => (int) ($stats->assignedToMe ?? 0),
+            'today' => (int) ($stats->today ?? 0),
+            'unassigned' => (int) ($stats->unassigned ?? 0),
+            'new' => (int) ($stats->new ?? 0),
+            'processing' => (int) ($stats->processing ?? 0),
+            'proposalSent' => (int) ($stats->proposalSent ?? 0),
+            'hotLead' => (int) ($stats->hotLead ?? 0),
+            'cancel' => (int) ($stats->cancel ?? 0),
+            'followUp' => (int) ($stats->followUp ?? 0),
+            'confirmed' => (int) ($stats->confirmed ?? 0),
         ];
     }
 }
