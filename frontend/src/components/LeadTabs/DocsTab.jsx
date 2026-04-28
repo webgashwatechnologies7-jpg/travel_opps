@@ -104,38 +104,6 @@ const DocsTab = memo(({ leadId }) => {
 
     return (
         <div className="space-y-6 animate-in fade-in duration-500">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex items-center gap-4">
-                    <div className="bg-blue-50 p-3 rounded-xl">
-                        <FileText className="h-6 w-6 text-blue-600" />
-                    </div>
-                    <div>
-                        <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Total Documents</p>
-                        <h4 className="text-xl font-black text-gray-900">{documents.length}</h4>
-                    </div>
-                </div>
-                <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex items-center gap-4">
-                    <div className="bg-green-50 p-3 rounded-xl">
-                        <Shield className="h-6 w-6 text-green-600" />
-                    </div>
-                    <div>
-                        <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Verified</p>
-                        <h4 className="text-xl font-black text-gray-900">{documents.filter(d => d.status === 'verified').length}</h4>
-                    </div>
-                </div>
-                <div className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex items-center gap-4">
-                    <div className="bg-orange-50 p-3 rounded-xl">
-                        <Calendar className="h-6 w-6 text-orange-600" />
-                    </div>
-                    <div>
-                        <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Latest Upload</p>
-                        <h4 className="text-sm font-bold text-gray-900">
-                            {documents.length > 0 ? new Date(documents[0].created_at).toLocaleDateString() : 'N/A'}
-                        </h4>
-                    </div>
-                </div>
-            </div>
-
             <div className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden">
                 <div className="px-6 py-5 border-b border-gray-50 flex items-center justify-between bg-gradient-to-r from-white to-gray-50/30">
                     <div>
