@@ -136,7 +136,11 @@ class AdminUserController extends Controller
 
             $query = User::with('roles')
                 ->where('company_id', $companyId)
-                ->where('is_super_admin', false);
+                ->where('is_super_admin', false)
+                ->where(function ($q) {
+                    $q->whereNull('user_type')
+                      ->orWhere('user_type', '!=', 'agent');
+                });
 
             // Filter logic:
             // 1. Always allow finding the current user (so they can assign to themselves)

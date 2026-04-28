@@ -735,6 +735,7 @@ export const accountsAPI = {
   deleteClient: (id) => api.delete(`/accounts/clients/${id}`),
 
   // CRUD operations for agents
+  getAgent: (id) => api.get(`/accounts/agents/${id}`),
   createAgent: (data) => api.post('/accounts/agents', data),
   updateAgent: (id, data) => api.put(`/accounts/agents/${id}`, data),
   deleteAgent: (id) => api.delete(`/accounts/agents/${id}`),

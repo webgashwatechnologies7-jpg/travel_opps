@@ -173,13 +173,17 @@ const Agents = () => {
                 {filteredAgents.map((agent) => (
                   <tr key={agent.id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">{agent.company}</div>
+                      <Link to={`/accounts/agents/${agent.id}`} className="text-sm font-medium text-blue-600 hover:underline">
+                        {agent.company}
+                      </Link>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-900">{agent.gst}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">{agent.name}</div>
+                      <Link to={`/accounts/agents/${agent.id}`} className="text-sm font-medium text-gray-900 hover:text-blue-600 transition-colors">
+                        {agent.name}
+                      </Link>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center gap-2">

@@ -197,7 +197,7 @@ const Dashboard = () => {
               { label: "Active Today", val: presenceStats.formatted_time, icon: Clock, color: "#3B82F6", bgColor: "bg-blue-50" },
               { label: "Work Sessions", val: presenceStats.login_count, icon: Activity, color: "#F59E0B", bgColor: "bg-amber-50" },
               { label: "Total Logouts", val: presenceStats.logout_count, icon: XCircle, color: "#EF4444", bgColor: "bg-red-50" },
-              { label: "Presence", val: "1 LIVE", icon: Activity, color: "#10B981", bgColor: "bg-emerald-50", live: true }
+              { label: "Presence", val: teamAggregates ? `${teamAggregates.live_now} LIVE` : "0 LIVE", icon: Activity, color: "#10B981", bgColor: "bg-emerald-50", live: true }
             ].map((item, idx) => (
               <div key={idx} className={`bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex items-center gap-4 hover:shadow-md transition-all h-[100px] ${item.live ? "border-l-[3px] border-l-emerald-500" : ""}`}>
                 <div className={`w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 shadow-inner ${item.bgColor}`}>

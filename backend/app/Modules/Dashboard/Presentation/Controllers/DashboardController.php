@@ -163,6 +163,7 @@ class DashboardController extends Controller
 
                 // Sales reps (users with assigned leads)
                 $salesRepsQuery = User::where('company_id', $companyId)
+                    ->where('user_type', '!=', 'agent')
                     ->has('leadsAssigned')
                     ->withCount(['leadsAssigned as assigned'])
                     ->withCount([
@@ -413,7 +414,7 @@ class DashboardController extends Controller
                 return response()->json(['success' => false, 'message' => 'Unauthorized Access'], 403);
             }
 
-            $usersQuery = User::where('company_id', $companyId);
+            $usersQuery = User::where('company_id', $companyId)->where('user_type', '!=', 'agent');
 
             // Managers only see their own subordinates (if they are not admins)
             if ($currentUser->hasRole('Manager') && !$currentUser->hasRole(['Company Admin', 'Admin', 'Super Admin'])) {
@@ -702,6 +703,7 @@ class DashboardController extends Controller
 
             // Get users who are not Admins/Super Admins
             $query = User::where('company_id', $companyId)
+                ->where('user_type', '!=', 'agent')
                 ->where('is_super_admin', false)
                 ->whereDoesntHave('roles', function ($q) {
                     $q->whereIn('name', ['Super Admin', 'Admin', 'Company Admin']);

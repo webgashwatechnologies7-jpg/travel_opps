@@ -27,6 +27,7 @@ Route::middleware('auth:sanctum')->prefix('accounts')->group(function () {
     Route::delete('/clients/{id}', [AccountsController::class, 'deleteClient']);
 
     // CRUD operations for agents
+    Route::get('/agents/{id}', [AccountsController::class, 'getAgent']);
     Route::post('/agents', [AccountsController::class, 'createAgent']);
     Route::put('/agents/{id}', [AccountsController::class, 'updateAgent']);
     Route::delete('/agents/{id}', [AccountsController::class, 'deleteAgent']);

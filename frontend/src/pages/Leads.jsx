@@ -106,7 +106,8 @@ const Leads = () => {
     try {
       const response = await usersAPI.list();
       if (response.data?.success) {
-        setUsers(Array.isArray(response.data.data) ? response.data.data : []);
+        const userData = response.data.data;
+        setUsers(Array.isArray(userData?.users) ? userData.users : (Array.isArray(userData) ? userData : []));
       }
     } catch (err) {
       console.error('Failed to fetch users:', err);

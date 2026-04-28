@@ -294,6 +294,74 @@ class AccountsController extends Controller
         }
     }
 
+    /**
+     * Get single agent by ID with queries and WhatsApp chat
+     */
+    public function getAgent($id): JsonResponse
+    {
+        try {
+            $agent = User::where('company_id', auth()->user()->company_id)
+                ->where('id', $id)
+                ->first();
+
+            if (!$agent) {
+                return $this->notFoundResponse('Agent not found');
+            }
+
+            // Fetch assigned leads
+            $leads = Lead::where('assigned_to', $agent->id)
+                ->orderBy('created_at', 'desc')
+                ->get()
+                ->map(fn($l) => [
+                    'id' => $l->id,
+                    'client_name' => $l->client_name,
+                    'destination' => $l->destination,
+                    'status' => $l->status,
+                    'created_at' => $l->created_at->format('Y-m-d'),
+                ]);
+
+            // Fetch WhatsApp messages for this agent's phone
+            $whatsappMessages = [];
+            if ($agent->phone) {
+                $cleanPhone = preg_replace('/\D/', '', $agent->phone);
+                // Try different formats (with and without country code)
+                $phones = [$cleanPhone];
+                if (strlen($cleanPhone) == 10) {
+                    $phones[] = '91' . $cleanPhone;
+                }
+
+                $whatsappMessages = \App\Modules\WhatsApp\Domain\Entities\WhatsAppMessage::whereIn('phone', $phones)
+                    ->orderBy('created_at', 'asc')
+                    ->get()
+                    ->map(fn($m) => [
+                        'id' => $m->id,
+                        'message' => $m->message,
+                        'from_me' => $m->from_me,
+                        'created_at' => $m->created_at->format('Y-m-d H:i:s'),
+                        'type' => $m->type,
+                        'media_url' => $m->media_url,
+                    ]);
+            }
+
+            $agentData = [
+                'id' => $agent->id,
+                'name' => $agent->name,
+                'email' => $agent->email,
+                'mobile' => $agent->phone,
+                'company' => $agent->company_name ?: 'N/A',
+                'gst' => $agent->gst_number ?: 'N/A',
+                'city' => $agent->city ?: 'N/A',
+                'queries' => $leads,
+                'whatsapp_messages' => $whatsappMessages,
+                'created_at' => $agent->created_at->format('Y-m-d'),
+            ];
+
+            return $this->successResponse($agentData, 'Agent details retrieved successfully');
+        } catch (\Exception $e) {
+            return $this->serverErrorResponse('Failed to retrieve agent details', $e);
+        }
+    }
+
     // ─── Internal Implementation Helpers ──────────────────────────────────────────
 
     private function storeAccount(Request $request, $type)

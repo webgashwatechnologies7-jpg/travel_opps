@@ -103,6 +103,7 @@ const Clients = lazy(() => import('./pages/Clients'));
 const ClientDetails = lazy(() => import('./pages/ClientDetails'));
 const ClientReports = lazy(() => import('./pages/ClientReports'));
 const Agents = lazy(() => import('./pages/Agents'));
+const AgentDetails = lazy(() => import('./pages/AgentDetails'));
 const Corporate = lazy(() => import('./pages/Corporate'));
 const ClientGroups = lazy(() => import('./pages/ClientGroups'));
 const Support = lazy(() => import('./pages/Support'));
@@ -184,6 +185,7 @@ const AppRoutes = () => {
           <Route path="/accounts/clients/:id" element={<ClientDetails />} />
           <Route path="/accounts/clients/:id/reports" element={<ClientReports />} />
           <Route path="/accounts/agents" element={<Agents />} />
+          <Route path="/accounts/agents/:id" element={<AgentDetails />} />
           <Route path="/accounts/corporate" element={<Corporate />} />
           <Route path="/followups" element={<Followups />} />
           <Route path="/payments" element={<Payments />} />

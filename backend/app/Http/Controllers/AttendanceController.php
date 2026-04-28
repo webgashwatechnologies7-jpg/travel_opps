@@ -145,7 +145,10 @@ class AttendanceController extends Controller
         $month = $request->month;
         $year = $request->year;
 
-        $query = Attendance::with('user:id,name,email,role')
+        $query = Attendance::whereHas('user', function($q) {
+                $q->where('user_type', '!=', 'agent');
+            })
+            ->with('user:id,name,email,role')
             ->where('company_id', $companyId);
 
         if ($month && $year) {
@@ -166,6 +169,7 @@ class AttendanceController extends Controller
             $absentUsers = User::where('company_id', $companyId)
                 ->whereNotIn('id', $punchedInUserIds)
                 ->where('is_active', true)
+                ->where('user_type', '!=', 'agent')
                 ->select('id', 'name', 'email', 'role')
                 ->get();
 
@@ -173,7 +177,7 @@ class AttendanceController extends Controller
                 'present' => $records,
                 'absent' => $absentUsers,
                 'summary' => [
-                    'total_employees' => User::where('company_id', $companyId)->where('is_active', true)->count(),
+                    'total_employees' => User::where('company_id', $companyId)->where('is_active', true)->where('user_type', '!=', 'agent')->count(),
                     'present_count' => $records->count(),
                     'absent_count' => $absentUsers->count()
                 ]
