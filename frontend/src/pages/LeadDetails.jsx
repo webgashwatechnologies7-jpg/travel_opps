@@ -2664,7 +2664,7 @@ const LeadDetails = () => {
   useEffect(() => {
     if (!showInsertItineraryModal || dayItineraries.length > 0) return;
     setLoadingItineraries(true);
-    packagesAPI.list().then((res) => {
+    packagesAPI.list({ lead_id: id }).then((res) => {
       const data = res.data.data || [];
       // Sort by ID DESC (Latest first)
       setDayItineraries(data.sort((a, b) => b.id - a.id));
@@ -2720,10 +2720,12 @@ const LeadDetails = () => {
 
     try {
       // 1. Duplicate the package for THIS lead immediately to ensure isolation
-      // This prevents editing one lead's itinerary from affecting others or the template
-      const dupRes = await packagesAPI.duplicate(tid, { lead_id: id });
-      if (dupRes.data?.success && dupRes.data?.data?.id) {
-        tid = dupRes.data.data.id;
+      // BUT skip if it's already a lead-specific itinerary (to avoid double duplication)
+      if (!itinerary.lead_id || String(itinerary.lead_id) !== String(id)) {
+        const dupRes = await packagesAPI.duplicate(tid, { lead_id: id });
+        if (dupRes.data?.success && dupRes.data?.data?.id) {
+          tid = dupRes.data.data.id;
+        }
       }
 
       // 2. Fetch FULL package details from the newly created clone

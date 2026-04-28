@@ -633,7 +633,7 @@ export const dayItinerariesAPI = {
 
 // Packages/Itineraries APIs
 export const packagesAPI = {
-  list: () => api.get('/packages'),
+  list: (params = {}) => api.get('/packages', { params }),
   get: (id) => api.get(`/packages/${id}`),
   create: (data) => postWithFile('/packages', data),
   update: (id, data) => postWithFile(`/packages/${id}`, data, 'PUT'),

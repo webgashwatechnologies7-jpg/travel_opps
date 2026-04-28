@@ -20,6 +20,7 @@ class PackageController extends Controller
     {
         try {
             $packages = Package::with('creator')
+                ->whereNull('lead_id')
                 ->orderBy('updated_at', 'desc')
                 ->orderBy('created_at', 'desc')
                 ->get()
