@@ -18,7 +18,7 @@ class WhatsAppWebhookController extends Controller
 
         // Security check
         $providedKey = $request->header('x-api-key');
-        $expectedKey = env('WHATSAPP_INTERNAL_API_KEY', 'travelops_secure_gateway_key_99');
+        $expectedKey = env('WHATSAPP_INTERNAL_API_KEY', 'crm_secure_gateway_key_99');
 
         if ($providedKey !== $expectedKey) {
             Log::warning('Unauthorized WhatsApp Webhook Attempt:', [
@@ -107,7 +107,7 @@ class WhatsAppWebhookController extends Controller
     {
         try {
             \Illuminate\Support\Facades\Http::withHeaders([
-                'x-api-key' => env('WHATSAPP_INTERNAL_API_KEY', 'travelops_secure_gateway_key_99')
+                'x-api-key' => env('WHATSAPP_INTERNAL_API_KEY', 'crm_secure_gateway_key_99')
             ])->post(env('WHATSAPP_NODE_SERVER_URL', 'http://localhost:3001') . "/api/session/logout", [
                         'userId' => $userId,
                         'companyId' => $companyId

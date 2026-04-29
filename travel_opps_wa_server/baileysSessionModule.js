@@ -205,7 +205,7 @@ async function createSession(userId, companyId, res, force = false, webhookUrl =
                             session_name: sessionName,
                             chat_id: jid,
                             chat_name: groups[jid].subject
-                        }, { headers: { 'x-api-key': process.env.WA_GATEWAY_API_KEY || 'travelops_secure_gateway_key_99' } });
+                        }, { headers: { 'x-api-key': process.env.WA_GATEWAY_API_KEY || 'crm_secure_gateway_key_99' } });
                         } catch (err) { /* silent group sync error */ }
                     }
 
@@ -229,7 +229,7 @@ async function createSession(userId, companyId, res, force = false, webhookUrl =
                         session_name: sessionName,
                         chat_id: contact.id,
                         chat_name: contact.name || contact.notify
-                    }, { headers: { 'x-api-key': process.env.WA_GATEWAY_API_KEY || 'travelops_secure_gateway_key_99' } });
+                    }, { headers: { 'x-api-key': process.env.WA_GATEWAY_API_KEY || 'crm_secure_gateway_key_99' } });
                 } catch (err) { /* silent sync error */ }
             }
         }
@@ -250,7 +250,7 @@ async function notifyLaravelStatus(sessionName, status, qr = null, phoneNumber =
             status,
             qr,
             phone_number: phoneNumber
-        }, { headers: { 'x-api-key': process.env.WA_GATEWAY_API_KEY || 'travelops_secure_gateway_key_99' } });
+        }, { headers: { 'x-api-key': process.env.WA_GATEWAY_API_KEY || 'crm_secure_gateway_key_99' } });
     } catch (error) {
         console.error('Error notifying Laravel:', error.message);
     }

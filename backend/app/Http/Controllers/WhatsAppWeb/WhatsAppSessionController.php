@@ -16,7 +16,7 @@ class WhatsAppSessionController extends Controller
     public function __construct()
     {
         $this->nodeServerUrl = env('WHATSAPP_NODE_SERVER_URL', 'http://localhost:3001');
-        $this->apiKey = env('WHATSAPP_INTERNAL_API_KEY', 'travelops_secure_gateway_key_99');
+        $this->apiKey = env('WHATSAPP_INTERNAL_API_KEY', 'crm_secure_gateway_key_99');
     }
 
     public function getQrCode(Request $request)

@@ -215,7 +215,7 @@ class SubscriptionPlanFeature extends Model
             ],
             'white_label' => [
                 'name' => 'White Label',
-                'description' => 'Remove TravelOps branding',
+                'description' => 'Remove platform branding',
                 'has_limit' => false,
             ],
             'priority_support' => [

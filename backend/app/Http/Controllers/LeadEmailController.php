@@ -111,7 +111,7 @@ class LeadEmailController extends Controller
 
             // Fetch company branding directly from company model
             $companyLogo = $company->logo ? (filter_var($company->logo, FILTER_VALIDATE_URL) ? $company->logo : asset('storage/' . $company->logo)) : '';
-            $companyName = $company->name ?: config('app.name', 'TravelOps');
+            $companyName = $company->name ?: config('app.name', 'Your CRM');
             $companyEmail = $company->email ?: config('mail.from.address', '');
             $companyPhone = $company->phone ?: '';
             $companyAddress = $company->address ?: '';
@@ -178,8 +178,8 @@ class LeadEmailController extends Controller
             </html>';
 
             // Send email
-            $fromEmail = $companyEmail ?: config('mail.from.address', 'noreply@travelops.com');
-            $fromName = $companyName ?: config('mail.from.name', 'TravelOps');
+            $fromEmail = $companyEmail ?: config('mail.from.address', 'info@yourcrm.com');
+            $fromName = $companyName ?: config('mail.from.name', 'CRM Team');
 
             try {
                 // If user has Gmail connected, prefer sending via Gmail API for better deliverability and thread support

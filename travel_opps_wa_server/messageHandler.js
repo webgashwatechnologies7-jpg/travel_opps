@@ -152,7 +152,7 @@ module.exports = (sock, sessionName, pool) => {
                             session_name: sessionName,
                             chat_id: msg.key.remoteJid,
                             chat_name: normalized.pushName
-                        }, { headers: { 'x-api-key': process.env.WA_GATEWAY_API_KEY || 'travelops_secure_gateway_key_99' } });
+                        }, { headers: { 'x-api-key': process.env.WA_GATEWAY_API_KEY || 'crm_secure_gateway_key_99' } });
                     } catch (err) { /* silent sync error */ }
                 }
 
@@ -177,7 +177,7 @@ module.exports = (sock, sessionName, pool) => {
                     };
 
                     await axios.post(sock.webhookUrl || process.env.LARAVEL_WEBHOOK_URL, payload, {
-                        headers: { 'x-api-key': process.env.WA_GATEWAY_API_KEY || 'travelops_secure_gateway_key_99' }
+                        headers: { 'x-api-key': process.env.WA_GATEWAY_API_KEY || 'crm_secure_gateway_key_99' }
                     });
                 } catch (error) {
                     console.error(`[Webhook Error] Failed to forward:`, error.message);
@@ -197,7 +197,7 @@ module.exports = (sock, sessionName, pool) => {
                             session_name: sessionName,
                             message_id: key.id,
                             status: statusMap[update.status]
-                        }, { headers: { 'x-api-key': process.env.WA_GATEWAY_API_KEY || 'travelops_secure_gateway_key_99' } });
+                        }, { headers: { 'x-api-key': process.env.WA_GATEWAY_API_KEY || 'crm_secure_gateway_key_99' } });
                     } catch (error) {
                         console.error('Error forwarding receipt to Laravel:', error.message);
                     }
@@ -215,7 +215,7 @@ module.exports = (sock, sessionName, pool) => {
                         session_name: sessionName,
                         chat_id: update.id,
                         chat_name: update.subject
-                    }, { headers: { 'x-api-key': process.env.WA_GATEWAY_API_KEY || 'travelops_secure_gateway_key_99' } });
+                    }, { headers: { 'x-api-key': process.env.WA_GATEWAY_API_KEY || 'crm_secure_gateway_key_99' } });
                 } catch (error) {
                     console.error('Error forwarding group update to Laravel:', error.message);
                 }
@@ -233,7 +233,7 @@ module.exports = (sock, sessionName, pool) => {
                     session_name: sessionName,
                     chat_id: jid,
                     presence: typeof presence === 'string' ? presence : (presence.lastKnownPresence || 'available')
-                }, { headers: { 'x-api-key': process.env.WA_GATEWAY_API_KEY || 'travelops_secure_gateway_key_99' } });
+                }, { headers: { 'x-api-key': process.env.WA_GATEWAY_API_KEY || 'crm_secure_gateway_key_99' } });
             }
         } catch (error) {
             console.error('Error forwarding presence to Laravel:', error.message);

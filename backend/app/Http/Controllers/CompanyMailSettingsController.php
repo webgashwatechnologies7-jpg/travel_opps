@@ -211,7 +211,7 @@ class CompanyMailSettingsController extends Controller
                     $fromAddress = $settings['from_address'] ?? config('mail.from.address');
                     $fromName = $settings['from_name'] ?? config('mail.from.name');
 
-                    Mail::raw('Mail test from ' . config('app.name', 'TravelOps'), function ($message) use ($request, $fromAddress, $fromName) {
+                    Mail::raw('Mail test from ' . config('app.name', 'Your CRM'), function ($message) use ($request, $fromAddress, $fromName) {
                         if ($fromAddress) {
                             $message->from($fromAddress, $fromName ?: null);
                         }

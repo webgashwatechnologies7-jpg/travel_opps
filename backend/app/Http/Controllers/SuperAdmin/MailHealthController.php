@@ -82,7 +82,7 @@ class MailHealthController extends Controller
                 $errors[] = 'Test recipient address is missing.';
             } else {
                 try {
-                    Mail::raw('Mail health check from ' . config('app.name', 'TravelOps'), function ($message) use ($testRecipient, $fromAddress, $fromName) {
+                    Mail::raw('Mail health check from ' . config('app.name', 'Your CRM'), function ($message) use ($testRecipient, $fromAddress, $fromName) {
                         if ($fromAddress) {
                             $message->from($fromAddress, $fromName ?: null);
                         }

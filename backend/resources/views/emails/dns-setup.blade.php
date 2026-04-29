@@ -30,7 +30,7 @@
         <p>If you face any issues, please reply to this email.</p>
         
         <p>Best Regards,<br>
-        Travel Fusion CRM Team</p>
+        CRM Team</p>
     </div>
 </body>
 </html>

@@ -53,7 +53,7 @@ const SuperAdminSidebar = () => {
     <div className="w-64 bg-[#1a1c4b] text-white min-h-screen flex flex-col">
       {/* Logo */}
       <div className="p-6 border-b border-white/10">
-        <h1 className="text-xl font-bold">TravelFusion CRM</h1>
+        <h1 className="text-xl font-bold">CRM Super Admin</h1>
         <p className="text-sm text-gray-400 mt-1">Super Admin</p>
       </div>
 

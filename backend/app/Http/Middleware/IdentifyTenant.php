@@ -156,7 +156,7 @@ class IdentifyTenant
         }
 
         // If we have more than 2 parts, first part is subdomain
-        // Example: company1.travelops.com -> company1
+        // Example: company1.yourcrm.com -> company1
         if (count($parts) > 2) {
             return $parts[0];
         }

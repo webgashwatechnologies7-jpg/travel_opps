@@ -1123,8 +1123,8 @@ class MarketingController extends Controller
                 $companyPhone = Setting::getValue('company_phone', '');
                 $companyAddress = Setting::getValue('company_address', '');
 
-                $fromEmail = $companyEmail ?: config('mail.from.address', 'noreply@travelops.com');
-                $fromName = $companyName ?: config('mail.from.name', 'TravelOps');
+                $fromEmail = $companyEmail ?: config('mail.from.address', 'info@yourcrm.com');
+                $fromName = $companyName ?: config('mail.from.name', 'CRM Team');
             } catch (\Exception $settingsError) {
                 \Log::error('Error loading company settings for campaign', [
                     'campaign_id' => $campaign->id,

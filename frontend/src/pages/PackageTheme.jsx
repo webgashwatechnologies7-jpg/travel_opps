@@ -281,7 +281,7 @@ const PackageTheme = () => {
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">{packageTheme.created_by_name || 'Travbizz Travel IT Solutions'}</div>
+                        <div className="text-sm text-gray-900">{packageTheme.created_by_name || 'CRM System'}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm text-gray-900">

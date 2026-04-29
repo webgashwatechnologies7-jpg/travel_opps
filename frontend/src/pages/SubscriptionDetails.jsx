@@ -209,8 +209,8 @@ const SubscriptionDetails = () => {
                             <p className="text-xs text-blue-700 leading-relaxed mb-4">
                                 If you have questions about your billing or features, our support team is here to help you.
                             </p>
-                            <a href="mailto:support@travelops.com" className="text-xs font-bold text-blue-800 hover:underline">
-                                Contact support@travelops.com
+                            <a href="mailto:support@yourcrm.com" className="text-xs font-bold text-blue-800 hover:underline">
+                                Contact support@yourcrm.com
                             </a>
                         </div>
                     </div>

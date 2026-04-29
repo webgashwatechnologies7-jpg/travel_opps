@@ -68,7 +68,7 @@
                                     @if($email)
                                         <div style="margin-bottom: 4px;">✉️ {{ $email }}</div>
                                     @endif
-                                    <div style="font-size: 12px; margin-top: 15px; color: #cbd5e1;">Sent via TravelOps CRM</div>
+                                    <div style="font-size: 12px; margin-top: 15px; color: #cbd5e1;">Sent via CRM</div>
                                 </td>
                             </tr>
                         </table>

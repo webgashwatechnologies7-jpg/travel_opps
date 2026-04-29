@@ -3391,8 +3391,8 @@ const LeadDetails = () => {
     const name = cs.company_name || 'Your Company Name';
     const address = cs.company_address || 'Delhi, India';
     const phone = cs.company_phone || '+91-9871023004';
-    const email = cs.company_email || 'info@travelops.com';
-    const website = cs.company_website || 'www.travelops.com';
+    const email = cs.company_email || 'info@yourcompany.com';
+    const website = cs.company_website || 'www.yourcompany.com';
     const logo = cs.company_logo ? getDisplayImageUrl(cs.company_logo) : null;
 
     return `
@@ -3416,8 +3416,8 @@ const LeadDetails = () => {
     const name = cs.company_name || 'Your Company Name';
     const address = cs.company_address || 'Delhi, India';
     const phone = cs.company_phone || '+91-9871023004';
-    const email = cs.company_email || 'info@travelops.com';
-    const website = cs.company_website || 'www.travelops.com';
+    const email = cs.company_email || 'info@yourcompany.com';
+    const website = cs.company_website || 'www.yourcompany.com';
 
     return `
       <div style="background:${footerBg};color:${footerTextColor};padding:24px 30px;text-align:center;margin-top:30px;">
@@ -3949,7 +3949,7 @@ const LeadDetails = () => {
     const companyName = pdfCompanySettings?.company_name || 'Your Company Name';
     const companyAddress = pdfCompanySettings?.company_address || 'Delhi, India';
     const companyPhone = pdfCompanySettings?.company_phone || '+91-9871023004';
-    const companyEmail = pdfCompanySettings?.company_email || 'info@travelops.com';
+    const companyEmail = pdfCompanySettings?.company_email || 'info@yourcompany.com';
 
     const pdfHdrBg = pdfCompanySettings?.email_header_color || '#1e40af';
     let html = `
@@ -4863,7 +4863,7 @@ const LeadDetails = () => {
         <body>
           <div class="header">
             <h1>${settings?.company_name || 'Your Company Name'}</h1>
-            <p>${settings?.company_address || 'Delhi, India'} | Email: ${settings?.company_email || 'info@travelops.com'} | Mobile: ${settings?.company_phone || '+91-9871023004'}</p>
+            <p>${settings?.company_address || 'Delhi, India'} | Email: ${settings?.company_email || 'info@yourcompany.com'} | Mobile: ${settings?.company_phone || '+91-9871023004'}</p>
           </div>
           
           <div class="content">
@@ -4927,7 +4927,7 @@ const LeadDetails = () => {
           
           <div class="footer">
             <p>Thank you for choosing ${settings?.company_name || 'Your Company Name'}!</p>
-            <p>For any queries, please contact us at ${settings?.company_email || 'info@travelops.com'} or ${settings?.company_phone || '+91-9871023004'}</p>
+            <p>For any queries, please contact us at ${settings?.company_email || 'info@yourcompany.com'} or ${settings?.company_phone || '+91-9871023004'}</p>
           </div>
         </body>
       </html>
@@ -6667,14 +6667,14 @@ const LeadDetails = () => {
                       {settings?.company_logo ? (
                         <img src={settings.company_logo} alt="Logo" className="max-w-full h-auto" />
                       ) : (
-                        <div className="text-2xl font-black text-blue-900 italic">Travel Fusion</div>
+                        <div className="text-2xl font-black text-blue-900 italic">{settings?.company_name || 'Your Company Name'}</div>
                       )}
                     </div>
                     <div className="text-right text-[10px] text-gray-500 max-w-xs leading-relaxed font-medium">
-                      <p className="font-bold text-gray-800 text-xs mb-1">{settings?.company_name || 'Travel Fusion Technologies'}</p>
+                      <p className="font-bold text-gray-800 text-xs mb-1">{settings?.company_name || 'Your Company Name'}</p>
                       <p>{settings?.company_address || 'Suite 401, Business District, New Delhi, India'}</p>
                       <p>Phone: {settings?.company_phone || '+91 98765 43210'}</p>
-                      <p>Email: {settings?.company_email || 'bookings@travelfusion.com'}</p>
+                      <p>Email: {settings?.company_email || 'info@yourcrm.com'}</p>
                     </div>
                   </div>
 

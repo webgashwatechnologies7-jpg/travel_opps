@@ -487,7 +487,7 @@ const TeamManagement = () => {
               : 'bg-white border border-red-200 text-gray-900'
               } ${notification.visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'}`}
           >
-            <div className="text-xs text-gray-500">TravelOps</div>
+            <div className="text-xs text-gray-500">CRM Team</div>
             <div className="flex items-start justify-between gap-2">
               <div>
                 <div className="font-semibold">{notification.title}</div>

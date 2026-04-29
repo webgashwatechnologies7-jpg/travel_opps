@@ -172,7 +172,7 @@ class NotificationController extends Controller
             $mailSettings = CompanyMailSettingsService::getSettings();
             $useCompanyMail = !empty($mailSettings['enabled']);
 
-            $companyName = Setting::getValue('company_name', config('app.name', 'TravelOps'));
+            $companyName = Setting::getValue('company_name', config('app.name', 'Your CRM'));
             $companyEmail = Setting::getValue('company_email', config('mail.from.address', ''));
 
             $fromEmail = ($useCompanyMail && !empty($mailSettings['from_address'])) ? $mailSettings['from_address'] : $companyEmail;

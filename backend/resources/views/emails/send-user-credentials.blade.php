@@ -3,20 +3,20 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TravelOps CRM Login Details</title>
+    <title>CRM Login Details</title>
 </head>
 <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
     <div style="background-color: #f8f9fa; padding: 20px; border-radius: 5px; margin-bottom: 20px;">
-        <h1 style="color: #2563eb; margin: 0;">TravelOps CRM</h1>
+        <h1 style="color: #2563eb; margin: 0;">CRM</h1>
     </div>
     
     <div style="background-color: #ffffff; padding: 30px; border: 1px solid #e5e7eb; border-radius: 5px;">
         <h2 style="color: #1f2937; margin-top: 0;">Your Account Has Been Created</h2>
         
         @if($companyName)
-        <p>Your TravelOps CRM account for <strong>{{ $companyName }}</strong> has been created successfully.</p>
+        <p>Your CRM account for <strong>{{ $companyName }}</strong> has been created successfully.</p>
         @else
-        <p>Your TravelOps CRM account has been created successfully.</p>
+        <p>Your CRM account has been created successfully.</p>
         @endif
         
         <div style="background-color: #e0f2fe; border: 1px solid #bae6fd; color: #0369a1; padding: 15px; border-radius: 5px; margin-bottom: 20px;">
@@ -43,7 +43,7 @@
     </div>
     
     <div style="text-align: center; margin-top: 20px; color: #9ca3af; font-size: 12px;">
-        <p>© {{ date('Y') }} TravelOps. All rights reserved.</p>
+        <p>© {{ date('Y') }} CRM. All rights reserved.</p>
     </div>
 </body>
 </html>

@@ -35,7 +35,7 @@ class SendUserCredentials extends Mailable
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: 'Your TravelOps CRM Login Details',
+            subject: 'Your CRM Login Details',
         );
     }
 
