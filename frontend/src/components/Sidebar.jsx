@@ -60,7 +60,7 @@ const Sidebar = ({
                                             if (parent && !parent.querySelector('.fallback-text')) {
                                                 const span = document.createElement('span');
                                                 span.className = 'fallback-text text-xl font-bold text-white whitespace-nowrap overflow-hidden transition-all duration-300';
-                                                span.innerText = settings?.company_name || 'TravelFusion CRM';
+                                                span.innerText = settings?.company_name || 'Your Company Name';
                                                 if (!isSidebarOpen) {
                                                     span.innerText = span.innerText.charAt(0);
                                                 }
@@ -70,7 +70,7 @@ const Sidebar = ({
                                     />
                                 ) : (
                                     <h1 className="text-xl font-bold text-white transition-all duration-300">
-                                        {isSidebarOpen ? (settings?.company_name || 'TravelFusion CRM') : (settings?.company_name?.[0] || 'T')}
+                                        {isSidebarOpen ? (settings?.company_name || 'Your Company Name') : (settings?.company_name?.[0] || 'T')}
                                     </h1>
                                 )}
                             </Link>

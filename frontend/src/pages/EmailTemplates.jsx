@@ -3,8 +3,10 @@ import { useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
 import { Mail, Plus, Edit, Trash2, Eye, Save, X } from 'lucide-react';
 import { settingsAPI } from '../services/api';
+import { useSettings } from '../contexts/SettingsContext';
 
 const EmailTemplates = () => {
+  const { settings } = useSettings();
   const [templates, setTemplates] = useState([]);
   const [selectedTemplate, setSelectedTemplate] = useState(null);
   const [showPreview, setShowPreview] = useState(false);
@@ -212,7 +214,7 @@ const EmailTemplates = () => {
       <div style="font-family: 'Arial', sans-serif; max-width: 800px; margin: 0 auto; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 40px 20px;">
         <!-- Header with 3D Effect -->
         <div style="background: white; padding: 40px; border-radius: 20px; margin-bottom: 30px; box-shadow: 0 20px 60px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.1); transform: perspective(1000px) rotateX(2deg);">
-          <h1 style="margin: 0; font-size: 48px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; text-align: center; font-weight: bold;">TravelFusion CRM</h1>
+          <h1 style="margin: 0; font-size: 48px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; text-align: center; font-weight: bold;">${settings?.company_name || 'Your Company Name'}</h1>
           <p style="text-align: center; color: #666; margin-top: 10px;">Delhi, India | Email: info@travelops.com | Mobile: +91-9871023004</p>
         </div>
         
@@ -267,7 +269,7 @@ const EmailTemplates = () => {
         
         <!-- Footer with 3D Effect -->
         <div style="background: rgba(255,255,255,0.95); padding: 30px; border-radius: 20px; text-align: center; box-shadow: 0 15px 35px rgba(0,0,0,0.2); transform: perspective(1000px) rotateX(-2deg);">
-          <p style="margin: 5px 0; font-size: 18px; font-weight: bold; color: #667eea;">Thank you for choosing TravelFusion CRM!</p>
+          <p style="margin: 5px 0; font-size: 18px; font-weight: bold; color: #667eea;">Thank you for choosing ${settings?.company_name || 'Your Company Name'}!</p>
           <p style="margin: 10px 0 5px 0; color: #666;">📞 +91-9871023004 | 🌐 www.travelops.com</p>
         </div>
       </div>
@@ -280,7 +282,7 @@ const EmailTemplates = () => {
       <div style="font-family: 'Arial', sans-serif; max-width: 800px; margin: 0 auto; background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%); padding: 40px 20px;">
         <!-- Header Floating Card -->
         <div style="background: white; padding: 40px; border-radius: 15px; margin-bottom: 40px; box-shadow: 0 30px 60px rgba(0,0,0,0.4), 0 0 0 3px rgba(255,255,255,0.2); transform: translateY(-10px) rotateZ(-1deg);">
-          <h1 style="margin: 0; font-size: 48px; background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; text-align: center; font-weight: bold;">TravelFusion CRM</h1>
+          <h1 style="margin: 0; font-size: 48px; background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; text-align: center; font-weight: bold;">${settings?.company_name || 'Your Company Name'}</h1>
           <p style="text-align: center; color: #666; margin-top: 10px;">Delhi, India | Email: info@travelops.com | Mobile: +91-9871023004</p>
         </div>
         
@@ -335,7 +337,7 @@ const EmailTemplates = () => {
         
         <!-- Footer Floating -->
         <div style="background: rgba(255,255,255,0.95); padding: 30px; border-radius: 15px; text-align: center; box-shadow: 0 20px 50px rgba(0,0,0,0.3); transform: translateY(10px) rotateZ(-1deg);">
-          <p style="margin: 5px 0; font-size: 18px; font-weight: bold; color: #1e3c72;">Thank you for choosing TravelFusion CRM!</p>
+          <p style="margin: 5px 0; font-size: 18px; font-weight: bold; color: #1e3c72;">Thank you for choosing ${settings?.company_name || 'Your Company Name'}!</p>
           <p style="margin: 10px 0 5px 0; color: #666;">📞 +91-9871023004 | 🌐 www.travelops.com</p>
         </div>
       </div>
@@ -351,7 +353,7 @@ const EmailTemplates = () => {
           <div style="background: rgba(255,255,255,0.1); padding: 50px; border-radius: 20px; box-shadow: 0 20px 60px rgba(0,0,0,0.5); transform: translateZ(20px); position: relative; z-index: 3;">
             <div style="background: rgba(255,255,255,0.15); padding: 40px; border-radius: 15px; box-shadow: 0 15px 40px rgba(0,0,0,0.4); transform: translateZ(15px); position: relative; z-index: 2;">
               <div style="background: white; padding: 30px; border-radius: 10px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); transform: translateZ(10px); position: relative; z-index: 1;">
-                <h1 style="margin: 0; font-size: 48px; background: linear-gradient(135deg, #0f2027 0%, #2c5364 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; text-align: center; font-weight: bold;">TravelFusion CRM</h1>
+                <h1 style="margin: 0; font-size: 48px; background: linear-gradient(135deg, #0f2027 0%, #2c5364 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; text-align: center; font-weight: bold;">${settings?.company_name || 'Your Company Name'}</h1>
                 <p style="text-align: center; color: #666; margin-top: 10px;">Delhi, India | Email: info@travelops.com | Mobile: +91-9871023004</p>
               </div>
             </div>
@@ -424,7 +426,7 @@ const EmailTemplates = () => {
         <!-- Layered Footer -->
         <div style="position: relative;">
           <div style="background: rgba(255,255,255,0.95); padding: 30px; border-radius: 20px; text-align: center; box-shadow: 0 25px 60px rgba(0,0,0,0.4); transform: translateZ(20px); position: relative; z-index: 2;">
-            <p style="margin: 5px 0; font-size: 18px; font-weight: bold; color: #0f2027;">Thank you for choosing TravelFusion CRM!</p>
+            <p style="margin: 5px 0; font-size: 18px; font-weight: bold; color: #0f2027;">Thank you for choosing ${settings?.company_name || 'Your Company Name'}!</p>
             <p style="margin: 10px 0 5px 0; color: #666;">📞 +91-9871023004 | 🌐 www.travelops.com</p>
           </div>
         </div>
@@ -585,7 +587,7 @@ const EmailTemplates = () => {
         
         <!-- Footer -->
         <div style="background: #164e63; color: white; padding: 25px; text-align: center;">
-          <p style="margin: 5px 0; font-size: 18px; font-weight: bold;">Thank you for choosing TravelFusion CRM!</p>
+          <p style="margin: 5px 0; font-size: 18px; font-weight: bold;">Thank you for choosing ${settings?.company_name || 'Your Company Name'}!</p>
           <p style="margin: 10px 0 5px 0;">📞 +91-9871023004 | 🌐 www.travelops.com</p>
         </div>
       </div>
@@ -738,7 +740,7 @@ const EmailTemplates = () => {
       <div style="font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; background: white;">
         <!-- Header -->
         <div style="background: ${styles.headerBg}; color: ${styles.headerColor || 'white'}; padding: 30px; text-align: center;">
-          <h1 style="margin: 0; font-size: 32px;">TravelFusion CRM</h1>
+          <h1 style="margin: 0; font-size: 32px;">${settings?.company_name || 'Your Company Name'}</h1>
           <p style="margin: 10px 0 0 0;">Delhi, India | Email: info@travelops.com | Mobile: +91-9871023004</p>
         </div>
         
@@ -837,7 +839,7 @@ const EmailTemplates = () => {
         
         <!-- Footer -->
         <div style="background: ${styles.footerBg}; color: ${styles.footerColor || 'white'}; padding: 20px; text-align: center;">
-          <p style="margin: 5px 0;">Thank you for choosing TravelFusion CRM!</p>
+          <p style="margin: 5px 0;">Thank you for choosing ${settings?.company_name || 'Your Company Name'}!</p>
           <p style="margin: 5px 0;">For any queries, please contact us at info@travelops.com or +91-9871023004</p>
         </div>
       </div>

@@ -307,7 +307,7 @@
 @php
     $company = $invoice->lead->company;
     $companyLogo = $company ? $company->logo : \App\Models\Setting::getValue('company_logo');
-    $companyName = $company ? $company->name : \App\Models\Setting::getValue('company_name', 'TravelFusion CRM');
+    $companyName = $company ? $company->name : \App\Models\Setting::getValue('company_name', 'Your Company Name');
     $companyAddress = $company ? $company->address : \App\Models\Setting::getValue('company_address');
     $companyPhone = $company ? $company->phone : \App\Models\Setting::getValue('company_phone');
     $companyEmail = $company ? $company->email : \App\Models\Setting::getValue('company_email');

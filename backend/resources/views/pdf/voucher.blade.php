@@ -208,7 +208,7 @@
 @php
     $company = $lead->company;
     $companyLogo = $company ? $company->logo : \App\Models\Setting::getValue('company_logo');
-    $companyName = $company ? $company->name : \App\Models\Setting::getValue('company_name', 'TravelFusion CRM');
+    $companyName = $company ? $company->name : \App\Models\Setting::getValue('company_name', 'Your Company Name');
     $companyEmail = $company ? $company->email : \App\Models\Setting::getValue('company_email');
     $companyPhone = $company ? $company->phone : \App\Models\Setting::getValue('company_phone');
     $companyAddress = $company ? $company->address : \App\Models\Setting::getValue('company_address');

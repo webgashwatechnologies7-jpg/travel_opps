@@ -15,7 +15,7 @@ const Login = () => {
   const reason = queryParams.get('reason');
 
   const appSettings = JSON.parse(localStorage.getItem('appSettings') || '{}');
-  const companyName = appSettings.company_name || 'TravelFusion CRM';
+  const companyName = appSettings.company_name || 'Your Company Name';
   const companyLogo = appSettings.company_logo || null;
 
   const handleSubmit = async (e) => {

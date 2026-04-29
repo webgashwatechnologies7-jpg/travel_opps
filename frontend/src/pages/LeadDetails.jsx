@@ -375,6 +375,13 @@ const LeadDetails = () => {
   };
 
 
+  // Update companySettings from context settings
+  useEffect(() => {
+    if (settings) {
+      setCompanySettings(settings);
+    }
+  }, [settings]);
+
   // Update subject when lead or confirmed proposal changes
   useEffect(() => {
     if (lead) {
@@ -974,7 +981,7 @@ const LeadDetails = () => {
       if (toEmail) {
         await vouchersAPI.send(id, {
           to_email: toEmail,
-          subject: `Confirmation Voucher - Query #${formatLeadId(id)} - TravelFusion`
+          subject: `Confirmation Voucher - Query #${formatLeadId(id)} - ${settings?.company_name || 'Your Company'}`
         });
       }
 
@@ -1082,7 +1089,7 @@ const LeadDetails = () => {
       if (toEmail) {
         await leadInvoicesAPI.send(id, invoiceId, {
           to_email: toEmail,
-          subject: `Proforma Invoice - ${inv.invoice_number} - TravelFusion CRM`
+          subject: `Proforma Invoice - ${inv.invoice_number} - ${settings?.company_name || 'Your Company'}`
         });
       }
 
@@ -1319,7 +1326,7 @@ const LeadDetails = () => {
     });
     whatsappMsg += `\n*Total Package: ₹${totalPrice.toLocaleString('en-IN')}*`;
     whatsappMsg += paymentText;
-    whatsappMsg += `\n\nThis is your confirmed itinerary. Best regards,\n${companySettings?.company_name || 'Our Company'} Team`;
+    whatsappMsg += `\n\nThis is your confirmed itinerary. Best regards,\n${companySettings?.company_name || settings?.company_name || 'Your Company'} Team`;
 
     // Email body (plain text for API)
     const hotelsHtml = hotels.map(h => `
@@ -3380,8 +3387,8 @@ const LeadDetails = () => {
   // headerBg / footerBg are hex / CSS colour strings from the email_header_color
   // and email_footer_color settings that callers must load and pass in.
   const buildEmailHeader = (headerBg = '#1e40af', headerTextColor = '#ffffff') => {
-    const cs = companySettings || {};
-    const name = cs.company_name || 'TravelFusion CRM';
+    const cs = companySettings || settings || {};
+    const name = cs.company_name || 'Your Company Name';
     const address = cs.company_address || 'Delhi, India';
     const phone = cs.company_phone || '+91-9871023004';
     const email = cs.company_email || 'info@travelops.com';
@@ -3396,7 +3403,6 @@ const LeadDetails = () => {
         ? `<img src="${logo}" alt="${name}" style="height:56px;max-width:180px;object-fit:contain;display:block;margin:0 auto 10px;" />`
         : `<div style="font-size:28px;font-weight:bold;color:${headerTextColor};margin-bottom:6px;">${name}</div>`
       }
-            <div style="font-size:20px;font-weight:bold;color:${headerTextColor};margin-bottom:4px;">${name}</div>
             <div style="font-size:13px;color:${headerTextColor};opacity:0.9;">${address}</div>
             <div style="font-size:13px;color:${headerTextColor};opacity:0.9;margin-top:3px;">📞 ${phone} | ✉ ${email} | 🌐 ${website}</div>
           </td>
@@ -3407,7 +3413,7 @@ const LeadDetails = () => {
 
   const buildEmailFooter = (footerBg = '#1e293b', footerTextColor = '#ffffff') => {
     const cs = companySettings || {};
-    const name = cs.company_name || 'TravelFusion CRM';
+    const name = cs.company_name || 'Your Company Name';
     const address = cs.company_address || 'Delhi, India';
     const phone = cs.company_phone || '+91-9871023004';
     const email = cs.company_email || 'info@travelops.com';
@@ -3940,7 +3946,7 @@ const LeadDetails = () => {
     const allOptionsRaw = Object.keys(qData.hotelOptions || {}).sort((a, b) => parseInt(a) - parseInt(b));
     const assignedUser = lead.assigned_user || users.find(u => u.id === lead.assigned_to);
     const logoUrl = pdfCompanySettings?.company_logo ? getDisplayImageUrl(pdfCompanySettings.company_logo) : null;
-    const companyName = pdfCompanySettings?.company_name || 'TravelFusion CRM';
+    const companyName = pdfCompanySettings?.company_name || 'Your Company Name';
     const companyAddress = pdfCompanySettings?.company_address || 'Delhi, India';
     const companyPhone = pdfCompanySettings?.company_phone || '+91-9871023004';
     const companyEmail = pdfCompanySettings?.company_email || 'info@travelops.com';
@@ -4560,7 +4566,7 @@ const LeadDetails = () => {
       message += `Total Price: ₹${Number(actualPrice).toLocaleString('en-IN')}\n\n`;
     });
     message += `For detailed quotation with images, please check the PDF below.\n\n`;
-    message += `Best regards,\n${companySettings?.company_name || 'Our Company'} Team`;
+    message += `Best regards,\n${settings?.company_name || 'Your Company'} Team`;
 
     // Check WhatsApp Connection
     if (waStatus !== 'Connected') {
@@ -4856,8 +4862,8 @@ const LeadDetails = () => {
         </head>
         <body>
           <div class="header">
-            <h1>TravelFusion CRM</h1>
-            <p>Delhi, India | Email: info@travelops.com | Mobile: +91-9871023004</p>
+            <h1>${settings?.company_name || 'Your Company Name'}</h1>
+            <p>${settings?.company_address || 'Delhi, India'} | Email: ${settings?.company_email || 'info@travelops.com'} | Mobile: ${settings?.company_phone || '+91-9871023004'}</p>
           </div>
           
           <div class="content">
@@ -4920,8 +4926,8 @@ const LeadDetails = () => {
     })}
           
           <div class="footer">
-            <p>Thank you for choosing TravelFusion CRM!</p>
-            <p>For any queries, please contact us at info@travelops.com or +91-9871023004</p>
+            <p>Thank you for choosing ${settings?.company_name || 'Your Company Name'}!</p>
+            <p>For any queries, please contact us at ${settings?.company_email || 'info@travelops.com'} or ${settings?.company_phone || '+91-9871023004'}</p>
           </div>
         </body>
       </html>

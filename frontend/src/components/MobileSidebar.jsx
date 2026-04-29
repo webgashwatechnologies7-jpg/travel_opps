@@ -57,13 +57,13 @@ const MobileSidebar = ({
                                         if (parent && !parent.querySelector('.fallback-text')) {
                                             const span = document.createElement('span');
                                             span.className = 'fallback-text font-bold text-lg text-white truncate max-w-[150px]';
-                                            span.innerText = settings?.company_name || 'TravelFusion CRM';
+                                            span.innerText = settings?.company_name || 'Your Company Name';
                                             parent.appendChild(span);
                                         }
                                     }}
                                 />
                             ) : (
-                                <span className="font-bold text-xl">{settings?.company_name || 'TravelFusion CRM'}</span>
+                                <span className="font-bold text-xl">{settings?.company_name || 'Your Company Name'}</span>
                             )}
                         </Link>
                         <button onClick={onClose} className="p-2 text-white hover:bg-white/10 rounded-full transition-colors"><ChevronLeft /></button>

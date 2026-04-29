@@ -308,7 +308,7 @@ class Company extends Model
     public function getNameAttribute($value)
     {
         if (empty($value)) {
-            return config('app.name', 'TravelFusion CRM');
+            return config('app.name', 'Your Company Name');
         }
         return $value;
     }

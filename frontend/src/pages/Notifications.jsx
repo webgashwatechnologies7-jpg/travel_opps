@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { notificationsAPI } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
-import { Bell, Check, Trash2, Calendar, ShieldAlert, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Bell, Check, Trash2, Calendar, ShieldAlert, ChevronLeft, ChevronRight, ChevronDown } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 // Layout removed - handled by nested routing
 import { toast } from 'react-toastify';
@@ -12,6 +12,7 @@ export default function Notifications() {
     const [notifications, setNotifications] = useState([]);
     const [loading, setLoading] = useState(true);
     const [page, setPage] = useState(1);
+    const [perPage, setPerPage] = useState(10);
     const [pagination, setPagination] = useState(null);
     const navigate = useNavigate();
 
@@ -21,12 +22,18 @@ export default function Notifications() {
 
     useEffect(() => {
         fetchNotifications(page);
-    }, [page]);
+    }, [page, perPage]);
+
+    const handlePerPageChange = (e) => {
+        const val = parseInt(e.target.value);
+        setPerPage(val);
+        setPage(1);
+    };
 
     const fetchNotifications = async (currentPage = 1) => {
         setLoading(true);
         try {
-            const res = await notificationsAPI.getInApp({ page: currentPage, per_page: 10 });
+            const res = await notificationsAPI.getInApp({ page: currentPage, per_page: perPage });
             if (res.data?.success) {
                 // Filter out technical WhatsApp messages
                 const list = (res.data.data.notifications || []).filter(n => {
@@ -225,42 +232,67 @@ export default function Notifications() {
 
                     {/* Pagination Section */}
                     {!loading && pagination && notifications.length > 0 && (
-                        <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 flex items-center justify-between">
+                        <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 flex flex-col md:flex-row items-center justify-between gap-4">
                             <div className="text-xs font-bold text-gray-500 uppercase tracking-widest">
                                 Showing <span className="text-blue-600">{pagination.from || 0}</span> to <span className="text-blue-600">{pagination.to || 0}</span> of <span className="text-blue-600">{pagination.total}</span> notifications
                             </div>
+
+                            <div className="flex items-center gap-3 px-6 border-l border-gray-100">
+                                <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Per Page:</span>
+                                <select
+                                    value={perPage}
+                                    onChange={handlePerPageChange}
+                                    className="bg-white border border-gray-200 rounded-lg px-2 py-1 text-xs font-bold text-gray-700 outline-none focus:ring-2 focus:ring-blue-500/20 transition-all cursor-pointer"
+                                >
+                                    {[10, 20, 50, 100].map(num => (
+                                        <option key={num} value={num}>{num}</option>
+                                    ))}
+                                </select>
+                            </div>
+
                             {pagination.last_page > 1 && (
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-1.5">
                                     <button
                                         onClick={() => setPage(p => Math.max(1, p - 1))}
                                         disabled={page === 1}
-                                        className="p-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm"
+                                        className="px-3 py-1.5 text-xs font-bold text-gray-500 border border-gray-200 rounded-lg hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed transition-all flex items-center gap-1 bg-white shadow-sm"
                                     >
-                                        <ChevronLeft size={18} className="text-gray-600" />
+                                        ← Prev
                                     </button>
                                     
-                                    <div className="flex items-center gap-1">
-                                        {[...Array(pagination.last_page)].map((_, i) => (
-                                            <button
-                                                key={i + 1}
-                                                onClick={() => setPage(i + 1)}
-                                                className={`w-8 h-8 rounded-lg text-xs font-black transition-all ${
-                                                    page === i + 1 
-                                                        ? 'bg-blue-600 text-white shadow-lg shadow-blue-200' 
-                                                        : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
-                                                }`}
-                                            >
-                                                {i + 1}
-                                            </button>
-                                        ))}
+                                    <div className="flex items-center gap-1.5">
+                                        {[...Array(pagination.last_page)].map((_, i) => {
+                                            const p = i + 1;
+                                            // Windowing logic: show first, last, and pages around current
+                                            if (p === 1 || p === pagination.last_page || (p >= page - 2 && p <= page + 2)) {
+                                                return (
+                                                    <button
+                                                        key={p}
+                                                        onClick={() => setPage(p)}
+                                                        className={`w-8 h-8 flex items-center justify-center text-xs font-bold rounded-lg transition-all ${
+                                                            page === p 
+                                                                ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20' 
+                                                                : 'bg-white text-gray-500 border border-gray-200 hover:bg-gray-50'
+                                                        }`}
+                                                    >
+                                                        {p}
+                                                    </button>
+                                                );
+                                            }
+                                            // Show ellipsis
+                                            if (p === 2 || p === pagination.last_page - 1) {
+                                                return <span key={p} className="text-gray-300 px-0.5 text-xs font-bold">...</span>;
+                                            }
+                                            return null;
+                                        })}
                                     </div>
 
                                     <button
                                         onClick={() => setPage(p => Math.min(pagination.last_page, p + 1))}
                                         disabled={page === pagination.last_page}
-                                        className="p-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm"
+                                        className="px-3 py-1.5 text-xs font-bold text-gray-500 border border-gray-200 rounded-lg hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed transition-all flex items-center gap-1 bg-white shadow-sm"
                                     >
-                                        <ChevronRight size={18} className="text-gray-600" />
+                                        Next →
                                     </button>
                                 </div>
                             )}
