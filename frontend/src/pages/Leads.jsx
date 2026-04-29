@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { leadsAPI, leadSourcesAPI, usersAPI, googleSheetsAPI } from '../services/api';
 import { toast } from 'react-toastify';
 import { useAuth } from '../contexts/AuthContext';
+import { useLeads } from '../contexts/LeadsContext';
 import { Dialog } from 'primereact/dialog';
 import { Button } from 'primereact/button';
 // Layout removed - handled by nested routing
@@ -12,6 +13,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line
 } from 'recharts';
 import LogoLoader from '../components/LogoLoader';
+import { LeadsListSkeleton } from '../components/Quiries/LeadSkeleton';
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const getCurrentMonth = () => MONTHS[new Date().getMonth()];
@@ -43,10 +45,17 @@ const Leads = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user: currentUser } = useAuth();
-  const [leads, setLeads] = useState([]);
+  const { 
+    leads, setLeads, 
+    pagination, setPagination, 
+    stats: backendStats, setStats: setBackendStats,
+    lastParams, setLastParams 
+  } = useLeads();
+  
   const [leadSources, setLeadSources] = useState([]);
   const [users, setUsers] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [showStatusModal, setShowStatusModal] = useState(false);
@@ -75,13 +84,6 @@ const Leads = () => {
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
   const [openActionMenu, setOpenActionMenu] = useState(null); // Track which row's action menu is open
   const [formData, setFormData] = useState(getDefaultFormData);
-  // Pagination state
-  const [pagination, setPagination] = useState({
-    current_page: 1,
-    last_page: 1,
-    per_page: localStorage.getItem('leads_per_page') ? parseInt(localStorage.getItem('leads_per_page')) : 8,
-    total: 0,
-  });
   const [currentPage, setCurrentPage] = useState(1);
   const [perPage, setPerPage] = useState(localStorage.getItem('leads_per_page') ? parseInt(localStorage.getItem('leads_per_page')) : 8);
   const [viewType, setViewType] = useState(() => localStorage.getItem('leads_view_type') || 'grid');
@@ -89,7 +91,6 @@ const Leads = () => {
   const [selectedLeadIds, setSelectedLeadIds] = useState([]);
   const [isBulkAssignModalOpen, setIsBulkAssignModalOpen] = useState(false);
   const [sortConfig, setSortConfig] = useState({ key: 'created_at', direction: 'desc' });
-  const [backendStats, setBackendStats] = useState(null);
 
   const fetchLeadSources = useCallback(async () => {
     try {
@@ -184,55 +185,67 @@ const Leads = () => {
 
   //Consolidated Fetch logic: URL is the source of truth
   const fetchLeads = useCallback(async () => {
+    const params = new URLSearchParams(location.search);
+    const filter = params.get('filter') || 'total';
+    const search = params.get('search') || '';
+    const dest = params.get('destination') || '';
+    const page = parseInt(params.get('page') || '1');
+    const assigned_to = params.get('assigned_to') || '';
+
+    const apiParams = {
+      page,
+      per_page: perPage,
+      search: search,
+      destination: dest,
+      assigned_to: assigned_to,
+      ...advancedFilters
+    };
+
+    // Map filter key to API parameters
+    if (filter === 'new') apiParams.status = 'new';
+    else if (filter === 'proposalSent') apiParams.status = 'proposal';
+    else if (filter === 'followUp') apiParams.status = 'followup';
+    else if (filter === 'confirmed') apiParams.status = 'confirmed';
+    else if (filter === 'cancel') apiParams.status = 'cancelled';
+    else if (filter === 'processing') apiParams.status = 'processing';
+    else if (filter === 'hotLead') apiParams.priority = 'hot';
+    else if (filter === 'assignedToMe') apiParams.assigned_to = currentUser?.id;
+    else if (filter === 'unassigned') apiParams.unassigned = 1;
+    else if (filter === 'today') apiParams.today = 1;
+
+    // Smart Status Translation
+    const lowerQuery = dest.toLowerCase().trim();
+    if (lowerQuery === 'booked') { apiParams.status = 'confirmed'; apiParams.destination = ''; }
+    else if (lowerQuery === 'proposal sent') { apiParams.status = 'proposal'; apiParams.destination = ''; }
+    else if (lowerQuery === 'under process') { apiParams.status = 'processing'; apiParams.destination = ''; }
+
+    // CACHE LOGIC: 
+    // Check if we have leads and the params haven't changed meaningfully
+    const paramsString = JSON.stringify(apiParams);
+    const hasData = leads.length > 0;
+    const isNewRequest = lastParams !== paramsString;
+
     try {
-      setLoading(true);
-      const params = new URLSearchParams(location.search);
-      const filter = params.get('filter') || 'total';
-      const search = params.get('search') || '';
-      const dest = params.get('destination') || '';
-      const page = parseInt(params.get('page') || '1');
-      const assigned_to = params.get('assigned_to') || '';
-
-      let apiParams = {
-        page,
-        per_page: perPage,
-        search: search,
-        destination: dest,
-        assigned_to: assigned_to,
-        ...advancedFilters
-      };
-
-      // Map filter key to API parameters
-      if (filter === 'new') apiParams.status = 'new';
-      else if (filter === 'proposalSent') apiParams.status = 'proposal';
-      else if (filter === 'followUp') apiParams.status = 'followup';
-      else if (filter === 'confirmed') apiParams.status = 'confirmed';
-      else if (filter === 'cancel') apiParams.status = 'cancelled';
-      else if (filter === 'processing') apiParams.status = 'processing';
-      else if (filter === 'hotLead') apiParams.priority = 'hot';
-      else if (filter === 'assignedToMe') apiParams.assigned_to = currentUser?.id;
-      else if (filter === 'unassigned') apiParams.unassigned = 1;
-      else if (filter === 'today') apiParams.today = 1;
-
-      // Smart Status Translation (for Search bar if used)
-      const lowerQuery = dest.toLowerCase().trim();
-      if (lowerQuery === 'booked') { apiParams.status = 'confirmed'; apiParams.destination = ''; }
-      else if (lowerQuery === 'proposal sent') { apiParams.status = 'proposal'; apiParams.destination = ''; }
-      else if (lowerQuery === 'under process') { apiParams.status = 'processing'; apiParams.destination = ''; }
+      if (isNewRequest) {
+        if (!hasData) setLoading(true);
+        else setIsRefreshing(true);
+      }
 
       const response = await leadsAPI.list(apiParams);
       if (response.data?.success) {
         setLeads(response.data.data.leads || []);
         setPagination(response.data.data.pagination || pagination);
         setBackendStats(response.data.data.stats || null);
+        setLastParams(paramsString);
       }
     } catch (err) {
       console.error('Failed to fetch leads:', err);
       toast.error('Failed to load leads');
     } finally {
       setLoading(false);
+      setIsRefreshing(false);
     }
-  }, [location.search, perPage, advancedFilters, currentUser?.id]);
+  }, [location.search, perPage, advancedFilters, currentUser?.id, leads.length, lastParams]);
 
   // Trigger fetch whenever URL search changes
   useEffect(() => {
@@ -753,11 +766,27 @@ const Leads = () => {
   };
 
   return (
-    <div className={`p-6 bg-[#F8FAFC] min-h-screen relative page-transition ${loading && leads.length > 0 ? 'opacity-80' : ''}`}>
-      {/* Full-screen loader only for initial load (when leads list is empty) */}
+    <div className={`p-6 bg-[#F8FAFC] min-h-screen relative page-transition ${isRefreshing ? 'opacity-70 grayscale-[0.2]' : ''}`}>
+      {/* Background sync indicator */}
+      {isRefreshing && (
+        <div className="fixed top-20 right-8 z-[100] flex items-center gap-2 bg-white/90 backdrop-blur-sm border border-blue-100 px-4 py-2 rounded-full shadow-lg shadow-blue-500/5 animate-in slide-in-from-right duration-300">
+          <Loader2 className="text-blue-600 animate-spin" size={16} />
+          <span className="text-xs font-black text-slate-600 uppercase tracking-widest">Updating data...</span>
+        </div>
+      )}
+
+      {/* Initial Skeleton Loader */}
       {loading && leads.length === 0 && (
-        <div className="fixed inset-0 bg-white z-[9999] flex items-center justify-center">
-          <LogoLoader text="Initializing CRM..." />
+        <div className="animate-in fade-in duration-500">
+          {/* Mock Header skeleton */}
+          <div className="flex justify-between items-center mb-8">
+            <div className="space-y-2">
+              <div className="h-8 w-48 bg-slate-200 rounded-lg"></div>
+              <div className="h-4 w-32 bg-slate-100 rounded-lg"></div>
+            </div>
+            <div className="h-10 w-32 bg-slate-200 rounded-xl"></div>
+          </div>
+          <LeadsListSkeleton count={perPage} />
         </div>
       )}
 

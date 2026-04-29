@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { useAuth } from '../contexts/AuthContext';
 // Layout removed - handled by nested routing
-import { Search, Plus, Edit, Eye, X, Image as ImageIcon, Hash, MapPin, CalendarDays, Trash, Upload, Camera, Copy } from 'lucide-react';
+import { Search, Plus, Edit, Eye, X, Image as ImageIcon, Hash, MapPin, CalendarDays, Trash, Upload, Camera, Copy, Briefcase } from 'lucide-react';
 import { packagesAPI } from '../services/api';
 import { searchPexelsPhotos } from '../services/pexels';
 import LogoLoader from '../components/LogoLoader';
@@ -29,6 +29,8 @@ const Itineraries = () => {
   const [searchDuration, setSearchDuration] = useState('');
   const [searchRoute, setSearchRoute] = useState('');
   const [sortBy, setSortBy] = useState('newest'); // 'newest', 'oldest', 'name'
+  const [viewType, setViewType] = useState('all'); // 'all', 'templates', 'proposals'
+  const [counts, setCounts] = useState({ templates: 0, proposals: 0 });
   const [error, setError] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
@@ -95,13 +97,23 @@ const Itineraries = () => {
 
   useEffect(() => {
     fetchItineraries(true);
-  }, []);
+  }, [viewType]);
 
   const fetchItineraries = async (newSite = true) => {
     try {
       newSite ? setLoading(true) : setLoading(false);
-      const response = await packagesAPI.list();
+      const params = {};
+      if (viewType === 'templates') params.templates_only = 1;
+      if (viewType === 'proposals') params.proposals_only = 1;
+
+      const response = await packagesAPI.list(params);
       const data = response.data.data || [];
+      if (response.data.meta) {
+        setCounts({
+          templates: response.data.meta.template_count || 0,
+          proposals: response.data.meta.proposal_count || 0
+        });
+      }
       // Process image URLs - handle both relative and absolute URLs
       const processedData = data.map(itinerary => {
         if (itinerary.image) {
@@ -519,6 +531,42 @@ const Itineraries = () => {
                   <X className="h-3 w-3" /> Clear
                 </button>
               )}
+
+              {/* View Type Switcher */}
+              <div className="flex items-center p-1 bg-gray-100 rounded-xl border border-gray-200 ml-auto">
+                <button
+                  onClick={() => setViewType('all')}
+                  className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                    viewType === 'all' 
+                      ? 'bg-white text-blue-600 shadow-sm' 
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  ALL ({counts.templates + counts.proposals})
+                </button>
+                <button
+                  onClick={() => setViewType('templates')}
+                  className={`flex items-center gap-2 px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                    viewType === 'templates' 
+                      ? 'bg-white text-blue-600 shadow-sm' 
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  <Hash className="h-3.5 w-3.5" />
+                  TEMPLATES ({counts.templates})
+                </button>
+                <button
+                  onClick={() => setViewType('proposals')}
+                  className={`flex items-center gap-2 px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                    viewType === 'proposals' 
+                      ? 'bg-white text-purple-600 shadow-sm' 
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  <Briefcase className="h-3.5 w-3.5" />
+                  PROPOSALS ({counts.proposals})
+                </button>
+              </div>
             </div>
 
             {/* Add New Button */}
@@ -707,8 +755,15 @@ const Itineraries = () => {
                   </div>
                 </div>
 
-                <div className="px-4 py-2 bg-gray-50 border-t border-gray-100 text-[10px] text-gray-400 flex justify-between">
-                  <span>ID: {itinerary.id}</span>
+                <div className="px-4 py-2 bg-gray-50 border-t border-gray-100 text-[10px] text-gray-400 flex justify-between items-center">
+                  <div className="flex items-center gap-2">
+                    <span>ID: {itinerary.id}</span>
+                    {itinerary.lead_id && (
+                      <span className="bg-purple-100 text-purple-600 px-1.5 py-0.5 rounded font-black uppercase text-[8px] tracking-tighter">
+                        Lead Specific
+                      </span>
+                    )}
+                  </div>
                   <span>Updated: {formatDate(itinerary.updated_at || itinerary.last_updated)}</span>
                 </div>
               </div>

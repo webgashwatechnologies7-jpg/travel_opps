@@ -19,9 +19,17 @@ class PackageController extends Controller
     public function index(Request $request): JsonResponse
     {
         try {
-            $packages = Package::with('creator')
-                ->whereNull('lead_id')
-                ->orderBy('updated_at', 'desc')
+            $query = Package::with('creator');
+
+            // Default: show everything (Templates + Lead Specific)
+            // Can still filter if explicitly requested
+            if ($request->has('templates_only') && $request->boolean('templates_only')) {
+                $query->whereNull('lead_id');
+            } elseif ($request->has('proposals_only') && $request->boolean('proposals_only')) {
+                $query->whereNotNull('lead_id');
+            }
+
+            $packages = $query->orderBy('updated_at', 'desc')
                 ->orderBy('created_at', 'desc')
                 ->get()
                 ->map(function ($package) {
@@ -63,10 +71,17 @@ class PackageController extends Controller
                     ];
                 });
 
+            $templateCount = Package::whereNull('lead_id')->count();
+            $proposalCount = Package::whereNotNull('lead_id')->count();
+
             return response()->json([
                 'success' => true,
                 'message' => 'Packages retrieved successfully',
                 'data' => $packages,
+                'meta' => [
+                    'template_count' => $templateCount,
+                    'proposal_count' => $proposalCount,
+                ]
             ], 200);
 
         } catch (\Exception $e) {

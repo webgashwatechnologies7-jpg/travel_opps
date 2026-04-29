@@ -2582,6 +2582,12 @@ const LeadDetails = () => {
       showToastNotification('success', 'Itinerary Created', 'Itinerary has been created successfully!');
       setShowAddItineraryModal(false);
 
+      // ── NEW: Automatically select/insert this itinerary into the current lead's proposals ──
+      // This ensures it appears in the "Active Itinerary" tab immediately.
+      if (newPkg) {
+        handleSelectItinerary(newPkg);
+      }
+
       // Open builder in new tab as requested
       const builderUrl = `/itineraries/${newPkg.id}?fromLead=${id}`;
       window.open(builderUrl, '_blank');
@@ -2672,7 +2678,7 @@ const LeadDetails = () => {
   useEffect(() => {
     if (!showInsertItineraryModal || dayItineraries.length > 0) return;
     setLoadingItineraries(true);
-    packagesAPI.list({ lead_id: id }).then((res) => {
+    packagesAPI.list().then((res) => {
       const data = res.data.data || [];
       // Sort by ID DESC (Latest first)
       setDayItineraries(data.sort((a, b) => b.id - a.id));
