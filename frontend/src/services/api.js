@@ -243,7 +243,7 @@ export const followupsAPI = {
   overdue: () => api.get('/followups/overdue'),
   create: (data) => api.post('/followups', data),
   update: (id, data) => api.put(`/followups/${id}`, data),
-  complete: (id) => api.put(`/followups/${id}/complete`),
+  complete: (id, data) => api.put(`/followups/${id}/complete`, data),
   delete: (id) => api.delete(`/followups/${id}`),
 };
 
@@ -267,8 +267,8 @@ export const documentsAPI = {
 
 // Vouchers APIs
 export const vouchersAPI = {
-  preview: (leadId) => api.get(`/vouchers/lead/${leadId}/preview`, { responseType: 'blob' }),
-  download: (leadId) => api.get(`/vouchers/lead/${leadId}/download`, { responseType: 'blob' }),
+  preview: (leadId, params = {}) => api.get(`/vouchers/lead/${leadId}/preview`, { params, responseType: 'blob' }),
+  download: (leadId, params = {}) => api.get(`/vouchers/lead/${leadId}/download`, { params, responseType: 'blob' }),
   send: (leadId, data = {}) => api.post(`/vouchers/lead/${leadId}/send`, data),
 };
 
@@ -639,7 +639,19 @@ export const packagesAPI = {
   create: (data) => postWithFile('/packages', data),
   update: (id, data) => postWithFile(`/packages/${id}`, data, 'PUT'),
   delete: (id) => api.delete(`/packages/${id}`),
+  bulkDelete: (ids) => api.post('/packages/bulk-delete', { ids }),
   duplicate: (id, data = {}) => api.post(`/packages/${id}/duplicate`, data),
+};
+
+// Lead Proposals APIs
+export const leadProposalsAPI = {
+  list: (params = {}) => api.get('/lead-proposals', { params }),
+  get: (id) => api.get(`/lead-proposals/${id}`),
+  create: (data) => api.post('/lead-proposals', data),
+  update: (id, data) => postWithFile(`/lead-proposals/${id}`, data, 'POST'),
+  confirm: (id) => api.post(`/lead-proposals/${id}/confirm`),
+  history: (leadId) => api.get(`/lead-proposals/${leadId}/history`),
+  delete: (id) => api.delete(`/lead-proposals/${id}`),
 };
 
 // Itinerary Pricing APIs

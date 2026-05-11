@@ -19,57 +19,69 @@ class PackageController extends Controller
     public function index(Request $request): JsonResponse
     {
         try {
-            $query = Package::with('creator');
+            // Select only necessary fields for the list view to improve performance
+            $query = Package::with('creator:id,name');
 
             // Default: show everything (Templates + Lead Specific)
-            // Can still filter if explicitly requested
             if ($request->has('templates_only') && $request->boolean('templates_only')) {
                 $query->whereNull('lead_id');
             } elseif ($request->has('proposals_only') && $request->boolean('proposals_only')) {
                 $query->whereNotNull('lead_id');
             }
 
-            $packages = $query->orderBy('updated_at', 'desc')
-                ->orderBy('created_at', 'desc')
-                ->get()
-                ->map(function ($package) {
-                    return [
-                        'id' => $package->id,
-                        'title' => $package->itinerary_name,
-                        'itinerary_name' => $package->itinerary_name,
-                        'start_date' => $package->start_date ? $package->start_date->format('Y-m-d') : null,
-                        'end_date' => $package->end_date ? $package->end_date->format('Y-m-d') : null,
-                        'adult' => $package->adult,
-                        'child' => $package->child,
-                        'infant' => $package->infant,
-                        'destinations' => $package->destinations,
-                        'routing' => $package->routing,
-                        'notes' => $package->notes,
-                        'terms_conditions' => $package->terms_conditions,
-                        'refund_policy' => $package->refund_policy,
-                        'package_description' => $package->package_description,
-                        'confirmation_policy' => $package->confirmation_policy,
-                        'amendment_policy' => $package->amendment_policy,
-                        'payment_policy' => $package->payment_policy,
-                        'remarks' => $package->remarks,
-                        'thank_you_message' => $package->thank_you_message,
-                        'duration' => $package->duration,
-                        'price' => $package->price,
-                        'website_cost' => $package->website_cost,
-                        'show_on_website' => $package->show_on_website,
-                        'image' => $package->image ? url('storage/' . $package->image) : null,
-                        'day_events' => $package->day_events,
-                        'days' => $package->days,
-                        'options_data' => $package->options_data,
-                        'destination' => $package->destinations, // Alias for compatibility
-                        'created_by' => $package->created_by,
-                        'created_by_name' => $package->creator ? $package->creator->name : 'Travbizz Travel IT Solutions',
-                        'last_updated' => $package->updated_at ? $package->updated_at->format('d-m-Y') : null,
-                        'updated_at' => $package->updated_at,
-                        'created_at' => $package->created_at,
-                        'lead_id' => $package->lead_id,
-                    ];
+            // Search filters
+            if ($request->filled('q')) {
+                $q = $request->q;
+                $query->where(function ($sq) use ($q) {
+                    $sq->where('itinerary_name', 'like', "%{$q}%")
+                        ->orWhere('destinations', 'like', "%{$q}%")
+                        ->orWhere('routing', 'like', "%{$q}%");
                 });
+            }
+
+            $perPage = $request->input('per_page', 15);
+            $paginated = $query->orderBy('updated_at', 'desc')
+                ->orderBy('created_at', 'desc')
+                ->paginate($perPage);
+
+            $packages = collect($paginated->items())->map(function ($package) {
+                return [
+                    'id' => $package->id,
+                    'title' => $package->itinerary_name,
+                    'itinerary_name' => $package->itinerary_name,
+                    'start_date' => $package->start_date ? $package->start_date->format('Y-m-d') : null,
+                    'end_date' => $package->end_date ? $package->end_date->format('Y-m-d') : null,
+                    'adult' => $package->adult,
+                    'child' => $package->child,
+                    'infant' => $package->infant,
+                    'destinations' => $package->destinations,
+                    'duration' => $package->duration,
+                    'price' => $package->price,
+                    'show_on_website' => $package->show_on_website,
+                    'image' => $package->image ? url('storage/' . $package->image) : null,
+                    'created_by_name' => $package->creator ? $package->creator->name : 'Travbizz Travel IT Solutions',
+                    'last_updated' => $package->updated_at ? $package->updated_at->format('d-m-Y') : null,
+                    'updated_at' => $package->updated_at,
+                    'created_at' => $package->created_at,
+                    'lead_id' => $package->lead_id,
+                ];
+            });
+
+            $templateCount = Package::whereNull('lead_id')->count();
+            $proposalCount = Package::whereNotNull('lead_id')->count();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Packages retrieved successfully',
+                'data' => $packages,
+                'meta' => [
+                    'current_page' => $paginated->currentPage(),
+                    'last_page' => $paginated->lastPage(),
+                    'total' => $paginated->total(),
+                    'template_count' => $templateCount,
+                    'proposal_count' => $proposalCount,
+                ]
+            ], 200);
 
             $templateCount = Package::whereNull('lead_id')->count();
             $proposalCount = Package::whereNotNull('lead_id')->count();
@@ -157,7 +169,7 @@ class PackageController extends Controller
                 if ($imagePath && Storage::disk('public')->exists($imagePath)) {
                     Storage::disk('public')->delete($imagePath);
                 }
-                
+
                 return response()->json([
                     'success' => false,
                     'message' => 'Validation failed',
@@ -180,7 +192,7 @@ class PackageController extends Controller
                 if (is_string($value)) {
                     $data['show_on_website'] = in_array(strtolower($value), ['true', '1', 'yes', 'on'], true);
                 } elseif (is_numeric($value)) {
-                    $data['show_on_website'] = (int)$value === 1;
+                    $data['show_on_website'] = (int) $value === 1;
                 } else {
                     $data['show_on_website'] = (bool) $value;
                 }
@@ -215,7 +227,8 @@ class PackageController extends Controller
             foreach ($masterMapping as $packageField => $masterType) {
                 if (empty($data[$packageField])) {
                     if (isset($masterPoints[$masterType]) && $masterPoints[$masterType]->count() > 0) {
-                        $data[$packageField] = $masterPoints[$masterType]->pluck('content')->map(function($c) { return trim($c); })->toArray();
+                        $data[$packageField] = $masterPoints[$masterType]->pluck('content')->map(function ($c) {
+                            return trim($c); })->toArray();
                     } else {
                         // Default to empty array if no master point found
                         $data[$packageField] = [];
@@ -224,7 +237,7 @@ class PackageController extends Controller
             }
 
             $package = Package::create($data);
-            
+
             // Calculate duration from dates if not provided
             if ($package->start_date && $package->end_date && empty($data['duration'])) {
                 $package->calculateDuration();
@@ -279,7 +292,7 @@ class PackageController extends Controller
             if (isset($imagePath) && $imagePath && Storage::disk('public')->exists($imagePath)) {
                 Storage::disk('public')->delete($imagePath);
             }
-            
+
             return response()->json([
                 'success' => false,
                 'message' => 'An error occurred while creating package',
@@ -433,7 +446,7 @@ class PackageController extends Controller
                 if ($request->hasFile('image') && $imagePath && Storage::disk('public')->exists($imagePath)) {
                     Storage::disk('public')->delete($imagePath);
                 }
-                
+
                 return response()->json([
                     'success' => false,
                     'message' => 'Validation failed',
@@ -444,7 +457,7 @@ class PackageController extends Controller
             $data = $validator->validated();
             unset($data['image_path']);
             $data['image'] = $imagePath;
-            
+
             // Handle boolean conversion for show_on_website
             if ($request->has('show_on_website')) {
                 $value = $request->input('show_on_website');
@@ -452,7 +465,7 @@ class PackageController extends Controller
                 if (is_string($value)) {
                     $data['show_on_website'] = in_array(strtolower($value), ['true', '1', 'yes', 'on'], true);
                 } elseif (is_numeric($value)) {
-                    $data['show_on_website'] = (int)$value === 1;
+                    $data['show_on_website'] = (int) $value === 1;
                 } else {
                     $data['show_on_website'] = (bool) $value;
                 }
@@ -471,8 +484,8 @@ class PackageController extends Controller
                     'metadata' => array_intersect_key($data, array_flip(['destinations', 'duration', 'itinerary_name']))
                 ]);
             }
-            
-            
+
+
             // Recalculate duration from dates only if duration not provided
             if ($package->start_date && $package->end_date && !isset($data['duration'])) {
                 $package->calculateDuration();
@@ -526,6 +539,49 @@ class PackageController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'An error occurred while updating package',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
+            ], 500);
+        }
+    }
+
+    /**
+     * Delete multiple packages.
+     *
+     * @param Request $request
+     * @return JsonResponse
+     */
+    public function bulkDelete(Request $request): JsonResponse
+    {
+        try {
+            $ids = $request->input('ids', []);
+            if (empty($ids)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No IDs provided for deletion'
+                ], 400);
+            }
+
+            $packages = Package::whereIn('id', $ids)->get();
+            $count = 0;
+
+            foreach ($packages as $package) {
+                // Delete image if exists
+                if ($package->image && Storage::disk('public')->exists($package->image)) {
+                    Storage::disk('public')->delete($package->image);
+                }
+                $package->delete();
+                $count++;
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => "{$count} itineraries deleted successfully",
+            ], 200);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'An error occurred while deleting packages',
                 'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
             ], 500);
         }
@@ -588,9 +644,29 @@ class PackageController extends Controller
                 ], 404);
             }
 
+            // If lead_id is provided, check if a clone of this itinerary already exists for this lead
+            if ($request->has('lead_id')) {
+                $existingClone = Package::where('lead_id', $request->lead_id)
+                    ->where('original_package_id', $id)
+                    ->first();
+
+                if ($existingClone) {
+                    return response()->json([
+                        'success' => true,
+                        'message' => 'Using existing itinerary proposal for this lead',
+                        'data' => [
+                            'id' => $existingClone->id,
+                            'itinerary_name' => $existingClone->itinerary_name,
+                            'lead_id' => $existingClone->lead_id
+                        ],
+                    ], 200);
+                }
+            }
+
             // Replicate the main package model
             $newPackage = $originalPackage->replicate();
-            
+            $newPackage->original_package_id = $id;
+
             // If lead_id is provided, link it to the lead
             if ($request->has('lead_id')) {
                 $newPackage->lead_id = $request->lead_id;
@@ -600,7 +676,7 @@ class PackageController extends Controller
                 // Append (Copy) to the name only if it's a general duplication
                 $newPackage->itinerary_name = $originalPackage->itinerary_name . ' (Copy)';
             }
-            
+
             $newPackage->created_by = auth()->id();
             $newPackage->save();
 

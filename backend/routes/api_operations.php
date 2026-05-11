@@ -102,14 +102,26 @@ Route::middleware(['auth:sanctum', 'plan.feature:day_itineraries'])->prefix('day
 Route::middleware(['auth:sanctum', 'plan.feature:itineraries'])->prefix('packages')->group(function () {
     Route::get('/', [PackageController::class, 'index']);
     Route::post('/', [PackageController::class, 'store']);
-    Route::get('/{id}', [PackageController::class, 'show']);
-    Route::put('/{id}', [PackageController::class, 'update']);
-    Route::post('/{id}/duplicate', [PackageController::class, 'duplicate']);
-    Route::delete('/{id}', [PackageController::class, 'destroy'])->middleware('role:Admin|Company Admin|Manager');
+    Route::get('/{id}', [PackageController::class, 'show'])->where('id', '[0-9]+');
+    Route::put('/{id}', [PackageController::class, 'update'])->where('id', '[0-9]+');
+    Route::post('/{id}/duplicate', [PackageController::class, 'duplicate'])->where('id', '[0-9]+');
+    Route::post('/bulk-delete', [PackageController::class, 'bulkDelete'])->middleware('role:Admin|Company Admin|Manager');
+    Route::delete('/{id}', [PackageController::class, 'destroy'])->middleware('role:Admin|Company Admin|Manager')->where('id', '[0-9]+');
 
     // Itinerary pricing routes
-    Route::get('/{id}/pricing', [ItineraryPricingController::class, 'show']);
-    Route::put('/{id}/pricing', [ItineraryPricingController::class, 'upsert']);
+    Route::get('/{id}/pricing', [ItineraryPricingController::class, 'show'])->where('id', '[0-9]+');
+    Route::put('/{id}/pricing', [ItineraryPricingController::class, 'upsert'])->where('id', '[0-9]+');
+});
+
+// Lead Proposals routes
+Route::middleware(['auth:sanctum', 'plan.feature:itineraries'])->prefix('lead-proposals')->group(function () {
+    Route::get('/', [\App\Http\Controllers\LeadProposalController::class, 'index']);
+    Route::post('/', [\App\Http\Controllers\LeadProposalController::class, 'store']);
+    Route::get('/{id}', [\App\Http\Controllers\LeadProposalController::class, 'show'])->where('id', '[0-9]+');
+    Route::post('/{id}', [\App\Http\Controllers\LeadProposalController::class, 'update'])->where('id', '[0-9]+');
+    Route::post('/{id}/confirm', [\App\Http\Controllers\LeadProposalController::class, 'confirm'])->where('id', '[0-9]+');
+    Route::get('/{leadId}/history', [\App\Http\Controllers\LeadProposalController::class, 'history'])->where('leadId', '[0-9]+');
+    Route::delete('/{id}', [\App\Http\Controllers\LeadProposalController::class, 'destroy'])->where('id', '[0-9]+');
 });
 
 // Destinations routes - require authentication

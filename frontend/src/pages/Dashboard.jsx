@@ -65,7 +65,7 @@ const Dashboard = () => {
     return {
       hasQueries: true,
       hasFollowups: true,
-      hasItineraries: isVisible('Itineraries') || roleInfo.isManager || isStaff,
+      hasItineraries: isVisible('Packages') || roleInfo.isManager || isStaff,
       hasPayments: isVisible('Payments') || roleInfo.isManager || isStaff,
       hasReports: (isVisible('Reports') || roleInfo.isManager) && hasAnalytics,
       hasSales: (isVisible('Sales Reps') || roleInfo.isManager) && hasAnalytics,

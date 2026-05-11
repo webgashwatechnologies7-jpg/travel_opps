@@ -803,7 +803,7 @@ const CompanyManagement = () => {
                   <p className="text-red-700 text-sm">The following data will be permanently deleted:</p>
                   <ul className="text-red-700 text-sm mt-2 space-y-1 list-disc list-inside">
                     <li>All Users & Permissions</li>
-                    <li>All Leads & Itineraries</li>
+                    <li>All Queries & Packages</li>
                     <li>WhatsApp Chats & Messages</li>
                     <li>Tickets, Branches, Services</li>
                     <li>Company Settings & Data</li>

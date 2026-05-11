@@ -7,17 +7,18 @@ use App\Traits\HasCompany;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
-class Package extends Model
+class LeadProposal extends Model
 {
-    use HasFactory, HasCompany;
+    use HasFactory, HasCompany, SoftDeletes;
 
     /**
      * The table associated with the model.
      *
      * @var string
      */
-    protected $table = 'packages';
+    protected $table = 'lead_proposals';
 
     /**
      * The attributes that are mass assignable.
@@ -26,6 +27,8 @@ class Package extends Model
      */
     protected $fillable = [
         'company_id',
+        'lead_id',
+        'original_package_id',
         'itinerary_name',
         'start_date',
         'end_date',
@@ -53,9 +56,18 @@ class Package extends Model
         'payment_policy',
         'remarks',
         'thank_you_message',
+        'pricing_data',
+        'final_client_prices',
+        'option_gst_settings',
+        'base_markup',
+        'extra_markup',
+        'cgst',
+        'sgst',
+        'igst',
+        'tcs',
+        'discount',
+        'is_confirmed',
         'created_by',
-        'lead_id',
-        'original_package_id',
     ];
 
     /**
@@ -85,12 +97,23 @@ class Package extends Model
         'payment_policy' => 'array',
         'remarks' => 'array',
         'thank_you_message' => 'array',
+        'pricing_data' => 'array',
+        'final_client_prices' => 'array',
+        'option_gst_settings' => 'array',
+        'base_markup' => 'decimal:2',
+        'extra_markup' => 'decimal:2',
+        'cgst' => 'decimal:2',
+        'sgst' => 'decimal:2',
+        'igst' => 'decimal:2',
+        'tcs' => 'decimal:2',
+        'discount' => 'decimal:2',
+        'is_confirmed' => 'boolean',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
     ];
 
     /**
-     * Get the user who created this package.
+     * Get the user who created this proposal.
      *
      * @return BelongsTo
      */
@@ -100,17 +123,22 @@ class Package extends Model
     }
 
     /**
-     * Calculate duration from start and end dates.
+     * Get the master lead.
      *
-     * @return void
+     * @return BelongsTo
      */
-    public function calculateDuration(): void
+    public function lead(): BelongsTo
     {
-        if ($this->start_date && $this->end_date) {
-            $start = \Carbon\Carbon::parse($this->start_date);
-            $end = \Carbon\Carbon::parse($this->end_date);
-            $this->duration = $start->diffInDays($end) + 1; // +1 to include both start and end days
-        }
+        return $this->belongsTo(Lead::class, 'lead_id');
+    }
+
+    /**
+     * Get the original package template.
+     *
+     * @return BelongsTo
+     */
+    public function originalPackage(): BelongsTo
+    {
+        return $this->belongsTo(Package::class, 'original_package_id');
     }
 }
-

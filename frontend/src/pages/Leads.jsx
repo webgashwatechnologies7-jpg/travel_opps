@@ -14,6 +14,7 @@ import {
 } from 'recharts';
 import LogoLoader from '../components/LogoLoader';
 import { LeadsListSkeleton } from '../components/Quiries/LeadSkeleton';
+import ViewToggle from '../components/ViewToggle';
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const getCurrentMonth = () => MONTHS[new Date().getMonth()];
@@ -766,14 +767,8 @@ const Leads = () => {
   };
 
   return (
-    <div className={`p-6 bg-[#F8FAFC] min-h-screen relative page-transition ${isRefreshing ? 'opacity-70 grayscale-[0.2]' : ''}`}>
-      {/* Background sync indicator */}
-      {isRefreshing && (
-        <div className="fixed top-20 right-8 z-[100] flex items-center gap-2 bg-white/90 backdrop-blur-sm border border-blue-100 px-4 py-2 rounded-full shadow-lg shadow-blue-500/5 animate-in slide-in-from-right duration-300">
-          <Loader2 className="text-blue-600 animate-spin" size={16} />
-          <span className="text-xs font-black text-slate-600 uppercase tracking-widest">Updating data...</span>
-        </div>
-      )}
+    <div className="p-6 bg-[#F8FAFC] min-h-screen relative page-transition">
+
 
       {/* Initial Skeleton Loader */}
       {loading && leads.length === 0 && (
@@ -801,6 +796,20 @@ const Leads = () => {
         </div>
 
         <div className="flex items-center gap-3 relative animate-in-scale" style={{ animationDelay: '100ms' }}>
+          {/* Select All Checkbox - Moved to Header */}
+          <div className="flex items-center gap-2 bg-white px-4 py-2.5 rounded-xl border border-slate-200 shadow-sm transition-all hover:border-blue-300">
+            <input
+              type="checkbox"
+              id="selectAllLeadsHeader"
+              className="w-5 h-5 rounded-lg border-2 border-slate-300 text-blue-600 focus:ring-4 focus:ring-blue-500/20 cursor-pointer shadow-sm transition-all"
+              checked={filteredLeads.length > 0 && selectedLeadIds.length === filteredLeads.length}
+              onChange={(e) => handleSelectAll(e.target.checked)}
+            />
+            <label htmlFor="selectAllLeadsHeader" className="text-xs font-black text-slate-600 uppercase tracking-widest cursor-pointer select-none">
+              Select All
+            </label>
+          </div>
+
           <div className="relative group">
             <button
               onClick={() => setShowOptionsDropdown(!showOptionsDropdown)}
@@ -863,45 +872,7 @@ const Leads = () => {
               </div>
             )}
           </div>
-
-          {/* In-Header Bulk Actions Toolbar */}
-          {selectedLeadIds.length > 0 && (
-            <div className="flex items-center gap-2 bg-blue-50/80 p-1.5 rounded-2xl border border-blue-200 animate-in fade-in zoom-in-95 duration-300 shadow-sm ring-4 ring-blue-500/5">
-              <div className="px-3 py-1 flex items-center gap-2 border-r border-blue-200 mr-1">
-                <div className="w-5 h-5 bg-blue-600 rounded-lg flex items-center justify-center text-[10px] font-black text-white shadow-sm ring-2 ring-blue-500/20">
-                  {selectedLeadIds.length}
-                </div>
-                <span className="text-[10px] font-black uppercase tracking-[0.15em] text-blue-700">Selected</span>
-              </div>
-
-              <div className="flex items-center gap-1.5 px-1">
-                <button
-                  onClick={() => setIsBulkAssignModalOpen(true)}
-                  className="flex items-center gap-2 px-4 py-2 bg-white hover:bg-blue-600 text-blue-600 hover:text-white border border-blue-200 hover:border-blue-600 rounded-xl text-[10px] font-black transition-all active:scale-95 uppercase tracking-widest shadow-sm"
-                >
-                  <User size={14} />
-                  Bulk Assign
-                </button>
-
-                <button
-                  onClick={handleBulkDelete}
-                  className="flex items-center gap-2 px-4 py-2 bg-white hover:bg-rose-600 text-rose-600 hover:text-white border border-rose-200 hover:border-rose-600 rounded-xl text-[10px] font-black transition-all active:scale-95 uppercase tracking-widest shadow-sm"
-                >
-                  <Trash2 size={14} />
-                  Bulk Delete
-                </button>
-
-                <button
-                  onClick={() => setSelectedLeadIds([])}
-                  className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
-                  title="Clear Selection"
-                >
-                  <X size={16} />
-                </button>
-              </div>
-            </div>
-          )}
-
+ 
           <button
             type="button"
             onClick={() => { setFormData({ ...getDefaultFormData(), assigned_to: currentUser?.id || '' }); setShowModal(true); }}
@@ -912,22 +883,7 @@ const Leads = () => {
           </button>
 
           {/* View Toggle */}
-          <div className="flex items-center bg-white border border-slate-200 p-1 rounded-2xl shadow-sm">
-            <button
-              onClick={() => setViewType('grid')}
-              className={`p-2 rounded-xl transition-all ${viewType === 'grid' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50'}`}
-              title="Grid View"
-            >
-              <LayoutGrid size={20} />
-            </button>
-            <button
-              onClick={() => setViewType('list')}
-              className={`p-2 rounded-xl transition-all ${viewType === 'list' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50'}`}
-              title="List View"
-            >
-              <List size={20} />
-            </button>
-          </div>
+          <ViewToggle viewMode={viewType} setViewMode={setViewType} />
         </div>
       </div>
 
@@ -993,7 +949,6 @@ const Leads = () => {
           </div>
         </div>
 
-        {/* Quick Filter Tabs Row */}
         <div className="bg-white/80 backdrop-blur-md p-2 rounded-2xl border border-white/40 shadow-[0_8px_30px_rgb(0,0,0,0.04)] flex items-center gap-3 overflow-x-auto scrollbar-hide no-scrollbar transition-all duration-300">
           {[
             { id: 'total', label: 'All', key: 'total', color: 'from-blue-600 to-blue-700 shadow-blue-200 hover:shadow-blue-300', icon: LayoutGrid },
@@ -1437,7 +1392,7 @@ const Leads = () => {
                                   </div>
                                 </td>
                                 <td className="px-6 py-4">
-                                  <div className="text-xs font-black text-slate-700">â‚¹{Number(lead.amount || 0).toLocaleString()}</div>
+                                  <div className="text-xs font-black text-slate-700">₹{Number(lead.amount || 0).toLocaleString()}</div>
                                   <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mt-0.5">Package Value</div>
                                 </td>
                                 <td className="px-6 py-4">

@@ -195,7 +195,7 @@ class FollowupController extends Controller
      * @param int $id
      * @return JsonResponse
      */
-    public function complete(int $id): JsonResponse
+    public function complete(Request $request, int $id): JsonResponse
     {
         try {
             $followup = LeadFollowup::with(['lead.assignedUser', 'lead.creator', 'user'])->find($id);
@@ -207,11 +207,25 @@ class FollowupController extends Controller
                 ], 404);
             }
 
+            $oldRemark = $followup->remark;
             $followup->update([
                 'is_completed' => true,
+                'remark' => $request->remark ?? $followup->remark,
             ]);
 
             $followup->refresh();
+            
+            QueryHistoryLog::logActivity([
+                'lead_id' => $followup->lead_id,
+                'activity_type' => 'followup_completed',
+                'activity_description' => 'Followup marked as completed' . ($request->remark ? '. Client said: ' . \Str::limit($request->remark, 100) : ''),
+                'module' => 'followup',
+                'record_id' => $followup->id,
+                'metadata' => [
+                    'old_remark' => $oldRemark,
+                    'new_remark' => $followup->remark,
+                ],
+            ]);
             $followup->load(['lead.assignedUser', 'lead.creator', 'user']);
 
             return response()->json([

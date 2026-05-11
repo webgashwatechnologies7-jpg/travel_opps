@@ -66,24 +66,6 @@ const BillingTab = memo(({
                             </p>
                         </div>
                     </div>
-                    {hotels.length > 0 && (
-                        <div className="mt-4 pt-4 border-t border-gray-200">
-                            <p className="text-sm font-medium text-gray-700 mb-2">Hotels Included:</p>
-                            <div className="space-y-2">
-                                {hotels.map((hotel, idx) => (
-                                    <div key={idx} className="bg-gray-50 p-3 rounded">
-                                        <p className="text-sm font-medium text-gray-900">
-                                            Day {hotel.day}: {hotel.hotelName || 'Hotel'}
-                                        </p>
-                                        <p className="text-xs text-gray-600">
-                                            {hotel.roomName || 'N/A'} | {hotel.mealPlan || 'N/A'} | ₹
-                                            {parseFloat(hotel.price || 0).toLocaleString('en-IN')}
-                                        </p>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    )}
                 </div>
             ) : (
                 <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">

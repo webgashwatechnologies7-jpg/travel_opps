@@ -129,7 +129,7 @@ const Layout = ({ Header, padding = 0 }) => {
         {[
           { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
           { icon: MessageSquare, label: 'Queries', path: '/leads' },
-          { icon: FileText, label: 'Itinerary', path: '/itineraries' },
+          { icon: FileText, label: 'Packages', path: '/itineraries' },
           { icon: CreditCard, label: 'Accounts', path: '/payments' },
           { icon: Menu, label: 'Menu', action: () => setIsMobileSidebarOpen(true) }
         ].map((tab, idx) => (

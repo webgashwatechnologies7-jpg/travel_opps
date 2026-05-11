@@ -4,11 +4,12 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { useAuth } from '../contexts/AuthContext';
 // Layout removed - handled by nested routing
-import { Search, Plus, Edit, Eye, X, Image as ImageIcon, Hash, MapPin, CalendarDays, Trash, Upload, Camera, Copy, Briefcase } from 'lucide-react';
+import { Search, Plus, Edit, Eye, X, Image as ImageIcon, Hash, MapPin, CalendarDays, Trash, Upload, Camera, Copy, Briefcase, RefreshCw, Check, History, LayoutGrid, List } from 'lucide-react';
 import { packagesAPI } from '../services/api';
 import { searchPexelsPhotos } from '../services/pexels';
 import LogoLoader from '../components/LogoLoader';
 import { Dialog } from 'primereact/dialog';
+import ViewToggle from '../components/ViewToggle';
 // Helper for checking permissions
 const hasPermission = (user, permission) => {
   if (!user) return false;
@@ -29,8 +30,11 @@ const Itineraries = () => {
   const [searchDuration, setSearchDuration] = useState('');
   const [searchRoute, setSearchRoute] = useState('');
   const [sortBy, setSortBy] = useState('newest'); // 'newest', 'oldest', 'name'
-  const [viewType, setViewType] = useState('all'); // 'all', 'templates', 'proposals'
+  const [filterType, setFilterType] = useState('templates'); // 'all', 'templates', 'proposals'
+  const [viewMode, setViewMode] = useState(() => localStorage.getItem('itineraries_view_mode') || 'grid');
   const [counts, setCounts] = useState({ templates: 0, proposals: 0 });
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
   const [error, setError] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
@@ -43,6 +47,8 @@ const Itineraries = () => {
   const [libraryTab, setLibraryTab] = useState('free'); // 'free' = free stock, 'your' = your itineraries
   const [freeStockPhotos, setFreeStockPhotos] = useState([]);
   const [freeStockLoading, setFreeStockLoading] = useState(false);
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [isDeletingBulk, setIsDeletingBulk] = useState(false);
   const [formData, setFormData] = useState({
     itinerary_name: '',
     duration: '1',
@@ -96,32 +102,48 @@ const Itineraries = () => {
   };
 
   useEffect(() => {
-    fetchItineraries(true);
-  }, [viewType]);
+    setPage(1);
+    fetchItineraries(true, 1);
+  }, [filterType]);
 
-  const fetchItineraries = async (newSite = true) => {
+  const fetchItineraries = async (newSite = true, targetPage = 1) => {
     try {
-      newSite ? setLoading(true) : setLoading(false);
-      const params = {};
-      if (viewType === 'templates') params.templates_only = 1;
-      if (viewType === 'proposals') params.proposals_only = 1;
+      newSite && targetPage === 1 ? setLoading(true) : setLoading(false);
+      const params = {
+        page: targetPage,
+        per_page: 15,
+        q: searchTerm
+      };
+      if (filterType === 'templates') params.templates_only = 1;
+      if (filterType === 'proposals') params.proposals_only = 1;
 
       const response = await packagesAPI.list(params);
       const data = response.data.data || [];
-      if (response.data.meta) {
+      const meta = response.data.meta;
+
+      if (meta) {
         setCounts({
-          templates: response.data.meta.template_count || 0,
-          proposals: response.data.meta.proposal_count || 0
+          templates: meta.template_count || 0,
+          proposals: meta.proposal_count || 0
         });
+        setHasMore(meta.current_page < meta.last_page);
+      } else {
+        setHasMore(false);
       }
-      // Process image URLs - handle both relative and absolute URLs
+
+      // Process image URLs
       const processedData = data.map(itinerary => {
         if (itinerary.image) {
           itinerary.image = normalizeImageUrl(itinerary.image);
         }
         return itinerary;
-      }).sort((a, b) => b.id - a.id);
-      setItineraries(processedData);
+      });
+
+      if (targetPage === 1) {
+        setItineraries(processedData);
+      } else {
+        setItineraries(prev => [...prev, ...processedData]);
+      }
       setError('');
     } catch (err) {
       setError('Failed to load itineraries');
@@ -129,6 +151,12 @@ const Itineraries = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleLoadMore = () => {
+    const nextPage = page + 1;
+    setPage(nextPage);
+    fetchItineraries(false, nextPage);
   };
 
   const formatDate = (dateString) => {
@@ -185,6 +213,10 @@ const Itineraries = () => {
     }
   }, []);
 
+  useEffect(() => {
+    localStorage.setItem('itineraries_view_mode', viewMode);
+  }, [viewMode]);
+
 
   const handleView = async (itinerary) => {
     try {
@@ -218,7 +250,7 @@ const Itineraries = () => {
 
   const handleEdit = (itinerary) => {
     setEditingItineraryId(itinerary.id);
-    
+
     // Set initial data from the list so the modal opens instantly
     setFormData({
       itinerary_name: itinerary.title || itinerary.itinerary_name || '',
@@ -359,7 +391,7 @@ const Itineraries = () => {
 
       await fetchItineraries();
       handleCloseModal();
-      
+
       const params = new URLSearchParams(window.location.search);
       const leadId = params.get('chooseForLead');
       if (leadId && !editingItineraryId) {
@@ -371,12 +403,12 @@ const Itineraries = () => {
         }
       }
 
-      toast.success(editingItineraryId ? 'Itinerary updated successfully' : 'Itinerary created successfully');
+      toast.success(editingItineraryId ? 'Package updated successfully' : 'Package created successfully');
 
     } catch (err) {
       const errorMessage = err.response?.data?.message || err.response?.data?.errors
         ? Object.values(err.response.data.errors).flat().join(', ')
-        : 'Failed to save itinerary';
+        : 'Failed to save package';
       toast.error(errorMessage);
     } finally {
       setSaving(false);
@@ -408,21 +440,55 @@ const Itineraries = () => {
     } catch {
       // Revert optimistic update on error
       await fetchItineraries(false);
-      toast.error('Failed to update itinerary status. Please try again.');
+      toast.error('Failed to update package status. Please try again.');
     }
   };
 
   const handleDelete = async (itinerary) => {
-    const name = itinerary.title || itinerary.itinerary_name || 'This itinerary';
+    const name = itinerary.title || itinerary.itinerary_name || 'This package';
     if (!window.confirm(`Are you sure you want to delete "${name}"? This cannot be undone.`)) return;
     try {
       await packagesAPI.delete(itinerary.id);
       await fetchItineraries(false);
-      toast.success('Itinerary deleted successfully');
+      setSelectedIds(prev => prev.filter(id => id !== itinerary.id));
+      toast.success('Package deleted successfully');
     } catch (err) {
       console.error('Failed to delete itinerary:', err);
-      toast.error(err.response?.data?.message || 'Failed to delete itinerary. Please try again.');
+      toast.error(err.response?.data?.message || 'Failed to delete package. Please try again.');
     }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.length === 0) return;
+    if (!window.confirm(`Are you sure you want to delete ${selectedIds.length} packages? This cannot be undone.`)) return;
+
+    setIsDeletingBulk(true);
+    try {
+      await packagesAPI.bulkDelete(selectedIds);
+      toast.success(`${selectedIds.length} packages deleted successfully`);
+      setSelectedIds([]);
+      await fetchItineraries(true);
+    } catch (err) {
+      console.error('Bulk delete failed:', err);
+      toast.error('Failed to delete selected packages');
+    } finally {
+      setIsDeletingBulk(false);
+    }
+  };
+
+  const handleToggleSelectAll = (checked) => {
+    if (checked) {
+      setSelectedIds(filteredItineraries.map(it => it.id));
+    } else {
+      setSelectedIds([]);
+    }
+  };
+
+  const handleToggleSelect = (e, id) => {
+    e.stopPropagation();
+    setSelectedIds(prev =>
+      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+    );
   };
 
   const handleDuplicate = async (itinerary) => {
@@ -435,7 +501,7 @@ const Itineraries = () => {
       }
     } catch (err) {
       console.error('Failed to duplicate itinerary:', err);
-      toast.error(err.response?.data?.message || 'Failed to duplicate itinerary');
+      toast.error(err.response?.data?.message || 'Failed to duplicate package');
     } finally {
       setLoading(false);
     }
@@ -445,7 +511,7 @@ const Itineraries = () => {
     const nameMatch = (itinerary.title || itinerary.itinerary_name || '').toLowerCase().includes(searchTerm.toLowerCase());
     const routeMatch = (itinerary.routing || itinerary.destinations || itinerary.destination || '').toLowerCase().includes(searchRoute.toLowerCase());
     const durationMatch = searchDuration === '' || itinerary.duration?.toString() === searchDuration;
-    
+
     return nameMatch && routeMatch && durationMatch;
   }).sort((a, b) => {
     if (sortBy === 'name') {
@@ -459,326 +525,499 @@ const Itineraries = () => {
   });
 
   return (
-    <div className={`p-6 relative page-transition ${loading && itineraries.length > 0 ? 'opacity-80' : ''}`}>
-      {loading && <div className="side-progress-bar absolute top-0 left-0 right-0 h-1 z-50" />}
-      
-      <div className="mb-6 mt-2">
-        <div className="flex justify-between items-center mb-4">
-          <h1 className="text-3xl font-bold text-gray-800">Itineraries</h1>
-          <div className="flex items-center gap-4">
-            {/* Search Input */}
-            {/* Filter Group */}
-            <div className="flex flex-wrap items-center gap-3 bg-white p-2 px-3 rounded-xl border border-gray-200 shadow-sm">
-              {/* Search by Name */}
-              <div className="relative">
-                <Search className="absolute left-2.5 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                <input
-                  type="text"
-                  placeholder="Name..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-8 pr-3 py-1.5 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 w-40 text-xs font-medium"
-                />
-              </div>
+    <div className="p-6 bg-[#F8FAFC] min-h-screen relative page-transition">
 
-              {/* Search by Route */}
-              <div className="relative">
-                <MapPin className="absolute left-2.5 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                <input
-                  type="text"
-                  placeholder="Route/Dest..."
-                  value={searchRoute}
-                  onChange={(e) => setSearchRoute(e.target.value)}
-                  className="pl-8 pr-3 py-1.5 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 w-40 text-xs font-medium"
-                />
-              </div>
 
-              {/* Day Filter */}
-              <div className="relative">
-                <CalendarDays className="absolute left-2.5 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                <input
-                  type="number"
-                  placeholder="Days"
-                  value={searchDuration}
-                  onChange={(e) => setSearchDuration(e.target.value)}
-                  className="pl-8 pr-3 py-1.5 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 w-24 text-xs font-medium"
-                  min="0"
-                />
-              </div>
+      {/* Header Section */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4 relative z-50">
+        <div className="animate-in-scale">
+          <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Packages</h1>
+          <p className="text-slate-500 font-semibold text-xs mt-1 uppercase tracking-wider flex items-center gap-2">
+            <span className="w-6 h-[2px] bg-blue-600 rounded-full"></span>
+            {counts.templates + counts.proposals} total packages
+          </p>
+        </div>
 
-              {/* Sort Dropdown */}
-              <select
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value)}
-                className="px-3 py-1.5 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs font-bold text-gray-600 cursor-pointer"
-              >
-                <option value="newest">Latest Added</option>
-                <option value="oldest">Oldest First</option>
-                <option value="name">Name A-Z</option>
-              </select>
-
-              {/* Clear Filters */}
-              {(searchTerm || searchDuration || searchRoute || sortBy !== 'newest') && (
-                <button
-                  onClick={() => {
-                    setSearchTerm('');
-                    setSearchDuration('');
-                    setSearchRoute('');
-                    setSortBy('newest');
-                  }}
-                  className="text-xs font-bold text-red-500 hover:text-red-600 px-2 flex items-center gap-1"
-                >
-                  <X className="h-3 w-3" /> Clear
-                </button>
-              )}
-
-              {/* View Type Switcher */}
-              <div className="flex items-center p-1 bg-gray-100 rounded-xl border border-gray-200 ml-auto">
-                <button
-                  onClick={() => setViewType('all')}
-                  className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                    viewType === 'all' 
-                      ? 'bg-white text-blue-600 shadow-sm' 
-                      : 'text-gray-500 hover:text-gray-700'
-                  }`}
-                >
-                  ALL ({counts.templates + counts.proposals})
-                </button>
-                <button
-                  onClick={() => setViewType('templates')}
-                  className={`flex items-center gap-2 px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                    viewType === 'templates' 
-                      ? 'bg-white text-blue-600 shadow-sm' 
-                      : 'text-gray-500 hover:text-gray-700'
-                  }`}
-                >
-                  <Hash className="h-3.5 w-3.5" />
-                  TEMPLATES ({counts.templates})
-                </button>
-                <button
-                  onClick={() => setViewType('proposals')}
-                  className={`flex items-center gap-2 px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                    viewType === 'proposals' 
-                      ? 'bg-white text-purple-600 shadow-sm' 
-                      : 'text-gray-500 hover:text-gray-700'
-                  }`}
-                >
-                  <Briefcase className="h-3.5 w-3.5" />
-                  PROPOSALS ({counts.proposals})
-                </button>
-              </div>
-            </div>
-
-            {/* Add New Button */}
-            {hasPermission(user, 'itineraries.create') && (
-              <button
-                onClick={handleAddNew}
-                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2 font-bold shadow-sm transition-all active:scale-95"
-              >
-                <Plus className="h-5 w-5" />
-                Add New
-              </button>
-            )}
+        <div className="flex items-center gap-3 relative animate-in-scale" style={{ animationDelay: '100ms' }}>
+          {/* Select All Checkbox - Moved to Header */}
+          <div className="flex items-center gap-2 bg-white px-4 py-2.5 rounded-xl border border-slate-200 shadow-sm transition-all hover:border-blue-300">
+            <input
+              type="checkbox"
+              id="selectAllItinerariesHeader"
+              className="w-5 h-5 rounded-lg border-2 border-slate-300 text-blue-600 focus:ring-4 focus:ring-blue-500/20 cursor-pointer shadow-sm transition-all"
+              checked={filteredItineraries.length > 0 && selectedIds.length === filteredItineraries.length}
+              onChange={(e) => handleToggleSelectAll(e.target.checked)}
+            />
+            <label htmlFor="selectAllItinerariesHeader" className="text-xs font-black text-slate-600 uppercase tracking-widest cursor-pointer select-none">
+              Select All
+            </label>
           </div>
+
+          <button
+            type="button"
+            onClick={() => {
+              setSearchTerm('');
+              setSearchDuration('');
+              setSearchRoute('');
+              setSortBy('newest');
+              setPage(1);
+              fetchItineraries(true, 1);
+            }}
+            className="flex items-center justify-center w-12 h-12 border border-slate-200 rounded-2xl text-slate-500 hover:bg-slate-50 transition-all active:rotate-180 duration-500 shadow-sm"
+            title="Reset Filters"
+          >
+            <RefreshCw size={18} />
+          </button>
+
+          <button
+            onClick={handleAddNew}
+            className="flex items-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-2xl font-bold text-sm hover:bg-blue-700 transition-all shadow-lg shadow-blue-200 active:scale-95"
+          >
+            <Plus size={18} strokeWidth={2.5} />
+            <span>Add New</span>
+          </button>
+
+          {/* View Toggle */}
+          <ViewToggle viewMode={viewMode} setViewMode={setViewMode} />
         </div>
       </div>
 
-      {error && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-          {error}
+      {/* Action/Filter Bar Area */}
+      <div className="sticky top-4 z-40 mb-8 space-y-3">
+        {/* Search Row */}
+        <div className="bg-white p-2 rounded-2xl border border-slate-200 shadow-sm flex flex-col lg:flex-row gap-3 transition-all duration-300">
+          <div className="flex-1 flex flex-col md:flex-row gap-2">
+            <div className="relative flex-1 group">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-hover:text-blue-500 transition-colors" size={18} />
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Search by package name..."
+                className="w-full pl-12 pr-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm font-semibold text-slate-700 focus:outline-none focus:ring-4 focus:ring-blue-500/5 focus:border-blue-400 transition-all placeholder:text-slate-400"
+              />
+            </div>
+            <div className="relative flex-1 group">
+              <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-hover:text-blue-500 transition-colors" size={18} />
+              <input
+                type="text"
+                value={searchRoute}
+                onChange={(e) => setSearchRoute(e.target.value)}
+                placeholder="Route/Destination..."
+                className="w-full pl-12 pr-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm font-semibold text-slate-700 focus:outline-none focus:ring-4 focus:ring-blue-500/5 focus:border-blue-400 transition-all placeholder:text-slate-400"
+              />
+            </div>
+            <div className="relative w-full md:w-32 group">
+              <CalendarDays className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-hover:text-blue-500 transition-colors" size={18} />
+              <input
+                type="number"
+                value={searchDuration}
+                onChange={(e) => setSearchDuration(e.target.value)}
+                placeholder="Days"
+                className="w-full pl-12 pr-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm font-semibold text-slate-700 focus:outline-none focus:ring-4 focus:ring-blue-500/5 focus:border-blue-400 transition-all placeholder:text-slate-400"
+              />
+            </div>
+          </div>
+
+          <div className="flex gap-2 p-1 lg:p-0">
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              className="px-6 py-2 bg-white border border-slate-200 rounded-xl text-sm font-black text-slate-700 hover:border-blue-400 transition-all cursor-pointer focus:outline-none"
+            >
+              <option value="newest">Latest Added</option>
+              <option value="oldest">Oldest First</option>
+              <option value="name">Name A-Z</option>
+            </select>
+          </div>
         </div>
-      )}
+
+        {/* Filter Tabs Row */}
+        <div className="bg-white/80 backdrop-blur-md p-2 rounded-2xl border border-white/40 shadow-[0_8px_30px_rgb(0,0,0,0.04)] flex items-center gap-3 overflow-x-auto scrollbar-hide no-scrollbar transition-all duration-300">
+          <button
+            onClick={() => setFilterType('all')}
+            className={`flex items-center gap-2 px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all duration-300 whitespace-nowrap shadow-sm ${filterType === 'all'
+              ? 'bg-gradient-to-br from-blue-600 to-blue-700 text-white shadow-blue-200'
+              : 'bg-white text-slate-500 hover:bg-slate-50 border border-slate-100'
+              }`}
+          >
+            <LayoutGrid size={16} />
+            ALL ({counts.templates + counts.proposals})
+          </button>
+
+          <button
+            onClick={() => setFilterType('templates')}
+            className={`flex items-center gap-2 px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all duration-300 whitespace-nowrap shadow-sm ${filterType === 'templates'
+              ? 'bg-gradient-to-br from-indigo-600 to-indigo-700 text-white shadow-indigo-200'
+              : 'bg-white text-slate-500 hover:bg-slate-50 border border-slate-100'
+              }`}
+          >
+            <Hash size={16} />
+            TEMPLATES ({counts.templates})
+          </button>
+
+          <button
+            onClick={() => setFilterType('proposals')}
+            className={`flex items-center gap-2 px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all duration-300 whitespace-nowrap shadow-sm ${filterType === 'proposals'
+              ? 'bg-gradient-to-br from-purple-600 to-purple-700 text-white shadow-purple-200'
+              : 'bg-white text-slate-500 hover:bg-slate-50 border border-slate-100'
+              }`}
+          >
+            <Briefcase size={16} />
+            PROPOSALS ({counts.proposals})
+          </button>
+
+          </div>
+        </div>
 
       {loading && itineraries.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-[50vh] animate-in fade-in duration-500 bg-white rounded-2xl border border-dashed border-gray-200">
-             <LogoLoader text="Loading itineraries..." />
-          </div>
+        <div className="flex flex-col items-center justify-center h-[50vh] animate-in fade-in duration-500 bg-white rounded-3xl border border-dashed border-slate-200">
+          <LogoLoader text="Loading your packages..." />
+        </div>
       ) : (
         <>
 
-        {/* Itineraries Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6">
-          {filteredItineraries.length === 0 ? (
-            <div className="col-span-full text-center py-12 text-gray-500 bg-white rounded-xl border border-dashed border-gray-300">
-              {searchTerm
-                ? "No itineraries found matching your search"
-                : "No itineraries available"}
+          {viewMode === 'grid' ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6">
+              {filteredItineraries.length === 0 ? (
+                <div className="col-span-full py-20 flex flex-col items-center justify-center bg-white rounded-3xl border border-dashed border-slate-200 animate-in fade-in zoom-in duration-500">
+                  <div className="w-20 h-20 bg-slate-50 rounded-2xl flex items-center justify-center mb-6">
+                    <LayoutGrid className="text-slate-200" size={40} />
+                  </div>
+                  <h3 className="text-xl font-bold text-slate-900 mb-2">No packages found</h3>
+                  <p className="text-slate-500 max-w-xs text-center font-medium">
+                    We couldn't find any packages matching your current search criteria. Try adjusting your filters.
+                  </p>
+                </div>
+              ) : (
+                filteredItineraries.map((itinerary) => (
+                  <div
+                    key={itinerary.id}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => navigate(`/itineraries/${itinerary.id}`)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        navigate(`/itineraries/${itinerary.id}`);
+                      }
+                    }}
+                    className={`bg-white flex flex-col border rounded-2xl shadow-sm hover:shadow-md transition-all overflow-hidden group cursor-pointer relative ${selectedIds.includes(itinerary.id) ? 'ring-2 ring-blue-500 border-blue-500 shadow-blue-100' : 'border-gray-200'}`}
+                  >
+                    {/* Selection Checkbox Overlay */}
+                    <div className="absolute top-3 left-3 z-10">
+                      <input
+                        type="checkbox"
+                        className="w-5 h-5 rounded-lg border-2 border-white/50 bg-black/20 backdrop-blur-sm text-blue-600 focus:ring-blue-500 shadow-lg cursor-pointer transition-transform group-hover:scale-110 checked:border-blue-500"
+                        checked={selectedIds.includes(itinerary.id)}
+                        onChange={(e) => handleToggleSelect(e, itinerary.id)}
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    </div>
+
+                    {/* Image & Actions Container */}
+                    <div className="relative h-72 overflow-hidden">
+                      {itinerary.image ? (
+                        <img
+                          src={itinerary.image}
+                          alt={itinerary.title}
+                          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                          onError={(e) => (e.target.src = 'https://via.placeholder.com/400x300?text=No+Image')}
+                        />
+                      ) : (
+                        <div className="w-full h-full bg-gray-100 flex items-center justify-center">
+                          <span className="text-xs text-gray-400 font-semibold uppercase tracking-wider">No Photo</span>
+                        </div>
+                      )}
+
+                      {/* Top Actions Overlay - stopPropagation so card click doesn't fire */}
+                      <div className="absolute top-3 right-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleView(itinerary);
+                          }}
+                          className="w-8 h-8 rounded-full bg-white/90 backdrop-blur text-blue-600 hover:bg-white flex items-center justify-center shadow-lg"
+                          title="View Details"
+                        >
+                          <Eye className="h-4 w-4" />
+                        </button>
+                        {hasPermission(user, 'itineraries.create') && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDuplicate(itinerary);
+                            }}
+                            className="w-8 h-8 rounded-full bg-white/90 backdrop-blur text-purple-600 hover:bg-white flex items-center justify-center shadow-lg"
+                            title="Duplicate Package"
+                          >
+                            <Copy className="h-4 w-4" />
+                          </button>
+                        )}
+                        {hasPermission(user, 'itineraries.edit') && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleEdit(itinerary);
+                            }}
+                            className="w-8 h-8 rounded-full bg-white/90 backdrop-blur text-green-600 hover:bg-white flex items-center justify-center shadow-lg"
+                            title="Edit Package"
+                          >
+                            <Edit className="h-4 w-4" />
+                          </button>
+                        )}
+                        {hasPermission(user, 'itineraries.delete') && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDelete(itinerary);
+                            }}
+                            className="w-8 h-8 rounded-full bg-white/90 backdrop-blur text-red-600 hover:bg-white flex items-center justify-center shadow-lg"
+                            title="Delete Package"
+                          >
+                            <Trash className="h-4 w-4" />
+                          </button>
+                        )}
+                      </div>
+
+                      {/* SELECT FOR LEAD BUTTON */}
+                      {new URLSearchParams(window.location.search).get('chooseForLead') && (
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleSelectForLead(itinerary);
+                            }}
+                            className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-xl font-bold flex items-center gap-2 shadow-xl transform group-hover:scale-110 transition-transform"
+                          >
+                            <Plus className="h-5 w-5" />
+                            INSERT INTO LEAD
+                          </button>
+                        </div>
+                      )}
+
+
+                      {/* Bottom Info Overlay */}
+                      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-4">
+                        <h3 className="text-white font-bold text-lg truncate mb-1">
+                          {itinerary.title || itinerary.itinerary_name || "Untitled"}
+                        </h3>
+                        <div className="flex items-center gap-3 text-white/90 text-xs">
+                          <span className="flex items-center gap-1">
+                            <CalendarDays className="w-3 h-3" />
+                            {itinerary.duration ? `${itinerary.duration} Days` : "N/A"}
+                          </span>
+                          {(itinerary.routing || itinerary.destination || itinerary.destinations) && (
+                            <span className="flex items-center gap-1 truncate max-w-[150px]">
+                              <MapPin className="w-3 h-3" />
+                              {itinerary.routing || itinerary.destination || itinerary.destinations}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Details Section */}
+                    <div className="p-4 flex-grow">
+                      <div className="flex items-center justify-between pt-2 border-t border-gray-100">
+                        <div className="flex flex-col">
+                          <span className="text-[10px] text-gray-400 uppercase font-medium">Status</span>
+                          <span className={`text-xs font-bold ${itinerary.show_on_website ? "text-green-600" : "text-red-500"}`}>
+                            {itinerary.show_on_website ? "Visible" : "Hidden"}
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (hasPermission(user, 'itineraries.edit')) {
+                              handleToggleStatus(itinerary);
+                            }
+                          }}
+                          disabled={!hasPermission(user, 'itineraries.edit')}
+                          className={`relative inline-flex h-5 w-10 items-center rounded-full transition-colors focus:outline-none ${itinerary.show_on_website ? "bg-green-500" : "bg-red-500"
+                            }`}
+                        >
+                          <span
+                            className={`h-3.5 w-3.5 bg-white rounded-full transform transition-transform duration-200 ease-in-out ${itinerary.show_on_website ? "translate-x-5" : "translate-x-1"
+                              }`}
+                          />
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="px-4 py-2 bg-gray-50 border-t border-gray-100 text-[10px] text-gray-400 flex justify-between items-center">
+                      <div className="flex items-center gap-2">
+                        <span>ID: {itinerary.id}</span>
+                        {itinerary.lead_id && (
+                          <span className="bg-purple-100 text-purple-600 px-1.5 py-0.5 rounded font-black uppercase text-[8px] tracking-tighter">
+                            Lead Specific
+                          </span>
+                        )}
+                      </div>
+                      <span>Updated: {formatDate(itinerary.updated_at || itinerary.last_updated)}</span>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           ) : (
-            filteredItineraries.map((itinerary) => (
-              <div
-                key={itinerary.id}
-                role="button"
-                tabIndex={0}
-                onClick={() => navigate(`/itineraries/${itinerary.id}`)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    navigate(`/itineraries/${itinerary.id}`);
-                  }
-                }}
-                className="bg-white flex flex-col border border-gray-200 rounded-2xl shadow-sm hover:shadow-md transition-all overflow-hidden group cursor-pointer"
-              >
-                {/* Image & Actions Container */}
-                <div className="relative h-72 overflow-hidden">
-                  {itinerary.image ? (
-                    <img
-                      src={itinerary.image}
-                      alt={itinerary.title}
-                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                      onError={(e) => (e.target.src = 'https://via.placeholder.com/400x300?text=No+Image')}
-                    />
-                  ) : (
-                    <div className="w-full h-full bg-gray-100 flex items-center justify-center">
-                      <span className="text-xs text-gray-400 font-semibold uppercase tracking-wider">No Photo</span>
-                    </div>
-                  )}
-
-                  {/* Top Actions Overlay - stopPropagation so card click doesn't fire */}
-                  <div className="absolute top-3 right-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleView(itinerary);
-                      }}
-                      className="w-8 h-8 rounded-full bg-white/90 backdrop-blur text-blue-600 hover:bg-white flex items-center justify-center shadow-lg"
-                      title="View Details"
-                    >
-                      <Eye className="h-4 w-4" />
-                    </button>
-                    {hasPermission(user, 'itineraries.create') && (
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDuplicate(itinerary);
-                        }}
-                        className="w-8 h-8 rounded-full bg-white/90 backdrop-blur text-purple-600 hover:bg-white flex items-center justify-center shadow-lg"
-                        title="Duplicate Itinerary"
+            <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
+              <div className="overflow-x-auto custom-scrollbar">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="bg-slate-50/50">
+                      <th className="px-6 py-5 w-12">
+                        <input
+                          type="checkbox"
+                          checked={filteredItineraries.length > 0 && selectedIds.length === filteredItineraries.length}
+                          onChange={(e) => handleToggleSelectAll(e.target.checked)}
+                          className="w-5 h-5 rounded border-2 border-slate-200 text-blue-600 focus:ring-blue-500/20 cursor-pointer"
+                        />
+                      </th>
+                      <th className="px-6 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">Package</th>
+                      <th className="px-6 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">Duration</th>
+                      <th className="px-6 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">Route</th>
+                      <th className="px-6 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">Status</th>
+                      <th className="px-6 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredItineraries.map((itinerary) => (
+                      <tr
+                        key={itinerary.id}
+                        className="group hover:bg-slate-50/80 transition-all border-b border-slate-100 last:border-0 cursor-pointer"
+                        onClick={() => navigate(`/itineraries/${itinerary.id}`)}
                       >
-                        <Copy className="h-4 w-4" />
-                      </button>
-                    )}
-                    {hasPermission(user, 'itineraries.edit') && (
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleEdit(itinerary);
-                        }}
-                        className="w-8 h-8 rounded-full bg-white/90 backdrop-blur text-green-600 hover:bg-white flex items-center justify-center shadow-lg"
-                        title="Edit Itinerary"
-                      >
-                        <Edit className="h-4 w-4" />
-                      </button>
-                    )}
-                    {hasPermission(user, 'itineraries.delete') && (
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDelete(itinerary);
-                        }}
-                        className="w-8 h-8 rounded-full bg-white/90 backdrop-blur text-red-600 hover:bg-white flex items-center justify-center shadow-lg"
-                        title="Delete Itinerary"
-                      >
-                        <Trash className="h-4 w-4" />
-                      </button>
-                    )}
-                  </div>
-
-                  {/* SELECT FOR LEAD BUTTON */}
-                  {new URLSearchParams(window.location.search).get('chooseForLead') && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleSelectForLead(itinerary);
-                        }}
-                        className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-xl font-bold flex items-center gap-2 shadow-xl transform group-hover:scale-110 transition-transform"
-                      >
-                        <Plus className="h-5 w-5" />
-                        INSERT INTO LEAD
-                      </button>
-                    </div>
-                  )}
-
-
-                  {/* Bottom Info Overlay */}
-                  <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-4">
-                    <h3 className="text-white font-bold text-lg truncate mb-1">
-                      {itinerary.title || itinerary.itinerary_name || "Untitled"}
-                    </h3>
-                    <div className="flex items-center gap-3 text-white/90 text-xs">
-                      <span className="flex items-center gap-1">
-                        <CalendarDays className="w-3 h-3" />
-                        {itinerary.duration ? `${itinerary.duration} Days` : "N/A"}
-                      </span>
-                      {(itinerary.routing || itinerary.destination || itinerary.destinations) && (
-                        <span className="flex items-center gap-1 truncate max-w-[150px]">
-                          <MapPin className="w-3 h-3" />
-                          {itinerary.routing || itinerary.destination || itinerary.destinations}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Details Section */}
-                <div className="p-4 flex-grow">
-                  <div className="flex items-center justify-between pt-2 border-t border-gray-100">
-                    <div className="flex flex-col">
-                      <span className="text-[10px] text-gray-400 uppercase font-medium">Status</span>
-                      <span className={`text-xs font-bold ${itinerary.show_on_website ? "text-green-600" : "text-red-500"}`}>
-                        {itinerary.show_on_website ? "Visible" : "Hidden"}
-                      </span>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (hasPermission(user, 'itineraries.edit')) {
-                          handleToggleStatus(itinerary);
-                        }
-                      }}
-                      disabled={!hasPermission(user, 'itineraries.edit')}
-                      className={`relative inline-flex h-5 w-10 items-center rounded-full transition-colors focus:outline-none ${itinerary.show_on_website ? "bg-green-500" : "bg-red-500"
-                        }`}
-                    >
-                      <span
-                        className={`h-3.5 w-3.5 bg-white rounded-full transform transition-transform duration-200 ease-in-out ${itinerary.show_on_website ? "translate-x-5" : "translate-x-1"
-                          }`}
-                      />
-                    </button>
-                  </div>
-                </div>
-
-                <div className="px-4 py-2 bg-gray-50 border-t border-gray-100 text-[10px] text-gray-400 flex justify-between items-center">
-                  <div className="flex items-center gap-2">
-                    <span>ID: {itinerary.id}</span>
-                    {itinerary.lead_id && (
-                      <span className="bg-purple-100 text-purple-600 px-1.5 py-0.5 rounded font-black uppercase text-[8px] tracking-tighter">
-                        Lead Specific
-                      </span>
-                    )}
-                  </div>
-                  <span>Updated: {formatDate(itinerary.updated_at || itinerary.last_updated)}</span>
-                </div>
+                        <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
+                          <input
+                            type="checkbox"
+                            checked={selectedIds.includes(itinerary.id)}
+                            onChange={(e) => handleToggleSelect(e, itinerary.id)}
+                            className="w-5 h-5 rounded border-2 border-slate-200 text-blue-600 focus:ring-blue-500/20 cursor-pointer"
+                          />
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 rounded-xl overflow-hidden bg-slate-100 flex-shrink-0">
+                              {itinerary.image ? (
+                                <img src={itinerary.image} className="w-full h-full object-cover" alt="" />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center text-slate-300">
+                                  <ImageIcon size={20} />
+                                </div>
+                              )}
+                            </div>
+                            <div>
+                              <h4 className="text-sm font-bold text-slate-900 group-hover:text-blue-600 transition-colors">
+                                {itinerary.title || itinerary.itinerary_name || "Untitled"}
+                              </h4>
+                              <p className="text-[10px] text-slate-400 font-medium">ID: {itinerary.id}</p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-blue-50 text-blue-600 text-[11px] font-black uppercase">
+                            <CalendarDays size={12} />
+                            {itinerary.duration ? `${itinerary.duration} Days` : "N/A"}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-1.5 text-slate-500 text-xs max-w-[200px] truncate font-medium">
+                            <MapPin size={14} className="text-slate-400" />
+                            {itinerary.routing || itinerary.destination || itinerary.destinations || "N/A"}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div
+                            className="flex items-center gap-2"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <button
+                              onClick={() => hasPermission(user, 'itineraries.edit') && handleToggleStatus(itinerary)}
+                              disabled={!hasPermission(user, 'itineraries.edit')}
+                              className={`relative inline-flex h-5 w-10 items-center rounded-full transition-colors focus:outline-none ${itinerary.show_on_website ? "bg-green-500" : "bg-red-500"}`}
+                            >
+                              <span className={`h-3.5 w-3.5 bg-white rounded-full transform transition-transform duration-200 ease-in-out ${itinerary.show_on_website ? "translate-x-5" : "translate-x-1"}`} />
+                            </button>
+                            <span className={`text-[10px] font-bold uppercase tracking-wider ${itinerary.show_on_website ? "text-green-600" : "text-red-500"}`}>
+                              {itinerary.show_on_website ? "Visible" : "Hidden"}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 text-right" onClick={(e) => e.stopPropagation()}>
+                          <div className="flex items-center justify-end gap-2">
+                            {new URLSearchParams(window.location.search).get('chooseForLead') ? (
+                              <button
+                                onClick={() => handleSelectForLead(itinerary)}
+                                className="bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 shadow-md transition-all active:scale-95"
+                              >
+                                <Plus size={14} /> INSERT
+                              </button>
+                            ) : (
+                              <>
+                                <button onClick={() => handleView(itinerary)} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="View"><Eye size={16} /></button>
+                                {hasPermission(user, 'itineraries.edit') && (
+                                  <button onClick={() => handleEdit(itinerary)} className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors" title="Edit"><Edit size={16} /></button>
+                                )}
+                                {hasPermission(user, 'itineraries.delete') && (
+                                  <button onClick={() => handleDelete(itinerary)} className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Delete"><Trash size={16} /></button>
+                                )}
+                              </>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
-            ))
+            </div>
           )}
-        </div>
+
+          {filteredItineraries.length === 0 && !loading && (
+            <div className="text-center py-20 bg-white rounded-2xl border-2 border-dashed border-gray-200 mt-6">
+              <div className="bg-gray-100 h-16 w-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Search className="h-8 w-8 text-gray-400" />
+              </div>
+              <h3 className="text-lg font-bold text-gray-800">No itineraries found</h3>
+              <p className="text-gray-500">Try adjusting your filters or search term.</p>
+            </div>
+          )}
+
+          {/* Load More Button */}
+          {hasMore && filteredItineraries.length > 0 && (
+            <div className="mt-12 flex justify-center pb-20">
+              <button
+                onClick={handleLoadMore}
+                disabled={loading}
+                className="px-8 py-3 bg-white border-2 border-blue-600 text-blue-600 font-bold rounded-xl hover:bg-blue-50 transition-all active:scale-95 disabled:opacity-50 flex items-center gap-2 shadow-sm"
+              >
+                {loading ? (
+                  <>
+                    <RefreshCw className="h-5 w-5 animate-spin" />
+                    Loading...
+                  </>
+                ) : (
+                  'Load More Packages'
+                )}
+              </button>
+            </div>
+          )}
 
 
-      {/* Create Itinerary Modal */}
-      <Dialog visible={showModal} style={{minWidth:'50vw'}} header={()=>(
- <div className="flex justify-between items-center p-6 border-b">
+          {/* Create Itinerary Modal */}
+          <Dialog visible={showModal} style={{ minWidth: '50vw' }} header={() => (
+            <div className="flex justify-between items-center p-6 border-b">
               <h2 className="text-xl font-bold text-gray-800 tracking-tight">
                 {editingItineraryId ? 'Edit Itinerary' : 'Create Itinerary'}
               </h2>
-              <button 
+              <button
                 onClick={handleCloseModal}
                 className="text-gray-400 hover:text-gray-600 transition-colors"
                 aria-label="Close"
@@ -786,8 +1025,8 @@ const Itineraries = () => {
                 <X className="h-6 w-6" />
               </button>
             </div>
-      )} showCloseIcon={false}>
- <form onSubmit={handleSave} className="p-6">
+          )} showCloseIcon={false}>
+            <form onSubmit={handleSave} className="p-6">
               <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-2 custom-scrollbar">
 
 
@@ -866,11 +1105,11 @@ const Itineraries = () => {
                   </div>
                   {(imagePreview || formData.image) && (
                     <div className="mt-4 p-3 bg-gray-50 rounded-xl border border-gray-100 flex flex-col gap-2 w-fit">
-                       <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Image Preview</p>
-                       <img 
-                        src={imagePreview || (formData.image instanceof File ? URL.createObjectURL(formData.image) : formData.image?.url || formData.image)} 
-                        alt="Preview" 
-                        className="w-48 h-28 object-cover rounded-lg border shadow-sm" 
+                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Image Preview</p>
+                      <img
+                        src={imagePreview || (formData.image instanceof File ? URL.createObjectURL(formData.image) : formData.image?.url || formData.image)}
+                        alt="Preview"
+                        className="w-48 h-28 object-cover rounded-lg border shadow-sm"
                       />
                     </div>
                   )}
@@ -895,12 +1134,12 @@ const Itineraries = () => {
                 </button>
               </div>
             </form>
-      </Dialog>
-    
+          </Dialog>
 
-      {/* Choose from Library Modal */}
-      <Dialog visible={showLibraryModal} style={{minWidth:"50vw"}} header={()=>(
-  <div className="flex justify-between items-center p-6 border-b">
+
+          {/* Choose from Library Modal */}
+          <Dialog visible={showLibraryModal} style={{ minWidth: "50vw" }} header={() => (
+            <div className="flex justify-between items-center p-6 border-b">
               <h2 className="text-xl font-bold text-gray-800">Choose from Library</h2>
               <button
                 onClick={() => { setShowLibraryModal(false); setLibrarySearchTerm(''); setFreeStockPhotos([]); }}
@@ -909,8 +1148,8 @@ const Itineraries = () => {
                 <X className="h-6 w-6" />
               </button>
             </div>
-      )}>
-  <div className="flex border-b border-gray-200">
+          )}>
+            <div className="flex border-b border-gray-200">
               <button
                 type="button"
                 onClick={() => setLibraryTab('free')}
@@ -951,10 +1190,10 @@ const Itineraries = () => {
                 )}
               </div>
               <div className="flex items-center gap-2 px-1">
-                 <div className="w-1.5 h-1.5 rounded-full bg-blue-500"></div>
-                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                    {libraryTab === 'free' ? 'Pexels high-res stock images' : 'Reuse images from your previous itineraries'}
-                 </p>
+                <div className="w-1.5 h-1.5 rounded-full bg-blue-500"></div>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                  {libraryTab === 'free' ? 'Pexels high-res stock images' : 'Reuse images from your previous itineraries'}
+                </p>
               </div>
             </div>
             <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
@@ -992,7 +1231,7 @@ const Itineraries = () => {
                 )
               ) : (
                 librarySearch.length < 2 ? (
-                   <div className="flex flex-col items-center justify-center h-64 text-slate-400 bg-slate-50/50 rounded-3xl border-2 border-dashed border-slate-100">
+                  <div className="flex flex-col items-center justify-center h-64 text-slate-400 bg-slate-50/50 rounded-3xl border-2 border-dashed border-slate-100">
                     <History className="w-12 h-12 mb-3 opacity-20" />
                     <p className="text-xs font-black uppercase tracking-widest">Search your collections</p>
                   </div>
@@ -1017,8 +1256,8 @@ const Itineraries = () => {
                         <img src={p.image} alt={p.itinerary_name || p.title || 'Select'} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
                         <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-4">
                           <div className="flex flex-col text-left">
-                             <span className="text-white font-black text-[10px] uppercase tracking-widest truncate w-full">{p.itinerary_name || 'Untitled'}</span>
-                             <span className="text-white/60 font-medium text-[8px] uppercase tracking-widest mt-0.5">Click to choose</span>
+                            <span className="text-white font-black text-[10px] uppercase tracking-widest truncate w-full">{p.itinerary_name || 'Untitled'}</span>
+                            <span className="text-white/60 font-medium text-[8px] uppercase tracking-widest mt-0.5">Click to choose</span>
                           </div>
                         </div>
                       </button>
@@ -1027,37 +1266,37 @@ const Itineraries = () => {
                 )
               )}
             </div>
-      </Dialog>
-   
+          </Dialog>
 
-      {/* View Itinerary Modal */}
-      <Dialog className="bg-white rounded-lg shadow-xl w-full max-w-4xl mx-auto my-auto animate-in-scale flex flex-col overflow-hidden" 
-      showCloseIcon={false} visible={showViewModal}  header={()=>(
- <div className="flex justify-between items-center p-6 border-b">
-              <h2 className="text-xl font-bold text-gray-800">Itinerary Overview</h2>
-              <button
-                onClick={() => { setShowViewModal(false)}}
-                className="text-gray-400 hover:text-gray-600 transition-colors"
-              >
-                <X className="h-6 w-6" />
-              </button>
-            </div>
-      )}
-      footer={()=>(
-        <div className="p-8 border-t flex items-center justify-between">
-               <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+
+          {/* View Itinerary Modal */}
+          <Dialog className="bg-white rounded-lg shadow-xl w-full max-w-4xl mx-auto my-auto animate-in-scale flex flex-col overflow-hidden"
+            showCloseIcon={false} visible={showViewModal} header={() => (
+              <div className="flex justify-between items-center p-6 border-b">
+                <h2 className="text-xl font-bold text-gray-800">Itinerary Overview</h2>
+                <button
+                  onClick={() => { setShowViewModal(false) }}
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  <X className="h-6 w-6" />
+                </button>
+              </div>
+            )}
+            footer={() => (
+              <div className="p-8 border-t flex items-center justify-between">
+                <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
                   Package ID: {viewingItinerary.id}
-               </div>
-               <button
-                onClick={() => { setShowViewModal(false)}}
-                className="px-10 py-2.5 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-700 transition-all active:scale-[0.98] text-sm"
-              >
-                GOT IT
-              </button>
-            </div>
-      )}
-      >
-    <div className="p-8 overflow-y-auto custom-scrollbar flex-1">
+                </div>
+                <button
+                  onClick={() => { setShowViewModal(false) }}
+                  className="px-10 py-2.5 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-700 transition-all active:scale-[0.98] text-sm"
+                >
+                  GOT IT
+                </button>
+              </div>
+            )}
+          >
+            <div className="p-8 overflow-y-auto custom-scrollbar flex-1">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 {/* Image Section */}
                 <div className="md:col-span-2">
@@ -1070,70 +1309,70 @@ const Itineraries = () => {
                       />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent"></div>
                       <div className="absolute bottom-6 left-6 pr-6">
-                         <span className="bg-blue-600 text-white px-3 py-1 rounded-md text-[10px] font-bold uppercase tracking-widest mb-1.5 inline-block">
-                             {viewingItinerary?.duration ? `${viewingItinerary?.duration} Days` : 'N/A'}
-                         </span>
-                         <h3 className="text-white text-2xl font-bold tracking-tight">{viewingItinerary?.itinerary_name || 'Untitled'}</h3>
+                        <span className="bg-blue-600 text-white px-3 py-1 rounded-md text-[10px] font-bold uppercase tracking-widest mb-1.5 inline-block">
+                          {viewingItinerary?.duration ? `${viewingItinerary?.duration} Days` : 'N/A'}
+                        </span>
+                        <h3 className="text-white text-2xl font-bold tracking-tight">{viewingItinerary?.itinerary_name || 'Untitled'}</h3>
                       </div>
                     </div>
                   ) : (
                     <div className="w-full h-48 bg-gray-50 rounded-xl border flex items-center justify-center">
-                        <ImageIcon className="h-10 w-10 text-gray-200" />
+                      <ImageIcon className="h-10 w-10 text-gray-200" />
                     </div>
                   )}
                 </div>
 
                 <div className="space-y-6">
-                   <div className="grid grid-cols-2 gap-3">
-                      <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
-                         <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Standard Cost</span>
-                         <span className="text-lg font-bold text-gray-800">{formatPrice(viewingItinerary?.price || 0)}</span>
-                      </div>
-                      <div className="bg-blue-50/50 p-4 rounded-xl border border-blue-100/50">
-                         <span className="text-[10px] font-bold text-blue-600 uppercase tracking-widest block mb-1">Website Price</span>
-                         <span className="text-lg font-bold text-blue-800">{formatPrice(viewingItinerary?.website_cost || 0)}</span>
-                      </div>
-                   </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
+                      <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Standard Cost</span>
+                      <span className="text-lg font-bold text-gray-800">{formatPrice(viewingItinerary?.price || 0)}</span>
+                    </div>
+                    <div className="bg-blue-50/50 p-4 rounded-xl border border-blue-100/50">
+                      <span className="text-[10px] font-bold text-blue-600 uppercase tracking-widest block mb-1">Website Price</span>
+                      <span className="text-lg font-bold text-blue-800">{formatPrice(viewingItinerary?.website_cost || 0)}</span>
+                    </div>
+                  </div>
                 </div>
 
                 <div className="space-y-6">
-                   <div className="space-y-2">
-                      <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest flex items-center gap-2">
-                         <CalendarDays className="w-3 h-3" /> Details
-                      </h4>
-                      <div className="bg-gray-50 p-6 rounded-xl border border-gray-100 space-y-3">
-                         <div className="flex justify-between items-center text-sm">
-                            <span className="font-semibold text-gray-500">Adults</span>
-                            <span className="font-bold text-gray-800">{viewingItinerary?.adult || 0}</span>
-                         </div>
-                         <div className="flex justify-between items-center text-sm border-t pt-3">
-                            <span className="font-semibold text-gray-500">Children</span>
-                            <span className="font-bold text-gray-800">{viewingItinerary?.child || 0}</span>
-                         </div>
-                         <div className="flex justify-between items-center text-sm border-t pt-3">
-                            <span className="font-semibold text-gray-500">Website Status</span>
-                            <span className={`text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full ${viewingItinerary?.show_on_website ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                               {viewingItinerary?.show_on_website ? 'Visible' : 'Hidden'}
-                            </span>
-                         </div>
+                  <div className="space-y-2">
+                    <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest flex items-center gap-2">
+                      <CalendarDays className="w-3 h-3" /> Details
+                    </h4>
+                    <div className="bg-gray-50 p-6 rounded-xl border border-gray-100 space-y-3">
+                      <div className="flex justify-between items-center text-sm">
+                        <span className="font-semibold text-gray-500">Adults</span>
+                        <span className="font-bold text-gray-800">{viewingItinerary?.adult || 0}</span>
                       </div>
-                   </div>
+                      <div className="flex justify-between items-center text-sm border-t pt-3">
+                        <span className="font-semibold text-gray-500">Children</span>
+                        <span className="font-bold text-gray-800">{viewingItinerary?.child || 0}</span>
+                      </div>
+                      <div className="flex justify-between items-center text-sm border-t pt-3">
+                        <span className="font-semibold text-gray-500">Website Status</span>
+                        <span className={`text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full ${viewingItinerary?.show_on_website ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                          {viewingItinerary?.show_on_website ? 'Visible' : 'Hidden'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
                 </div>
 
                 {viewingItinerary?.notes && (
                   <div className="md:col-span-2 space-y-2">
                     <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest flex items-center gap-2">
-                       <Hash className="w-3 h-3" /> Description
+                      <Hash className="w-3 h-3" /> Description
                     </h4>
                     <div className="bg-gray-50 p-6 rounded-xl border border-gray-100 text-sm font-medium text-gray-600 whitespace-pre-wrap leading-relaxed">
-                       {viewingItinerary?.notes}
+                      {viewingItinerary?.notes}
                     </div>
                   </div>
                 )}
               </div>
             </div>
-      </Dialog>
-   
+          </Dialog>
+
         </>
       )}
     </div>

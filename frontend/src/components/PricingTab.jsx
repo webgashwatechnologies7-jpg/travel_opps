@@ -254,7 +254,16 @@ const PricingTab = ({
         lead_id: leadId
       };
 
-      await itineraryPricingAPI.save(itinerary.id, payload);
+      const isProposal = itinerary.lead_id || (window.location.search.includes('type=proposal'));
+
+      if (isProposal) {
+        // Import leadProposalsAPI if not already available in scope (though it should be passed or imported)
+        const { leadProposalsAPI } = await import('../services/api');
+        await leadProposalsAPI.update(itinerary.id, payload);
+      } else {
+        await itineraryPricingAPI.save(itinerary.id, payload);
+      }
+      
       onPricingSaveSuccess?.(optionGstSettings);
       showToastNotification?.('success', 'Saved', `Pricing & GST for Option ${optNum} saved successfully.`);
     } catch (e) {

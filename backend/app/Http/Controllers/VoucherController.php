@@ -164,6 +164,8 @@ class VoucherController extends Controller
         if (!$user)
             return null;
 
+        \Log::info('Voucher preparation start', ['lead_id' => $leadId, 'proposal_id' => $request->query('proposal_id')]);
+
         $lead = Lead::withoutGlobalScopes()->find($leadId);
         if (!$lead)
             return null;
@@ -182,35 +184,79 @@ class VoucherController extends Controller
 
         $confirmedOption = $invoice ? (int) $invoice->option_number : 1;
 
-        // Try to find proposal data (Preferred modern way)
-        $proposal = QueryProposal::where('lead_id', $leadId)
-            ->orderBy('created_at', 'desc')
-            ->first();
+        // Try to find proposal data (Modern way - LeadProposal)
+        $proposalId = $request->query('proposal_id');
+        $proposal = null;
+        
+        if ($proposalId) {
+            // 1. Try direct ID match (Database ID)
+            $proposal = \App\Models\LeadProposal::where('lead_id', $leadId)->where('id', $proposalId)->first();
+            
+            // 2. Safety fallback for timestamp IDs (internal frontend IDs)
+            if (!$proposal) {
+                $allLeadProposals = \App\Models\LeadProposal::where('lead_id', $leadId)->get();
+                foreach ($allLeadProposals as $p) {
+                    if ($p->options_data && is_array($p->options_data)) {
+                        foreach ($p->options_data as $opt) {
+                            if (isset($opt['id']) && $opt['id'] == $proposalId) {
+                                $proposal = $p;
+                                break 2;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        if (!$proposal) {
+            // Pick confirmed one first, otherwise latest
+            $proposal = \App\Models\LeadProposal::where('lead_id', $leadId)->where('is_confirmed', true)->first()
+                      ?? \App\Models\LeadProposal::where('lead_id', $leadId)->orderBy('created_at', 'desc')->first();
+        }
 
         $quotation = null;
         if ($proposal) {
-            // Transform Proposal + Package into a Quotation-like object for the blade
-            $packageId = $proposal->metadata['itinerary_id'] ?? null;
+            // LeadProposal stores data in direct columns
+            $packageId = $proposal->original_package_id;
             $package = $packageId ? Package::find($packageId) : null;
 
             $quotation = new \stdClass();
-            $quotation->total_price = $proposal->total_amount;
+            $quotation->total_price = $proposal->price;
+            
+            // Pass proposal dates for the blade to use instead of lead dates
+            $quotation->start_date = $proposal->start_date;
+            $quotation->end_date = $proposal->end_date;
+            $quotation->duration = $proposal->duration;
+            
+            // Construct a simple breakdown since pricing_data might be in internal format
+            $breakdown = [];
+            if ($proposal->price > 0) {
+                $breakdown[] = [
+                    'label' => 'Full Tour Package',
+                    'count' => 1,
+                    'price' => $proposal->price,
+                    'total' => $proposal->price
+                ];
+            }
+            
             $quotation->pricing_breakdown = [
                 $confirmedOption => [
-                    'final' => $proposal->total_amount,
-                    'breakdown' => $proposal->metadata['breakdown'] ?? []
+                    'final' => $proposal->price,
+                    'breakdown' => $breakdown
                 ]
             ];
 
-            // Prioritize metadata for days and events (handles customizations), fallback to package
-            $rawDays = $proposal->metadata['days'] ?? ($package ? $package->days : []);
-            $rawDayEvents = $proposal->metadata['day_events'] ?? ($package ? $package->day_events : []);
+            // Prioritize LeadProposal columns
+            $rawDays = $proposal->days ?? ($package ? $package->days : []);
+            $rawDayEvents = $proposal->day_events ?? ($package ? $package->day_events : []);
 
             // Ensure day_events are indexed 1, 2, 3... for the blade
             $dayEvents = [];
             $i = 1;
-            foreach ($rawDayEvents as $events) {
-                $dayEvents[$i++] = $events;
+            if (is_array($rawDayEvents)) {
+                foreach ($rawDayEvents as $events) {
+                    $dayEvents[$i++] = $events;
+                }
             }
 
             $vehicleName = 'Private Cab';
@@ -219,7 +265,7 @@ class VoucherController extends Controller
                     if (!is_array($events))
                         continue;
                     foreach ($events as $event) {
-                        if (isset($event['eventType']) && in_array($event['eventType'], ['transportation', 'transport'])) {
+                        if (isset($event['eventType']) && in_array(strtolower($event['eventType']), ['transportation', 'transport'])) {
                             $vehicleName = $event['subject'] ?? $vehicleName;
                             break 2;
                         }
@@ -230,19 +276,56 @@ class VoucherController extends Controller
             $quotation->itinerary = [
                 'days' => $rawDays,
                 'day_events' => $dayEvents,
-                'routing' => $proposal->metadata['destination'] ?? ($proposal->metadata['itinerary_name'] ?? ($package ? $package->routing : 'N/A')),
-                'inclusions' => $proposal->metadata['inclusions'] ?? ($package ? $package->inclusions : []),
-                'exclusions' => $proposal->metadata['exclusions'] ?? ($package ? $package->exclusions : []),
-                'terms' => $proposal->metadata['terms'] ?? ($package ? $package->terms_conditions : []),
+                'routing' => $proposal->routing ?? ($package ? $package->routing : 'N/A'),
+                'inclusions' => $proposal->inclusions ?? ($package ? $package->inclusions : []),
+                'exclusions' => $proposal->exclusions ?? ($package ? $package->exclusions : []),
+                'terms' => $proposal->terms_conditions ?? ($package ? $package->terms_conditions : []),
                 'transportation' => [
                     'vehicle' => $vehicleName
                 ]
             ];
         } else {
-            // Fallback to legacy Quotation table
-            $quotation = Quotation::where('lead_id', $leadId)
+            // Fallback to legacy QueryProposal or Quotation
+            $qProposal = QueryProposal::where('lead_id', $leadId)
                 ->orderBy('created_at', 'desc')
                 ->first();
+                
+            if ($qProposal) {
+                $packageId = $qProposal->metadata['itinerary_id'] ?? null;
+                $package = $packageId ? Package::find($packageId) : null;
+
+                $quotation = new \stdClass();
+                $quotation->total_price = $qProposal->total_amount;
+                $quotation->pricing_breakdown = [
+                    $confirmedOption => [
+                        'final' => $qProposal->total_amount,
+                        'breakdown' => $qProposal->metadata['breakdown'] ?? []
+                    ]
+                ];
+
+                $rawDayEvents = $qProposal->metadata['day_events'] ?? ($package ? $package->day_events : []);
+                $dayEvents = [];
+                $i = 1;
+                foreach ($rawDayEvents as $events) {
+                    $dayEvents[$i++] = $events;
+                }
+
+                $quotation->itinerary = [
+                    'days' => $qProposal->metadata['days'] ?? ($package ? $package->days : []),
+                    'day_events' => $dayEvents,
+                    'routing' => $qProposal->metadata['destination'] ?? ($qProposal->metadata['itinerary_name'] ?? ($package ? $package->routing : 'N/A')),
+                    'inclusions' => $qProposal->metadata['inclusions'] ?? ($package ? $package->inclusions : []),
+                    'exclusions' => $qProposal->metadata['exclusions'] ?? ($package ? $package->exclusions : []),
+                    'terms' => $qProposal->metadata['terms'] ?? ($package ? $package->terms_conditions : []),
+                    'transportation' => [
+                        'vehicle' => 'Private Cab'
+                    ]
+                ];
+            } else {
+                $quotation = Quotation::where('lead_id', $leadId)
+                    ->orderBy('created_at', 'desc')
+                    ->first();
+            }
         }
 
         return [

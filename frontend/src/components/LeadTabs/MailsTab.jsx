@@ -261,29 +261,50 @@ const MailsTab = memo(({
                             </div>
 
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                {displayedLogs.map((email) => (
-                                    <div 
-                                        key={email.id} 
-                                        className="p-4 bg-white border border-gray-200 rounded-xl flex items-start gap-3 shadow-sm hover:shadow-md transition-shadow cursor-pointer group"
-                                    >
-                                        <div className="h-10 w-10 flex-shrink-0 rounded-full bg-blue-50 flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white transition-colors">
-                                            <Send className="h-4 w-4 text-blue-500 group-hover:text-white" />
-                                        </div>
-                                        <div className="min-w-0 flex-1">
-                                            <div className="flex justify-between items-start gap-1">
-                                                <p className="text-sm font-bold text-gray-800 truncate">{email.subject || '(No Subject)'}</p>
-                                                {email.opened_at && (
-                                                    <span className="px-1.5 py-0.5 bg-green-100 text-green-700 text-[8px] font-bold rounded uppercase">Opened</span>
+                                {displayedLogs.map((email) => {
+                                    const lid = `log-${email.id}`;
+                                    const isExpanded = expandedThreads[lid];
+                                    return (
+                                        <div key={email.id} className="col-span-1 md:col-span-1 lg:col-span-1">
+                                            <div 
+                                                onClick={() => toggleThread(lid)}
+                                                className={`p-4 bg-white border rounded-xl flex flex-col gap-3 shadow-sm hover:shadow-md transition-all cursor-pointer group ${isExpanded ? 'border-blue-400 ring-2 ring-blue-50' : 'border-gray-200'}`}
+                                            >
+                                                <div className="flex items-start gap-3">
+                                                    <div className={`h-10 w-10 flex-shrink-0 rounded-full flex items-center justify-center transition-colors ${isExpanded ? 'bg-blue-600 text-white' : 'bg-blue-50 text-blue-500 group-hover:bg-blue-100'}`}>
+                                                        <Send className="h-4 w-4" />
+                                                    </div>
+                                                    <div className="min-w-0 flex-1">
+                                                        <div className="flex justify-between items-start gap-1">
+                                                            <p className="text-sm font-bold text-gray-800 truncate">{email.subject || '(No Subject)'}</p>
+                                                            {email.opened_at && (
+                                                                <span className="px-1.5 py-0.5 bg-green-100 text-green-700 text-[8px] font-bold rounded uppercase">Opened</span>
+                                                            )}
+                                                        </div>
+                                                        <p className="text-[10px] text-gray-400 font-medium mt-0.5">{new Date(email.created_at).toLocaleString()}</p>
+                                                    </div>
+                                                </div>
+                                                
+                                                <div 
+                                                    className={`text-xs text-gray-500 leading-tight transition-all duration-300 overflow-hidden ${isExpanded ? 'max-h-[500px] mt-2 pt-2 border-t border-gray-100 overflow-y-auto' : 'max-h-8 line-clamp-2 mt-1'}`}
+                                                    dangerouslySetInnerHTML={{ 
+                                                        __html: (() => {
+                                                            const raw = email.body || '—';
+                                                            const isHtml = /<[a-z][\s\S]*>/i.test(raw);
+                                                            return isHtml 
+                                                                ? rewriteHtmlImageUrls(sanitizeEmailHtmlForDisplay(raw))
+                                                                : raw.replace(/\n/g, '<br/>');
+                                                        })()
+                                                    }}
+                                                />
+                                                
+                                                {!isExpanded && (
+                                                    <div className="text-[10px] text-blue-600 font-bold mt-1 opacity-0 group-hover:opacity-100 transition-opacity">Click to view full message &rarr;</div>
                                                 )}
                                             </div>
-                                            <p className="text-[10px] text-gray-400 font-medium mt-0.5">{new Date(email.created_at).toLocaleString()}</p>
-                                            <div 
-                                                className="text-xs text-gray-500 line-clamp-2 mt-2 leading-tight"
-                                                dangerouslySetInnerHTML={{ __html: sanitizeEmailHtmlForDisplay(email.body || '') }}
-                                            />
                                         </div>
-                                    </div>
-                                ))}
+                                    );
+                                })}
                             </div>
 
                             {totalLogPages > 1 && (

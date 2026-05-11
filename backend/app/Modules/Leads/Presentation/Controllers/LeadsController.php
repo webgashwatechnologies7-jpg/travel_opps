@@ -221,7 +221,7 @@ class LeadsController extends Controller
             if ($this->isLeadLocked($oldLead, $request->user())) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'This query is booked and locked. Please request permission from your manager to make changes.',
+                    'message' => 'This query is locked. Please request permission from your manager to make changes.',
                     'is_locked' => true
                 ], 403);
             }
@@ -357,7 +357,7 @@ class LeadsController extends Controller
             if ($this->isLeadLocked($lead, $request->user())) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'This query is booked and locked. Please request permission from your manager to change status.',
+                    'message' => 'This query is locked. Please request permission from your manager to change status.',
                     'is_locked' => true
                 ], 403);
             }
@@ -513,7 +513,7 @@ class LeadsController extends Controller
             Notification::send($managers, new GenericNotification([
                 'type' => 'unlock_request',
                 'title' => 'Modification Request',
-                'message' => $request->user()->name . ' requested permission to edit booked query #' . $lead->id,
+                'message' => $request->user()->name . ' requested permission to edit locked query #' . $lead->id,
                 'action_url' => '/leads/' . $lead->id
             ]));
 
@@ -572,6 +572,31 @@ class LeadsController extends Controller
 
     private function isLeadLocked(Lead $lead, User $user): bool
     {
+        // Admins and Managers bypass the lock
+        if ($user->hasRole(['Admin', 'Company Admin', 'Super Admin', 'Manager']) || $user->is_super_admin) {
+            return false;
+        }
+
+        // Specific bypass permission
+        if ($user->can('leads_management.bypass_lock')) {
+            return false;
+        }
+
+        // If explicitly unlocked for edit
+        if ($lead->is_unlocked_for_edit) {
+            return false;
+        }
+
+        // Lock if status is confirmed (Booked) or cancelled (Declined)
+        if ($lead->status === 'confirmed' || $lead->status === 'cancelled') {
+            return true;
+        }
+
+        // System lock field
+        if ($lead->is_locked) {
+            return true;
+        }
+
         return false;
     }
 

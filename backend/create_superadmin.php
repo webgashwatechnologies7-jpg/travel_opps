@@ -28,7 +28,8 @@ try {
         $user->assignRole($adminRole);
     }
 
-    echo "✅ Success: Super Admin created with email: superadmin@travelopps.com and password: Super@123\n";
+    echo "Success: Super Admin created with email: superadmin@travelopps.com and password: Super@123\n";
 } catch (\Exception $e) {
-    echo "❌ Error: " . $e->getMessage() . "\n";
+    echo "❌ice alg alg g 
+    Error: " . $e->getMessage() . "\n";
 }

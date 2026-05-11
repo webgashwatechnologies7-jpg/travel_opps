@@ -687,7 +687,7 @@
             <div class="option-card">
                 <div class="option-header">
                     @if(count($opts) == 1 && $displayOption)
-                        CONFIRMED PACKAGE DETAILS
+                        PACKAGE DETAILS
                     @else
                         PACKAGE OPTION {{ $optNum }}
                     @endif

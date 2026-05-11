@@ -5,7 +5,7 @@ import { toast } from 'react-toastify';
 // Layout removed - handled by nested routing
 import { useAuth } from '../contexts/AuthContext';
 import { getDisplayImageUrl } from '../utils/imageUrl';
-import { packagesAPI, dayItinerariesAPI, hotelsAPI, activitiesAPI, settingsAPI, destinationsAPI, itineraryPricingAPI, transfersAPI, mealPlansAPI, roomTypesAPI, queryProposalsAPI, leadsAPI } from '../services/api';
+import { packagesAPI, dayItinerariesAPI, hotelsAPI, activitiesAPI, settingsAPI, destinationsAPI, itineraryPricingAPI, transfersAPI, mealPlansAPI, roomTypesAPI, leadProposalsAPI, queryProposalsAPI, leadsAPI } from '../services/api';
 import { searchPexelsPhotos } from '../services/pexels';
 import { getRoadDistance } from '../utils/distanceHelper';
 import { Check, ArrowLeft, Camera, Edit, Plus, ChevronRight, FileText, Search, X, Bed, Image as ImageIcon, Car, FileText as PassportIcon, UtensilsCrossed, Plane, Bus, Train, User, Ship, Star, Calendar, CalendarDays, Hash, Building2, Upload, Clock, RefreshCw } from 'lucide-react';
@@ -31,6 +31,8 @@ const ItineraryDetail = () => {
   const location = useLocation();
   const [searchParams] = useSearchParams();
   const fromLeadId = location.state?.fromLeadId || searchParams.get('fromLead');
+  const isProposal = searchParams.get('type') === 'proposal';
+
   const [itinerary, setItinerary] = useState(null);
   const [syncedWithLead, setSyncedWithLead] = useState(false);
   const legacyMigrationAttemptedRef = useRef(false);
@@ -75,7 +77,11 @@ const ItineraryDetail = () => {
             updateData.duration = leadDuration;
           }
 
-          await packagesAPI.update(id, updateData);
+          if (isProposal) {
+            await leadProposalsAPI.update(id, updateData);
+          } else {
+            await packagesAPI.update(id, updateData);
+          }
 
           setItinerary(prev => ({
             ...prev,
@@ -92,7 +98,7 @@ const ItineraryDetail = () => {
             if (!silent) toast.info(`Pax updated from lead: ${leadAdult} Adult${leadAdult > 1 ? 's' : ''}`);
           }
         } else if (!silent) {
-          toast.success('Itinerary is already in sync with lead');
+          toast.success('Package is already in sync with lead');
         }
         setSyncedWithLead(true);
       }
@@ -309,7 +315,7 @@ const ItineraryDetail = () => {
 
       try {
         const [pkgRes, pricingRes] = await Promise.all([
-          packagesAPI.get(id),
+          isProposal ? leadProposalsAPI.get(id) : packagesAPI.get(id),
           itineraryPricingAPI.get(id)
         ]);
 
@@ -332,7 +338,11 @@ const ItineraryDetail = () => {
         }
 
         if (Object.keys(packageUpdate).length > 0) {
-          await packagesAPI.update(id, packageUpdate);
+          if (isProposal) {
+            await leadProposalsAPI.update(id, packageUpdate);
+          } else {
+            await packagesAPI.update(id, packageUpdate);
+          }
           migratedAnything = true;
         }
 
@@ -360,7 +370,7 @@ const ItineraryDetail = () => {
 
         localStorage.setItem(migrationFlag, '1');
         if (migratedAnything) {
-          toast.success('Legacy itinerary data migrated to server.');
+          toast.success('Legacy package data migrated to server.');
           fetchItinerary();
           loadPricingFromServer();
         }
@@ -374,6 +384,26 @@ const ItineraryDetail = () => {
 
   const loadPricingFromServer = async () => {
     try {
+      // If it's a proposal, we first check if the proposal record itself has pricing fields
+      // (This is the new approach for lead isolation)
+      if (isProposal) {
+        const res = await leadProposalsAPI.get(id);
+        const data = res.data.data;
+        if (data.pricing_data || data.final_client_prices) {
+           if (data.pricing_data) setPricingData(data.pricing_data);
+           if (data.final_client_prices) setFinalClientPrices(data.final_client_prices);
+           if (data.option_gst_settings) setOptionGstSettings(data.option_gst_settings);
+           if (data.base_markup !== undefined) setBaseMarkup(Number(data.base_markup));
+           if (data.extra_markup !== undefined) setExtraMarkup(Number(data.extra_markup));
+           if (data.cgst !== undefined) setCgst(Number(data.cgst));
+           if (data.sgst !== undefined) setSgst(Number(data.sgst));
+           if (data.igst !== undefined) setIgst(Number(data.igst));
+           if (data.tcs !== undefined) setTcs(Number(data.tcs));
+           if (data.discount !== undefined) setDiscount(Number(data.discount));
+           return;
+        }
+      }
+
       const response = await itineraryPricingAPI.get(id, fromLeadId);
       if (response.data?.success && response.data.data) {
         const data = response.data.data;
@@ -485,7 +515,7 @@ const ItineraryDetail = () => {
     const sortedOptionNumbers = Array.from(optionNumbersFromEvents).sort((a, b) => a - b);
 
     if (sortedOptionNumbers.length === 0) {
-      toast.warning('No hotel options found in this itinerary. Please add accommodation options first.');
+      toast.warning('No hotel options found in this package. Please add accommodation options first.');
       return;
     }
 
@@ -537,7 +567,7 @@ const ItineraryDetail = () => {
         id: Date.now() + optNum,
         optionNumber: optNum,
         itinerary_id: parseInt(id),
-        itinerary_name: itinerary?.itinerary_name || 'Itinerary',
+        itinerary_name: itinerary?.itinerary_name || 'Package',
         destination: itinerary?.destinations || '',
         duration: itinerary?.duration || 0,
         price: finalPrice,
@@ -628,7 +658,7 @@ const ItineraryDetail = () => {
         id: Date.now() + optNum,
         optionNumber: optNum,
         itinerary_id: parseInt(id),
-        itinerary_name: itinerary?.itinerary_name || 'Itinerary',
+        itinerary_name: itinerary?.itinerary_name || 'Package',
         destination: itinerary?.destinations || '',
         duration: itinerary?.duration || 0,
         price: finalPrice,
@@ -673,7 +703,11 @@ const ItineraryDetail = () => {
     
     const timer = setTimeout(() => {
       if (isLoaded) {
-        itineraryPricingAPI.save(id, { ...settings, lead_id: fromLeadId }).catch(() => {});
+        if (isProposal) {
+            leadProposalsAPI.update(id, settings).catch(() => {});
+        } else {
+            itineraryPricingAPI.save(id, { ...settings, lead_id: fromLeadId }).catch(() => {});
+        }
       }
     }, 1000);
     
@@ -685,12 +719,18 @@ const ItineraryDetail = () => {
     if (!id || !isLoaded || (Object.keys(pricingData).length === 0 && Object.keys(finalClientPrices).length === 0)) return;
     
     const timer = setTimeout(() => {
-      itineraryPricingAPI.save(id, {
+      const dataToSave = {
         pricing_data: pricingData,
         final_client_prices: finalClientPrices,
         option_gst_settings: optionGstSettings,
         lead_id: fromLeadId
-      }).catch(() => {});
+      };
+      
+      if (isProposal) {
+        leadProposalsAPI.update(id, dataToSave).catch(() => {});
+      } else {
+        itineraryPricingAPI.save(id, dataToSave).catch(() => {});
+      }
     }, 1000);
     
     return () => clearTimeout(timer);
@@ -709,13 +749,37 @@ const ItineraryDetail = () => {
     return () => clearTimeout(timer);
   }, [dayEvents, days, id]);
 
+  const syncItineraryToServer = async (customEvents = null, customDays = null, customOptions = null) => {
+    if (!id || !itinerary) return;
+
+    try {
+      const payload = {
+        day_events: customEvents || dayEvents,
+        days: customDays || days,
+        options_data: customOptions || itinerary.options_data || []
+      };
+
+      if (isProposal) {
+        await leadProposalsAPI.update(id, payload);
+      } else {
+        await packagesAPI.update(id, {
+          ...payload,
+          lead_id: fromLeadId // Pass lead_id for audit logging
+        });
+      }
+      console.log('Itinerary synced to server');
+    } catch (err) {
+      console.error('Failed to sync itinerary to server:', err);
+    }
+  };
+
   // Sync packageTerms (inclusions, exclusions, terms) to server
   useEffect(() => {
     // Only sync if loaded and handle the first mount delay
     if (id && packageTerms && isLoaded) {
       const syncTerms = async () => {
         try {
-          await packagesAPI.update(id, {
+          const updateData = {
             terms_conditions: packageTerms.terms_conditions,
             refund_policy: packageTerms.refund_policy,
             package_description: packageTerms.package_description,
@@ -726,7 +790,13 @@ const ItineraryDetail = () => {
             amendment_policy: packageTerms.amendment_policy,
             payment_policy: packageTerms.payment_policy,
             thank_you_message: packageTerms.thank_you_message
-          });
+          };
+          
+          if (isProposal) {
+            await leadProposalsAPI.update(id, updateData);
+          } else {
+            await packagesAPI.update(id, updateData);
+          }
           console.log('Package terms synced to server');
         } catch (err) {
           console.error('Failed to sync package terms to server:', err);
@@ -763,7 +833,7 @@ const ItineraryDetail = () => {
   const fetchItinerary = async () => {
     try {
       if (!isLoaded) setLoading(true);
-      const response = await packagesAPI.get(id);
+      const response = isProposal ? await leadProposalsAPI.get(id) : await packagesAPI.get(id);
       const data = response.data.data;
 
       // --- ISOLATION GUARD ---
@@ -888,30 +958,6 @@ const ItineraryDetail = () => {
     return <Car className={className} />; // Default to Car for general travel
   };
 
-  const syncItineraryToServer = async (updatedDayEvents, updatedDays, updatedOptions_data) => {
-    if (!id) return;
-
-    try {
-      // Use the provided values or fallback to current state
-      const events = updatedDayEvents || dayEvents;
-      const dayList = updatedDays || days;
-      
-      // Only sync if we have something to sync
-      if (Object.keys(events).length === 0 && dayList.length === 0) return;
-
-      await packagesAPI.update(id, {
-        day_events: events,
-        days: dayList,
-        options_data: updatedOptions_data || itinerary?.options_data,
-        lead_id: fromLeadId // Pass lead_id for audit logging
-      });
-      console.log('Itinerary content synced to server');
-      // showToastNotification('success', 'Saved', 'Content synced to server');
-    } catch (err) {
-      console.error('Failed to sync itinerary content to server:', err);
-      // toast.error('Sync failed');
-    }
-  };
 
   const fetchDayItineraries = async () => {
     try {
@@ -5632,7 +5678,7 @@ const ItineraryDetail = () => {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] py-8">
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl mx-4 my-auto max-h-[90vh] overflow-hidden flex flex-col">
             <div className="flex justify-between items-center p-6 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-white">
-              <h2 className="text-2xl font-bold text-gray-800">Edit Itinerary</h2>
+              <h2 className="text-2xl font-bold text-gray-800">Edit Package</h2>
               <button 
                 onClick={() => setShowEditItineraryModal(false)}
                 className="text-gray-400 hover:text-gray-600 rounded-full p-1 transition-colors"
@@ -5645,13 +5691,13 @@ const ItineraryDetail = () => {
               <div className="space-y-5">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                   <div className="space-y-2">
-                    <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider">Itinerary Name</label>
+                    <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider">Package Name</label>
                     <input
                       type="text"
                       className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all font-medium text-gray-800"
                       value={itineraryFormData.itinerary_name}
                       onChange={(e) => setItineraryFormData({ ...itineraryFormData, itinerary_name: e.target.value })}
-                      placeholder="Enter itinerary name"
+                      placeholder="Enter package name"
                       required
                     />
                   </div>

@@ -221,12 +221,23 @@
     // Extracting Itinerary Routing
     $routing = $quotation && !empty($quotation->itinerary['routing']) ? $quotation->itinerary['routing'] : 'N/A';
 
-    // Calculating Duration
+    // Calculating Duration (Prioritize proposal dates over lead dates)
     $nights = 0;
     $days = 0;
-    if ($lead->travel_start_date && $lead->travel_end_date) {
-        $diff = $lead->travel_start_date->diff($lead->travel_end_date);
+    
+    $startDate = ($quotation && !empty($quotation->start_date)) ? $quotation->start_date : $lead->travel_start_date;
+    $endDate = ($quotation && !empty($quotation->end_date)) ? $quotation->end_date : $lead->travel_end_date;
+
+    if ($startDate && $endDate) {
+        // Ensure they are Carbon objects
+        if (!($startDate instanceof \Carbon\Carbon)) $startDate = \Carbon\Carbon::parse($startDate);
+        if (!($endDate instanceof \Carbon\Carbon)) $endDate = \Carbon\Carbon::parse($endDate);
+        
+        $diff = $startDate->diff($endDate);
         $nights = $diff->days;
+        $days = $nights + 1;
+    } else if ($quotation && !empty($quotation->duration)) {
+        $nights = (int)$quotation->duration;
         $days = $nights + 1;
     }
 
@@ -537,7 +548,7 @@
                         <tr>
                             <td style="width: 25%; font-weight: bold; font-size: 11px;">DAY {{ $dayId }}</td>
                             <td style="text-align: center; font-weight: bold; font-size: 11px; color: #1e3a8a;">
-                                {{ strtoupper($day['destination'] ?? ($day['location'] ?? 'TOUR DAY')) }}
+                                {{ strtoupper($day['destination'] ?? ($day['location'] ?? ($routing ?? 'TOUR DAY'))) }}
                             </td>
                             <td style="width: 25%; text-align: right; font-weight: bold; font-size: 10px; color: #666;">
                                 {{ $dayDate }}

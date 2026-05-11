@@ -11,6 +11,8 @@ const FollowupsTab = memo(({
     followupsAPI,
     fetchLeadDetails,
     showToastNotification,
+    onCompleteFollowup,
+    isLeadLocked,
 }) => {
     const handleAddTask = () => {
         setEditingFollowupId(null);
@@ -35,7 +37,13 @@ const FollowupsTab = memo(({
                 <h3 className="text-lg font-semibold text-gray-800">Followup's / Task</h3>
                 <button
                     onClick={handleAddTask}
-                    className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                    disabled={isLeadLocked || followups.some(f => !f.is_completed)}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+                        (isLeadLocked || followups.some(f => !f.is_completed))
+                        ? 'bg-gray-400 text-gray-200 cursor-not-allowed opacity-70'
+                        : 'bg-blue-600 text-white hover:bg-blue-700'
+                    }`}
+                    title={isLeadLocked ? "Lead is locked. Request unlock to add task." : (followups.some(f => !f.is_completed) ? "Complete existing task before adding a new one" : "")}
                 >
                     <Plus className="h-4 w-4" />
                     Add Task
@@ -186,22 +194,20 @@ const FollowupsTab = memo(({
                                                 </span>
                                             ) : (
                                                 <button
-                                                    onClick={async () => {
-                                                        try {
-                                                            await followupsAPI.complete(followup.id);
-                                                            await fetchLeadDetails();
-                                                        } catch (err) {
-                                                            console.error('Failed to complete followup:', err);
-                                                            showToastNotification(
-                                                                'error',
-                                                                'Error',
-                                                                err.response?.data?.message || 'Failed to mark as completed'
-                                                            );
+                                                    onClick={() => {
+                                                        if (isLeadLocked) {
+                                                            showToastNotification('warning', 'Lead Locked', 'This lead is locked. Please request approval to take action.');
+                                                            return;
                                                         }
+                                                        onCompleteFollowup(followup);
                                                     }}
-                                                    className="px-3 py-1 bg-green-600 text-white text-xs font-semibold rounded hover:bg-green-700 transition-colors"
+                                                    className={`px-3 py-1 text-white text-xs font-semibold rounded shadow-sm active:scale-95 transition-all ${
+                                                        isLeadLocked 
+                                                        ? 'bg-gray-400 cursor-not-allowed' 
+                                                        : 'bg-green-600 hover:bg-green-700'
+                                                    }`}
                                                 >
-                                                    Mark Complete
+                                                    Take Follow-up
                                                 </button>
                                             )}
                                         </div>

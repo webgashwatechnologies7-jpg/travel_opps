@@ -92,7 +92,7 @@ export const SettingsProvider = ({ children }) => {
   const defaultMenuItems = [
     { path: '/dashboard', label: 'Dashboard', icon: 'LayoutDashboard' },
     { path: '/leads', label: 'Queries', icon: 'MessageSquare', feature: 'leads_management' },
-    { path: '/itineraries', label: 'Itineraries', icon: 'FileText', feature: 'itineraries' },
+    { path: '/itineraries', label: 'Packages', icon: 'FileText', feature: 'itineraries' },
     { path: '/notifications', label: 'Notifications', icon: 'Bell' },
     { path: '/sales-reps', label: 'Sales Reps', icon: 'Users', feature: 'analytics', adminOnly: true },
     { path: '/payments', label: 'Payments', icon: 'CreditCard', feature: 'payments' },
@@ -107,7 +107,7 @@ export const SettingsProvider = ({ children }) => {
     { label: 'Reports', icon: 'BarChart3', feature: 'reports', submenu: [{ path: '/dashboard/employee-performance', label: 'Performance', feature: 'reports' }] },
     { label: 'Marketing', icon: 'Megaphone', feature: 'campaigns', submenu: [{ path: '/marketing', label: 'Dashboard', feature: 'campaigns' }, { path: '/client-groups', label: 'Clients Group', feature: 'campaigns' }, { path: '/marketing/templates', label: 'Email Templates', feature: 'email_templates' }, { path: '/marketing/whatsapp-templates', label: 'WhatsApp Templates', feature: 'whatsapp' }, { path: '/marketing/campaigns', label: 'Campaigns', feature: 'campaigns' }, { path: '/marketing/landing-pages', label: 'Landing Pages', feature: 'landing_pages' }] },
     { label: 'Company Settings', icon: 'Settings', adminOnly: true, submenu: [{ path: '/settings/account-details', label: 'Account Details' }] },
-    { label: 'Masters', icon: 'Grid', submenu: [{ path: '/masters/suppliers', label: 'Suppliers', feature: 'suppliers' }, { path: '/masters/hotel', label: 'Hotel', feature: 'hotels' }, { path: '/masters/activity', label: 'Activity', feature: 'activities' }, { path: '/masters/transfer', label: 'Transport', feature: 'transfers' }, { path: '/masters/day-itinerary', label: 'Day Itinerary', feature: 'day_itineraries' }, { path: '/masters/destinations', label: 'Destinations', feature: 'destinations' }, { path: '/masters/room-type', label: 'Room Type', feature: 'hotels' }, { path: '/masters/meal-plan', label: 'Meal Plan', feature: 'hotels' }, { path: '/masters/lead-source', label: 'Lead Source' }, { path: '/masters/expense-type', label: 'Expense Type', feature: 'expenses' }, { path: '/masters/points', label: 'Inclusions & Exclusions' }, { path: '/targets', label: 'Targets', feature: 'targets', adminOnly: true }] },
+    { label: 'Masters', icon: 'Grid', submenu: [{ path: '/masters/suppliers', label: 'Suppliers', feature: 'suppliers' }, { path: '/masters/hotel', label: 'Hotel', feature: 'hotels' }, { path: '/masters/activity', label: 'Activity', feature: 'activities' }, { path: '/masters/transfer', label: 'Transport', feature: 'transfers' }, { path: '/masters/day-itinerary', label: 'Day Packages', feature: 'day_itineraries' }, { path: '/masters/destinations', label: 'Destinations', feature: 'destinations' }, { path: '/masters/room-type', label: 'Room Type', feature: 'hotels' }, { path: '/masters/meal-plan', label: 'Meal Plan', feature: 'hotels' }, { path: '/masters/lead-source', label: 'Lead Source' }, { path: '/masters/expense-type', label: 'Expense Type', feature: 'expenses' }, { path: '/masters/points', label: 'Inclusions & Exclusions' }, { path: '/targets', label: 'Targets', feature: 'targets', adminOnly: true }] },
     { path: '/support', label: 'Customer Support', icon: 'MessageSquare' },
   ];
 
@@ -213,6 +213,28 @@ export const SettingsProvider = ({ children }) => {
 
 
           apiMenu = ensureSettingsIntegrationItems(apiMenu);
+          
+          // Rename Itineraries to Packages globally in labels
+          const transformLabel = (label) => {
+            if (!label) return label;
+            return label
+              .replace(/Itineraries/g, 'Packages')
+              .replace(/itineraries/g, 'packages')
+              .replace(/Itinerary/g, 'Package')
+              .replace(/itinerary/g, 'package')
+              .replace(/Day Package/g, 'Day Packages'); // Fix plural if needed
+          };
+
+          apiMenu = apiMenu.map(item => {
+            const newItem = { ...item, label: transformLabel(item.label) };
+            if (newItem.submenu) {
+              newItem.submenu = newItem.submenu.map(sub => ({
+                ...sub,
+                label: transformLabel(sub.label)
+              }));
+            }
+            return newItem;
+          });
 
           // Ensure 'Terms & Points' is in Masters and 'Targets' is adminOnly
           apiMenu = apiMenu.map(item => {
