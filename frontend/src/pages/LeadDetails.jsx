@@ -783,6 +783,7 @@ const LeadDetails = () => {
               id: (existing?.id) || opt.id || Date.now() + i + tid,
               itinerary_name: opt.itinerary_name || pkgData.itinerary_name || pkgData.title || p.itinerary_name || p.title,
               destination: opt.destination || pkgData.destinations || pkgData.destination || p.destination,
+              routing: opt.routing || pkgData.routing || p.routing || '',
               duration: opt.duration || pkgData.duration || p.duration,
               image: opt.image || pkgData.image || p.image,
               price: price,
@@ -3548,7 +3549,8 @@ const handleViewQuotation = async (proposal, openModal = true) => {
         ...proposal,
         itinerary_name: pkgData?.itinerary_name || proposal.itinerary_name || 'Travel Proposal',
         duration: pkgData?.duration || proposal.duration,
-        destinations: pkgData?.destinations || proposal.destination,
+        routing: pkgData?.routing || proposal.routing || pkgData?.destinations || proposal.destination || '',
+        destinations: pkgData?.destinations || proposal.destination || proposal.destinations,
         day_events: dayEvents,
         adult: pkgData?.adult || lead?.adult || 1,
         child: pkgData?.child || lead?.child || 0,
@@ -3593,7 +3595,8 @@ const handleViewQuotation = async (proposal, openModal = true) => {
       itinerary: {
         itinerary_name: proposal.itinerary_name,
         title: proposal.itinerary_name,
-        destinations: proposal.destination,
+        destinations: proposal.destination || proposal.destinations,
+        routing: proposal.routing || '',
         duration: proposal.duration,
         price: proposal.price,
       },
@@ -6146,7 +6149,7 @@ return (
                       <tr>
                         <td colSpan="2" className="border border-gray-100 p-4">
                           <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-1">Routing</p>
-                          <p className="font-extrabold text-slate-800">{quotationData.itinerary?.routing || quotationData.itinerary?.destinations}</p>
+                          <p className="font-extrabold text-slate-800">{quotationData.itinerary?.routing || quotationData.itinerary?.destinations || quotationData.itinerary?.destination}</p>
                         </td>
                         <td colSpan="2" className="border border-gray-100 p-4">
                           <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-1">Duration</p>

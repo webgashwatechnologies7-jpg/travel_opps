@@ -115,7 +115,9 @@ class LeadProposalController extends Controller
                 'record_id' => $proposal->id,
                 'new_values' => [
                     'itinerary_name' => $proposal->itinerary_name,
-                    'price' => $displayPrice
+                    'price' => $displayPrice,
+                    'routing' => $proposal->routing,
+                    'destinations' => $proposal->destinations
                 ]
             ]);
 
@@ -194,7 +196,9 @@ class LeadProposalController extends Controller
                     'old_values' => $oldValues,
                     'new_values' => [
                         'itinerary_name' => $proposal->itinerary_name,
-                        'price' => $newDisplayPrice
+                        'price' => $newDisplayPrice,
+                        'routing' => $proposal->routing,
+                        'destinations' => $proposal->destinations
                     ]
                 ]);
             }
@@ -233,7 +237,11 @@ class LeadProposalController extends Controller
                 'activity_description' => "Confirmed itinerary '{$proposal->itinerary_name}' and cleaned up drafts",
                 'module' => 'lead_proposal',
                 'record_id' => $proposal->id,
-                'metadata' => ['price' => $proposal->price]
+                'metadata' => [
+                    'price' => $proposal->price,
+                    'routing' => $proposal->routing,
+                    'destinations' => $proposal->destinations
+                ]
             ]);
 
             // Delete all other proposals for this lead and log them to history
@@ -251,7 +259,9 @@ class LeadProposalController extends Controller
                     'record_id' => $other->id,
                     'old_values' => [
                         'itinerary_name' => $other->itinerary_name,
-                        'price' => $other->price
+                        'price' => $other->price,
+                        'routing' => $other->routing,
+                        'destinations' => $other->destinations
                     ]
                 ]);
                 $other->delete();
@@ -295,7 +305,9 @@ class LeadProposalController extends Controller
                 'record_id' => $proposal->id,
                 'old_values' => [
                     'itinerary_name' => $proposal->itinerary_name,
-                    'price' => $displayPrice
+                    'price' => $displayPrice,
+                    'routing' => $proposal->routing,
+                    'destinations' => $proposal->destinations
                 ]
             ]);
 
@@ -336,12 +348,16 @@ class LeadProposalController extends Controller
                     'activity_description' => $log->activity_description,
                     'itinerary_name' => $proposalData['itinerary_name'] ?? 'Itinerary',
                     'price' => $proposalData['price'] ?? null,
+                    'routing' => $proposalData['routing'] ?? null,
+                    'destination' => $proposalData['destinations'] ?? $proposalData['destination'] ?? null,
                     'archived_by_name' => $log->user?->name ?? 'System',
                     'options' => [
                         array_merge($proposalData, [
                             'metadata' => $proposalData,
                             'price' => $proposalData['price'] ?? 0,
-                            'itinerary_name' => $proposalData['itinerary_name'] ?? 'Itinerary'
+                            'itinerary_name' => $proposalData['itinerary_name'] ?? 'Itinerary',
+                            'routing' => $proposalData['routing'] ?? null,
+                            'destination' => $proposalData['destinations'] ?? $proposalData['destination'] ?? null
                         ])
                     ]
                 ];

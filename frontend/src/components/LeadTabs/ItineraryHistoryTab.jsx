@@ -61,7 +61,8 @@ const ItineraryHistoryTab = memo(({ historyData, totalChanges, loadingHistory, g
     const itineraryName = isActive
       ? version.itinerary_name
       : (version.itinerary_name || meta.itinerary_name || 'Untitled Itinerary');
-    const destination = version.destination || meta.destination || '';
+    const destination = version.destination || meta.destination || version.destinations || meta.destinations || '';
+    const routing = version.routing || meta.routing || '';
     const duration = version.duration || meta.duration || '';
     const rawImage = version.image || meta.image;
     const imageUrl = getDisplayImageUrl ? getDisplayImageUrl(rawImage) : rawImage;
@@ -192,9 +193,9 @@ const ItineraryHistoryTab = memo(({ historyData, totalChanges, loadingHistory, g
               </div>
 
               <div className="flex flex-wrap items-center gap-3 text-xs text-gray-500 mt-1">
-                {destination && (
+                {(routing || destination) && (
                   <span className="flex items-center gap-1">
-                    <MapPin className="h-3 w-3" /> {destination}
+                    <MapPin className="h-3 w-3" /> {routing || destination}
                   </span>
                 )}
                 {duration > 0 && (
