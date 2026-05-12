@@ -20,7 +20,10 @@ class FollowupController extends Controller
     public function index(Request $request): JsonResponse
     {
         try {
-            $followups = LeadFollowup::with(['lead' => function($q) {
+            $followups = LeadFollowup::whereHas('lead', function($q) {
+                    $q->where('status', '!=', 'cancelled');
+                })
+                ->with(['lead' => function($q) {
                     $q->withTrashed();
                 }, 'lead.assignedUser', 'lead.creator', 'user'])
                 ->where('is_completed', false)
@@ -416,7 +419,10 @@ class FollowupController extends Controller
         try {
             $today = now()->toDateString();
 
-            $followups = LeadFollowup::with(['lead' => function($q) {
+            $followups = LeadFollowup::whereHas('lead', function($q) {
+                    $q->where('status', '!=', 'cancelled');
+                })
+                ->with(['lead' => function($q) {
                     $q->withTrashed();
                 }, 'lead.assignedUser', 'lead.creator', 'user'])
                 ->where('reminder_date', $today)
@@ -486,7 +492,10 @@ class FollowupController extends Controller
         try {
             $today = now()->toDateString();
 
-            $followups = LeadFollowup::with(['lead' => function($q) {
+            $followups = LeadFollowup::whereHas('lead', function($q) {
+                    $q->where('status', '!=', 'cancelled');
+                })
+                ->with(['lead' => function($q) {
                     $q->withTrashed();
                 }, 'lead.assignedUser', 'lead.creator', 'user'])
                 ->where('reminder_date', '<', $today)
