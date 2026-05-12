@@ -3102,19 +3102,23 @@ const leadTripDays = (() => {
 })();
 
 const filteredItineraries = dayItineraries.filter(itinerary => {
-  // If query has From/To dates, show only itineraries matching that duration
-  if (leadTripDays != null) {
-    const itDays = parseInt(itinerary.duration);
-    if (!isNaN(itDays) && itDays !== leadTripDays) {
-      return false;
-    }
-  }
+  // Search filter only — show ALL itineraries regardless of duration
   const searchLower = itinerarySearchTerm.toLowerCase();
   return (
+    searchLower === '' ||
     (itinerary.title || itinerary.itinerary_name || '').toLowerCase().includes(searchLower) ||
     (itinerary.destination || itinerary.destinations || '').toLowerCase().includes(searchLower) ||
     (itinerary.details || itinerary.notes || '').toLowerCase().includes(searchLower)
   );
+}).sort((a, b) => {
+  // Sort: matching duration itineraries first (if trip days known)
+  if (leadTripDays != null) {
+    const aMatch = parseInt(a.duration) === leadTripDays;
+    const bMatch = parseInt(b.duration) === leadTripDays;
+    if (aMatch && !bMatch) return -1;
+    if (!aMatch && bMatch) return 1;
+  }
+  return b.id - a.id; // newest first otherwise
 });
 
 const formatDateForInput = (dateString) => {
@@ -5894,7 +5898,7 @@ return (
           <div className="p-6">
             {leadTripDays != null && (
               <div className="mb-3 px-3 py-2 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-800">
-                Showing itineraries for <strong>{leadTripDays} day{leadTripDays !== 1 ? 's' : ''}</strong>
+                <span>Query duration: <strong>{leadTripDays} day{leadTripDays !== 1 ? 's' : ''}</strong> — Matching packages shown first. All packages are available.</span>
               </div>
             )}
             <div className="mb-4">
