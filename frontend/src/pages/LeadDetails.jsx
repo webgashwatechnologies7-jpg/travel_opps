@@ -2949,7 +2949,7 @@ const handleSelectItinerary = async (itinerary) => {
     const baseInfo = {
       itinerary_id: pkg.id,
       itinerary_name: itineraryName,
-      destination: pkg.destinations || pkg.destination || '',
+      destination: pkg.destination || pkg.destinations || pkg.routing || pkg.itinerary_name || '',
       duration: pkg.duration || 0,
       image: pkg.image || null,
       notes: pkg.notes || '',
@@ -5923,7 +5923,7 @@ return (
                   </div>
                   <div className="flex-1 min-w-0">
                     <h3 className="font-bold truncate">{it.title || it.itinerary_name}</h3>
-                    <p className="text-sm text-gray-500">{it.duration} Days - {it.routing || it.destination || it.destinations}</p>
+                    <p className="text-sm text-gray-500">{it.duration} Days - {it.destination || it.destinations || it.routing || it.itinerary_name || it.title}</p>
                   </div>
                   <button onClick={(e) => { e.stopPropagation(); handleSelectItinerary(it); }} className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm transition-colors flex-shrink-0">Insert</button>
                 </div>

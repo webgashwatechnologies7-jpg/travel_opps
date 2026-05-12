@@ -100,6 +100,14 @@ class Package extends Model
     }
 
     /**
+     * Get all proposals created from this package.
+     */
+    public function proposals()
+    {
+        return $this->hasMany(LeadProposal::class, 'original_package_id');
+    }
+
+    /**
      * Calculate duration from start and end dates.
      *
      * @return void

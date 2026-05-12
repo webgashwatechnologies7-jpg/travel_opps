@@ -446,8 +446,15 @@ const Itineraries = () => {
 
   const handleDelete = async (itinerary) => {
     const name = itinerary.title || itinerary.itinerary_name || 'This package';
-    if (!window.confirm(`Are you sure you want to delete "${name}"? This cannot be undone.`)) return;
+    const usedInLeads = itinerary.proposals_count > 0;
     try {
+      let confirmMsg = `Are you sure you want to delete "${name}"? This cannot be undone.`;
+      if (usedInLeads) {
+        confirmMsg = `Wait! This package is used in ${itinerary.proposals_count} leads.\n\nSafe Deletion: Existing leads will NOT be affected because they have their own copies, but you won't see this template in the library anymore.\n\nDo you still want to delete "${name}"?`;
+      }
+
+      if (!window.confirm(confirmMsg)) return;
+
       await packagesAPI.delete(itinerary.id);
       await fetchItineraries(false);
       setSelectedIds(prev => prev.filter(id => id !== itinerary.id));
@@ -460,7 +467,14 @@ const Itineraries = () => {
 
   const handleBulkDelete = async () => {
     if (selectedIds.length === 0) return;
-    if (!window.confirm(`Are you sure you want to delete ${selectedIds.length} packages? This cannot be undone.`)) return;
+    const usedCount = filteredItineraries.filter(it => selectedIds.includes(it.id) && it.proposals_count > 0).length;
+    let confirmMsg = `Are you sure you want to delete ${selectedIds.length} packages? This cannot be undone.`;
+    
+    if (usedCount > 0) {
+      confirmMsg = `You have selected ${selectedIds.length} packages, and ${usedCount} of them are currently used in leads.\n\nDon't worry: Existing leads will keep their copies and won't be broken.\n\nAre you sure you want to proceed with bulk deletion?`;
+    }
+
+    if (!window.confirm(confirmMsg)) return;
 
     setIsDeletingBulk(true);
     try {
@@ -568,6 +582,16 @@ const Itineraries = () => {
           >
             <RefreshCw size={18} />
           </button>
+
+          {selectedIds.length > 0 && hasPermission(user, 'itineraries.delete') && (
+            <button
+              onClick={handleBulkDelete}
+              className="flex items-center gap-2 bg-red-600 text-white px-6 py-3 rounded-2xl font-bold text-sm hover:bg-red-700 transition-all shadow-lg shadow-red-200 active:scale-95 animate-in-scale"
+            >
+              <Trash size={18} />
+              <span>Delete ({selectedIds.length})</span>
+            </button>
+          )}
 
           <button
             onClick={handleAddNew}
@@ -857,6 +881,11 @@ const Itineraries = () => {
                         {itinerary.lead_id && (
                           <span className="bg-purple-100 text-purple-600 px-1.5 py-0.5 rounded font-black uppercase text-[8px] tracking-tighter">
                             Lead Specific
+                          </span>
+                        )}
+                        {itinerary.proposals_count > 0 && (
+                          <span className="bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded font-black uppercase text-[8px] tracking-tighter whitespace-nowrap">
+                            Used in {itinerary.proposals_count} Lead{itinerary.proposals_count !== 1 ? 's' : ''}
                           </span>
                         )}
                       </div>

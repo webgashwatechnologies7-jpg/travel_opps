@@ -20,7 +20,7 @@ class PackageController extends Controller
     {
         try {
             // Select only necessary fields for the list view to improve performance
-            $query = Package::with('creator:id,name');
+            $query = Package::with('creator:id,name')->withCount('proposals');
 
             // Default: show everything (Templates + Lead Specific)
             if ($request->has('templates_only') && $request->boolean('templates_only')) {
@@ -64,6 +64,7 @@ class PackageController extends Controller
                     'updated_at' => $package->updated_at,
                     'created_at' => $package->created_at,
                     'lead_id' => $package->lead_id,
+                    'proposals_count' => $package->proposals_count,
                 ];
             });
 
