@@ -2818,10 +2818,16 @@ useEffect(() => {
 }, [showItineraryLibraryModal, itineraryLibraryTab]);
 
 // Fetch itineraries for the "Insert Itinerary" selection modal
+// Fetches ALL packages (templates + lead-specific proposals) so nothing is missed
 useEffect(() => {
-  if (!showInsertItineraryModal || dayItineraries.length > 0) return;
+  if (!showInsertItineraryModal) {
+    // Reset when modal closes so fresh data is fetched on next open
+    setDayItineraries([]);
+    return;
+  }
   setLoadingItineraries(true);
-  packagesAPI.list({ templates_only: true }).then((res) => {
+  // Fetch all packages — includes templates AND lead-specific proposals
+  packagesAPI.list({ per_page: 500 }).then((res) => {
     const data = res.data.data || [];
     // Sort by ID DESC (Latest first)
     setDayItineraries(data.sort((a, b) => b.id - a.id));
@@ -3102,7 +3108,14 @@ const leadTripDays = (() => {
 })();
 
 const filteredItineraries = dayItineraries.filter(itinerary => {
-  // Search filter only — show ALL itineraries regardless of duration
+  // Duration filter: if query has dates, show only matching-duration itineraries
+  if (leadTripDays != null) {
+    const itDays = parseInt(itinerary.duration);
+    if (!isNaN(itDays) && itDays !== leadTripDays) {
+      return false;
+    }
+  }
+  // Search filter
   const searchLower = itinerarySearchTerm.toLowerCase();
   return (
     searchLower === '' ||
@@ -3110,16 +3123,7 @@ const filteredItineraries = dayItineraries.filter(itinerary => {
     (itinerary.destination || itinerary.destinations || '').toLowerCase().includes(searchLower) ||
     (itinerary.details || itinerary.notes || '').toLowerCase().includes(searchLower)
   );
-}).sort((a, b) => {
-  // Sort: matching duration itineraries first (if trip days known)
-  if (leadTripDays != null) {
-    const aMatch = parseInt(a.duration) === leadTripDays;
-    const bMatch = parseInt(b.duration) === leadTripDays;
-    if (aMatch && !bMatch) return -1;
-    if (!aMatch && bMatch) return 1;
-  }
-  return b.id - a.id; // newest first otherwise
-});
+}).sort((a, b) => b.id - a.id); // newest first
 
 const formatDateForInput = (dateString) => {
   if (!dateString) return '';
@@ -5898,7 +5902,7 @@ return (
           <div className="p-6">
             {leadTripDays != null && (
               <div className="mb-3 px-3 py-2 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-800">
-                <span>Query duration: <strong>{leadTripDays} day{leadTripDays !== 1 ? 's' : ''}</strong> — Matching packages shown first. All packages are available.</span>
+                <span>Showing all <strong>{leadTripDays}-day</strong> packages (templates + lead-specific)</span>
               </div>
             )}
             <div className="mb-4">
