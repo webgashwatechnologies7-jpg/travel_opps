@@ -21,6 +21,175 @@ const hasPermission = (user, permission) => {
   return false;
 };
 
+// Sub-component to handle individual itinerary cards and their states (like image errors)
+const ItineraryCard = ({ 
+  itinerary, 
+  user, 
+  navigate, 
+  selectedIds, 
+  handleToggleSelect, 
+  handleView, 
+  handleDuplicate, 
+  handleEdit, 
+  handleDelete, 
+  handleSelectForLead 
+}) => {
+  const [imgError, setImgError] = useState(false);
+  const isSelected = selectedIds.includes(itinerary.id);
+  const chooseForLead = new URLSearchParams(window.location.search).get('chooseForLead');
+
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={() => navigate(`/itineraries/${itinerary.id}`)}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          navigate(`/itineraries/${itinerary.id}`);
+        }
+      }}
+      className={`bg-white flex flex-col border rounded-2xl shadow-sm hover:shadow-md transition-all overflow-hidden group cursor-pointer relative ${isSelected ? 'ring-2 ring-blue-500 border-blue-500 shadow-blue-100' : 'border-gray-200'}`}
+    >
+      {/* Selection Checkbox Overlay */}
+      <div className="absolute top-3 left-3 z-10">
+        <input
+          type="checkbox"
+          className="w-5 h-5 rounded-lg border-2 border-white/50 bg-black/20 backdrop-blur-sm text-blue-600 focus:ring-blue-500 shadow-lg cursor-pointer transition-transform group-hover:scale-110 checked:border-blue-500"
+          checked={isSelected}
+          onChange={(e) => handleToggleSelect(e, itinerary.id)}
+          onClick={(e) => e.stopPropagation()}
+        />
+      </div>
+
+      {/* Image & Actions Container */}
+      <div className="relative h-72 overflow-hidden bg-slate-50">
+        {(itinerary.image && !imgError) ? (
+          <img
+            src={itinerary.image}
+            alt={itinerary.title}
+            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+            onError={() => setImgError(true)}
+          />
+        ) : (
+          <div className="w-full h-full bg-gray-100 flex flex-col items-center justify-center gap-2">
+            <ImageIcon className="text-gray-300 h-8 w-8" />
+            <span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">No Photo</span>
+          </div>
+        )}
+
+        {/* Top Actions Overlay */}
+        <div className="absolute top-3 right-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleView(itinerary);
+            }}
+            className="w-8 h-8 rounded-full bg-white/90 backdrop-blur text-blue-600 hover:bg-white flex items-center justify-center shadow-lg"
+            title="View Details"
+          >
+            <Eye className="h-4 w-4" />
+          </button>
+          {hasPermission(user, 'itineraries.create') && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleDuplicate(itinerary);
+              }}
+              className="w-8 h-8 rounded-full bg-white/90 backdrop-blur text-purple-600 hover:bg-white flex items-center justify-center shadow-lg"
+              title="Duplicate Package"
+            >
+              <Copy className="h-4 w-4" />
+            </button>
+          )}
+          {hasPermission(user, 'itineraries.edit') && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleEdit(itinerary);
+              }}
+              className="w-8 h-8 rounded-full bg-white/90 backdrop-blur text-green-600 hover:bg-white flex items-center justify-center shadow-lg"
+              title="Edit Package"
+            >
+              <Edit className="h-4 w-4" />
+            </button>
+          )}
+          {hasPermission(user, 'itineraries.delete') && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleDelete(itinerary);
+              }}
+              className="w-8 h-8 rounded-full bg-white/90 backdrop-blur text-red-600 hover:bg-white flex items-center justify-center shadow-lg"
+              title="Delete Package"
+            >
+              <Trash className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+
+        {/* SELECT FOR LEAD BUTTON */}
+        {chooseForLead && (
+          <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleSelectForLead(itinerary);
+              }}
+              className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-xl font-bold flex items-center gap-2 shadow-xl transform group-hover:scale-110 transition-transform"
+            >
+              <Plus className="h-5 w-5" />
+              INSERT INTO LEAD
+            </button>
+          </div>
+        )}
+
+        {/* Bottom Info Overlay */}
+        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent p-4">
+          <h3 className="text-white font-bold text-lg truncate mb-1">
+            {itinerary.title || itinerary.itinerary_name || "Untitled"}
+          </h3>
+          <div className="flex items-center gap-3 text-white/90 text-xs">
+            <span className="flex items-center gap-1 font-medium">
+              <CalendarDays className="w-3.5 h-3.5" />
+              {itinerary.duration ? `${itinerary.duration} Days` : "N/A"}
+            </span>
+            {(itinerary.routing || itinerary.destination || itinerary.destinations) && (
+              <span className="flex items-center gap-1 truncate max-w-[150px] font-medium opacity-90">
+                <MapPin className="w-3.5 h-3.5" />
+                {itinerary.routing || itinerary.destination || itinerary.destinations}
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="p-4 space-y-4">
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</span>
+            <div className="flex items-center gap-1.5 bg-slate-50 px-2 py-0.5 rounded-full border border-slate-100">
+              <div className={`w-1.5 h-1.5 rounded-full ${itinerary.status === 'active' ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.4)]' : 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.4)]'}`} />
+              <span className={`text-[10px] font-bold uppercase tracking-tight ${itinerary.status === 'active' ? 'text-green-600' : 'text-red-600'}`}>
+                {itinerary.status === 'active' ? 'Visible' : 'Hidden'}
+              </span>
+            </div>
+          </div>
+          <div className="flex items-center justify-between text-[10px] text-slate-400 font-bold uppercase tracking-widest">
+            <span>ID: {itinerary.id} {itinerary.lead_id && <span className="ml-2 px-1.5 py-0.5 bg-blue-100 text-blue-600 rounded text-[9px]">USED IN LEAD</span>}</span>
+            <span>Updated: {new Date(itinerary.updated_at).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const Itineraries = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -700,9 +869,9 @@ const Itineraries = () => {
               <option value="oldest">Oldest First</option>
               <option value="name">Name A-Z</option>
             </select>
-          </div>
         </div>
-
+      </div>
+    </div>
 
       {loading && itineraries.length === 0 ? (
         <div className="flex flex-col items-center justify-center h-[50vh] animate-in fade-in duration-500 bg-white rounded-3xl border border-dashed border-slate-200">
