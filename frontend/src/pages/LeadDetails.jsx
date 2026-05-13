@@ -2714,7 +2714,8 @@ const handleSaveItinerary = async (e) => {
     formData.append('duration', itineraryFormData.duration);
     formData.append('notes', itineraryFormData.notes);
     formData.append('show_on_website', itineraryFormData.show_on_website ? 1 : 0);
-    formData.append('lead_id', id);
+    // REMOVED: formData.append('lead_id', id); - We create it as a Template first, 
+    // then handleSelectItinerary will handle the clone/insertion flow.
 
     if (itineraryFormData.image && itineraryFormData.image.file) {
       formData.append('image', itineraryFormData.image.file);
