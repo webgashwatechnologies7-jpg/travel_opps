@@ -5366,10 +5366,18 @@ return (
                                               ₹{Number(opt.price || opt.metadata?.price || 0).toLocaleString('en-IN')}
                                             </div>
                                             <div className="flex flex-col gap-2">
-                                              {!opt.confirmed && followups.every(f => f.is_completed) && (
+                                              {!opt.confirmed && (
                                                 <button
                                                   type="button"
-                                                  onClick={(e) => { e.stopPropagation(); handleConfirmOption(opt.id); }}
+                                                  onClick={(e) => { 
+                                                    e.stopPropagation(); 
+                                                    const allDone = followups.every(f => f.is_completed);
+                                                    if (!allDone) {
+                                                      showToastNotification('warning', 'Pending Followups', 'Please mark all followups as done before confirming the booking.');
+                                                      return;
+                                                    }
+                                                    handleConfirmOption(opt.id); 
+                                                  }}
                                                   className="w-full bg-orange-500 hover:bg-orange-600 text-white text-sm font-semibold px-3 py-2 rounded-lg"
                                                 >
                                                   Book Now
