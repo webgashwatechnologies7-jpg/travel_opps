@@ -84,19 +84,6 @@ class PackageController extends Controller
                 ]
             ], 200);
 
-            $templateCount = Package::whereNull('lead_id')->count();
-            $proposalCount = Package::whereNotNull('lead_id')->count();
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Packages retrieved successfully',
-                'data' => $packages,
-                'meta' => [
-                    'template_count' => $templateCount,
-                    'proposal_count' => $proposalCount,
-                ]
-            ], 200);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
@@ -710,6 +697,8 @@ class PackageController extends Controller
                 'error' => config('app.debug') ? $e->getMessage() : $e->getMessage(),
             ], 500);
         }
+    }
+
     /**
      * Convert lead-specific packages to general templates.
      *
