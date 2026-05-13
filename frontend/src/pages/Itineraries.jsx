@@ -49,6 +49,7 @@ const Itineraries = () => {
   const [freeStockLoading, setFreeStockLoading] = useState(false);
   const [selectedIds, setSelectedIds] = useState([]);
   const [isDeletingBulk, setIsDeletingBulk] = useState(false);
+  const [isConvertingBulk, setIsConvertingBulk] = useState(false);
   const [formData, setFormData] = useState({
     itinerary_name: '',
     duration: '1',
@@ -490,6 +491,39 @@ const Itineraries = () => {
     }
   };
 
+  const handleBulkConvert = async () => {
+    if (selectedIds.length === 0) return;
+    
+    // Only convert those which are lead specific
+    const leadSpecificIds = itineraries
+      .filter(it => selectedIds.includes(it.id) && it.lead_id)
+      .map(it => it.id);
+
+    if (leadSpecificIds.length === 0) {
+      toast.info('None of the selected items are lead-specific.');
+      return;
+    }
+
+    const confirmMsg = `Are you sure you want to convert ${leadSpecificIds.length} lead-specific packages to general templates? They will be available for all leads.`;
+    
+    if (!window.confirm(confirmMsg)) return;
+
+    setIsConvertingBulk(true);
+    try {
+      const res = await packagesAPI.bulkConvertToTemplate(leadSpecificIds);
+      if (res.data.success) {
+        toast.success(res.data.message || `${leadSpecificIds.length} packages converted to templates`);
+        setSelectedIds([]);
+        await fetchItineraries(true);
+      }
+    } catch (err) {
+      console.error('Bulk conversion failed:', err);
+      toast.error(err.response?.data?.message || 'Failed to convert selected packages');
+    } finally {
+      setIsConvertingBulk(false);
+    }
+  };
+
   const handleToggleSelectAll = (checked) => {
     if (checked) {
       setSelectedIds(filteredItineraries.map(it => it.id));
@@ -586,10 +620,24 @@ const Itineraries = () => {
           {selectedIds.length > 0 && hasPermission(user, 'itineraries.delete') && (
             <button
               onClick={handleBulkDelete}
-              className="flex items-center gap-2 bg-red-600 text-white px-6 py-3 rounded-2xl font-bold text-sm hover:bg-red-700 transition-all shadow-lg shadow-red-200 active:scale-95 animate-in-scale"
+              disabled={isDeletingBulk}
+              className="flex items-center gap-2 bg-red-600 text-white px-6 py-3 rounded-2xl font-bold text-sm hover:bg-red-700 transition-all shadow-lg shadow-red-200 active:scale-95 animate-in-scale disabled:opacity-50"
             >
               <Trash size={18} />
-              <span>Delete ({selectedIds.length})</span>
+              <span>{isDeletingBulk ? 'Deleting...' : `Delete (${selectedIds.length})`}</span>
+            </button>
+          )}
+
+          {selectedIds.length > 0 && 
+           itineraries.some(it => selectedIds.includes(it.id) && it.lead_id) && 
+           hasPermission(user, 'itineraries.edit') && (
+            <button
+              onClick={handleBulkConvert}
+              disabled={isConvertingBulk}
+              className="flex items-center gap-2 bg-purple-600 text-white px-6 py-3 rounded-2xl font-bold text-sm hover:bg-purple-700 transition-all shadow-lg shadow-purple-200 active:scale-95 animate-in-scale disabled:opacity-50"
+            >
+              <RefreshCw size={18} className={isConvertingBulk ? 'animate-spin' : ''} />
+              <span>{isConvertingBulk ? 'Converting...' : 'Convert to Template'}</span>
             </button>
           )}
 

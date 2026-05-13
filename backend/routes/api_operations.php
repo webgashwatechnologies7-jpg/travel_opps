@@ -106,6 +106,7 @@ Route::middleware(['auth:sanctum', 'plan.feature:itineraries'])->prefix('package
     Route::put('/{id}', [PackageController::class, 'update'])->where('id', '[0-9]+');
     Route::post('/{id}/duplicate', [PackageController::class, 'duplicate'])->where('id', '[0-9]+');
     Route::post('/bulk-delete', [PackageController::class, 'bulkDelete'])->middleware('role:Admin|Company Admin|Manager');
+    Route::post('/bulk-convert-to-template', [PackageController::class, 'bulkConvertToTemplate'])->middleware('role:Admin|Company Admin|Manager');
     Route::delete('/{id}', [PackageController::class, 'destroy'])->middleware('role:Admin|Company Admin|Manager')->where('id', '[0-9]+');
 
     // Itinerary pricing routes

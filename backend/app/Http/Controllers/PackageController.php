@@ -710,6 +710,54 @@ class PackageController extends Controller
                 'error' => config('app.debug') ? $e->getMessage() : $e->getMessage(),
             ], 500);
         }
+    /**
+     * Convert lead-specific packages to general templates.
+     *
+     * @param Request $request
+     * @return JsonResponse
+     */
+    public function bulkConvertToTemplate(Request $request): JsonResponse
+    {
+        try {
+            $ids = $request->input('ids', []);
+            if (empty($ids)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No IDs provided for conversion'
+                ], 400);
+            }
+
+            $packages = Package::whereIn('id', $ids)->whereNotNull('lead_id')->get();
+            $count = 0;
+
+            foreach ($packages as $package) {
+                $oldLeadId = $package->lead_id;
+                
+                // 1. Update package to be a template
+                $package->lead_id = null;
+                // Optional: Rename to remove lead-specific context if any, but usually users want to keep the name
+                $package->save();
+
+                // 2. Update associated pricing to also be template pricing
+                \App\Models\ItineraryPricing::where('package_id', $package->id)
+                    ->where('lead_id', $oldLeadId)
+                    ->update(['lead_id' => null]);
+
+                $count++;
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => "{$count} packages converted to templates successfully",
+            ], 200);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'An error occurred while converting packages',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
+            ], 500);
+        }
     }
 }
 

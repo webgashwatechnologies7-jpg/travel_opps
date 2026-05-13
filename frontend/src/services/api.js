@@ -640,6 +640,7 @@ export const packagesAPI = {
   update: (id, data) => postWithFile(`/packages/${id}`, data, 'PUT'),
   delete: (id) => api.delete(`/packages/${id}`),
   bulkDelete: (ids) => api.post('/packages/bulk-delete', { ids }),
+  bulkConvertToTemplate: (ids) => api.post('/packages/bulk-convert-to-template', { ids }),
   duplicate: (id, data = {}) => api.post(`/packages/${id}/duplicate`, data),
 };
 

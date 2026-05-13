@@ -2601,11 +2601,14 @@ const handleAddFollowup = async (e) => {
       showToastNotification('success', 'Follow-up Updated', 'Follow-up has been updated successfully');
     } else {
       await followupsAPI.create(payload);
-      // Automatically transition status to 'followup' when a followup is added
-      try {
-        await leadsAPI.updateStatus(id, 'followup');
-      } catch (statusErr) {
-        console.error('Failed to auto-update status to followup:', statusErr);
+      // Auto-transition: 'Proposal Sent' → 'Follow Up Sent' when a followup is added after proposal
+      // Only update if current status is 'proposal' (proposal was already sent)
+      if (lead?.status === 'proposal') {
+        try {
+          await leadsAPI.updateStatus(id, 'followup');
+        } catch (statusErr) {
+          console.error('Failed to auto-update status to followup:', statusErr);
+        }
       }
       showToastNotification('success', 'Follow-up Added', 'Follow-up has been added successfully');
     }
@@ -4631,7 +4634,7 @@ return (
                       <span className="px-3 py-1 text-xs font-bold bg-orange-100 text-orange-600 rounded-full border border-orange-200 uppercase tracking-wider status-glow-proposal">Proposal Sent</span>
                     )}
                     {lead.status === 'followup' && (
-                      <span className="px-3 py-1 text-xs font-bold bg-purple-100 text-purple-600 rounded-full border border-purple-200 uppercase tracking-wider status-glow-followup">Follow-up</span>
+                      <span className="px-3 py-1 text-xs font-bold bg-purple-100 text-purple-600 rounded-full border border-purple-200 uppercase tracking-wider status-glow-followup">Follow Up Sent</span>
                     )}
                   </h1>
                   <div className="text-xs text-gray-500 mt-1 flex items-center gap-2">
