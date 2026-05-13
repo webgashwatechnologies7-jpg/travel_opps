@@ -30,7 +30,7 @@ const Itineraries = () => {
   const [searchDuration, setSearchDuration] = useState('');
   const [searchRoute, setSearchRoute] = useState('');
   const [sortBy, setSortBy] = useState('newest'); // 'newest', 'oldest', 'name'
-  const [filterType, setFilterType] = useState('templates'); // 'all', 'templates', 'proposals'
+  const [filterType, setFilterType] = useState('all'); // Simplified to show everything by default
   const [viewMode, setViewMode] = useState(() => localStorage.getItem('itineraries_view_mode') || 'grid');
   const [counts, setCounts] = useState({ templates: 0, proposals: 0 });
   const [page, setPage] = useState(1);
@@ -115,8 +115,7 @@ const Itineraries = () => {
         per_page: 15,
         q: searchTerm
       };
-      if (filterType === 'templates') params.templates_only = 1;
-      if (filterType === 'proposals') params.proposals_only = 1;
+      // Removed specific templates/proposals only filters as we now show all by default
 
       const response = await packagesAPI.list(params);
       const data = response.data.data || [];
@@ -704,43 +703,6 @@ const Itineraries = () => {
           </div>
         </div>
 
-        {/* Filter Tabs Row */}
-        <div className="bg-white/80 backdrop-blur-md p-2 rounded-2xl border border-white/40 shadow-[0_8px_30px_rgb(0,0,0,0.04)] flex items-center gap-3 overflow-x-auto scrollbar-hide no-scrollbar transition-all duration-300">
-          <button
-            onClick={() => setFilterType('all')}
-            className={`flex items-center gap-2 px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all duration-300 whitespace-nowrap shadow-sm ${filterType === 'all'
-              ? 'bg-gradient-to-br from-blue-600 to-blue-700 text-white shadow-blue-200'
-              : 'bg-white text-slate-500 hover:bg-slate-50 border border-slate-100'
-              }`}
-          >
-            <LayoutGrid size={16} />
-            ALL ({counts.templates + counts.proposals})
-          </button>
-
-          <button
-            onClick={() => setFilterType('templates')}
-            className={`flex items-center gap-2 px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all duration-300 whitespace-nowrap shadow-sm ${filterType === 'templates'
-              ? 'bg-gradient-to-br from-indigo-600 to-indigo-700 text-white shadow-indigo-200'
-              : 'bg-white text-slate-500 hover:bg-slate-50 border border-slate-100'
-              }`}
-          >
-            <Hash size={16} />
-            TEMPLATES ({counts.templates})
-          </button>
-
-          <button
-            onClick={() => setFilterType('proposals')}
-            className={`flex items-center gap-2 px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all duration-300 whitespace-nowrap shadow-sm ${filterType === 'proposals'
-              ? 'bg-gradient-to-br from-purple-600 to-purple-700 text-white shadow-purple-200'
-              : 'bg-white text-slate-500 hover:bg-slate-50 border border-slate-100'
-              }`}
-          >
-            <Briefcase size={16} />
-            PROPOSALS ({counts.proposals})
-          </button>
-
-          </div>
-        </div>
 
       {loading && itineraries.length === 0 ? (
         <div className="flex flex-col items-center justify-center h-[50vh] animate-in fade-in duration-500 bg-white rounded-3xl border border-dashed border-slate-200">
