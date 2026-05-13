@@ -919,7 +919,7 @@ const ItineraryDetail = () => {
     } catch (err) {
       console.error('Failed to fetch itinerary:', err);
       toast.error('Failed to load itinerary');
-      navigate('/itineraries');
+      // navigate('/itineraries'); // Removed to prevent unexpected redirects
     } finally {
       setLoading(false);
       if (!isLoaded) setIsLoaded(true);

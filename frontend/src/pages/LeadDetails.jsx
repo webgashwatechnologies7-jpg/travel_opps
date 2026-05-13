@@ -2731,12 +2731,13 @@ const handleSaveItinerary = async (e) => {
 
     // ── NEW: Automatically select/insert this itinerary into the current lead's proposals ──
     // This ensures it appears in the "Active Itinerary" tab immediately.
+    let proposalId = newPkg.id;
     if (newPkg) {
-      handleSelectItinerary(newPkg);
+      proposalId = await handleSelectItinerary(newPkg);
     }
 
     // Open builder in new tab as requested
-    const builderUrl = `/itineraries/${newPkg.id}?fromLead=${id}&type=proposal`;
+    const builderUrl = `/itineraries/${proposalId}?fromLead=${id}&type=proposal`;
     window.open(builderUrl, '_blank');
   } catch (err) {
     console.error('Failed to create itinerary:', err);
@@ -3052,7 +3053,7 @@ const handleSelectItinerary = async (itinerary) => {
         ? `Plan has been changed to "${itineraryName}". Previous itinerary saved in history.`
         : `Itinerary "${itineraryName}" has been updated in proposals.`;
       showToastNotification('success', actionMsg, detailMsg);
-      return;
+      return tid;
     }
 
     // No options in Final tab – add single proposal (whole itinerary)
@@ -3079,6 +3080,7 @@ const handleSelectItinerary = async (itinerary) => {
       ? `Plan has been changed to "${itineraryName}". Previous itinerary saved in history.`
       : `Itinerary "${itineraryName}" has been added to proposals.`;
     showToastNotification('success', actionMsg2, detailMsg2);
+    return tid;
   } catch (err) {
     console.error('Final itinerary select error:', err);
     showToastNotification('error', 'Error', 'Failed to add itinerary. Please try again.');
