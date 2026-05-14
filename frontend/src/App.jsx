@@ -320,28 +320,32 @@ const AppRoutes = () => {
   );
 };
 
+import { ItinerariesProvider } from './contexts/ItinerariesContext';
+
 function App() {
   return (
     <Router>
       <AuthProvider>
         <SettingsProvider>
           <LeadsProvider>
-            <ContentProvider>
-              <AppRoutes />
-              <ToastContainer
-                position="top-right"
-                autoClose={5000}
-                hideProgressBar={false}
-                newestOnTop={false}
-                closeOnClick
-                rtl={false}
-                pauseOnFocusLoss
-                draggable
-                pauseOnHover
-                theme="light"
-                style={{ zIndex: 100001 }}
-              />
-            </ContentProvider>
+            <ItinerariesProvider>
+              <ContentProvider>
+                <AppRoutes />
+                <ToastContainer
+                  position="top-right"
+                  autoClose={5000}
+                  hideProgressBar={false}
+                  newestOnTop={false}
+                  closeOnClick
+                  rtl={false}
+                  pauseOnFocusLoss
+                  draggable
+                  pauseOnHover
+                  theme="light"
+                  style={{ zIndex: 100001 }}
+                />
+              </ContentProvider>
+            </ItinerariesProvider>
           </LeadsProvider>
         </SettingsProvider>
       </AuthProvider>

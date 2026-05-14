@@ -1,6 +1,7 @@
 const express = require('express');
 const bodyParser = require('body-parser');
 const { sendWhatsAppMessage, sendWhatsAppMedia, fetchMessagesHistory } = require('./messageHandler');
+const { createSession, logoutSession, sessions, pool } = require('./baileysSessionModule');
 require('dotenv').config();
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 

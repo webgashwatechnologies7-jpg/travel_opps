@@ -29,19 +29,27 @@ class PackageController extends Controller
                 $query->whereNotNull('lead_id');
             }
 
-            // Search filters
+            // Search by package name only (q = name search field)
             if ($request->filled('q')) {
-                $q = $request->q;
-                $query->where(function ($sq) use ($q) {
-                    $sq->where('itinerary_name', 'like', "%{$q}%")
-                        ->orWhere('destinations', 'like', "%{$q}%")
-                        ->orWhere('routing', 'like', "%{$q}%");
+                $query->where('itinerary_name', 'like', '%' . $request->q . '%');
+            }
+
+            // Filter by route/destination (separate field)
+            if ($request->filled('route')) {
+                $route = $request->route;
+                $query->where(function ($sq) use ($route) {
+                    $sq->where('routing', 'like', "%{$route}%")
+                        ->orWhere('destinations', 'like', "%{$route}%");
                 });
             }
 
+            // Filter by duration (days)
+            if ($request->filled('duration')) {
+                $query->where('duration', (int) $request->input('duration'));
+            }
+
             $perPage = $request->input('per_page', 15);
-            $paginated = $query->orderBy('updated_at', 'desc')
-                ->orderBy('created_at', 'desc')
+            $paginated = $query->orderBy('created_at', 'desc')
                 ->paginate($perPage);
 
             $packages = collect($paginated->items())->map(function ($package) {

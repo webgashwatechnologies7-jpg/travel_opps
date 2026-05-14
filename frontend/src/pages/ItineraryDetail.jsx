@@ -39,18 +39,18 @@ const ItineraryDetail = () => {
 
   const manualSyncWithLead = async (silent = false) => {
     if (!fromLeadId || !itinerary || !itinerary.id) return;
-    
+
     try {
       if (!silent) setSyncedWithLead(false);
       const res = await leadsAPI.get(fromLeadId);
       const leadData = res.data.data.lead || res.data.data;
-      
+
       if (leadData) {
         const currentAdult = parseInt(itinerary.adult || 1);
         const currentChild = parseInt(itinerary.child || 0);
         const currentInfant = parseInt(itinerary.infant || 0);
         const currentDuration = parseInt(itinerary.duration || 0);
-        
+
         const leadAdult = parseInt(leadData.adult || 1);
         const leadChild = parseInt(leadData.child || 0);
         const leadInfant = parseInt(leadData.infant || 0);
@@ -67,7 +67,7 @@ const ItineraryDetail = () => {
 
         if (currentAdult !== leadAdult || currentChild !== leadChild || currentInfant !== leadInfant || currentDuration !== leadDuration) {
           console.log('Syncing pax and duration from lead:', leadData.adult, leadData.child, leadData.infant, leadDuration);
-          
+
           const updateData = {
             adult: leadAdult,
             child: leadChild,
@@ -90,7 +90,7 @@ const ItineraryDetail = () => {
             infant: leadInfant,
             duration: leadDuration
           }));
-          
+
           if (currentDuration !== leadDuration) {
             if (!silent) toast.info(`Duration updated from lead: ${leadDuration} Days`);
             fetchItinerary();
@@ -273,7 +273,7 @@ const ItineraryDetail = () => {
         const l = res.data.data.lead || res.data.data;
         setLead(l);
         setIsLeadLocked(false);
-      }).catch(() => {});
+      }).catch(() => { });
     }
   }, [fromLeadId, user]);
 
@@ -390,17 +390,17 @@ const ItineraryDetail = () => {
         const res = await leadProposalsAPI.get(id);
         const data = res.data.data;
         if (data.pricing_data || data.final_client_prices) {
-           if (data.pricing_data) setPricingData(data.pricing_data);
-           if (data.final_client_prices) setFinalClientPrices(data.final_client_prices);
-           if (data.option_gst_settings) setOptionGstSettings(data.option_gst_settings);
-           if (data.base_markup !== undefined) setBaseMarkup(Number(data.base_markup));
-           if (data.extra_markup !== undefined) setExtraMarkup(Number(data.extra_markup));
-           if (data.cgst !== undefined) setCgst(Number(data.cgst));
-           if (data.sgst !== undefined) setSgst(Number(data.sgst));
-           if (data.igst !== undefined) setIgst(Number(data.igst));
-           if (data.tcs !== undefined) setTcs(Number(data.tcs));
-           if (data.discount !== undefined) setDiscount(Number(data.discount));
-           return;
+          if (data.pricing_data) setPricingData(data.pricing_data);
+          if (data.final_client_prices) setFinalClientPrices(data.final_client_prices);
+          if (data.option_gst_settings) setOptionGstSettings(data.option_gst_settings);
+          if (data.base_markup !== undefined) setBaseMarkup(Number(data.base_markup));
+          if (data.extra_markup !== undefined) setExtraMarkup(Number(data.extra_markup));
+          if (data.cgst !== undefined) setCgst(Number(data.cgst));
+          if (data.sgst !== undefined) setSgst(Number(data.sgst));
+          if (data.igst !== undefined) setIgst(Number(data.igst));
+          if (data.tcs !== undefined) setTcs(Number(data.tcs));
+          if (data.discount !== undefined) setDiscount(Number(data.discount));
+          return;
         }
       }
 
@@ -465,14 +465,14 @@ const ItineraryDetail = () => {
   useEffect(() => {
     const calculateDistances = async () => {
       if (days.length < 2) return;
-      
+
       const newDistances = { ...dayDistances };
       let changed = false;
 
       for (let i = 0; i < days.length - 1; i++) {
         const currentDest = days[i].destination;
         const nextDest = days[i + 1].destination;
-        
+
         // Only calculate if both destinations are set and they are different
         if (currentDest && nextDest && currentDest !== nextDest && currentDest !== 'Destination' && nextDest !== 'Destination') {
           const cacheKey = `${currentDest}_${nextDest}`;
@@ -700,24 +700,24 @@ const ItineraryDetail = () => {
       extra_markup: extraMarkup,
       cgst, sgst, igst, tcs, discount
     };
-    
+
     const timer = setTimeout(() => {
       if (isLoaded) {
         if (isProposal) {
-            leadProposalsAPI.update(id, settings).catch(() => {});
+          leadProposalsAPI.update(id, settings).catch(() => { });
         } else {
-            itineraryPricingAPI.save(id, { ...settings, lead_id: fromLeadId }).catch(() => {});
+          itineraryPricingAPI.save(id, { ...settings, lead_id: fromLeadId }).catch(() => { });
         }
       }
     }, 1000);
-    
+
     return () => clearTimeout(timer);
   }, [baseMarkup, extraMarkup, cgst, sgst, igst, tcs, discount, id, fromLeadId]);
 
   // Save pricing data and final client prices to database
   useEffect(() => {
     if (!id || !isLoaded || (Object.keys(pricingData).length === 0 && Object.keys(finalClientPrices).length === 0)) return;
-    
+
     const timer = setTimeout(() => {
       const dataToSave = {
         pricing_data: pricingData,
@@ -725,27 +725,27 @@ const ItineraryDetail = () => {
         option_gst_settings: optionGstSettings,
         lead_id: fromLeadId
       };
-      
+
       if (isProposal) {
-        leadProposalsAPI.update(id, dataToSave).catch(() => {});
+        leadProposalsAPI.update(id, dataToSave).catch(() => { });
       } else {
-        itineraryPricingAPI.save(id, dataToSave).catch(() => {});
+        itineraryPricingAPI.save(id, dataToSave).catch(() => { });
       }
     }, 1000);
-    
+
     return () => clearTimeout(timer);
   }, [pricingData, finalClientPrices, optionGstSettings, id, fromLeadId]);
 
   // Save days and events to database whenever they change
   useEffect(() => {
     if (!id || !isLoaded || (days.length === 0 && Object.keys(dayEvents).length === 0)) return;
-    
+
     const timer = setTimeout(() => {
       if (!isLeadLocked) {
         syncItineraryToServer();
       }
     }, 1000);
-    
+
     return () => clearTimeout(timer);
   }, [dayEvents, days, id]);
 
@@ -791,7 +791,7 @@ const ItineraryDetail = () => {
             payment_policy: packageTerms.payment_policy,
             thank_you_message: packageTerms.thank_you_message
           };
-          
+
           if (isProposal) {
             await leadProposalsAPI.update(id, updateData);
           } else {
@@ -802,7 +802,7 @@ const ItineraryDetail = () => {
           console.error('Failed to sync package terms to server:', err);
         }
       };
-      
+
       const timer = setTimeout(() => {
         if (!isLeadLocked) {
           syncTerms();
@@ -856,7 +856,7 @@ const ItineraryDetail = () => {
       // -----------------------
 
       setItinerary(data);
-      
+
       // Load events and days from server; keep database as source-of-truth
       if (data.day_events && Object.keys(data.day_events).length > 0) {
         setDayEvents(data.day_events || {});
@@ -868,7 +868,7 @@ const ItineraryDetail = () => {
       const duration = parseInt(data.duration || 1);
       const existingDays = Array.isArray(data.days) ? data.days : [];
       const syncedDays = [];
-      
+
       for (let i = 1; i <= duration; i++) {
         const existingDay = existingDays.find(d => d.day === i);
         if (existingDay) {
@@ -891,7 +891,7 @@ const ItineraryDetail = () => {
         // We don't have a state for proposals in this component as they are reconstructed,
         // but we might want to store them if we used them.
       }
-      
+
       // Load terms and policies - normalize to arrays
       const toList = (val) => {
         if (Array.isArray(val)) return val;
@@ -1508,10 +1508,10 @@ const ItineraryDetail = () => {
     // Check for duplicate names/subjects in the same category (Transportation, Activity, Meal) 
     // to avoid adding the same vehicle or activity multiple times on the same day.
     if (isNewEvent && ['transportation', 'activity', 'meal', 'transfer'].includes(normalizedType)) {
-      const duplicate = compareEvents.find(e => 
-        (e.eventType || '').toLowerCase() === normalizedType && 
-        ((e.name && eventData.name && e.name.toLowerCase() === eventData.name.toLowerCase()) || 
-         (e.subject && eventData.subject && e.subject.toLowerCase() === eventData.subject.toLowerCase()))
+      const duplicate = compareEvents.find(e =>
+        (e.eventType || '').toLowerCase() === normalizedType &&
+        ((e.name && eventData.name && e.name.toLowerCase() === eventData.name.toLowerCase()) ||
+          (e.subject && eventData.subject && e.subject.toLowerCase() === eventData.subject.toLowerCase()))
       );
 
       if (duplicate) {
@@ -1599,14 +1599,14 @@ const ItineraryDetail = () => {
         const sequence = ['day-itinerary', 'accommodation', 'activity', 'transportation', 'meal'];
         const currentCat = (categoryType || '').toLowerCase();
         const currentIndex = sequence.indexOf(currentCat);
-        
+
         if (currentIndex !== -1 && currentIndex < sequence.length - 1) {
           // Advance to next category
           const nextCategory = sequence[currentIndex + 1];
           setCategoryType(nextCategory);
           setSearchQuery('');
           setDataSourceTab('database');
-          
+
           const categoryName = nextCategory === 'accommodation' ? 'Hotels' : nextCategory.charAt(0).toUpperCase() + nextCategory.slice(1);
           toast.info(`Saved! Next Step: ${categoryName}`, { autoClose: 2000 });
         } else if (currentIndex === sequence.length - 1) {
@@ -1821,7 +1821,7 @@ const ItineraryDetail = () => {
     if (dayDetailsForm.eventType === 'accommodation' && showDayDetailsModal) {
       const currentOptions = dayDetailsForm.hotelOptions || [];
       const nextOptNum = currentOptions.length + 1;
-      
+
       const newOption = {
         hotelName: hotel.hotelName || hotel.name,
         hotel_id: hotelId,
@@ -1843,7 +1843,7 @@ const ItineraryDetail = () => {
       // Fast Add: Update existing event and save instantly
       const currentOptions = existingAccommodationEvent.hotelOptions || [];
       const nextOptNum = currentOptions.length + 1;
-      
+
       const newOption = {
         hotelName: hotel.hotelName || hotel.name,
         hotel_id: hotelId,
@@ -1910,7 +1910,7 @@ const ItineraryDetail = () => {
     );
 
     setDays(updatedDays);
-    
+
     // Sync to server
     syncItineraryToServer(dayEvents, updatedDays);
 
@@ -1944,7 +1944,7 @@ const ItineraryDetail = () => {
       pkgData.append('_method', 'PUT');
 
       await packagesAPI.update(id, pkgData);
-      
+
       // Update local state is done via fetchItinerary
       await fetchItinerary();
       setShowEditItineraryModal(false);
@@ -2021,59 +2021,62 @@ const ItineraryDetail = () => {
     <>
       <div>
         <div className="min-h-screen">
-          {/* Header with Back Button and Sync button */}
-          <div className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
-            <button
-              onClick={() => fromLeadId ? navigate(`/leads/${fromLeadId}`) : navigate('/itineraries')}
-              className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors"
-            >
-              <ArrowLeft className="h-5 w-5" />
-              <span className="font-medium">{fromLeadId ? 'Back to Query' : 'Back to Itineraries'}</span>
-            </button>
-
-            {fromLeadId && (
+          {/* Sticky Header and Tabs */}
+          <div className="sticky top-0 z-50 bg-white shadow-sm">
+            {/* Header with Back Button and Sync button */}
+            <div className="border-b border-gray-200 px-6 py-4 flex items-center justify-between">
               <button
-                onClick={() => manualSyncWithLead()}
-                className="flex items-center gap-2 text-blue-600 hover:text-blue-800 transition-colors text-sm font-semibold bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-100"
-                title="Refresh pax count and duration from Lead"
+                onClick={() => fromLeadId ? navigate(`/leads/${fromLeadId}`) : navigate('/itineraries')}
+                className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors"
               >
-                <RefreshCw className={`h-4 w-4 ${syncedWithLead ? '' : 'animate-spin'}`} />
-                Sync with Lead
+                <ArrowLeft className="h-5 w-5" />
+                <span className="font-medium">{fromLeadId ? 'Back to Query' : 'Back to Itineraries'}</span>
               </button>
-            )}
-          </div>
 
-          {/* Tabs */}
-          <div className="bg-blue-50 border-b border-gray-200 px-6">
-            <div className="flex gap-1 items-center justify-between">
-              <div className="flex gap-1">
+              {fromLeadId && (
                 <button
-                  onClick={() => setActiveTab('build')}
-                  className={`px-6 py-3 font-medium transition-colors ${activeTab === 'build'
-                    ? 'text-blue-600 border-b-2 border-blue-600 bg-white'
-                    : 'text-gray-600 hover:text-gray-900'
-                    }`}
+                  onClick={() => manualSyncWithLead()}
+                  className="flex items-center gap-2 text-blue-600 hover:text-blue-800 transition-colors text-sm font-semibold bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-100"
+                  title="Refresh pax count and duration from Lead"
                 >
-                  Build
+                  <RefreshCw className={`h-4 w-4 ${syncedWithLead ? '' : 'animate-spin'}`} />
+                  Sync with Lead
                 </button>
-                <button
-                  onClick={() => setActiveTab('pricing')}
-                  className={`px-6 py-3 font-medium transition-colors ${activeTab === 'pricing'
-                    ? 'text-blue-600 border-b-2 border-blue-600 bg-white'
-                    : 'text-gray-600 hover:text-gray-900'
-                    }`}
-                >
-                  Pricing
-                </button>
-                <button
-                  onClick={() => setActiveTab('final')}
-                  className={`px-6 py-3 font-medium transition-colors ${activeTab === 'final'
-                    ? 'text-blue-600 border-b-2 border-blue-600 bg-white'
-                    : 'text-gray-600 hover:text-gray-900'
-                    }`}
-                >
-                  Final
-                </button>
+              )}
+            </div>
+
+            {/* Tabs */}
+            <div className="bg-blue-50/50 backdrop-blur-md border-b border-gray-200 px-6">
+              <div className="flex gap-1 items-center justify-between">
+                <div className="flex gap-1">
+                  <button
+                    onClick={() => setActiveTab('build')}
+                    className={`px-6 py-3 font-medium transition-colors ${activeTab === 'build'
+                      ? 'text-blue-600 border-b-2 border-blue-600 bg-white'
+                      : 'text-gray-600 hover:text-gray-900'
+                      }`}
+                  >
+                    Build
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('pricing')}
+                    className={`px-6 py-3 font-medium transition-colors ${activeTab === 'pricing'
+                      ? 'text-blue-600 border-b-2 border-blue-600 bg-white'
+                      : 'text-gray-600 hover:text-gray-900'
+                      }`}
+                  >
+                    Pricing
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('final')}
+                    className={`px-6 py-3 font-medium transition-colors ${activeTab === 'final'
+                      ? 'text-blue-600 border-b-2 border-blue-600 bg-white'
+                      : 'text-gray-600 hover:text-gray-900'
+                      }`}
+                  >
+                    Final
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -2117,7 +2120,7 @@ const ItineraryDetail = () => {
                     <div className="flex items-center gap-3 mb-2">
                       <h1 className="text-4xl font-bold text-gray-900">{itinerary?.itinerary_name || 'Untitled'}</h1>
                       {hasPermission(user, 'itineraries.edit') && (
-                        <button 
+                        <button
                           onClick={handleEditItinerary}
                           className="text-gray-700 hover:text-gray-900"
                         >
@@ -2164,10 +2167,10 @@ const ItineraryDetail = () => {
 
               <div className="grid grid-cols-12 gap-6">
                 {/* Left Column - Day List */}
-                <div className="col-span-3">
-                  <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-                    <h3 className="font-semibold text-gray-800 mb-4">Itinerary Days</h3>
-                    <div className="space-y-2">
+                <div className="col-span-3 h-[700px]">
+                  <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 h-full flex flex-col">
+                    <h3 className="font-semibold text-gray-800 mb-4 flex-shrink-0">Itinerary Days</h3>
+                    <div className="space-y-2 overflow-y-auto flex-1 pr-2 custom-scrollbar">
                       {days.map((day, index) => (
                         <React.Fragment key={day.day}>
                           <div
@@ -2183,7 +2186,7 @@ const ItineraryDetail = () => {
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   const isNowTravel = !day.isTravelDay;
-                                  const updatedDays = days.map(d => 
+                                  const updatedDays = days.map(d =>
                                     d.day === day.day ? { ...d, isTravelDay: isNowTravel } : d
                                   );
                                   setDays(updatedDays);
@@ -2234,25 +2237,25 @@ const ItineraryDetail = () => {
                               <ChevronRight className={`h-4 w-4 ${selectedDay === day.day ? 'text-blue-600' : 'text-gray-400'}`} />
                             </div>
                             <Dropdown
-                               value={day.destination || ''}
-                               options={[
-                                 ...destinations.map(dest => ({ label: dest, value: dest })),
-                                 ...(day.destination && !destinations.includes(day.destination) && day.destination !== 'Destination' 
-                                   ? [{ label: day.destination, value: day.destination }] 
-                                   : [])
-                               ].sort((a, b) => a.label.localeCompare(b.label))}
-                               onChange={(e) => {
-                                 handleDayDestinationChange(day.day, e.value);
-                               }}
-                               filter
-                               placeholder="Select Destination"
-                               className="mt-2 w-full text-xs font-bold border-none bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors"
-                               disabled={!hasPermission(user, 'itineraries.edit')}
-                               panelStyle={{ minWidth: '200px' }}
-                               appendTo="self"
-                             />
+                              value={day.destination || ''}
+                              options={[
+                                ...destinations.map(dest => ({ label: dest, value: dest })),
+                                ...(day.destination && !destinations.includes(day.destination) && day.destination !== 'Destination'
+                                  ? [{ label: day.destination, value: day.destination }]
+                                  : [])
+                              ].sort((a, b) => a.label.localeCompare(b.label))}
+                              onChange={(e) => {
+                                handleDayDestinationChange(day.day, e.value);
+                              }}
+                              filter
+                              placeholder="Select Destination"
+                              className="mt-2 w-full text-xs font-bold border-none bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors"
+                              disabled={!hasPermission(user, 'itineraries.edit')}
+                              panelStyle={{ minWidth: '200px' }}
+                              appendTo="self"
+                            />
                           </div>
-                          
+
                           {/* Distance removed */}
                         </React.Fragment>
                       ))}
@@ -2274,11 +2277,11 @@ const ItineraryDetail = () => {
                 </div>
 
                 {/* Center Column - Day Details */}
-                <div className="col-span-6">
-                  <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                <div className="col-span-6 h-[700px]">
+                  <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 h-full flex flex-col">
                     {selectedDay && (
                       <>
-                        <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center justify-between mb-4 flex-shrink-0">
                           <h3 className="text-lg font-semibold text-gray-800">
                             {days[selectedDay - 1]?.isTravelDay ? (
                               <span className="text-orange-600 flex items-center gap-2">
@@ -2384,7 +2387,7 @@ const ItineraryDetail = () => {
                             )}
                           </div>
                         </div>
-                        <div className="mb-4">
+                        <div className="mb-4 flex-shrink-0">
                           <div
                             className="flex items-center gap-2 border border-gray-300 rounded-lg p-3 bg-gray-50 cursor-pointer hover:bg-gray-100 transition-colors"
                             onClick={() => {
@@ -2400,7 +2403,7 @@ const ItineraryDetail = () => {
                                 ? `${dayEvents[selectedDay].length} event(s) added`
                                 : 'No events added'}
                               readOnly
-                              className="flex-1 bg-transparent border-none outline-none text-sm cursor-pointer"
+                              className="flex-1 bg-transparent border-none outline-none text-sm cursor-pointer font-medium text-gray-600"
                             />
                             <button
                               className="text-gray-400 hover:text-gray-600"
@@ -2418,7 +2421,7 @@ const ItineraryDetail = () => {
                         </div>
 
                         {/* Events List */}
-                        <div className="space-y-4">
+                        <div className="space-y-4 overflow-y-auto flex-1 pr-2 custom-scrollbar">
                           {dayEvents[selectedDay] && dayEvents[selectedDay].length > 0 ? (
                             (() => {
                               const filteredEvents = dayEvents[selectedDay].filter(event => {
@@ -2546,8 +2549,8 @@ const ItineraryDetail = () => {
                                                   const dayNum = d.day;
                                                   if (!updatedEvents[dayNum]) updatedEvents[dayNum] = [];
                                                   // Check if already has this transport
-                                                  const exists = updatedEvents[dayNum].some(e => 
-                                                    e.eventType === 'transportation' && 
+                                                  const exists = updatedEvents[dayNum].some(e =>
+                                                    e.eventType === 'transportation' &&
                                                     (e.name === event.name || e.subject === event.subject)
                                                   );
                                                   if (!exists) {
@@ -2659,9 +2662,9 @@ const ItineraryDetail = () => {
                 </div>
 
                 {/* Right Sidebar - Search and Filters */}
-                <div className="col-span-3">
-                  <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-                    <div className="space-y-4">
+                <div className="col-span-3 h-[700px]">
+                  <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 h-full flex flex-col">
+                    <div className="space-y-4 overflow-y-auto flex-1 pr-2 custom-scrollbar">
                       {/* Search Input */}
                       <div>
                         <div className="relative">
@@ -2769,8 +2772,8 @@ const ItineraryDetail = () => {
                               .filter(di => {
                                 // Filter out already added items
                                 if (selectedDay && dayEvents[selectedDay]) {
-                                  const alreadyAdded = dayEvents[selectedDay].some(e => 
-                                    e.eventType === 'day-itinerary' && 
+                                  const alreadyAdded = dayEvents[selectedDay].some(e =>
+                                    e.eventType === 'day-itinerary' &&
                                     (e.master_id === di.id || (e.subject && di.title && e.subject.toLowerCase() === di.title.toLowerCase()))
                                   );
                                   if (alreadyAdded) return false;
@@ -2852,8 +2855,8 @@ const ItineraryDetail = () => {
                                 .filter(activity => {
                                   // Activities can be multiple, so we do not filter out already added items
                                   if (false && selectedDay && dayEvents[selectedDay]) {
-                                    const alreadyAdded = dayEvents[selectedDay].some(e => 
-                                      e.eventType === 'activity' && 
+                                    const alreadyAdded = dayEvents[selectedDay].some(e =>
+                                      e.eventType === 'activity' &&
                                       (e.master_id === activity.id || (e.name && activity.name && e.name.toLowerCase() === activity.name.toLowerCase()))
                                     );
                                     if (alreadyAdded) return false;
@@ -3207,8 +3210,8 @@ const ItineraryDetail = () => {
                                 .filter(transfer => {
                                   // Filter out already added items
                                   if (selectedDay && dayEvents[selectedDay]) {
-                                    const alreadyAdded = dayEvents[selectedDay].some(e => 
-                                      (e.eventType || '').toLowerCase() === 'transportation' && 
+                                    const alreadyAdded = dayEvents[selectedDay].some(e =>
+                                      (e.eventType || '').toLowerCase() === 'transportation' &&
                                       (e.master_id === transfer.id || (e.name && transfer.name && e.name.toLowerCase() === transfer.name.toLowerCase()))
                                     );
                                     if (alreadyAdded) return false;
@@ -3228,8 +3231,8 @@ const ItineraryDetail = () => {
                                       if (!hasPermission(user, 'itineraries.edit')) return;
                                       if (selectedDay) {
                                         const currentDayEvents = dayEvents[selectedDay] || [];
-                                        const existing = currentDayEvents.find(e => 
-                                          (e.eventType || '').toLowerCase() === 'transportation' && 
+                                        const existing = currentDayEvents.find(e =>
+                                          (e.eventType || '').toLowerCase() === 'transportation' &&
                                           (e.master_id === transfer.id || (e.name && transfer.name && e.name.toLowerCase() === transfer.name.toLowerCase()))
                                         );
 
@@ -3357,21 +3360,20 @@ const ItineraryDetail = () => {
                                 .map((meal) => {
                                   const currentDayEvents = dayEvents[selectedDay] || [];
                                   const currentMealEvent = currentDayEvents.find(e => (e.eventType || '').toLowerCase() === 'meal');
-                                  
+
                                   const isExactMatch = currentMealEvent && (
                                     (currentMealEvent.name || '').trim().toLowerCase() === (meal.name || '').trim().toLowerCase() ||
                                     (currentMealEvent.mealPlan || '').trim().toLowerCase() === (meal.name || '').trim().toLowerCase()
                                   );
                                   const hasAnotherMeal = currentMealEvent && !isExactMatch;
-                                  
+
                                   return (
                                     <div
                                       key={meal.id}
-                                      className={`flex items-start gap-3 p-3 border rounded-lg transition-colors cursor-pointer ${
-                                        isExactMatch ? 'border-green-300 bg-green-50' : 
-                                        hasAnotherMeal ? 'border-gray-200 bg-gray-50 opacity-80' : 
-                                        'border-gray-200 hover:bg-gray-50'
-                                      }`}
+                                      className={`flex items-start gap-3 p-3 border rounded-lg transition-colors cursor-pointer ${isExactMatch ? 'border-green-300 bg-green-50' :
+                                        hasAnotherMeal ? 'border-gray-200 bg-gray-50 opacity-80' :
+                                          'border-gray-200 hover:bg-gray-50'
+                                        }`}
                                       onClick={() => {
                                         if (!hasPermission(user, 'itineraries.edit')) return;
                                         if (selectedDay) {
@@ -3406,43 +3408,42 @@ const ItineraryDetail = () => {
                                             saveEvent(eventData);
                                           }
                                         } else {
-                                        toast.warning('Please select a day from the left (e.g. DAY 1, DAY 2) first, then add this item.');
-                                      }
-                                    }}
-                                  >
-                                    <div className="w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center border border-gray-200 flex-shrink-0">
-                                      <UtensilsCrossed className="h-6 w-6 text-gray-400" />
-                                    </div>
-                                    <div className="flex-1 min-w-0 uppercase">
-                                      <h4 className="font-semibold text-gray-900 text-sm mb-1">{meal.name || 'Meal Plan'}</h4>
-                                      {isExactMatch && (
-                                        <span className="text-[10px] text-green-600 font-bold flex items-center gap-1">
-                                          <Check className="h-3 w-3" /> SELECTED
-                                        </span>
+                                          toast.warning('Please select a day from the left (e.g. DAY 1, DAY 2) first, then add this item.');
+                                        }
+                                      }}
+                                    >
+                                      <div className="w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center border border-gray-200 flex-shrink-0">
+                                        <UtensilsCrossed className="h-6 w-6 text-gray-400" />
+                                      </div>
+                                      <div className="flex-1 min-w-0 uppercase">
+                                        <h4 className="font-semibold text-gray-900 text-sm mb-1">{meal.name || 'Meal Plan'}</h4>
+                                        {isExactMatch && (
+                                          <span className="text-[10px] text-green-600 font-bold flex items-center gap-1">
+                                            <Check className="h-3 w-3" /> SELECTED
+                                          </span>
+                                        )}
+                                        {hasAnotherMeal && (
+                                          <span className="text-[10px] text-gray-400 font-bold flex items-center gap-1">
+                                            CHANGE PLAN?
+                                          </span>
+                                        )}
+                                      </div>
+                                      {hasPermission(user, 'itineraries.edit') && (
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            const item = e.target.closest('.cursor-pointer');
+                                            if (item) item.click();
+                                          }}
+                                          className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors flex-shrink-0 ${isExactMatch ? 'bg-green-600 text-white' : 'bg-black text-white hover:bg-gray-800'
+                                            }`}
+                                        >
+                                          {isExactMatch ? <Check className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+                                        </button>
                                       )}
-                                      {hasAnotherMeal && (
-                                        <span className="text-[10px] text-gray-400 font-bold flex items-center gap-1">
-                                          CHANGE PLAN?
-                                        </span>
-                                      )}
                                     </div>
-                                    {hasPermission(user, 'itineraries.edit') && (
-                                      <button
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          const item = e.target.closest('.cursor-pointer');
-                                          if (item) item.click();
-                                        }}
-                                        className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors flex-shrink-0 ${
-                                          isExactMatch ? 'bg-green-600 text-white' : 'bg-black text-white hover:bg-gray-800'
-                                        }`}
-                                      >
-                                        {isExactMatch ? <Check className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
-                                      </button>
-                                    )}
-                                  </div>
-                                );
-                              })
+                                  );
+                                })
                             ) : (
                               <div className="text-center py-8 text-gray-500 text-sm">
                                 No meal plans found. Please add meal plans in Masters → Meal Plan first.
@@ -3497,24 +3498,24 @@ const ItineraryDetail = () => {
           )}
 
           {activeTab === 'final' && (
-              <FinalTab
-                itinerary={itinerary}
-                dayEvents={dayEvents}
-                pricingData={pricingData}
-                finalClientPrices={finalClientPrices}
-                packageTerms={packageTerms}
-                setPackageTerms={setPackageTerms}
-                baseMarkup={baseMarkup}
-                extraMarkup={extraMarkup}
-                cgst={cgst}
-                sgst={sgst}
-                igst={igst}
-                tcs={tcs}
-                discount={discount}
-                maxHotelOptions={maxHotelOptions}
-                optionGstSettings={optionGstSettings}
-                days={days}
-              />
+            <FinalTab
+              itinerary={itinerary}
+              dayEvents={dayEvents}
+              pricingData={pricingData}
+              finalClientPrices={finalClientPrices}
+              packageTerms={packageTerms}
+              setPackageTerms={setPackageTerms}
+              baseMarkup={baseMarkup}
+              extraMarkup={extraMarkup}
+              cgst={cgst}
+              sgst={sgst}
+              igst={igst}
+              tcs={tcs}
+              discount={discount}
+              maxHotelOptions={maxHotelOptions}
+              optionGstSettings={optionGstSettings}
+              days={days}
+            />
           )}
 
           {/* Day Details Modal */}
@@ -3531,27 +3532,27 @@ const ItineraryDetail = () => {
                         <>
                           {dayDetailsForm.eventType === 'day-itinerary'
                             ? `Day Itinerary in day ${(() => {
+                              let sightseeingNum = 0;
+                              for (let i = 0; i < selectedDay; i++) {
+                                if (!days[i].isTravelDay) sightseeingNum++;
+                              }
+                              return sightseeingNum;
+                            })()}`
+                            : dayDetailsForm.eventType
+                              ? `${dayDetailsForm.eventType.charAt(0).toUpperCase() + dayDetailsForm.eventType.slice(1).replace('-', ' ')} in day ${(() => {
                                 let sightseeingNum = 0;
                                 for (let i = 0; i < selectedDay; i++) {
                                   if (!days[i].isTravelDay) sightseeingNum++;
                                 }
                                 return sightseeingNum;
                               })()}`
-                            : dayDetailsForm.eventType
-                              ? `${dayDetailsForm.eventType.charAt(0).toUpperCase() + dayDetailsForm.eventType.slice(1).replace('-', ' ')} in day ${(() => {
-                                  let sightseeingNum = 0;
-                                  for (let i = 0; i < selectedDay; i++) {
-                                    if (!days[i].isTravelDay) sightseeingNum++;
-                                  }
-                                  return sightseeingNum;
-                                })()}`
                               : `Day ${(() => {
-                                  let sightseeingNum = 0;
-                                  for (let i = 0; i < selectedDay; i++) {
-                                    if (!days[i].isTravelDay) sightseeingNum++;
-                                  }
-                                  return sightseeingNum;
-                                })()} Details`}
+                                let sightseeingNum = 0;
+                                for (let i = 0; i < selectedDay; i++) {
+                                  if (!days[i].isTravelDay) sightseeingNum++;
+                                }
+                                return sightseeingNum;
+                              })()} Details`}
                         </>
                       )}
                     </h2>
@@ -5679,14 +5680,14 @@ const ItineraryDetail = () => {
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl mx-4 my-auto max-h-[90vh] overflow-hidden flex flex-col">
             <div className="flex justify-between items-center p-6 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-white">
               <h2 className="text-2xl font-bold text-gray-800">Edit Package</h2>
-              <button 
+              <button
                 onClick={() => setShowEditItineraryModal(false)}
                 className="text-gray-400 hover:text-gray-600 rounded-full p-1 transition-colors"
               >
                 <X className="h-6 w-6" />
               </button>
             </div>
-            
+
             <form onSubmit={handleEditItinerarySave} className="flex-1 overflow-y-auto p-6">
               <div className="space-y-5">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">

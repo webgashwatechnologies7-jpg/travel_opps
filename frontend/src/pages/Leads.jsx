@@ -57,6 +57,7 @@ const Leads = () => {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [showStatusModal, setShowStatusModal] = useState(false);
@@ -228,8 +229,11 @@ const Leads = () => {
 
     try {
       if (isNewRequest) {
-        if (!hasData) setLoading(true);
-        else setIsRefreshing(true);
+        if (isInitialLoad) {
+          setLoading(true);
+        } else {
+          setIsRefreshing(true);
+        }
       }
 
       const response = await leadsAPI.list(apiParams);
@@ -243,8 +247,12 @@ const Leads = () => {
       console.error('Failed to fetch leads:', err);
       toast.error('Failed to load leads');
     } finally {
-      setLoading(false);
-      setIsRefreshing(false);
+      // Small delay to prevent flickering
+      setTimeout(() => {
+        setLoading(false);
+        setIsRefreshing(false);
+        setIsInitialLoad(false);
+      }, 300);
     }
   }, [location.search, perPage, advancedFilters, currentUser?.id, leads.length, lastParams]);
 
@@ -767,21 +775,11 @@ const Leads = () => {
   };
 
   return (
-    <div className="p-6 bg-[#F8FAFC] min-h-screen relative page-transition">
-
-
-      {/* Initial Skeleton Loader */}
-      {loading && leads.length === 0 && (
-        <div className="animate-in fade-in duration-500">
-          {/* Mock Header skeleton */}
-          <div className="flex justify-between items-center mb-8">
-            <div className="space-y-2">
-              <div className="h-8 w-48 bg-slate-200 rounded-lg"></div>
-              <div className="h-4 w-32 bg-slate-100 rounded-lg"></div>
-            </div>
-            <div className="h-10 w-32 bg-slate-200 rounded-xl"></div>
-          </div>
-          <LeadsListSkeleton count={perPage} />
+    <div className="p-6 bg-[#F8FAFC] min-h-screen relative page-transition scroll-smooth">
+      {/* Top Loading Progress Bar */}
+      {(loading || isRefreshing) && (
+        <div className="fixed top-0 left-0 right-0 h-1 z-[9999] bg-transparent overflow-hidden">
+          <div className="h-full bg-blue-600 animate-shimmer origin-left shadow-[0_0_15px_rgba(37,99,235,0.5)]"></div>
         </div>
       )}
 
@@ -797,17 +795,38 @@ const Leads = () => {
 
         <div className="flex items-center gap-3 relative animate-in-scale" style={{ animationDelay: '100ms' }}>
           {/* Select All Checkbox - Moved to Header */}
-          <div className="flex items-center gap-2 bg-white px-4 py-2.5 rounded-xl border border-slate-200 shadow-sm transition-all hover:border-blue-300">
+          <div className="flex items-center gap-3 px-4 py-2 bg-white rounded-lg border border-slate-200 shadow-sm">
             <input
               type="checkbox"
               id="selectAllLeadsHeader"
-              className="w-5 h-5 rounded-lg border-2 border-slate-300 text-blue-600 focus:ring-4 focus:ring-blue-500/20 cursor-pointer shadow-sm transition-all"
+              className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500/20 cursor-pointer transition-all"
               checked={filteredLeads.length > 0 && selectedLeadIds.length === filteredLeads.length}
               onChange={(e) => handleSelectAll(e.target.checked)}
             />
-            <label htmlFor="selectAllLeadsHeader" className="text-xs font-black text-slate-600 uppercase tracking-widest cursor-pointer select-none">
-              Select All
+            <label htmlFor="selectAllLeadsHeader" className="text-xs font-semibold text-slate-600 uppercase tracking-wider cursor-pointer select-none">
+              {selectedLeadIds.length > 0 ? `${selectedLeadIds.length} Selected` : 'Select All'}
             </label>
+
+            {selectedLeadIds.length > 0 && (
+              <div className="flex items-center gap-2 pl-4 border-l border-slate-100 animate-in slide-in-from-left-4">
+                <button
+                  type="button"
+                  onClick={() => setIsBulkAssignModalOpen(true)}
+                  className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-[10px] font-semibold uppercase tracking-wider transition-all shadow-sm"
+                >
+                  <User size={12} />
+                  Bulk Assign
+                </button>
+                <button
+                  type="button"
+                  onClick={handleBulkDelete}
+                  className="flex items-center gap-2 px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-md text-[10px] font-semibold uppercase tracking-wider transition-all shadow-sm"
+                >
+                  <Trash2 size={12} />
+                  Bulk Delete
+                </button>
+              </div>
+            )}
           </div>
 
           <div className="relative group">
@@ -822,7 +841,7 @@ const Leads = () => {
             {showOptionsDropdown && (
               <div className="absolute top-full right-0 mt-3 w-64 bg-white rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.15)] border border-slate-100 z-[1000] py-2 animate-in-scale overflow-hidden">
                 <div className="px-4 py-2 border-b border-slate-50 mb-1">
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-[.2em]">Data Management</p>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[.2em]">Data Management</p>
                 </div>
                 <button
                   onClick={() => { setShowImportModal(true); setShowOptionsDropdown(false); }}
@@ -846,29 +865,6 @@ const Leads = () => {
                   <Download size={16} />
                   Export All
                 </button>
-
-                {selectedLeadIds.length > 0 && (
-                  <>
-                    <div className="h-px bg-slate-100 my-1 mx-4"></div>
-                    <div className="px-4 py-2">
-                      <p className="text-[10px] font-black text-blue-600 uppercase tracking-[.2em]">Bulk Actions ({selectedLeadIds.length})</p>
-                    </div>
-                    <button
-                      onClick={() => { setIsBulkAssignModalOpen(true); setShowOptionsDropdown(false); }}
-                      className="w-full text-left px-4 py-2.5 text-sm text-blue-600 hover:bg-blue-50 transition-colors flex items-center gap-3 font-bold"
-                    >
-                      <User size={16} />
-                      Bulk Assign
-                    </button>
-                    <button
-                      onClick={() => { handleBulkDelete(); setShowOptionsDropdown(false); }}
-                      className="w-full text-left px-4 py-2.5 text-sm text-rose-600 hover:bg-rose-50 transition-colors flex items-center gap-3 font-bold"
-                    >
-                      <Trash2 size={16} />
-                      Bulk Delete
-                    </button>
-                  </>
-                )}
               </div>
             )}
           </div>
@@ -890,7 +886,7 @@ const Leads = () => {
       {/* Action/Filter Bar Area */}
       <div className="sticky top-4 z-40 mb-8 space-y-3">
         {/* Search & Main Actions Row */}
-        <div className="bg-white p-2 rounded-2xl border border-slate-200 shadow-sm flex flex-col lg:flex-row gap-3 transition-all duration-300">
+        <div className="bg-white p-2 rounded-lg border border-slate-200 shadow-sm flex flex-col lg:flex-row gap-3 transition-all duration-300">
           <div className="flex-1 flex flex-col md:flex-row gap-2">
             <div className="relative flex-1 group">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-hover:text-blue-500 transition-colors" size={18} />
@@ -900,7 +896,7 @@ const Leads = () => {
                 onChange={(e) => setDestinationFilter(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
                 placeholder="Search by name, phone, destination, status or staff..."
-                className="w-full pl-12 pr-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm font-semibold text-slate-700 focus:outline-none focus:ring-4 focus:ring-blue-500/5 focus:border-blue-400 transition-all placeholder:text-slate-400"
+                className="w-full pl-12 pr-4 py-2.5 bg-slate-50 border border-slate-100 rounded-lg text-sm font-medium text-slate-700 focus:outline-none focus:ring-4 focus:ring-blue-500/5 focus:border-blue-400 transition-all placeholder:text-slate-400"
               />
             </div>
           </div>
@@ -909,9 +905,9 @@ const Leads = () => {
             <button
               type="button"
               onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
-              className={`flex items-center gap-2 px-6 py-3.5 rounded-[1.5rem] text-sm font-black transition-all border ${showAdvancedFilters
-                ? 'bg-blue-600 text-white border-blue-600 shadow-lg shadow-blue-200'
-                : 'bg-white text-slate-600 border-slate-100 hover:bg-slate-50'
+              className={`flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-semibold transition-all border ${showAdvancedFilters
+                ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
                 }`}
             >
               <Filter size={18} />
@@ -921,9 +917,9 @@ const Leads = () => {
             <button
               type="button"
               onClick={() => setShowAnalytics(!showAnalytics)}
-              className={`flex items-center gap-2.5 px-6 py-3.5 rounded-[1.5rem] text-sm font-black shadow-lg transition-all border ${showAnalytics
-                ? 'bg-emerald-600 border-emerald-600 text-white shadow-emerald-200'
-                : 'bg-white border-slate-100 text-emerald-600 hover:bg-emerald-50'
+              className={`flex items-center gap-2.5 px-6 py-2.5 rounded-lg text-sm font-semibold transition-all border ${showAnalytics
+                ? 'bg-emerald-600 border-emerald-600 text-white'
+                : 'bg-white border-slate-200 text-emerald-600 hover:bg-emerald-50'
                 }`}
             >
               <TrendingUp size={18} />
@@ -933,7 +929,7 @@ const Leads = () => {
             <button
               type="button"
               onClick={handleRefresh}
-              className="flex items-center justify-center w-12 h-12 border border-slate-200 rounded-2xl text-slate-500 hover:bg-slate-50 transition-all active:rotate-180 duration-500 shadow-sm"
+              className="flex items-center justify-center w-10 h-10 border border-slate-200 rounded-lg text-slate-500 hover:bg-slate-50 transition-all active:rotate-180 duration-500 shadow-sm"
               title="Reset Filters"
             >
               <RefreshCw size={18} />
@@ -942,14 +938,16 @@ const Leads = () => {
             <button
               type="button"
               onClick={() => handleSearch()}
-              className="btn-primary text-white px-8 py-3.5 rounded-[1.5rem] text-sm font-black active:scale-95 transition-all"
+              className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-2.5 rounded-lg text-sm font-semibold transition-all flex items-center gap-2 shadow-sm"
+              disabled={isRefreshing}
             >
-              Go!
+              {isRefreshing ? <Loader2 size={16} className="animate-spin" /> : null}
+              <span>Go!</span>
             </button>
           </div>
         </div>
 
-        <div className="bg-white/80 backdrop-blur-md p-2 rounded-2xl border border-white/40 shadow-[0_8px_30px_rgb(0,0,0,0.04)] flex items-center gap-3 overflow-x-auto scrollbar-hide no-scrollbar transition-all duration-300">
+        <div className="bg-white/80 backdrop-blur-md p-2 rounded-lg border border-white/40 shadow-[0_8px_30px_rgb(0,0,0,0.04)] flex items-center gap-3 overflow-x-auto scrollbar-hide no-scrollbar transition-all duration-300">
           {[
             { id: 'total', label: 'All', key: 'total', color: 'from-blue-600 to-blue-700 shadow-blue-200 hover:shadow-blue-300', icon: LayoutGrid },
             { id: 'assignedToMe', label: 'My Leads', key: 'assignedToMe', color: 'from-indigo-600 to-indigo-700 shadow-indigo-200 hover:shadow-indigo-300', icon: User },
@@ -973,7 +971,7 @@ const Leads = () => {
             >
               <filter.icon size={13} className={`${activeFilter === filter.id ? 'text-white' : 'text-slate-400 group-hover:text-slate-600'} flex-shrink-0`} strokeWidth={activeFilter === filter.id ? 3 : 2} />
               <span className="relative z-10">{filter.label}</span>
-              <span className={`px-1.5 py-0.5 rounded-md text-[9px] font-black transition-all flex-shrink-0 ${activeFilter === filter.id ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'}`}>
+              <span className={`px-1.5 py-0.5 rounded-md text-[9px] font-bold transition-all flex-shrink-0 ${activeFilter === filter.id ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'}`}>
                 {stats[filter.key] || 0}
               </span>
               
@@ -1113,9 +1111,11 @@ const Leads = () => {
                 </div>
               </div>
 
+
               {analyticsLoading ? (
-                <div className="h-[300px] flex flex-col items-center justify-center">
-                  <LogoLoader text="Generating Graphics..." compact={true} />
+                <div className="h-[300px] flex flex-col items-center justify-center bg-slate-50/30 rounded-2xl border border-dashed border-slate-100">
+                  <Loader2 className="w-8 h-8 text-blue-600 animate-spin mb-3" />
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Generating Graphics...</p>
                 </div>
               ) : analyticsData.length > 0 ? (
                 <div className="h-[300px] w-full">
@@ -1196,7 +1196,7 @@ const Leads = () => {
                 <div className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm transition-transform hover:scale-[1.02]">
                   <p className="text-[11px] font-bold text-gray-500 uppercase tracking-tight mb-1">Conversion Efficiency</p>
                   <div className="flex items-end justify-between">
-                    <h5 className="text-3xl font-black text-gray-900">
+                    <h5 className="text-3xl font-bold text-gray-900">
                       {analyticsData.length > 0
                         ? Math.round((analyticsData.reduce((acc, curr) => acc + (curr.confirmed || 0), 0) / (analyticsData.reduce((acc, curr) => acc + (curr.total || 0), 0) || 1)) * 100)
                         : 0}%
@@ -1228,7 +1228,7 @@ const Leads = () => {
 
                 <div className="bg-blue-600 p-5 rounded-2xl border border-blue-500 shadow-lg shadow-blue-200 transition-transform hover:scale-[1.02]">
                   <p className="text-[11px] font-bold text-blue-100 uppercase tracking-tight mb-1">Total Success</p>
-                  <h5 className="text-3xl font-black text-white">
+                  <h5 className="text-3xl font-bold text-white">
                     {analyticsData.reduce((acc, curr) => acc + (curr.confirmed || 0), 0)}
                   </h5>
                   <p className="text-[10px] text-blue-200 font-bold uppercase mt-1">Leads Won Overall</p>
@@ -1237,7 +1237,7 @@ const Leads = () => {
 
               <div className="mt-auto bg-white/60 backdrop-blur-sm p-4 rounded-xl border border-gray-100">
                 <p className="text-[10px] text-gray-500 font-bold leading-relaxed">
-                  ðŸ’¡ Pro-Tip: Comparison helps identify seasonal peaks. Use it to plan your marketing spend!
+                  💡 Pro-Tip: Comparison helps identify seasonal peaks. Use it to plan your marketing spend!
                 </p>
               </div>
             </div>
@@ -1246,312 +1246,244 @@ const Leads = () => {
       )}
       {/* End of Analytics if open */}
 
-      {!showAnalytics && (
-        <div className="relative min-h-[500px]">
-          {/* Localized Loader Overlay */}
-          {loading && (
-            <div className="absolute inset-0 bg-white/40 backdrop-blur-[2px] z-20 flex flex-col items-center justify-start pt-32 rounded-3xl animate-in fade-in duration-300">
-              <div className="p-10 bg-white shadow-2xl rounded-[2.5rem] border border-slate-100 flex flex-col items-center gap-4 animate-in-scale">
-                <LogoLoader text="Syncing Records..." compact={true} />
+          <div className="leads-content-container relative min-h-[500px]">
+
+            {/* Branded Loader Overlay - For all loading states (Initial Load & Refresh) */}
+            {(isRefreshing || (loading && isInitialLoad)) && (
+              <div className="absolute inset-0 z-[50] flex items-center justify-center bg-white/60 backdrop-blur-md rounded-xl transition-all duration-300">
+                <div className="animate-in zoom-in-95">
+                  <LogoLoader text="Syncing Records" compact={true} />
+                </div>
+              </div>
+            )}
+
+            <div className={`transition-all duration-500 ${isRefreshing ? 'opacity-20 grayscale-[0.5] blur-[1px] pointer-events-none' : (loading && isInitialLoad ? 'opacity-0' : 'opacity-100')}`}>
+              {filteredLeads.length === 0 && !loading ? (
+                <div className="flex flex-col items-center justify-center py-24 bg-white/40 backdrop-blur-sm rounded-xl border border-dashed border-slate-200 mx-4 mt-8 animate-in fade-in zoom-in duration-500">
+                  <div className="w-20 h-20 bg-slate-50 rounded-xl flex items-center justify-center mb-6 shadow-sm ring-1 ring-slate-100">
+                    <LayoutGrid className="w-10 h-10 text-slate-300" />
+                  </div>
+                  <h3 className="text-slate-600 text-xl font-bold mb-2">No queries found</h3>
+                  <p className="text-slate-400 text-sm max-w-xs text-center leading-relaxed">
+                    We couldn't find any leads matching your current selection. Try a different filter.
+                  </p>
+                </div>
+              ) : (
+                <div className="mt-6">
+                  {viewType === 'grid' ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-6">
+                      {filteredLeads.map((lead) => {
+                        const assignedId = lead.assigned_to?.id ?? lead.assigned_to_id ?? lead.assigned_to;
+                        const assignedUser = users.find(u => Number(u.id) === Number(assignedId)) || (Number(currentUser?.id) === Number(assignedId) ? currentUser : null);
+                        
+                        // Priority: 1. Backend direct name, 2. Local user list match, 3. User object in lead, 4. Current user fallback
+                        const assigneeName = lead.assigned_name || 
+                                           assignedUser?.name || 
+                                           lead.assigned_user?.name || 
+                                           lead.assigned_to_name || 
+                                           (Number(currentUser?.id) === Number(assignedId) ? currentUser?.name : '') ||
+                                           'Unassigned';
+
+                        return (
+                          <LeadCard
+                            key={lead.id}
+                            id={lead.id}
+                            name={lead.client_name}
+                            phone={lead.phone}
+                            email={lead.email}
+                            location={lead.destination}
+                            date={formatDate(lead.created_at)}
+                            status={lead.status}
+                            assignedTo={assignedId}
+                            assignedUserName={assigneeName}
+                            onSelect={toggleSelectLead}
+                            isSelected={selectedLeadIds.includes(lead.id)}
+                            onAssign={handleOpenAssignModal}
+                            onDelete={handleDelete}
+                          />
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse">
+                          <thead>
+                            <tr className="bg-slate-50/50 border-b border-slate-100">
+                              <th className="px-6 py-5 w-12">
+                                <input
+                                  type="checkbox"
+                                  checked={filteredLeads.length > 0 && selectedLeadIds.length === filteredLeads.length}
+                                  onChange={(e) => handleSelectAll(e.target.checked)}
+                                  className="w-5 h-5 rounded border-2 border-slate-200 text-blue-600 focus:ring-blue-500/20 cursor-pointer"
+                                />
+                              </th>
+                              <th className="px-6 py-5 text-[10px] font-bold uppercase tracking-widest text-slate-400">Client Info</th>
+                              <th className="px-6 py-5 text-[10px] font-bold uppercase tracking-widest text-slate-400">Email Address</th>
+                              <th className="px-6 py-5 text-[10px] font-bold uppercase tracking-widest text-slate-400">Phone Number</th>
+                              <th className="px-6 py-5 text-[10px] font-bold uppercase tracking-widest text-slate-400">Assigned To</th>
+                              <th className="px-2 py-5 text-right w-16 whitespace-nowrap">Actions</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {filteredLeads.map((lead) => {
+                              const assignedId = lead.assigned_to?.id ?? lead.assigned_to_id ?? lead.assigned_to;
+                              const assignedUser = users.find(u => Number(u.id) === Number(assignedId)) || (Number(currentUser?.id) === Number(assignedId) ? currentUser : null);
+                              
+                              const assigneeName = lead.assigned_name || 
+                                                 assignedUser?.name || 
+                                                 lead.assigned_user?.name || 
+                                                 lead.assigned_to_name || 
+                                                 (Number(currentUser?.id) === Number(assignedId) ? currentUser?.name : '') ||
+                                                 'Unassigned';
+                                                 
+                              const isSelected = selectedLeadIds.includes(lead.id);
+
+                              return (
+                                <tr
+                                  key={lead.id}
+                                  className={`group border-b border-slate-50 hover:bg-blue-50/30 transition-all duration-300 ${isSelected ? 'bg-blue-50/50' : ''}`}
+                                >
+                                  <td className="px-6 py-4">
+                                    <input
+                                      type="checkbox"
+                                      checked={isSelected}
+                                      onChange={() => toggleSelectLead(lead.id)}
+                                      className="w-5 h-5 rounded border-2 border-slate-200 text-blue-600 focus:ring-blue-500/20 cursor-pointer"
+                                    />
+                                  </td>
+                                  <td className="px-6 py-4">
+                                    <div className="flex items-center gap-3">
+                                      <div className="w-8 h-8 rounded-xl bg-blue-100 flex items-center justify-center text-blue-600 font-bold text-[10px] shadow-sm transform group-hover:scale-110 transition-transform">
+                                        {lead.client_name?.substring(0, 2).toUpperCase()}
+                                      </div>
+                                      <span className={`font-bold transition-colors ${isSelected ? 'text-blue-700' : 'text-slate-700'}`}>{lead.client_name}</span>
+                                    </div>
+                                  </td>
+                                  <td className="px-6 py-4">
+                                    <div className="text-xs font-semibold text-slate-600 truncate max-w-[180px]">{lead.email || "N/A"}</div>
+                                  </td>
+                                  <td className="px-6 py-4">
+                                    <div className="text-xs font-bold text-slate-700">{lead.phone || "N/A"}</div>
+                                  </td>
+                                  <td className="px-6 py-4">
+                                    <div className="flex items-center gap-2">
+                                      <div className="w-6 h-6 rounded-lg bg-slate-100 flex items-center justify-center text-[8px] font-bold text-slate-500 border border-slate-200">
+                                        {assigneeName.substring(0, 1)}
+                                      </div>
+                                      <span className="text-[11px] font-bold text-slate-600">{assigneeName}</span>
+                                    </div>
+                                  </td>
+                                  <td className="px-2 py-4 text-right">
+                                    <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                      <button
+                                        onClick={() => navigate(`/leads/${lead.id}`)}
+                                        className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
+                                        title="View Details"
+                                      >
+                                        <Eye size={16} />
+                                      </button>
+                                      <button
+                                        onClick={() => {
+                                          setFormData({
+                                            ...getDefaultFormData(),
+                                            ...lead
+                                          });
+                                          setEditingLead(lead);
+                                          setShowModal(true);
+                                        }}
+                                        className="p-2 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-all"
+                                        title="Edit"
+                                      >
+                                        <Edit size={16} />
+                                      </button>
+                                      <button
+                                        onClick={() => handleDelete(lead.id)}
+                                        className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all"
+                                        title="Delete"
+                                      >
+                                        <Trash2 size={16} />
+                                      </button>
+                                    </div>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Shared Pagination - Outside the blur container so it stays fixed and visible */}
+          {pagination.last_page >= 1 && filteredLeads.length > 0 && (
+            <div className="mt-8 bg-white rounded-xl border border-slate-200 shadow-sm p-4 flex flex-col md:flex-row items-center justify-between gap-4">
+              <div className="flex items-center text-sm text-slate-500">
+                Showing <span className="font-bold text-slate-800 mx-1">{pagination.from || 0}-{pagination.to || 0}</span> of <span className="font-bold text-slate-800 mx-1">{pagination.total || 0}</span> leads
+              </div>
+
+              <div className="flex items-center gap-3 px-6 border-l border-slate-100">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Queries Per Page:</span>
+                <select
+                  value={pagination.per_page || 8}
+                  onChange={handlePerPageChange}
+                  className="bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500/20 transition-all"
+                >
+                  {[8, 10, 20, 50, 100].map(num => (
+                    <option key={num} value={num}>{num}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={() => handlePageChange(currentPage - 1)}
+                  disabled={currentPage === 1}
+                  className="px-3 py-1.5 text-xs font-bold text-slate-500 border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                >
+                  ← Prev
+                </button>
+
+                <div className="flex items-center gap-1.5">
+                  {[...Array(pagination.last_page)].map((_, i) => {
+                    const page = i + 1;
+                    if (page === 1 || page === pagination.last_page || (page >= currentPage - 2 && page <= currentPage + 2)) {
+                      return (
+                        <button
+                          key={page}
+                          onClick={() => handlePageChange(page)}
+                          className={`w-8 h-8 flex items-center justify-center text-xs font-bold rounded-lg transition-all ${page === currentPage
+                            ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20'
+                            : 'text-slate-500 border border-slate-200 hover:bg-slate-50'
+                            }`}
+                        >
+                          {page}
+                        </button>
+                      );
+                    }
+                    if (page === 2 || page === pagination.last_page - 1) {
+                      return <span key={page} className="text-slate-300 px-0.5 text-xs">...</span>;
+                    }
+                    return null;
+                  })}
+                </div>
+
+                <button
+                  onClick={() => handlePageChange(currentPage + 1)}
+                  disabled={currentPage === pagination.last_page}
+                  className="px-3 py-1.5 text-xs font-bold text-slate-500 border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                >
+                  Next →
+                </button>
               </div>
             </div>
           )}
 
-          {/* Main Leads Area */}
-          <div className="leads-content-container">
-            {filteredLeads.length === 0 && !loading ? (
-              <div className="flex flex-col items-center justify-center py-24 bg-white/40 backdrop-blur-sm rounded-[2.5rem] border border-dashed border-slate-200 mx-4 mt-8 animate-in fade-in zoom-in duration-500">
-                <div className="w-20 h-20 bg-slate-50 rounded-[2rem] flex items-center justify-center mb-6 shadow-sm ring-1 ring-slate-100">
-                  <LayoutGrid className="w-10 h-10 text-slate-300" />
-                </div>
-                <h3 className="text-slate-600 text-xl font-bold mb-2">No queries found</h3>
-                <p className="text-slate-400 text-sm max-w-xs text-center leading-relaxed">
-                  We couldn't find any leads matching your current selection. Try a different filter.
-                </p>
-              </div>
-            ) : (
-              <div className="relative">
-                {viewType === 'grid' ? (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-6 mt-6">
-                    {filteredLeads.map((lead) => {
-                      const assignee = lead.assigned_user || lead.assignedUser || lead.assigned_to;
-                      const assigneeRole = assignee?.user_type === 'agent' ? 'Agent' :
-                        (assignee?.roles?.[0]?.name || (typeof assignee?.roles?.[0] === 'string' ? assignee.roles[0] : null));
 
-                      const assignedUserName =
-                        (assignee?.name ? `${assignee.name}${assigneeRole ? ` (${assigneeRole})` : ''}` : null) ||
-                        lead.assigned_name ||
-                        lead.assigned_to_name ||
-                        lead.assigned_user_name ||
-                        "Unassigned";
-
-                      return (
-                        <LeadCard
-                          id={lead.id}
-                          key={lead.id}
-                          name={lead.client_name}
-                          isSelected={selectedLeadIds.includes(lead.id)}
-                          onSelect={toggleSelectLead}
-                          phone={lead.phone || "N/A"}
-                          email={lead.email}
-                          tag={
-                            lead.status === "confirmed"
-                              ? "Booked"
-                              : lead.status === "new"
-                                ? "New"
-                                : lead.status === "processing"
-                                  ? "Under Process"
-                                  : ""
-                          }
-                          location={lead.destination || "N/A"}
-                          date={formatDate(lead.created_at)}
-                          amount={lead.amount || 0}
-                          status={lead.status}
-                          assignedTo={lead.assignedUser || lead.assigned_user || lead.assigned_to}
-                          assignedName={assignedUserName}
-                          onClick={() => navigate(`/leads/${lead.id}`)}
-                          onStatusChange={handleOpenStatusModal}
-                          onAssign={handleOpenAssignModal}
-                          onAddNote={() => navigate(`/leads/${lead.id}?tab=followups`)}
-                          onDelete={() => handleDelete(lead.id)}
-                        />
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div className="mt-8 bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
-                    <div className="overflow-x-auto custom-scrollbar">
-                      <table className="w-full text-left border-collapse">
-                        <thead>
-                          <tr className="bg-slate-50/50">
-                            <th className="px-6 py-5 w-12">
-                              <input
-                                type="checkbox"
-                                checked={selectedLeadIds.length === filteredLeads.length && filteredLeads.length > 0}
-                                onChange={(e) => handleSelectAll(e.target.checked)}
-                                className="w-5 h-5 rounded border-2 border-slate-200 text-blue-600 focus:ring-blue-500/20 cursor-pointer"
-                              />
-                            </th>
-                            <th className="px-6 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">Client Detail</th>
-                            <th className="px-6 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">Destination</th>
-                            <th className="px-6 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">Amount</th>
-                            <th className="px-6 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">Status</th>
-                            <th className="px-6 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">Assigned To</th>
-                            <th className="px-2 py-5 text-right w-16 whitespace-nowrap">Actions</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-50">
-                          {filteredLeads.map((lead) => {
-                            const isSelected = selectedLeadIds.includes(lead.id);
-                            const assignee = lead.assigned_user || lead.assignedUser || lead.assigned_to;
-                            const assigneeRole = assignee?.user_type === 'agent' ? 'Agent' :
-                              (assignee?.roles?.[0]?.name || (typeof assignee?.roles?.[0] === 'string' ? assignee.roles[0] : null));
-
-                            const assignedUserName =
-                              (assignee?.name ? `${assignee.name}${assigneeRole ? ` (${assigneeRole})` : ''}` : null) ||
-                              lead.assigned_name ||
-                              lead.assigned_to_name ||
-                              lead.assigned_user_name ||
-                              "Unassigned";
-
-                            return (
-                              <tr
-                                key={lead.id}
-                                className={`${isSelected ? 'bg-blue-50/80' : 'hover:bg-slate-50'} border-b border-slate-50 transition-colors group cursor-pointer`}
-                                onClick={() => navigate(`/leads/${lead.id}`)}
-                              >
-                                <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
-                                  <input
-                                    type="checkbox"
-                                    checked={isSelected}
-                                    onChange={() => toggleSelectLead(lead.id)}
-                                    className="w-5 h-5 rounded border-2 border-slate-200 text-blue-600 focus:ring-blue-500/20 cursor-pointer"
-                                  />
-                                </td>
-                                <td className="px-6 py-4">
-                                  <div className="flex items-center gap-3">
-                                    <div className="w-8 h-8 rounded-xl bg-blue-100 flex items-center justify-center text-blue-600 font-black text-[10px] shadow-sm transform group-hover:scale-110 transition-transform">
-                                      {lead.client_name?.substring(0, 2).toUpperCase()}
-                                    </div>
-                                    <div className="flex items-center gap-1.5">
-                                      <span className={`font-bold transition-colors ${isSelected ? 'text-blue-700' : 'text-slate-700'}`}>{lead.client_name}</span>
-                                    </div>
-                                  </div>
-                                  <div className="mt-1 flex items-center gap-2 text-[10px] text-slate-400 font-medium">
-                                    <span>{lead.phone || 'No Phone'}</span>
-                                    <span>â€¢</span>
-                                    <span>{formatDate(lead.created_at)}</span>
-                                  </div>
-                                </td>
-                                <td className="px-6 py-4">
-                                  <div className="flex items-center gap-2 text-slate-600">
-                                    <div className="p-1.5 bg-slate-100 rounded-lg group-hover:bg-white transition-colors">
-                                      <Search size={12} className="text-slate-400" />
-                                    </div>
-                                    <span className="text-xs font-semibold">{lead.destination || 'N/A'}</span>
-                                  </div>
-                                </td>
-                                <td className="px-6 py-4">
-                                  <div className="text-xs font-black text-slate-700">₹{Number(lead.amount || 0).toLocaleString()}</div>
-                                  <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mt-0.5">Package Value</div>
-                                </td>
-                                <td className="px-6 py-4">
-                                  <span className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest ${lead.status === 'confirmed' ? 'bg-emerald-100 text-emerald-600 border border-emerald-200' :
-                                    lead.status === 'followup' ? 'bg-amber-100 text-amber-600 border border-amber-200' :
-                                      lead.status === 'cancelled' ? 'bg-rose-100 text-rose-600 border border-rose-200' :
-                                        lead.status === 'processing' ? 'bg-indigo-100 text-indigo-600 border border-indigo-200' :
-                                          'bg-blue-100 text-blue-600 border border-blue-200'
-                                    }`}>
-                                    {lead.status === 'confirmed' ? 'Booked' : lead.status === 'processing' ? 'Under Process' : lead.status || 'New'}
-                                  </span>
-                                </td>
-                                <td className="px-6 py-4">
-                                  <div className="flex items-center gap-2">
-                                    <div className="w-6 h-6 rounded-lg bg-slate-100 flex items-center justify-center text-[8px] font-bold text-slate-500 border border-slate-200">
-                                      {assignedUserName.substring(0, 1)}
-                                    </div>
-                                    <span className="text-[11px] font-bold text-slate-600">{assignedUserName}</span>
-                                  </div>
-                                </td>
-                                <td className="px-6 py-4 text-right" onClick={(e) => e.stopPropagation()}>
-                                  <div className="flex items-center justify-end gap-1">
-                                    <button onClick={() => navigate(`/leads/${lead.id}`)} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all" title="View Details">
-                                      <LayoutGrid size={16} />
-                                    </button>
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        if (window.confirm(`Are you sure you want to delete query of ${lead.client_name}?`)) {
-                                          handleDelete(lead.id);
-                                        }
-                                      }}
-                                      className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all"
-                                      title="Delete Lead"
-                                    >
-                                      <Trash2 size={16} />
-                                    </button>
-                                  </div>
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
-
-                  </div>
-                )}
-
-                {/* Shared Pagination for Grid & Table */}
-                {pagination.last_page >= 1 && (
-                  <div className="mt-8 bg-white rounded-xl border border-slate-200 shadow-sm p-4 flex flex-col md:flex-row items-center justify-between gap-4">
-                    <div className="flex items-center text-sm text-slate-500">
-                      Showing <span className="font-bold text-slate-800 mx-1">{pagination.from || 0}-{pagination.to || 0}</span> of <span className="font-bold text-slate-800 mx-1">{pagination.total || 0}</span> leads
-                    </div>
-
-                    <div className="flex items-center gap-3 px-6 border-l border-slate-100">
-                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Queries Per Page:</span>
-                      <select
-                                          onChange={handlePerPageChange}
-                        className="bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500/20 transition-all"
-                      >
-                        {[8, 10, 20, 50, 100].map(num => (
-                          <option key={num} value={num}>{num}</option>
-                        ))}
-                      </select>
-                    </div>
-                    
-                    <div className="flex items-center gap-1.5">
-                      <button
-                        onClick={() => handlePageChange(currentPage - 1)}
-                        disabled={currentPage === 1}
-                        className="px-3 py-1.5 text-xs font-bold text-slate-500 border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
-                      >
-                        ← Prev
-                      </button>
-                      
-                      <div className="flex items-center gap-1.5">
-                        {[...Array(pagination.last_page)].map((_, i) => {
-                          const page = i + 1;
-                          if (page === 1 || page === pagination.last_page || (page >= currentPage - 2 && page <= currentPage + 2)) {
-                            return (
-                              <button
-                                key={page}
-                                onClick={() => handlePageChange(page)}
-                                className={`w-8 h-8 flex items-center justify-center text-xs font-bold rounded-lg transition-all ${page === currentPage
-                                  ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20'
-                                  : 'text-slate-500 border border-slate-200 hover:bg-slate-50'
-                                  }`}
-                              >
-                                {page}
-                              </button>
-                            );
-                          }
-                          if (page === 2 || page === pagination.last_page - 1) {
-                            return <span key={page} className="text-slate-300 px-0.5 text-xs">...</span>;
-                          }
-                          return null;
-                        })}
-                      </div>
-
-                      <button
-                        onClick={() => handlePageChange(currentPage + 1)}
-                        disabled={currentPage === pagination.last_page}
-                        className="px-3 py-1.5 text-xs font-bold text-slate-500 border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
-                      >
-                        Next →
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Bulk Action Bar - Floating */}
-      {selectedLeadIds.length > 0 && (
-        <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[100] animate-in slide-in-from-bottom-8 duration-300">
-          <div className="bg-slate-900 text-white px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-6 border border-slate-700 backdrop-blur-md bg-opacity-95">
-            <div className="flex items-center gap-3 pr-6 border-r border-slate-700">
-              <div className="w-8 h-8 bg-blue-600 rounded-xl flex items-center justify-center text-xs font-black shadow-lg shadow-blue-500/20">
-                {selectedLeadIds.length}
-              </div>
-              <span className="text-xs font-black uppercase tracking-widest text-slate-400">Selected</span>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={() => setIsBulkAssignModalOpen(true)}
-                className="flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-500 rounded-xl text-xs font-black transition-all active:scale-95 shadow-lg shadow-blue-600/20"
-              >
-                <User size={16} />
-                Bulk Assign
-              </button>
-
-              <button
-                type="button"
-                onClick={handleBulkDelete}
-                className="flex items-center gap-2 px-6 py-3 bg-rose-600 hover:bg-rose-500 rounded-xl text-xs font-black transition-all active:scale-95 shadow-lg shadow-rose-600/20"
-              >
-                <Trash2 size={16} />
-                Bulk Delete
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setSelectedLeadIds([])}
-                className="p-2 hover:bg-slate-800 rounded-xl transition-all text-slate-400 hover:text-white"
-                title="Clear Selection"
-              >
-                <X size={20} />
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Bulk Assign Modal */}
       {isBulkAssignModalOpen && (
@@ -1559,7 +1491,7 @@ const Leads = () => {
           <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-md animate-in-scale border border-slate-100">
             <div className="flex justify-between items-center p-8 border-b border-slate-50">
               <div>
-                <h3 className="text-xl font-black text-slate-800">Bulk Assignment</h3>
+                <h3 className="text-xl font-bold text-slate-800">Bulk Assignment</h3>
                 <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest mt-1">Select staff for {selectedLeadIds.length} leads</p>
               </div>
               <button
@@ -1570,7 +1502,7 @@ const Leads = () => {
               </button>
             </div>
             <div className="p-8">
-              <label className="block text-xs font-black text-slate-500 mb-3 uppercase tracking-wider ml-1">Choose Sales Representative</label>
+              <label className="block text-xs font-bold text-slate-500 mb-3 uppercase tracking-wider ml-1">Choose Sales Representative</label>
               <div className="grid grid-cols-1 gap-3 max-h-[40vh] overflow-y-auto pr-2 custom-scrollbar">
                 {users.map(u => (
                   <button
@@ -1578,12 +1510,12 @@ const Leads = () => {
                     onClick={() => handleBulkAssign(u.id)}
                     className="flex items-center gap-4 p-4 rounded-2xl border border-slate-100 hover:border-blue-500 hover:bg-blue-50/50 transition-all group text-left"
                   >
-                    <div className="w-10 h-10 rounded-xl bg-slate-100 group-hover:bg-blue-100 flex items-center justify-center text-slate-500 group-hover:text-blue-600 font-black transition-colors shadow-sm">
+                    <div className="w-10 h-10 rounded-xl bg-slate-100 group-hover:bg-blue-100 flex items-center justify-center text-slate-500 group-hover:text-blue-600 font-bold transition-colors shadow-sm">
                       {u.name?.substring(0, 1).toUpperCase()}
                     </div>
                     <div>
                       <div className="font-bold text-slate-700 group-hover:text-blue-700">{u.name}</div>
-                      <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{u.user_type === 'agent' ? 'Agent' : (u.roles?.[0]?.name || 'Staff')}</div>
+                      <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{u.user_type === 'agent' ? 'Agent' : (u.roles?.[0]?.name || 'Staff')}</div>
                     </div>
                   </button>
                 ))}
