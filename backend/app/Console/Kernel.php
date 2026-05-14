@@ -31,6 +31,10 @@ class Kernel extends ConsoleKernel
         $schedule->command('employees:log-performance')
             ->dailyAt('01:00')
             ->timezone('UTC');
+
+        // Cleanup read notifications older than 24 hours
+        $schedule->command('notifications:cleanup')
+            ->hourly();
     }
 
     /**
