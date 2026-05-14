@@ -65,8 +65,11 @@ const ItineraryDetail = () => {
           leadDuration = diffDays;
         }
 
-        if (currentAdult !== leadAdult || currentChild !== leadChild || currentInfant !== leadInfant || currentDuration !== leadDuration) {
-          console.log('Syncing pax and duration from lead:', leadData.adult, leadData.child, leadData.infant, leadDuration);
+        const leadStartDate = leadData.travel_start_date ? new Date(leadData.travel_start_date).toISOString().split('T')[0] : null;
+        const currentStartDate = itinerary.start_date ? new Date(itinerary.start_date).toISOString().split('T')[0] : null;
+
+        if (currentAdult !== leadAdult || currentChild !== leadChild || currentInfant !== leadInfant || currentDuration !== leadDuration || (leadStartDate && currentStartDate !== leadStartDate)) {
+          console.log('Syncing pax, duration and start date from lead:', leadData.adult, leadData.child, leadData.infant, leadDuration, leadStartDate);
 
           const updateData = {
             adult: leadAdult,
@@ -75,6 +78,9 @@ const ItineraryDetail = () => {
           };
           if (currentDuration !== leadDuration) {
             updateData.duration = leadDuration;
+          }
+          if (leadStartDate && currentStartDate !== leadStartDate) {
+            updateData.start_date = leadStartDate;
           }
 
           if (isProposal) {
@@ -88,11 +94,12 @@ const ItineraryDetail = () => {
             adult: leadAdult,
             child: leadChild,
             infant: leadInfant,
-            duration: leadDuration
+            duration: leadDuration,
+            start_date: leadStartDate || prev.start_date
           }));
 
-          if (currentDuration !== leadDuration) {
-            if (!silent) toast.info(`Duration updated from lead: ${leadDuration} Days`);
+          if (currentDuration !== leadDuration || (leadStartDate && currentStartDate !== leadStartDate)) {
+            if (!silent) toast.info(`Itinerary dates/duration updated from lead`);
             fetchItinerary();
           } else {
             if (!silent) toast.info(`Pax updated from lead: ${leadAdult} Adult${leadAdult > 1 ? 's' : ''}`);

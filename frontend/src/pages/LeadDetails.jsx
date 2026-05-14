@@ -2693,9 +2693,11 @@ const handleCreateItinerary = () => {
 
   setItineraryFormData({
     itinerary_name: '',
-    destinations: '',
-    duration: '',
-    start_date: '',
+    destinations: lead?.destination || '',
+    duration: (lead?.travel_start_date && lead?.travel_end_date) 
+      ? (Math.ceil(Math.abs(new Date(lead.travel_end_date) - new Date(lead.travel_start_date)) / (1000 * 60 * 60 * 24)) + 1).toString()
+      : '',
+    start_date: lead?.travel_start_date ? new Date(lead.travel_start_date).toISOString().split('T')[0] : '',
     image: null,
     notes: '',
     show_on_website: true

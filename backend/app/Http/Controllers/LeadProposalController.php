@@ -100,6 +100,18 @@ class LeadProposalController extends Controller
             $proposalData['original_package_id'] = $request->package_id;
             $proposalData['created_by'] = auth()->id();
 
+            // SYNC lead dates to the new clone
+            $lead = \App\Modules\Leads\Domain\Entities\Lead::find($request->lead_id);
+            if ($lead && $lead->travel_start_date) {
+                $proposalData['start_date'] = $lead->travel_start_date->format('Y-m-d');
+                
+                if ($lead->travel_end_date) {
+                    $start = \Carbon\Carbon::parse($lead->travel_start_date);
+                    $end = \Carbon\Carbon::parse($lead->travel_end_date);
+                    $proposalData['duration'] = $start->diffInDays($end) + 1;
+                }
+            }
+
             $proposal = LeadProposal::create($proposalData);
 
             // Sync the price column for easier logging/sorting
