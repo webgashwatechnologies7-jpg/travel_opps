@@ -68,165 +68,107 @@ const ItineraryCard = ({
       role="button"
       tabIndex={0}
       onClick={() => navigate(`/itineraries/${itinerary.id}`)}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          navigate(`/itineraries/${itinerary.id}`);
-        }
-      }}
-      className={`bg-white flex flex-col border rounded-2xl shadow-sm hover:shadow-md transition-all overflow-hidden group cursor-pointer relative ${isSelected ? 'ring-2 ring-blue-500 border-blue-500 shadow-blue-100' : 'border-gray-200'}`}
+      className={`group relative bg-white flex flex-col rounded-xl border transition-all duration-300 overflow-hidden cursor-pointer ${
+        isSelected ? 'border-blue-500 ring-2 ring-blue-500/10 shadow-lg' : 'border-slate-200 shadow-sm hover:shadow-md hover:border-blue-300'
+      }`}
     >
       {/* Selection Checkbox Overlay */}
       <div className="absolute top-3 left-3 z-10">
         <input
           type="checkbox"
-          className="w-5 h-5 rounded-lg border-2 border-white/50 bg-black/20 backdrop-blur-sm text-blue-600 focus:ring-blue-500 shadow-lg cursor-pointer transition-transform group-hover:scale-110 checked:border-blue-500"
+          className="w-5 h-5 rounded-lg border-slate-300 text-blue-600 focus:ring-blue-500 shadow-sm cursor-pointer transition-transform group-hover:scale-110"
           checked={isSelected}
           onChange={(e) => handleToggleSelect(e, itinerary.id)}
           onClick={(e) => e.stopPropagation()}
         />
       </div>
 
-      {/* Image & Actions Container */}
-      <div className="relative h-64 overflow-hidden bg-slate-50">
+      {/* Image Container */}
+      <div className="relative h-56 overflow-hidden bg-slate-50 border-b border-slate-100">
         {(itinerary.image && !imgError) ? (
           <img
             src={itinerary.image}
             alt={itinerary.title}
-            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
             onError={() => setImgError(true)}
           />
         ) : (
-          <div className="w-full h-full bg-gray-100 flex flex-col items-center justify-center gap-2">
-            <ImageIcon className="text-gray-300 h-8 w-8" />
-            <span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">No Photo</span>
+          <div className="w-full h-full bg-gradient-to-br from-slate-50 to-slate-100 flex flex-col items-center justify-center gap-2">
+            <div className="w-12 h-12 rounded-2xl bg-white flex items-center justify-center text-slate-200 shadow-sm">
+              <ImageIcon size={24} />
+            </div>
+            <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">No Banner Image</span>
           </div>
         )}
 
-        {/* Top Actions Overlay */}
-        <div className="absolute top-3 right-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              handleView(itinerary);
-            }}
-            className="w-8 h-8 rounded-full bg-white/90 backdrop-blur text-blue-600 hover:bg-white flex items-center justify-center shadow-lg"
-            title="View Details"
-          >
-            <Eye className="h-4 w-4" />
-          </button>
-          {hasPermission(user, 'itineraries.create') && (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                handleDuplicate(itinerary);
-              }}
-              className="w-8 h-8 rounded-full bg-white/90 backdrop-blur text-purple-600 hover:bg-white flex items-center justify-center shadow-lg"
-              title="Duplicate Package"
-            >
-              <Copy className="h-4 w-4" />
-            </button>
-          )}
+        {/* Hover Actions */}
+        <div className="absolute top-3 right-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-all duration-300 transform translate-y-[-10px] group-hover:translate-y-0">
+          <button onClick={(e) => { e.stopPropagation(); handleView(itinerary); }} className="w-8 h-8 rounded-lg bg-white shadow-lg text-slate-600 hover:text-blue-600 flex items-center justify-center transition-colors"><Eye size={16} /></button>
           {hasPermission(user, 'itineraries.edit') && (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                handleEdit(itinerary);
-              }}
-              className="w-8 h-8 rounded-full bg-white/90 backdrop-blur text-green-600 hover:bg-white flex items-center justify-center shadow-lg"
-              title="Edit Package"
-            >
-              <Edit className="h-4 w-4" />
-            </button>
+            <button onClick={(e) => { e.stopPropagation(); handleEdit(itinerary); }} className="w-8 h-8 rounded-lg bg-white shadow-lg text-slate-600 hover:text-emerald-600 flex items-center justify-center transition-colors"><Edit size={16} /></button>
           )}
           {hasPermission(user, 'itineraries.delete') && (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                handleDelete(itinerary);
-              }}
-              className="w-8 h-8 rounded-full bg-white/90 backdrop-blur text-red-600 hover:bg-white flex items-center justify-center shadow-lg"
-              title="Delete Package"
-            >
-              <Trash className="h-4 w-4" />
-            </button>
+            <button onClick={(e) => { e.stopPropagation(); handleDelete(itinerary); }} className="w-8 h-8 rounded-lg bg-white shadow-lg text-slate-600 hover:text-rose-600 flex items-center justify-center transition-colors"><Trash size={16} /></button>
           )}
         </div>
 
-        {/* SELECT FOR LEAD BUTTON */}
-        {chooseForLead && (
-          <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity">
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                handleSelectForLead(itinerary);
-              }}
-              className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-xl font-bold flex items-center gap-2 shadow-xl transform group-hover:scale-110 transition-transform"
-            >
-              <Plus className="h-5 w-5" />
-              INSERT INTO LEAD
-            </button>
-          </div>
-        )}
-
-        {/* Bottom Info Overlay */}
-        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent p-4">
-          <h3 className="text-white font-bold text-lg truncate mb-1">
-            {itinerary.title || itinerary.itinerary_name || "Untitled"}
-          </h3>
-          <div className="flex items-center gap-3 text-white/90 text-xs">
-            <span className="flex items-center gap-1 font-medium">
-              <CalendarDays className="w-3.5 h-3.5" />
-              {itinerary.duration ? `${itinerary.duration} Days` : "N/A"}
-            </span>
-            {(itinerary.routing || itinerary.destination || itinerary.destinations) && (
-              <span className="flex items-center gap-1 truncate max-w-[150px] font-medium opacity-90">
-                <MapPin className="w-3.5 h-3.5" />
-                {itinerary.routing || itinerary.destination || itinerary.destinations}
-              </span>
-            )}
-          </div>
+        {/* Status Badge */}
+        <div className="absolute bottom-3 left-3 flex items-center gap-1.5 px-2.5 py-1 bg-white/90 backdrop-blur rounded-lg border border-white/20 shadow-sm">
+          <div className={`w-1.5 h-1.5 rounded-full ${itinerary.show_on_website ? 'bg-emerald-500' : 'bg-rose-500'}`} />
+          <span className={`text-[10px] font-bold uppercase tracking-tight ${itinerary.show_on_website ? 'text-emerald-700' : 'text-rose-700'}`}>
+            {itinerary.show_on_website ? 'Website Live' : 'Internal'}
+          </span>
         </div>
       </div>
 
-      <div className="p-4 space-y-4">
-        <div className="flex flex-col gap-2.5">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Status</span>
-            <div className="flex items-center gap-1.5 bg-slate-50 px-2 py-0.5 rounded-full border border-slate-100">
-              <div className={`w-1.5 h-1.5 rounded-full ${itinerary.show_on_website ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.4)]' : 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.4)]'}`} />
-              <span className={`text-[10px] font-bold uppercase tracking-tight ${itinerary.show_on_website ? 'text-green-600' : 'text-red-600'}`}>
-                {itinerary.show_on_website ? 'Visible' : 'Hidden'}
-              </span>
+      <div className="p-4 flex flex-col flex-1">
+        <div className="flex-1 min-w-0 mb-3">
+          <h3 className="font-bold text-slate-800 group-hover:text-blue-600 transition-colors leading-tight mb-2 truncate">
+            {itinerary.title || itinerary.itinerary_name || "Untitled Package"}
+          </h3>
+          
+          <div className="flex flex-wrap gap-y-2 gap-x-4">
+            <div className="flex items-center gap-1.5 text-slate-500 text-xs font-medium">
+              <CalendarDays className="w-3.5 h-3.5 text-slate-400" />
+              <span>{itinerary.duration ? `${itinerary.duration} Days` : "N/A"}</span>
             </div>
+            {(itinerary.routing || itinerary.destination || itinerary.destinations) && (
+              <div className="flex items-center gap-1.5 text-slate-500 text-xs font-medium truncate max-w-full">
+                <MapPin className="w-3.5 h-3.5 text-slate-400" />
+                <span className="truncate">{itinerary.routing || itinerary.destination || itinerary.destinations}</span>
+              </div>
+            )}
           </div>
-          <div className="flex items-center justify-between pt-2 border-t border-slate-50">
-            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Visibility Toggle</span>
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                if (handleToggleStatus) handleToggleStatus(itinerary);
-              }}
-              className={`relative inline-flex h-5 w-10 items-center rounded-full transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 ${
-                itinerary.show_on_website ? 'bg-green-500 shadow-lg shadow-green-500/20' : 'bg-slate-300'
-              }`}
-            >
-              <span
-                className={`h-3.5 w-3.5 bg-white rounded-full transform transition-transform duration-200 ease-in-out ${
-                  itinerary.show_on_website ? 'translate-x-5' : 'translate-x-1'
-                }`}
-              />
-            </button>
+        </div>
+
+        <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
+          <div className="flex flex-col">
+            <span className="text-[9px] font-semibold text-slate-400 uppercase tracking-wider">Package ID</span>
+            <span className="text-xs font-bold text-slate-600">{itinerary.id}</span>
           </div>
-          <div className="flex items-center justify-between text-[10px] text-slate-400 font-bold uppercase tracking-widest pt-2 border-t border-slate-50">
-            <span>ID: {itinerary.id} {itinerary.lead_id && <span className="ml-2 px-1.5 py-0.5 bg-blue-100 text-blue-600 rounded text-[9px]">USED IN LEAD</span>}</span>
-            <span>Updated: {new Date(itinerary.updated_at).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })}</span>
+
+          <div className="flex items-center gap-3">
+            {chooseForLead ? (
+              <button
+                onClick={(e) => { e.stopPropagation(); handleSelectForLead(itinerary); }}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 rounded-lg text-xs font-bold transition-all shadow-sm active:scale-95"
+              >
+                SELECT
+              </button>
+            ) : (
+              <div className="flex items-center gap-2">
+                <span className="text-[9px] font-semibold text-slate-400 uppercase tracking-wider">Visible</span>
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); if (handleToggleStatus) handleToggleStatus(itinerary); }}
+                  className={`relative inline-flex h-5 w-9 items-center rounded-full transition-all duration-300 ${
+                    itinerary.show_on_website ? 'bg-emerald-500 shadow-sm shadow-emerald-500/20' : 'bg-slate-200'
+                  }`}
+                >
+                  <span className={`h-3.5 w-3.5 bg-white rounded-full transform transition-transform duration-300 ${itinerary.show_on_website ? 'translate-x-4.5' : 'translate-x-1'}`} />
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -830,16 +772,16 @@ const Itineraries = () => {
         </div>
 
         <div className="flex items-center gap-3 relative animate-in-scale" style={{ animationDelay: '100ms' }}>
-          {/* Select All Checkbox - Moved to Header */}
-          <div className="flex items-center gap-2 bg-white px-4 py-2.5 rounded-xl border border-slate-200 shadow-sm transition-all hover:border-blue-300">
+          {/* Select All Checkbox - Minimal Design */}
+          <div className="flex items-center gap-2 bg-white px-4 py-2.5 rounded-xl border border-slate-200 shadow-sm transition-all hover:border-blue-300 group">
             <input
               type="checkbox"
               id="selectAllItinerariesHeader"
-              className="w-5 h-5 rounded-lg border-2 border-slate-300 text-blue-600 focus:ring-4 focus:ring-blue-500/20 cursor-pointer shadow-sm transition-all"
+              className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500/20 cursor-pointer transition-all"
               checked={filteredItineraries.length > 0 && selectedIds.length === filteredItineraries.length}
               onChange={(e) => handleToggleSelectAll(e.target.checked)}
             />
-            <label htmlFor="selectAllItinerariesHeader" className="text-xs font-black text-slate-600 uppercase tracking-widest cursor-pointer select-none">
+            <label htmlFor="selectAllItinerariesHeader" className="text-[10px] font-bold text-slate-500 uppercase tracking-wider cursor-pointer select-none group-hover:text-blue-600 transition-colors">
               Select All
             </label>
           </div>
@@ -937,7 +879,7 @@ const Itineraries = () => {
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value)}
-              className="px-6 py-2 bg-white border border-slate-200 rounded-xl text-sm font-black text-slate-700 hover:border-blue-400 transition-all cursor-pointer focus:outline-none"
+              className="px-6 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 hover:border-blue-400 transition-all cursor-pointer focus:outline-none shadow-sm"
             >
               <option value="newest">Latest Added</option>
               <option value="oldest">Oldest First</option>
@@ -1005,11 +947,11 @@ const Itineraries = () => {
                           className="w-5 h-5 rounded border-2 border-slate-200 text-blue-600 focus:ring-blue-500/20 cursor-pointer"
                         />
                       </th>
-                      <th className="px-6 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">Package</th>
-                      <th className="px-6 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">Duration</th>
-                      <th className="px-6 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">Route</th>
-                      <th className="px-6 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">Status</th>
-                      <th className="px-6 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400 text-right">Actions</th>
+                      <th className="px-6 py-5 text-[10px] font-bold uppercase tracking-wider text-slate-400">Package</th>
+                      <th className="px-6 py-5 text-[10px] font-bold uppercase tracking-wider text-slate-400">Duration</th>
+                      <th className="px-6 py-5 text-[10px] font-bold uppercase tracking-wider text-slate-400">Route</th>
+                      <th className="px-6 py-5 text-[10px] font-bold uppercase tracking-wider text-slate-400">Status</th>
+                      <th className="px-6 py-5 text-[10px] font-bold uppercase tracking-wider text-slate-400 text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1047,7 +989,7 @@ const Itineraries = () => {
                           </div>
                         </td>
                         <td className="px-6 py-4">
-                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-blue-50 text-blue-600 text-[11px] font-black uppercase">
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-blue-50 text-blue-600 text-[11px] font-bold uppercase">
                             <CalendarDays size={12} />
                             {itinerary.duration ? `${itinerary.duration} Days` : "N/A"}
                           </span>
@@ -1357,7 +1299,7 @@ const Itineraries = () => {
               </div>
               <div className="flex items-center gap-2 px-1">
                 <div className="w-1.5 h-1.5 rounded-full bg-blue-500"></div>
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
                   {libraryTab === 'free' ? 'Pexels high-res stock images' : 'Reuse images from your previous itineraries'}
                 </p>
               </div>
@@ -1389,7 +1331,7 @@ const Itineraries = () => {
                       >
                         <img src={p.thumb || p.url} alt={p.alt} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
                         <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-4">
-                          <span className="text-white font-black text-[10px] uppercase tracking-widest">Select Image</span>
+                          <span className="text-white font-bold text-[10px] uppercase tracking-wider">Select Image</span>
                         </div>
                       </button>
                     ))}
@@ -1422,8 +1364,8 @@ const Itineraries = () => {
                         <img src={p.image} alt={p.itinerary_name || p.title || 'Select'} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
                         <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-4">
                           <div className="flex flex-col text-left">
-                            <span className="text-white font-black text-[10px] uppercase tracking-widest truncate w-full">{p.itinerary_name || 'Untitled'}</span>
-                            <span className="text-white/60 font-medium text-[8px] uppercase tracking-widest mt-0.5">Click to choose</span>
+                            <span className="text-white font-bold text-[10px] uppercase tracking-wider truncate w-full">{p.itinerary_name || 'Untitled'}</span>
+                            <span className="text-white/60 font-medium text-[8px] uppercase tracking-wider mt-0.5">Click to choose</span>
                           </div>
                         </div>
                       </button>

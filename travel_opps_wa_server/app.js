@@ -28,7 +28,7 @@ const authMiddleware = (req, res, next) => {
     if (apiKey !== INTERNAL_API_KEY) {
         return res.status(401).json({ error: 'Unauthorized: Invalid API Key' });
     }
-    next();
+    next(); 
 };
 
 // 2. Safely serialize BigInt values returned by Baileys
