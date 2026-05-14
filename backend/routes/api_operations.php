@@ -119,7 +119,7 @@ Route::middleware(['auth:sanctum', 'plan.feature:itineraries'])->prefix('lead-pr
     Route::get('/', [\App\Http\Controllers\LeadProposalController::class, 'index']);
     Route::post('/', [\App\Http\Controllers\LeadProposalController::class, 'store']);
     Route::get('/{id}', [\App\Http\Controllers\LeadProposalController::class, 'show'])->where('id', '[0-9]+');
-    Route::post('/{id}', [\App\Http\Controllers\LeadProposalController::class, 'update'])->where('id', '[0-9]+');
+    Route::match(['POST', 'PUT'], '/{id}', [\App\Http\Controllers\LeadProposalController::class, 'update'])->where('id', '[0-9]+');
     Route::post('/{id}/confirm', [\App\Http\Controllers\LeadProposalController::class, 'confirm'])->where('id', '[0-9]+');
     Route::get('/{leadId}/history', [\App\Http\Controllers\LeadProposalController::class, 'history'])->where('leadId', '[0-9]+');
     Route::delete('/{id}', [\App\Http\Controllers\LeadProposalController::class, 'destroy'])->where('id', '[0-9]+');

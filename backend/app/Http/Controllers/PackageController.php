@@ -232,6 +232,19 @@ class PackageController extends Controller
                 }
             }
 
+            // SYNC lead dates if lead_id is provided
+            if (!empty($data['lead_id'])) {
+                $lead = \App\Modules\Leads\Domain\Entities\Lead::find($data['lead_id']);
+                if ($lead && $lead->travel_start_date) {
+                    $data['start_date'] = $lead->travel_start_date->format('Y-m-d');
+                    if ($lead->travel_end_date) {
+                        $start = \Carbon\Carbon::parse($lead->travel_start_date);
+                        $end = \Carbon\Carbon::parse($lead->travel_end_date);
+                        $data['duration'] = $start->diffInDays($end) + 1;
+                    }
+                }
+            }
+
             $package = Package::create($data);
 
             // Calculate duration from dates if not provided
@@ -668,6 +681,17 @@ class PackageController extends Controller
                 $newPackage->lead_id = $request->lead_id;
                 // Keep the same name if it's for a specific lead to avoid clutter
                 $newPackage->itinerary_name = $originalPackage->itinerary_name;
+
+                // SYNC lead dates to the duplicate
+                $lead = \App\Modules\Leads\Domain\Entities\Lead::find($request->lead_id);
+                if ($lead && $lead->travel_start_date) {
+                    $newPackage->start_date = $lead->travel_start_date->format('Y-m-d');
+                    if ($lead->travel_end_date) {
+                        $start = \Carbon\Carbon::parse($lead->travel_start_date);
+                        $end = \Carbon\Carbon::parse($lead->travel_end_date);
+                        $newPackage->duration = $start->diffInDays($end) + 1;
+                    }
+                }
             } else {
                 // Append (Copy) to the name only if it's a general duplication
                 $newPackage->itinerary_name = $originalPackage->itinerary_name . ' (Copy)';

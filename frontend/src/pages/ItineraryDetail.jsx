@@ -1433,7 +1433,11 @@ const ItineraryDetail = () => {
         formData.append('lead_id', fromLeadId || '');
         formData.append('_method', 'PUT');
 
-        await packagesAPI.update(id, formData);
+        if (isProposal) {
+          await leadProposalsAPI.update(id, formData);
+        } else {
+          await packagesAPI.update(id, formData);
+        }
       } else if (coverPhotoPreview && coverPhotoSource === 'unsplash') {
         // Download image from URL and upload
         const response = await fetch(coverPhotoPreview);
@@ -1445,7 +1449,11 @@ const ItineraryDetail = () => {
         formData.append('lead_id', fromLeadId || '');
         formData.append('_method', 'PUT');
 
-        await packagesAPI.update(id, formData);
+        if (isProposal) {
+          await leadProposalsAPI.update(id, formData);
+        } else {
+          await packagesAPI.update(id, formData);
+        }
       }
 
       // Refresh itinerary data
@@ -1950,7 +1958,11 @@ const ItineraryDetail = () => {
       pkgData.append('start_date', itineraryFormData.start_date || '');
       pkgData.append('_method', 'PUT');
 
-      await packagesAPI.update(id, pkgData);
+      if (isProposal) {
+        await leadProposalsAPI.update(id, pkgData);
+      } else {
+        await packagesAPI.update(id, pkgData);
+      }
 
       // Update local state is done via fetchItinerary
       await fetchItinerary();

@@ -649,7 +649,7 @@ export const leadProposalsAPI = {
   list: (params = {}) => api.get('/lead-proposals', { params }),
   get: (id) => api.get(`/lead-proposals/${id}`),
   create: (data) => api.post('/lead-proposals', data),
-  update: (id, data) => postWithFile(`/lead-proposals/${id}`, data, 'POST'),
+  update: (id, data) => postWithFile(`/lead-proposals/${id}`, data, 'PUT'),
   confirm: (id) => api.post(`/lead-proposals/${id}/confirm`),
   history: (leadId) => api.get(`/lead-proposals/${leadId}/history`),
   delete: (id) => api.delete(`/lead-proposals/${id}`),
