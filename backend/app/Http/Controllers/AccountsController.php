@@ -15,15 +15,38 @@ class AccountsController extends Controller
     /**
      * Get all clients (Individual)
      */
-    public function clients(): JsonResponse
+    public function clients(Request $request): JsonResponse
     {
         try {
-            $clients = Lead::where(fn($q) => $q->where('client_type', 'individual')->orWhereNull('client_type'))
-                ->orderBy('created_at', 'desc')
-                ->get()
-                ->map(fn($c) => $this->formatBasicAccount($c));
+            $perPage = $request->get('per_page', 8);
+            $search = $request->get('search');
+            
+            $query = Lead::where(fn($q) => $q->where('client_type', 'individual')->orWhereNull('client_type'));
 
-            return $this->successResponse($clients, 'Clients retrieved successfully');
+            if ($search) {
+                $query->where(function($q) use ($search) {
+                    $q->where('client_name', 'like', "%{$search}%")
+                      ->orWhere('email', 'like', "%{$search}%")
+                      ->orWhere('phone', 'like', "%{$search}%");
+                });
+            }
+
+            $clientsPaginator = $query->orderBy('created_at', 'desc')
+                ->paginate($perPage);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Clients retrieved successfully',
+                'data' => array_map([$this, 'formatBasicAccount'], $clientsPaginator->items()),
+                'pagination' => [
+                    'current_page' => $clientsPaginator->currentPage(),
+                    'last_page' => $clientsPaginator->lastPage(),
+                    'per_page' => $clientsPaginator->perPage(),
+                    'total' => $clientsPaginator->total(),
+                    'from' => $clientsPaginator->firstItem(),
+                    'to' => $clientsPaginator->lastItem(),
+                ]
+            ], 200);
         } catch (\Exception $e) {
             return $this->serverErrorResponse('Failed to retrieve clients', $e);
         }

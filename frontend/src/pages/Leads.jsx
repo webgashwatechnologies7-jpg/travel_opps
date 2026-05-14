@@ -46,13 +46,13 @@ const Leads = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user: currentUser } = useAuth();
-  const { 
-    leads, setLeads, 
-    pagination, setPagination, 
+  const {
+    leads, setLeads,
+    pagination, setPagination,
     stats: backendStats, setStats: setBackendStats,
-    lastParams, setLastParams 
+    lastParams, setLastParams
   } = useLeads();
-  
+
   const [leadSources, setLeadSources] = useState([]);
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -278,7 +278,7 @@ const Leads = () => {
       setAnalyticsLoading(true);
       const params = new URLSearchParams(location.search);
       const filter = params.get('filter') || 'total';
-      
+
       let analyticsParams = {
         timeframe: analyticsTimeframe,
         search: destinationFilter,
@@ -339,7 +339,7 @@ const Leads = () => {
     if (destinationFilter) {
       // If it looks like a phone number or email, or just general search
       params.set('search', destinationFilter);
-      params.delete('destination'); 
+      params.delete('destination');
     } else {
       params.delete('search');
       params.delete('destination');
@@ -492,7 +492,7 @@ const Leads = () => {
   // Calculate summary statistics â€” memoized to avoid recalculation on unrelated renders
   const stats = useMemo(() => {
     if (backendStats) return backendStats;
-    
+
     // Fallback to page-wise only if backend stats haven't arrived yet
     const today = new Date();
     const isSameDay = (date) => {
@@ -868,7 +868,7 @@ const Leads = () => {
               </div>
             )}
           </div>
- 
+
           <button
             type="button"
             onClick={() => { setFormData({ ...getDefaultFormData(), assigned_to: currentUser?.id || '' }); setShowModal(true); }}
@@ -974,7 +974,7 @@ const Leads = () => {
               <span className={`px-1.5 py-0.5 rounded-md text-[9px] font-bold transition-all flex-shrink-0 ${activeFilter === filter.id ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'}`}>
                 {stats[filter.key] || 0}
               </span>
-              
+
               {/* Subtle animated shine for active tab */}
               {activeFilter === filter.id && (
                 <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full animate-[shimmer_2s_infinite] skew-x-12"></div>
@@ -1101,8 +1101,8 @@ const Leads = () => {
                       key={tf}
                       onClick={() => setAnalyticsTimeframe(tf)}
                       className={`px-4 py-1.5 text-[10px] uppercase tracking-wider font-extrabold rounded-lg transition-all ${analyticsTimeframe === tf
-                          ? 'bg-white text-blue-600 shadow-md ring-1 ring-black/5'
-                          : 'text-gray-500 hover:text-gray-900'
+                        ? 'bg-white text-blue-600 shadow-md ring-1 ring-black/5'
+                        : 'text-gray-500 hover:text-gray-900'
                         }`}
                     >
                       {tf}
@@ -1246,242 +1246,242 @@ const Leads = () => {
       )}
       {/* End of Analytics if open */}
 
-          <div className="leads-content-container relative min-h-[500px]">
+      <div className="leads-content-container relative min-h-[500px]">
 
-            {/* Branded Loader Overlay - For all loading states (Initial Load & Refresh) */}
-            {(isRefreshing || (loading && isInitialLoad)) && (
-              <div className="absolute inset-0 z-[50] flex items-center justify-center bg-white/60 backdrop-blur-md rounded-xl transition-all duration-300">
-                <div className="animate-in zoom-in-95">
-                  <LogoLoader text="Syncing Records" compact={true} />
-                </div>
+        {/* Branded Loader Overlay - For all loading states (Initial Load & Refresh) */}
+        {(isRefreshing || (loading && isInitialLoad)) && (
+          <div className="absolute inset-0 z-[50] flex items-center justify-center bg-white/60 backdrop-blur-md rounded-xl transition-all duration-300">
+            <div className="animate-in zoom-in-95">
+              <LogoLoader text="Syncing Records" compact={true} />
+            </div>
+          </div>
+        )}
+
+        <div className={`transition-all duration-500 ${isRefreshing ? 'opacity-20 grayscale-[0.5] blur-[1px] pointer-events-none' : (loading && isInitialLoad ? 'opacity-0' : 'opacity-100')}`}>
+          {filteredLeads.length === 0 && !loading ? (
+            <div className="flex flex-col items-center justify-center py-24 bg-white/40 backdrop-blur-sm rounded-xl border border-dashed border-slate-200 mx-4 mt-8 animate-in fade-in zoom-in duration-500">
+              <div className="w-20 h-20 bg-slate-50 rounded-xl flex items-center justify-center mb-6 shadow-sm ring-1 ring-slate-100">
+                <LayoutGrid className="w-10 h-10 text-slate-300" />
               </div>
-            )}
+              <h3 className="text-slate-600 text-xl font-bold mb-2">No queries found</h3>
+              <p className="text-slate-400 text-sm max-w-xs text-center leading-relaxed">
+                We couldn't find any leads matching your current selection. Try a different filter.
+              </p>
+            </div>
+          ) : (
+            <div className="mt-6">
+              {viewType === 'grid' ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-6">
+                  {filteredLeads.map((lead) => {
+                    const assignedId = lead.assigned_to?.id ?? lead.assigned_to_id ?? lead.assigned_to;
+                    const assignedUser = users.find(u => Number(u.id) === Number(assignedId)) || (Number(currentUser?.id) === Number(assignedId) ? currentUser : null);
 
-            <div className={`transition-all duration-500 ${isRefreshing ? 'opacity-20 grayscale-[0.5] blur-[1px] pointer-events-none' : (loading && isInitialLoad ? 'opacity-0' : 'opacity-100')}`}>
-              {filteredLeads.length === 0 && !loading ? (
-                <div className="flex flex-col items-center justify-center py-24 bg-white/40 backdrop-blur-sm rounded-xl border border-dashed border-slate-200 mx-4 mt-8 animate-in fade-in zoom-in duration-500">
-                  <div className="w-20 h-20 bg-slate-50 rounded-xl flex items-center justify-center mb-6 shadow-sm ring-1 ring-slate-100">
-                    <LayoutGrid className="w-10 h-10 text-slate-300" />
-                  </div>
-                  <h3 className="text-slate-600 text-xl font-bold mb-2">No queries found</h3>
-                  <p className="text-slate-400 text-sm max-w-xs text-center leading-relaxed">
-                    We couldn't find any leads matching your current selection. Try a different filter.
-                  </p>
+                    // Priority: 1. Backend direct name, 2. Local user list match, 3. User object in lead, 4. Current user fallback
+                    const assigneeName = lead.assigned_name ||
+                      assignedUser?.name ||
+                      lead.assigned_user?.name ||
+                      lead.assigned_to_name ||
+                      (Number(currentUser?.id) === Number(assignedId) ? currentUser?.name : '') ||
+                      'Unassigned';
+
+                    return (
+                      <LeadCard
+                        key={lead.id}
+                        id={lead.id}
+                        name={lead.client_name}
+                        phone={lead.phone}
+                        email={lead.email}
+                        location={lead.destination}
+                        date={formatDate(lead.created_at)}
+                        status={lead.status}
+                        assignedTo={assignedId}
+                        assignedUserName={assigneeName}
+                        onSelect={toggleSelectLead}
+                        isSelected={selectedLeadIds.includes(lead.id)}
+                        onAssign={handleOpenAssignModal}
+                        onDelete={handleDelete}
+                      />
+                    );
+                  })}
                 </div>
               ) : (
-                <div className="mt-6">
-                  {viewType === 'grid' ? (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-6">
-                      {filteredLeads.map((lead) => {
-                        const assignedId = lead.assigned_to?.id ?? lead.assigned_to_id ?? lead.assigned_to;
-                        const assignedUser = users.find(u => Number(u.id) === Number(assignedId)) || (Number(currentUser?.id) === Number(assignedId) ? currentUser : null);
-                        
-                        // Priority: 1. Backend direct name, 2. Local user list match, 3. User object in lead, 4. Current user fallback
-                        const assigneeName = lead.assigned_name || 
-                                           assignedUser?.name || 
-                                           lead.assigned_user?.name || 
-                                           lead.assigned_to_name || 
-                                           (Number(currentUser?.id) === Number(assignedId) ? currentUser?.name : '') ||
-                                           'Unassigned';
+                <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="bg-slate-50/50 border-b border-slate-100">
+                          <th className="px-6 py-5 w-12">
+                            <input
+                              type="checkbox"
+                              checked={filteredLeads.length > 0 && selectedLeadIds.length === filteredLeads.length}
+                              onChange={(e) => handleSelectAll(e.target.checked)}
+                              className="w-5 h-5 rounded border-2 border-slate-200 text-blue-600 focus:ring-blue-500/20 cursor-pointer"
+                            />
+                          </th>
+                          <th className="px-6 py-5 text-[10px] font-bold uppercase tracking-widest text-slate-400">Client Info</th>
+                          <th className="px-6 py-5 text-[10px] font-bold uppercase tracking-widest text-slate-400">Email Address</th>
+                          <th className="px-6 py-5 text-[10px] font-bold uppercase tracking-widest text-slate-400">Phone Number</th>
+                          <th className="px-6 py-5 text-[10px] font-bold uppercase tracking-widest text-slate-400">Assigned To</th>
+                          <th className="px-2 py-5 text-right w-16 whitespace-nowrap">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filteredLeads.map((lead) => {
+                          const assignedId = lead.assigned_to?.id ?? lead.assigned_to_id ?? lead.assigned_to;
+                          const assignedUser = users.find(u => Number(u.id) === Number(assignedId)) || (Number(currentUser?.id) === Number(assignedId) ? currentUser : null);
 
-                        return (
-                          <LeadCard
-                            key={lead.id}
-                            id={lead.id}
-                            name={lead.client_name}
-                            phone={lead.phone}
-                            email={lead.email}
-                            location={lead.destination}
-                            date={formatDate(lead.created_at)}
-                            status={lead.status}
-                            assignedTo={assignedId}
-                            assignedUserName={assigneeName}
-                            onSelect={toggleSelectLead}
-                            isSelected={selectedLeadIds.includes(lead.id)}
-                            onAssign={handleOpenAssignModal}
-                            onDelete={handleDelete}
-                          />
-                        );
-                      })}
-                    </div>
-                  ) : (
-                    <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-left border-collapse">
-                          <thead>
-                            <tr className="bg-slate-50/50 border-b border-slate-100">
-                              <th className="px-6 py-5 w-12">
+                          const assigneeName = lead.assigned_name ||
+                            assignedUser?.name ||
+                            lead.assigned_user?.name ||
+                            lead.assigned_to_name ||
+                            (Number(currentUser?.id) === Number(assignedId) ? currentUser?.name : '') ||
+                            'Unassigned';
+
+                          const isSelected = selectedLeadIds.includes(lead.id);
+
+                          return (
+                            <tr
+                              key={lead.id}
+                              className={`group border-b border-slate-50 hover:bg-blue-50/30 transition-all duration-300 ${isSelected ? 'bg-blue-50/50' : ''}`}
+                            >
+                              <td className="px-6 py-4">
                                 <input
                                   type="checkbox"
-                                  checked={filteredLeads.length > 0 && selectedLeadIds.length === filteredLeads.length}
-                                  onChange={(e) => handleSelectAll(e.target.checked)}
+                                  checked={isSelected}
+                                  onChange={() => toggleSelectLead(lead.id)}
                                   className="w-5 h-5 rounded border-2 border-slate-200 text-blue-600 focus:ring-blue-500/20 cursor-pointer"
                                 />
-                              </th>
-                              <th className="px-6 py-5 text-[10px] font-bold uppercase tracking-widest text-slate-400">Client Info</th>
-                              <th className="px-6 py-5 text-[10px] font-bold uppercase tracking-widest text-slate-400">Email Address</th>
-                              <th className="px-6 py-5 text-[10px] font-bold uppercase tracking-widest text-slate-400">Phone Number</th>
-                              <th className="px-6 py-5 text-[10px] font-bold uppercase tracking-widest text-slate-400">Assigned To</th>
-                              <th className="px-2 py-5 text-right w-16 whitespace-nowrap">Actions</th>
+                              </td>
+                              <td className="px-6 py-4">
+                                <div className="flex items-center gap-3">
+                                  <div className="w-8 h-8 rounded-xl bg-blue-100 flex items-center justify-center text-blue-600 font-bold text-[10px] shadow-sm transform group-hover:scale-110 transition-transform">
+                                    {lead.client_name?.substring(0, 2).toUpperCase()}
+                                  </div>
+                                  <span className={`font-bold transition-colors ${isSelected ? 'text-blue-700' : 'text-slate-700'}`}>{lead.client_name}</span>
+                                </div>
+                              </td>
+                              <td className="px-6 py-4">
+                                <div className="text-xs font-semibold text-slate-600 truncate max-w-[180px]">{lead.email || "N/A"}</div>
+                              </td>
+                              <td className="px-6 py-4">
+                                <div className="text-xs font-bold text-slate-700">{lead.phone || "N/A"}</div>
+                              </td>
+                              <td className="px-6 py-4">
+                                <div className="flex items-center gap-2">
+                                  <div className="w-6 h-6 rounded-lg bg-slate-100 flex items-center justify-center text-[8px] font-bold text-slate-500 border border-slate-200">
+                                    {assigneeName.substring(0, 1)}
+                                  </div>
+                                  <span className="text-[11px] font-bold text-slate-600">{assigneeName}</span>
+                                </div>
+                              </td>
+                              <td className="px-2 py-4 text-right">
+                                <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <button
+                                    onClick={() => navigate(`/leads/${lead.id}`)}
+                                    className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
+                                    title="View Details"
+                                  >
+                                    <Eye size={16} />
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      setFormData({
+                                        ...getDefaultFormData(),
+                                        ...lead
+                                      });
+                                      setEditingLead(lead);
+                                      setShowModal(true);
+                                    }}
+                                    className="p-2 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-all"
+                                    title="Edit"
+                                  >
+                                    <Edit size={16} />
+                                  </button>
+                                  <button
+                                    onClick={() => handleDelete(lead.id)}
+                                    className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all"
+                                    title="Delete"
+                                  >
+                                    <Trash2 size={16} />
+                                  </button>
+                                </div>
+                              </td>
                             </tr>
-                          </thead>
-                          <tbody>
-                            {filteredLeads.map((lead) => {
-                              const assignedId = lead.assigned_to?.id ?? lead.assigned_to_id ?? lead.assigned_to;
-                              const assignedUser = users.find(u => Number(u.id) === Number(assignedId)) || (Number(currentUser?.id) === Number(assignedId) ? currentUser : null);
-                              
-                              const assigneeName = lead.assigned_name || 
-                                                 assignedUser?.name || 
-                                                 lead.assigned_user?.name || 
-                                                 lead.assigned_to_name || 
-                                                 (Number(currentUser?.id) === Number(assignedId) ? currentUser?.name : '') ||
-                                                 'Unassigned';
-                                                 
-                              const isSelected = selectedLeadIds.includes(lead.id);
-
-                              return (
-                                <tr
-                                  key={lead.id}
-                                  className={`group border-b border-slate-50 hover:bg-blue-50/30 transition-all duration-300 ${isSelected ? 'bg-blue-50/50' : ''}`}
-                                >
-                                  <td className="px-6 py-4">
-                                    <input
-                                      type="checkbox"
-                                      checked={isSelected}
-                                      onChange={() => toggleSelectLead(lead.id)}
-                                      className="w-5 h-5 rounded border-2 border-slate-200 text-blue-600 focus:ring-blue-500/20 cursor-pointer"
-                                    />
-                                  </td>
-                                  <td className="px-6 py-4">
-                                    <div className="flex items-center gap-3">
-                                      <div className="w-8 h-8 rounded-xl bg-blue-100 flex items-center justify-center text-blue-600 font-bold text-[10px] shadow-sm transform group-hover:scale-110 transition-transform">
-                                        {lead.client_name?.substring(0, 2).toUpperCase()}
-                                      </div>
-                                      <span className={`font-bold transition-colors ${isSelected ? 'text-blue-700' : 'text-slate-700'}`}>{lead.client_name}</span>
-                                    </div>
-                                  </td>
-                                  <td className="px-6 py-4">
-                                    <div className="text-xs font-semibold text-slate-600 truncate max-w-[180px]">{lead.email || "N/A"}</div>
-                                  </td>
-                                  <td className="px-6 py-4">
-                                    <div className="text-xs font-bold text-slate-700">{lead.phone || "N/A"}</div>
-                                  </td>
-                                  <td className="px-6 py-4">
-                                    <div className="flex items-center gap-2">
-                                      <div className="w-6 h-6 rounded-lg bg-slate-100 flex items-center justify-center text-[8px] font-bold text-slate-500 border border-slate-200">
-                                        {assigneeName.substring(0, 1)}
-                                      </div>
-                                      <span className="text-[11px] font-bold text-slate-600">{assigneeName}</span>
-                                    </div>
-                                  </td>
-                                  <td className="px-2 py-4 text-right">
-                                    <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                      <button
-                                        onClick={() => navigate(`/leads/${lead.id}`)}
-                                        className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all"
-                                        title="View Details"
-                                      >
-                                        <Eye size={16} />
-                                      </button>
-                                      <button
-                                        onClick={() => {
-                                          setFormData({
-                                            ...getDefaultFormData(),
-                                            ...lead
-                                          });
-                                          setEditingLead(lead);
-                                          setShowModal(true);
-                                        }}
-                                        className="p-2 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-all"
-                                        title="Edit"
-                                      >
-                                        <Edit size={16} />
-                                      </button>
-                                      <button
-                                        onClick={() => handleDelete(lead.id)}
-                                        className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all"
-                                        title="Delete"
-                                      >
-                                        <Trash2 size={16} />
-                                      </button>
-                                    </div>
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  )}
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               )}
             </div>
+          )}
+        </div>
+      </div>
+
+      {/* Shared Pagination - Outside the blur container so it stays fixed and visible */}
+      {pagination.last_page >= 1 && filteredLeads.length > 0 && (
+        <div className="mt-8 bg-white rounded-xl border border-slate-200 shadow-sm p-4 flex flex-col md:flex-row items-center justify-between gap-4">
+          <div className="flex items-center text-sm text-slate-500">
+            Showing <span className="font-bold text-slate-800 mx-1">{pagination.from || 0}-{pagination.to || 0}</span> of <span className="font-bold text-slate-800 mx-1">{pagination.total || 0}</span> leads
           </div>
 
-          {/* Shared Pagination - Outside the blur container so it stays fixed and visible */}
-          {pagination.last_page >= 1 && filteredLeads.length > 0 && (
-            <div className="mt-8 bg-white rounded-xl border border-slate-200 shadow-sm p-4 flex flex-col md:flex-row items-center justify-between gap-4">
-              <div className="flex items-center text-sm text-slate-500">
-                Showing <span className="font-bold text-slate-800 mx-1">{pagination.from || 0}-{pagination.to || 0}</span> of <span className="font-bold text-slate-800 mx-1">{pagination.total || 0}</span> leads
-              </div>
+          <div className="flex items-center gap-3 px-6 border-l border-slate-100">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Queries Per Page:</span>
+            <select
+              value={pagination.per_page || 8}
+              onChange={handlePerPageChange}
+              className="bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500/20 transition-all"
+            >
+              {[8, 10, 20, 50, 100].map(num => (
+                <option key={num} value={num}>{num}</option>
+              ))}
+            </select>
+          </div>
 
-              <div className="flex items-center gap-3 px-6 border-l border-slate-100">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Queries Per Page:</span>
-                <select
-                  value={pagination.per_page || 8}
-                  onChange={handlePerPageChange}
-                  className="bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500/20 transition-all"
-                >
-                  {[8, 10, 20, 50, 100].map(num => (
-                    <option key={num} value={num}>{num}</option>
-                  ))}
-                </select>
-              </div>
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => handlePageChange(currentPage - 1)}
+              disabled={currentPage === 1}
+              className="px-3 py-1.5 text-xs font-bold text-slate-500 border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+            >
+              ← Prev
+            </button>
 
-              <div className="flex items-center gap-1.5">
-                <button
-                  onClick={() => handlePageChange(currentPage - 1)}
-                  disabled={currentPage === 1}
-                  className="px-3 py-1.5 text-xs font-bold text-slate-500 border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
-                >
-                  ← Prev
-                </button>
-
-                <div className="flex items-center gap-1.5">
-                  {[...Array(pagination.last_page)].map((_, i) => {
-                    const page = i + 1;
-                    if (page === 1 || page === pagination.last_page || (page >= currentPage - 2 && page <= currentPage + 2)) {
-                      return (
-                        <button
-                          key={page}
-                          onClick={() => handlePageChange(page)}
-                          className={`w-8 h-8 flex items-center justify-center text-xs font-bold rounded-lg transition-all ${page === currentPage
-                            ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20'
-                            : 'text-slate-500 border border-slate-200 hover:bg-slate-50'
-                            }`}
-                        >
-                          {page}
-                        </button>
-                      );
-                    }
-                    if (page === 2 || page === pagination.last_page - 1) {
-                      return <span key={page} className="text-slate-300 px-0.5 text-xs">...</span>;
-                    }
-                    return null;
-                  })}
-                </div>
-
-                <button
-                  onClick={() => handlePageChange(currentPage + 1)}
-                  disabled={currentPage === pagination.last_page}
-                  className="px-3 py-1.5 text-xs font-bold text-slate-500 border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
-                >
-                  Next →
-                </button>
-              </div>
+            <div className="flex items-center gap-1.5">
+              {[...Array(pagination.last_page)].map((_, i) => {
+                const page = i + 1;
+                if (page === 1 || page === pagination.last_page || (page >= currentPage - 2 && page <= currentPage + 2)) {
+                  return (
+                    <button
+                      key={page}
+                      onClick={() => handlePageChange(page)}
+                      className={`w-8 h-8 flex items-center justify-center text-xs font-bold rounded-lg transition-all ${page === currentPage
+                        ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20'
+                        : 'text-slate-500 border border-slate-200 hover:bg-slate-50'
+                        }`}
+                    >
+                      {page}
+                    </button>
+                  );
+                }
+                if (page === 2 || page === pagination.last_page - 1) {
+                  return <span key={page} className="text-slate-300 px-0.5 text-xs">...</span>;
+                }
+                return null;
+              })}
             </div>
-          )}
+
+            <button
+              onClick={() => handlePageChange(currentPage + 1)}
+              disabled={currentPage === pagination.last_page}
+              className="px-3 py-1.5 text-xs font-bold text-slate-500 border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+            >
+              Next →
+            </button>
+          </div>
+        </div>
+      )}
 
 
 

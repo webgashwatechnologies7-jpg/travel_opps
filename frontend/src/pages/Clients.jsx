@@ -17,16 +17,32 @@ const Clients = () => {
   const [selectedClient, setSelectedClient] = useState(null);
   const [activeDropdown, setActiveDropdown] = useState(null);
   const [selectedClients, setSelectedClients] = useState([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pagination, setPagination] = useState({
+    current_page: 1,
+    last_page: 1,
+    per_page: 8,
+    total: 0,
+    from: 0,
+    to: 0
+  });
 
   useEffect(() => {
-    fetchClients();
-  }, []);
+    const timer = setTimeout(() => {
+      fetchClients(currentPage);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [currentPage, searchTerm]);
 
-  const fetchClients = useCallback(async () => {
+  const fetchClients = useCallback(async (page = 1) => {
+    setLoading(true);
     try {
-      const response = await accountsAPI.getClients();
+      const response = await accountsAPI.getClients({ page, per_page: 8, search: searchTerm });
       if (response.data.success) {
         setClients(response.data.data);
+        if (response.data.pagination) {
+          setPagination(response.data.pagination);
+        }
       }
     } catch (error) {
       console.error('Failed to fetch clients:', error);
@@ -69,13 +85,7 @@ const Clients = () => {
     }
   }, []);
 
-  const filteredClients = useMemo(() =>
-    (clients || []).filter(client =>
-      client.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      client.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      client.mobile?.includes(searchTerm)
-    ),
-    [clients, searchTerm]);
+  const filteredClients = useMemo(() => clients || [], [clients]);
 
   const handleAddClient = useCallback(async (clientData) => {
     try {
@@ -137,6 +147,11 @@ const Clients = () => {
   const handleViewClient = useCallback((client) => {
     navigate(`/accounts/clients/${client.id}`);
   }, [navigate]);
+
+  const handlePageChange = (page) => {
+    setCurrentPage(page);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   const handleViewReports = useCallback((client) => {
     navigate(`/accounts/clients/${client.id}/reports`);
@@ -336,6 +351,7 @@ This is a bulk report for selected clients.
                     className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                   />
                 </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">S.No</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Mobile</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
@@ -347,7 +363,7 @@ This is a bulk report for selected clients.
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {filteredClients.map((client) => (
+              {filteredClients.map((client, index) => (
                 <tr key={client.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4">
                     <input
@@ -356,6 +372,9 @@ This is a bulk report for selected clients.
                       onChange={() => handleSelectClient(client.id)}
                       className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                     />
+                  </td>
+                  <td className="px-6 py-4 text-xs font-bold text-gray-400">
+                    {(pagination.current_page - 1) * pagination.per_page + index + 1}
                   </td>
                   <td className="px-6 py-4">
                     <div className="text-sm font-medium text-gray-900">{client.name}</div>
@@ -463,6 +482,48 @@ This is a bulk report for selected clients.
             <div className="text-center py-8 text-gray-500">No clients found</div>
           )}
         </div>
+
+        {/* Pagination */}
+        {pagination.last_page > 1 && (
+          <div className="mt-6 flex items-center justify-between bg-white px-6 py-4 rounded-xl border border-gray-100 shadow-sm">
+            <div className="text-sm text-gray-500 font-medium">
+              Showing <span className="text-gray-900 font-bold">{pagination.from}-{pagination.to}</span> of <span className="text-gray-900 font-bold">{pagination.total}</span> clients
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => handlePageChange(currentPage - 1)}
+                disabled={currentPage === 1}
+                className="px-4 py-2 text-sm font-bold text-gray-600 bg-gray-50 border border-gray-200 rounded-xl hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+              >
+                Previous
+              </button>
+              
+              <div className="flex items-center gap-1">
+                {[...Array(pagination.last_page)].map((_, i) => (
+                  <button
+                    key={i + 1}
+                    onClick={() => handlePageChange(i + 1)}
+                    className={`w-10 h-10 flex items-center justify-center rounded-xl text-sm font-bold transition-all ${
+                      currentPage === i + 1 
+                        ? 'bg-blue-600 text-white shadow-lg shadow-blue-200' 
+                        : 'text-gray-600 hover:bg-gray-100'
+                    }`}
+                  >
+                    {i + 1}
+                  </button>
+                ))}
+              </div>
+
+              <button
+                onClick={() => handlePageChange(currentPage + 1)}
+                disabled={currentPage === pagination.last_page}
+                className="px-4 py-2 text-sm font-bold text-gray-600 bg-gray-50 border border-gray-200 rounded-xl hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Add Client Modal */}

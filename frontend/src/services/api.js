@@ -734,7 +734,7 @@ export const queryDetailAPI = {
 // Accounts APIs
 export const accountsAPI = {
   // Get all account types
-  getClients: () => api.get('/accounts/clients'),
+  getClients: (params = {}) => api.get('/accounts/clients', { params }),
   getAllContacts: () => api.get('/accounts/all-contacts'),
   getAgents: () => api.get('/accounts/agents'),
   getCorporate: () => api.get('/accounts/corporate'),
