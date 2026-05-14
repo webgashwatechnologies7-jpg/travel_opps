@@ -14,24 +14,16 @@ class WhatsAppWebhookController extends Controller
 {
     public function handleNodeHook(Request $request)
     {
-        Log::info('WhatsApp Webhook Received:', $request->all());
-
         // Security check
         $providedKey = $request->header('x-api-key');
         $expectedKey = env('WHATSAPP_INTERNAL_API_KEY', 'crm_secure_gateway_key_99');
 
         if ($providedKey !== $expectedKey) {
-            Log::warning('Unauthorized WhatsApp Webhook Attempt:', [
-                'ip' => $request->ip(),
-                'header' => $providedKey
-            ]);
             return response()->json(['error' => 'Unauthorized'], 401);
         }
 
         $payload = $request->all();
         $type = $payload['type'] ?? '';
-
-        Log::info('WhatsApp Webhook Received:', ['type' => $type, 'payload' => $payload]);
 
         switch ($type) {
             case 'connection_update':
@@ -418,18 +410,13 @@ class WhatsAppWebhookController extends Controller
         $statusMap = [2 => 'sent', 3 => 'delivered', 4 => 'read', 5 => 'played'];
         $status = is_numeric($data['status']) ? ($statusMap[$data['status']] ?? 'sent') : strtolower($data['status']);
 
-        // Retry logic for potential race condition
-        $msg = null;
-        for ($i = 0; $i < 10; $i++) {
-            $msg = DB::table('whatsapp_messages')
-                ->where('whatsapp_message_id', $whatsappMessageId)
-                ->first();
-            if ($msg) break;
-            usleep(500000); 
-        }
+        // Fast lookup without retry loop to prevent blocking PHP workers
+        $msg = DB::table('whatsapp_messages')
+            ->where('whatsapp_message_id', $whatsappMessageId)
+            ->first();
 
         if (!$msg) {
-            Log::warning("WhatsApp Receipt: Message ID not found: {$whatsappMessageId}");
+            // Log::debug("WhatsApp Receipt: Message ID not found: {$whatsappMessageId}");
             return;
         }
 
