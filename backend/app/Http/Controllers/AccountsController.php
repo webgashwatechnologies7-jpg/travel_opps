@@ -20,14 +20,14 @@ class AccountsController extends Controller
         try {
             $perPage = $request->get('per_page', 8);
             $search = $request->get('search');
-            
+
             $query = Lead::where(fn($q) => $q->where('client_type', 'individual')->orWhereNull('client_type'));
 
             if ($search) {
-                $query->where(function($q) use ($search) {
+                $query->where(function ($q) use ($search) {
                     $q->where('client_name', 'like', "%{$search}%")
-                      ->orWhere('email', 'like', "%{$search}%")
-                      ->orWhere('phone', 'like', "%{$search}%");
+                        ->orWhere('email', 'like', "%{$search}%")
+                        ->orWhere('phone', 'like', "%{$search}%");
                 });
             }
 

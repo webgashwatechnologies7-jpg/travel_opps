@@ -2601,9 +2601,9 @@ const handleAddFollowup = async (e) => {
       showToastNotification('success', 'Follow-up Updated', 'Follow-up has been updated successfully');
     } else {
       await followupsAPI.create(payload);
-      // Auto-transition: 'Proposal Sent' → 'Follow Up Sent' when a followup is added after proposal
-      // Only update if current status is 'proposal' (proposal was already sent)
-      if (lead?.status === 'proposal') {
+      // Auto-transition: Update status to 'followup' when a followup is added
+      // Only update if current status is 'new', 'processing' or 'proposal'
+      if (['new', 'processing', 'proposal'].includes(lead?.status)) {
         try {
           await leadsAPI.updateStatus(id, 'followup');
         } catch (statusErr) {
@@ -2680,6 +2680,16 @@ const handleCompleteFollowupSubmit = async (e) => {
     setShowFollowupCompleteModal(false);
     setCompletingFollowup(null);
     setFollowupCompletionData({ remark: '', scheduleNext: false, nextDate: '', nextTime: '13:00' });
+    
+    // Auto-transition: Update status to 'followup' if current status is 'new', 'processing' or 'proposal'
+    if (['new', 'processing', 'proposal'].includes(lead?.status)) {
+        try {
+            await leadsAPI.updateStatus(id, 'followup');
+        } catch (statusErr) {
+            console.error('Failed to auto-update status to followup:', statusErr);
+        }
+    }
+
     await fetchLeadDetails();
   } catch (err) {
     console.error('Failed to complete followup:', err);
@@ -5137,7 +5147,7 @@ return (
             <div className="lg:col-span-8 space-y-6">
               <div className="bg-white rounded-2xl shadow-sm border border-gray-100 min-w-0">
 
-                <div className="flex justify-start border-b border-gray-100 sticky top-0 bg-white z-10 px-2 overflow-x-auto no-scrollbar">
+                <div className="flex justify-start border-b border-gray-100 sticky top-0 bg-white z-10 px-2 overflow-x-auto custom-scrollbar-x">
                   <div className="flex space-x-1 p-1">
                     {[
                       { key: 'proposals', label: 'Proposals' },
@@ -5269,7 +5279,7 @@ return (
                                 </div>
 
                                 {/* Horizontal Summary Bar (Itinerary Tabs) */}
-                                <div className="flex items-center border-b border-gray-100 overflow-x-auto no-scrollbar mb-6">
+                                <div className="flex items-center border-b border-gray-100 overflow-x-auto custom-scrollbar-x mb-6">
                                   {Object.entries(
                                     visibleProposals.reduce((acc, p) => {
                                       const key = p.itinerary_id || 'unknown';

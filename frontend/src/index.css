@@ -158,22 +158,32 @@ h6 {
   scroll-behavior: smooth;
 }
 
-/* Custom Scrollbar Styles for a Premium Look */
-.custom-scrollbar::-webkit-scrollbar {
-  width: 5px;
+.custom-scrollbar-x {
+  overflow-x: auto;
+  scroll-behavior: smooth;
 }
 
-.custom-scrollbar::-webkit-scrollbar-track {
+/* Custom Scrollbar Styles for a Premium Look */
+.custom-scrollbar::-webkit-scrollbar,
+.custom-scrollbar-x::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track,
+.custom-scrollbar-x::-webkit-scrollbar-track {
   background: transparent;
 }
 
-.custom-scrollbar::-webkit-scrollbar-thumb {
+.custom-scrollbar::-webkit-scrollbar-thumb,
+.custom-scrollbar-x::-webkit-scrollbar-thumb {
   background: #E2E8F0;
   border-radius: 20px;
   transition: background 0.3s ease;
 }
 
-.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+.custom-scrollbar::-webkit-scrollbar-thumb:hover,
+.custom-scrollbar-x::-webkit-scrollbar-thumb:hover {
   background: #CBD5E1;
 }
 

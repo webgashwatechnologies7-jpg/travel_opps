@@ -70,12 +70,12 @@ function LeadCard({
   };
 
   const statusConfig = {
-    new: { color: 'bg-blue-600', glow: 'status-glow-new', label: 'New' },
-    processing: { color: 'bg-indigo-600', glow: 'status-glow-processing', label: 'Under Process' },
+    new: { color: 'bg-sky-500', glow: 'status-glow-new', label: 'New' },
+    processing: { color: 'bg-blue-400', glow: 'status-glow-processing', label: 'Under Process' },
     proposal: { color: 'bg-amber-500', glow: 'status-glow-proposal', label: 'Proposal Sent' },
-    followup: { color: 'bg-orange-600', glow: 'status-glow-followup', label: 'Followup' },
-    confirmed: { color: 'bg-emerald-600', glow: 'status-glow-confirmed', label: 'Booked' },
-    cancelled: { color: 'bg-rose-600', glow: 'status-glow-cancelled', label: 'Declined' },
+    followup: { color: 'bg-purple-600', glow: 'status-glow-followup', label: 'Followup' },
+    confirmed: { color: 'bg-green-600', glow: 'status-glow-confirmed', label: 'Booked' },
+    cancelled: { color: 'bg-gray-500', glow: 'status-glow-cancelled', label: 'Declined' },
   };
 
   const currentStatus = statusConfig[status?.toLowerCase()] || { color: 'bg-slate-500', glow: '', label: status };
@@ -119,41 +119,50 @@ function LeadCard({
             </div>
           </div>
 
-          <div className="relative" ref={menuRef}>
-            <button
-              onClick={handleMenuClick}
-              className="p-1.5 hover:bg-slate-100 rounded-lg transition-all text-slate-400 hover:text-slate-600"
+          <div className="flex items-center gap-2">
+            <button 
+              onClick={(e) => { e.stopPropagation(); onStatusChange?.(id); }}
+              className="flex items-center gap-1.5 px-2 py-1 rounded-md border border-slate-100 bg-slate-50/50 hover:bg-white hover:border-blue-200 transition-all"
             >
-              <MoreVertical size={16} />
+              <div className={`w-1.5 h-1.5 rounded-full ${currentStatus.color}`}></div>
+              <span className="text-[9px] font-bold text-slate-600 uppercase tracking-widest">{currentStatus.label}</span>
             </button>
-            {showMenu && (
-              <div className="absolute right-0 mt-2 w-44 bg-white border border-slate-200 rounded-lg shadow-xl z-50 py-1.5 animate-in fade-in zoom-in-95 duration-200">
-                <button
-                  onClick={handleDeleteClick}
-                  className="w-full text-left px-4 py-2 text-xs text-rose-600 hover:bg-rose-50 flex items-center gap-2 font-semibold transition-colors"
-                >
-                  <Trash2 size={14} />
-                  Delete Opportunity
-                </button>
-              </div>
-            )}
+
+            <div className="relative" ref={menuRef}>
+              <button
+                onClick={handleMenuClick}
+                className="p-1.5 hover:bg-slate-100 rounded-lg transition-all text-slate-400 hover:text-slate-600"
+              >
+                <MoreVertical size={16} />
+              </button>
+              {showMenu && (
+                <div className="absolute right-0 mt-2 w-44 bg-white border border-slate-200 rounded-lg shadow-xl z-50 py-1.5 animate-in fade-in zoom-in-95 duration-200">
+                  <button
+                    onClick={handleDeleteClick}
+                    className="w-full text-left px-4 py-2 text-xs text-rose-600 hover:bg-rose-50 flex items-center gap-2 font-semibold transition-colors"
+                  >
+                    <Trash2 size={14} />
+                    Delete Opportunity
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
-        {/* Assigned To Section */}
         <div className="mt-auto pt-4 border-t border-slate-100 flex flex-col gap-3">
           <div className="flex items-center justify-between gap-4">
-            <div className="flex items-center gap-2.5 min-w-0">
-              <div className="w-7 h-7 bg-slate-50 rounded-lg flex items-center justify-center text-slate-400 border border-slate-100">
+            <div className="flex items-center gap-2.5 min-w-0 flex-1">
+              <div className="w-7 h-7 bg-slate-50 rounded-lg flex items-center justify-center text-slate-400 border border-slate-100 shrink-0">
                 <UserIcon size={14} />
               </div>
               <div className="min-w-0">
-                <p className="text-[9px] font-semibold text-slate-400 uppercase tracking-wider">Assigned To</p>
+                <p className="text-[9px] font-semibold text-slate-400 uppercase tracking-wider leading-none mb-1">Assigned To</p>
                 <p className="text-[11px] font-semibold text-slate-700 truncate">{currentAssigneeName || "Unassigned"}</p>
               </div>
             </div>
             
-            <div className="flex gap-1.5">
+            <div className="flex gap-1.5 shrink-0">
               <button
                 onClick={handleWhatsAppClick}
                 className="p-2 text-emerald-600 hover:bg-emerald-600 hover:text-white rounded-lg transition-all border border-emerald-100"

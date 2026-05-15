@@ -83,7 +83,7 @@ export default function QueriesHeader({
 
             {/* Controls / Action Buttons */}
             {/* Scrollable on mobile, standard flex on desktop */}
-            <div className="flex items-center gap-2 overflow-x-auto w-full md:w-auto pb-1 md:pb-0 custom-scroll no-scrollbar">
+            <div className="flex items-center gap-2 overflow-x-auto w-full md:w-auto pb-1 md:pb-0 custom-scrollbar-x">
               <ActionButton
                 icon={<Search size={14} className="flex-shrink-0" />}
                 label={searchLabel}

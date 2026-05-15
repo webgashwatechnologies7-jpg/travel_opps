@@ -947,7 +947,7 @@ const Leads = () => {
           </div>
         </div>
 
-        <div className="bg-white/80 backdrop-blur-md p-2 rounded-lg border border-white/40 shadow-[0_8px_30px_rgb(0,0,0,0.04)] flex items-center gap-3 overflow-x-auto scrollbar-hide no-scrollbar transition-all duration-300">
+        <div className="bg-white/80 backdrop-blur-md p-2 rounded-lg border border-white/40 shadow-[0_8px_30px_rgb(0,0,0,0.04)] flex items-center gap-3 overflow-x-auto custom-scrollbar-x transition-all duration-300">
           {[
             { id: 'total', label: 'All', key: 'total', color: 'from-blue-600 to-blue-700 shadow-blue-200 hover:shadow-blue-300', icon: LayoutGrid },
             { id: 'assignedToMe', label: 'My Leads', key: 'assignedToMe', color: 'from-indigo-600 to-indigo-700 shadow-indigo-200 hover:shadow-indigo-300', icon: User },
@@ -1299,6 +1299,7 @@ const Leads = () => {
                         onSelect={toggleSelectLead}
                         isSelected={selectedLeadIds.includes(lead.id)}
                         onAssign={handleOpenAssignModal}
+                        onStatusChange={handleOpenStatusModal}
                         onDelete={handleDelete}
                       />
                     );
@@ -1322,6 +1323,7 @@ const Leads = () => {
                           <th className="px-6 py-5 text-[10px] font-bold uppercase tracking-widest text-slate-400">Email Address</th>
                           <th className="px-6 py-5 text-[10px] font-bold uppercase tracking-widest text-slate-400">Phone Number</th>
                           <th className="px-6 py-5 text-[10px] font-bold uppercase tracking-widest text-slate-400">Assigned To</th>
+                          <th className="px-6 py-5 text-[10px] font-bold uppercase tracking-widest text-slate-400">Status</th>
                           <th className="px-2 py-5 text-right w-16 whitespace-nowrap">Actions</th>
                         </tr>
                       </thead>
@@ -1338,6 +1340,16 @@ const Leads = () => {
                             'Unassigned';
 
                           const isSelected = selectedLeadIds.includes(lead.id);
+
+                          const leadStatus = lead.status?.toLowerCase();
+                          const statusInfo = {
+                            new: { color: 'bg-sky-500', label: 'New' },
+                            processing: { color: 'bg-blue-400', label: 'Under Process' },
+                            proposal: { color: 'bg-amber-500', label: 'Proposal Sent' },
+                            followup: { color: 'bg-purple-600', label: 'Followup' },
+                            confirmed: { color: 'bg-green-600', label: 'Booked' },
+                            cancelled: { color: 'bg-gray-500', label: 'Declined' },
+                          }[leadStatus] || { color: 'bg-slate-400', label: lead.status || 'N/A' };
 
                           return (
                             <tr
@@ -1373,6 +1385,15 @@ const Leads = () => {
                                   </div>
                                   <span className="text-[11px] font-bold text-slate-600">{assigneeName}</span>
                                 </div>
+                              </td>
+                              <td className="px-6 py-4">
+                                <button 
+                                  onClick={(e) => { e.stopPropagation(); handleOpenStatusModal(lead.id); }}
+                                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-slate-100 bg-slate-50/50 hover:bg-white hover:border-blue-200 hover:shadow-sm transition-all group/status"
+                                >
+                                  <div className={`w-1.5 h-1.5 rounded-full ${statusInfo.color} transition-transform`}></div>
+                                  <span className="text-[9px] font-black text-slate-600 uppercase tracking-widest">{statusInfo.label}</span>
+                                </button>
                               </td>
                               <td className="px-2 py-4 text-right">
                                 <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -1947,11 +1968,12 @@ const Leads = () => {
               className="w-full flex items-center justify-between p-4 rounded-2xl border border-slate-100 hover:border-blue-500 hover:bg-blue-50/50 transition-all group group text-left"
             >
               <div className="flex items-center gap-4">
-                <div className={`w-3 h-3 rounded-full ${status === 'confirmed' ? 'bg-emerald-500' :
-                  status === 'cancelled' ? 'bg-rose-500' :
-                    status === 'processing' ? 'bg-indigo-500' :
+                <div className={`w-3 h-3 rounded-full ${status === 'confirmed' ? 'bg-green-600' :
+                  status === 'cancelled' ? 'bg-gray-500' :
+                    status === 'processing' ? 'bg-blue-400' :
                       status === 'proposal' ? 'bg-amber-500' :
-                        'bg-orange-500'
+                        status === 'followup' ? 'bg-purple-600' :
+                        'bg-slate-500'
                   } shadow-sm`}></div>
                 <span className="font-bold text-slate-700 group-hover:text-blue-700 capitalize">
                   {status === 'processing' ? 'Under Process' :

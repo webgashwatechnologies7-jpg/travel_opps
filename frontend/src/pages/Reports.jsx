@@ -130,7 +130,7 @@ const Reports = () => {
              </div>
           </div>
 
-          <div className="flex bg-slate-50 p-1.5 rounded-2xl border border-slate-100 overflow-x-auto no-scrollbar">
+          <div className="flex bg-slate-50 p-1.5 rounded-2xl border border-slate-100 overflow-x-auto custom-scrollbar-x">
             {menuItems.map((item) => {
               const Icon = item.icon;
               return (

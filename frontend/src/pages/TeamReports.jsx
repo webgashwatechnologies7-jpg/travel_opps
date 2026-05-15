@@ -235,7 +235,7 @@ const TeamReports = () => {
                </div>
             </div>
             
-            <div className="flex-1 w-full pt-4 overflow-x-auto no-scrollbar">
+            <div className="flex-1 w-full pt-4 overflow-x-auto custom-scrollbar-x">
                <div style={{ minWidth: chartData.length > 8 ? `${chartData.length * 80}px` : '100%', height: '320px' }}>
                   <ResponsiveContainer width="100%" height="100%">
                      <BarChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 20 }}>
