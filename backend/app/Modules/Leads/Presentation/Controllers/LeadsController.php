@@ -37,7 +37,7 @@ class LeadsController extends Controller
     public function index(Request $request): JsonResponse
     {
         try {
-            $filters = $request->only(['status', 'assigned_to', 'created_by', 'source', 'destination', 'priority', 'birth_month', 'anniversary_month', 'from_date', 'to_date', 'travel_month', 'service', 'adult', 'description', 'today', 'unassigned', 'created_from', 'created_to', 'search']);
+            $filters = $request->only(['status', 'assigned_to', 'created_by', 'source', 'destination', 'priority', 'birth_month', 'anniversary_month', 'from_date', 'to_date', 'travel_month', 'service', 'adult', 'description', 'today', 'unassigned', 'created_from', 'created_to', 'search', 'unlock_requested']);
             $filters['company_id'] = function_exists('tenant') ? tenant('id') : $request->user()?->company_id;
 
             $perPage = $request->get('per_page', 8);
@@ -572,13 +572,8 @@ class LeadsController extends Controller
 
     private function isLeadLocked(Lead $lead, User $user): bool
     {
-        // Admins and Managers bypass the lock
-        if ($user->hasRole(['Admin', 'Company Admin', 'Super Admin', 'Manager']) || $user->is_super_admin) {
-            return false;
-        }
-
-        // Specific bypass permission
-        if ($user->can('leads_management.bypass_lock')) {
+        // Only Super Admin or users with explicit bypass permission can bypass without unlocking
+        if ($user->is_super_admin || $user->can('leads_management.bypass_lock')) {
             return false;
         }
 

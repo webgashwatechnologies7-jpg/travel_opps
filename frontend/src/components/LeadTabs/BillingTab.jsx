@@ -12,7 +12,8 @@ const BillingTab = memo(({
     setShowPaymentModal,
     formatDateForDisplay,
     onSendReminder,
-    remindingPaymentId
+    remindingPaymentId,
+    isLeadLocked
 }) => {
     const confirmedOption = getConfirmedOption();
     const confirmedOptionNum = confirmedOption?.optionNumber;
@@ -101,6 +102,7 @@ const BillingTab = memo(({
             <div className="flex justify-end">
                 <button
                     onClick={() => {
+                        if (isLeadLocked) return;
                         setPaymentFormData({
                             amount: packagePrice > 0 ? packagePrice.toString() : paymentSummary.total_amount?.toString() || '',
                             paid_amount: '',
@@ -108,7 +110,9 @@ const BillingTab = memo(({
                         });
                         setShowPaymentModal(true);
                     }}
-                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                    disabled={isLeadLocked}
+                    title={isLeadLocked ? "LOCKED: Cannot Add Payment" : "Add Payment"}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all ${isLeadLocked ? 'bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200' : 'bg-blue-600 text-white hover:bg-blue-700'}`}
                 >
                     <Plus className="h-4 w-4" />
                     Add Payment

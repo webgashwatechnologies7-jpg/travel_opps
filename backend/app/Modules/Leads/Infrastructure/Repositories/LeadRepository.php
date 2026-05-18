@@ -88,6 +88,10 @@ class LeadRepository implements LeadRepositoryInterface
             $query->where('status', $filters['status']);
         }
 
+        if (isset($filters['unlock_requested']) && $filters['unlock_requested']) {
+            $query->where('unlock_requested', true);
+        }
+
         if (isset($filters['assigned_to']) && $filters['assigned_to']) {
             $query->where('assigned_to', $filters['assigned_to']);
         }
@@ -277,7 +281,7 @@ class LeadRepository implements LeadRepositoryInterface
             return [
                 'total' => 0, 'assignedToMe' => 0, 'today' => 0, 'unassigned' => 0,
                 'new' => 0, 'processing' => 0, 'proposalSent' => 0, 'hotLead' => 0,
-                'cancel' => 0, 'followUp' => 0, 'confirmed' => 0,
+                'cancel' => 0, 'followUp' => 0, 'confirmed' => 0, 'unlock_requested' => 0,
             ];
         }
 
@@ -295,7 +299,8 @@ class LeadRepository implements LeadRepositoryInterface
                 SUM(CASE WHEN priority = 'hot' THEN 1 ELSE 0 END) as hotLead,
                 SUM(CASE WHEN status = 'cancelled' THEN 1 ELSE 0 END) as cancel,
                 SUM(CASE WHEN status = 'followup' THEN 1 ELSE 0 END) as followUp,
-                SUM(CASE WHEN status = 'confirmed' THEN 1 ELSE 0 END) as confirmed
+                SUM(CASE WHEN status = 'confirmed' THEN 1 ELSE 0 END) as confirmed,
+                SUM(CASE WHEN unlock_requested = 1 THEN 1 ELSE 0 END) as unlock_requested
             ", [$currentUserId, $today])
             ->first();
 
@@ -311,6 +316,7 @@ class LeadRepository implements LeadRepositoryInterface
             'cancel' => (int) ($stats->cancel ?? 0),
             'followUp' => (int) ($stats->followUp ?? 0),
             'confirmed' => (int) ($stats->confirmed ?? 0),
+            'unlock_requested' => (int) ($stats->unlock_requested ?? 0),
         ];
     }
 }

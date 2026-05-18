@@ -53,6 +53,15 @@ class LeadProposalController extends Controller
                 return response()->json(['success' => false, 'errors' => $validator->errors()], 422);
             }
 
+            // Check if lead is locked
+            if ($this->isLeadLocked($request->lead_id, $request->user())) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'This query is locked. Please request permission from your manager to make changes.',
+                    'is_locked' => true
+                ], 403);
+            }
+
             $package = Package::find($request->package_id);
             
             // Check if this template was already cloned for this lead
@@ -172,6 +181,15 @@ class LeadProposalController extends Controller
                 return response()->json(['success' => false, 'message' => 'Proposal not found'], 404);
             }
 
+            // Check if lead is locked
+            if ($this->isLeadLocked($proposal->lead_id, $request->user())) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'This query is locked. Please request permission from your manager to make changes.',
+                    'is_locked' => true
+                ], 403);
+            }
+
             $oldDisplayPrice = $this->getDisplayPrice($proposal);
             $oldValues = [
                 'itinerary_name' => $proposal->itinerary_name,
@@ -240,6 +258,15 @@ class LeadProposalController extends Controller
                 return response()->json(['success' => false, 'message' => 'Proposal not found'], 404);
             }
 
+            // Check if lead is locked
+            if ($this->isLeadLocked($proposal->lead_id, auth()->user())) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'This query is locked. Please request permission from your manager to confirm options.',
+                    'is_locked' => true
+                ], 403);
+            }
+
             $leadId = $proposal->lead_id;
 
             // Log activity for confirmation
@@ -305,6 +332,15 @@ class LeadProposalController extends Controller
             $proposal = LeadProposal::find($id);
             if (!$proposal) {
                 return response()->json(['success' => false, 'message' => 'Proposal not found'], 404);
+            }
+
+            // Check if lead is locked
+            if ($this->isLeadLocked($proposal->lead_id, auth()->user())) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'This query is locked. Please request permission from your manager to delete proposals.',
+                    'is_locked' => true
+                ], 403);
             }
 
             $displayPrice = $this->getDisplayPrice($proposal);
@@ -422,5 +458,35 @@ class LeadProposalController extends Controller
 
         // 3. Fallback to basic price column (usually from the Package table)
         return (float) ($proposal->price ?? 0);
+    }
+
+    private function isLeadLocked($leadId, $user)
+    {
+        if (!$user) return false;
+        
+        $lead = \App\Modules\Leads\Domain\Entities\Lead::find($leadId);
+        if (!$lead) return false;
+
+        // Only Super Admin or users with explicit bypass permission can bypass without unlocking
+        if ($user->is_super_admin || (method_exists($user, 'can') && $user->can('leads_management.bypass_lock'))) {
+            return false;
+        }
+
+        // If explicitly unlocked for edit
+        if ($lead->is_unlocked_for_edit) {
+            return false;
+        }
+
+        // Lock if status is confirmed (Booked) or cancelled (Declined)
+        if ($lead->status === 'confirmed' || $lead->status === 'cancelled') {
+            return true;
+        }
+
+        // System lock field
+        if ($lead->is_locked) {
+            return true;
+        }
+
+        return false;
     }
 }

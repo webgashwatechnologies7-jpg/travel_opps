@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Dropdown } from 'primereact/dropdown';
 import { useParams, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
@@ -34,11 +34,41 @@ const ItineraryDetail = () => {
   const isProposal = searchParams.get('type') === 'proposal';
 
   const [itinerary, setItinerary] = useState(null);
+  const [lead, setLead] = useState(null);
   const [syncedWithLead, setSyncedWithLead] = useState(false);
   const legacyMigrationAttemptedRef = useRef(false);
 
+  const isAdminOrManager = useMemo(() => {
+    if (!user) return false;
+    // Explicit bypass permission per user request
+    if (user.permissions?.includes('leads_management.bypass_lock')) return true;
+
+    return user.is_super_admin || user.roles?.some(r => {
+      const roleName = typeof r === 'string' ? r : r.name;
+      return ['Company Admin', 'Super Admin', 'Admin', 'Manager'].includes(roleName);
+    });
+  }, [user]);
+
+  const isLeadLocked = useMemo(() => {
+    if (!lead) return false;
+    
+    // Only Super Admin or users with explicit bypass permission are never locked out
+    if (user?.is_super_admin || user?.permissions?.includes('leads_management.bypass_lock')) return false;
+
+    // System lock field from DB
+    if (lead.is_locked && !lead.is_unlocked_for_edit) return true;
+
+    // Status-based lock: Booked (confirmed) or Declined (cancelled) queries are locked
+    const leadStatus = lead.status?.toLowerCase();
+    if ((leadStatus === 'confirmed' || leadStatus === 'cancelled') && !lead.is_unlocked_for_edit) {
+      return true;
+    }
+
+    return false;
+  }, [lead, isAdminOrManager]);
+
   const manualSyncWithLead = async (silent = false) => {
-    if (!fromLeadId || !itinerary || !itinerary.id) return;
+    if (!fromLeadId || !itinerary || !itinerary.id || isLeadLocked) return;
 
     try {
       if (!silent) setSyncedWithLead(false);
@@ -271,15 +301,12 @@ const ItineraryDetail = () => {
   const [tcs, setTcs] = useState(0);
   const [discount, setDiscount] = useState(0);
   const [optionGstSettings, setOptionGstSettings] = useState({});
-  const [lead, setLead] = useState(null);
-  const [isLeadLocked, setIsLeadLocked] = useState(false);
 
   useEffect(() => {
     if (fromLeadId && user) {
       leadsAPI.get(fromLeadId).then(res => {
         const l = res.data.data.lead || res.data.data;
         setLead(l);
-        setIsLeadLocked(false);
       }).catch(() => { });
     }
   }, [fromLeadId, user]);
@@ -2124,7 +2151,7 @@ const ItineraryDetail = () => {
                   />
                 )}
                 <div className="relative z-10 h-full flex flex-col justify-between p-8">
-                  {hasPermission(user, 'itineraries.edit') && (
+                  {(hasPermission(user, 'itineraries.edit') && !isLeadLocked) && (
                     <div className="flex justify-end">
                       <button
                         onClick={() => setShowCoverPhotoModal(true)}
@@ -2138,7 +2165,7 @@ const ItineraryDetail = () => {
                   <div className="bg-white/90 backdrop-blur-sm p-4 rounded-lg shadow-lg">
                     <div className="flex items-center gap-3 mb-2">
                       <h1 className="text-4xl font-bold text-gray-900">{itinerary?.itinerary_name || 'Untitled'}</h1>
-                      {hasPermission(user, 'itineraries.edit') && (
+                      {(hasPermission(user, 'itineraries.edit') && !isLeadLocked) && (
                         <button
                           onClick={handleEditItinerary}
                           className="text-gray-700 hover:text-gray-900"
@@ -2200,7 +2227,7 @@ const ItineraryDetail = () => {
                               }`}
                           >
                             {/* Travel Day Toggle Button */}
-                            {hasPermission(user, 'itineraries.edit') && (
+                            {(hasPermission(user, 'itineraries.edit') && !isLeadLocked) && (
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
@@ -2247,7 +2274,7 @@ const ItineraryDetail = () => {
                                     </span>
                                   )}
                                 </div>
-                                {hasPermission(user, 'itineraries.edit') && (
+                                {(hasPermission(user, 'itineraries.edit') && !isLeadLocked) && (
                                   <button className="text-gray-400 hover:text-gray-600">
                                     <Edit className="h-4 w-4" />
                                   </button>
@@ -2269,7 +2296,7 @@ const ItineraryDetail = () => {
                               filter
                               placeholder="Select Destination"
                               className="mt-2 w-full text-xs font-bold border-none bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors"
-                              disabled={!hasPermission(user, 'itineraries.edit')}
+                              disabled={!(hasPermission(user, 'itineraries.edit') && !isLeadLocked)}
                               panelStyle={{ minWidth: '200px' }}
                               appendTo="self"
                             />
@@ -2326,7 +2353,7 @@ const ItineraryDetail = () => {
                             {days[selectedDay - 1]?.destination || 'Destination'}
                           </h3>
                           <div className="relative" ref={dropdownRef}>
-                            {hasPermission(user, 'itineraries.edit') && (
+                            {(hasPermission(user, 'itineraries.edit') && !isLeadLocked) && (
                               <button
                                 onClick={() => setShowEventTypeDropdown(!showEventTypeDropdown)}
                                 className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2 text-sm font-medium"
@@ -2410,7 +2437,7 @@ const ItineraryDetail = () => {
                           <div
                             className="flex items-center gap-2 border border-gray-300 rounded-lg p-3 bg-gray-50 cursor-pointer hover:bg-gray-100 transition-colors"
                             onClick={() => {
-                              if (hasPermission(user, 'itineraries.edit')) {
+                              if ((hasPermission(user, 'itineraries.edit') && !isLeadLocked)) {
                                 setShowDayDetailsModal(true);
                               }
                             }}
@@ -2428,11 +2455,11 @@ const ItineraryDetail = () => {
                               className="text-gray-400 hover:text-gray-600"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                if (hasPermission(user, 'itineraries.edit')) {
+                                if ((hasPermission(user, 'itineraries.edit') && !isLeadLocked)) {
                                   setShowDayDetailsModal(true);
                                 }
                               }}
-                              disabled={!hasPermission(user, 'itineraries.edit')}
+                              disabled={!(hasPermission(user, 'itineraries.edit') && !isLeadLocked)}
                             >
                               <Edit className="h-4 w-4" />
                             </button>
@@ -2560,7 +2587,7 @@ const ItineraryDetail = () => {
                                             {event.price && <span className="ml-auto inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-green-100 text-green-700">₹{event.price}</span>}
                                           </div>
                                           <p className="text-[13px] text-gray-500 italic border-l-2 border-gray-100 pl-2">{event.details || 'No details provided'}</p>
-                                          {hasPermission(user, 'itineraries.edit') && (
+                                          {(hasPermission(user, 'itineraries.edit') && !isLeadLocked) && (
                                             <button
                                               onClick={() => {
                                                 const updatedEvents = { ...dayEvents };
@@ -2596,7 +2623,7 @@ const ItineraryDetail = () => {
                                       )}
                                     </div>
                                     {/* Edit Button on Right */}
-                                    {hasPermission(user, 'itineraries.edit') && (
+                                    {(hasPermission(user, 'itineraries.edit') && !isLeadLocked) && (
                                       <button
                                         className="text-blue-500 hover:text-blue-700 flex-shrink-0"
                                         onClick={() => {
@@ -2643,7 +2670,7 @@ const ItineraryDetail = () => {
                                       </button>
                                     )}
                                     {/* Delete Button */}
-                                    {hasPermission(user, 'itineraries.edit') && (
+                                    {(hasPermission(user, 'itineraries.edit') && !isLeadLocked) && (
                                       <button
                                         className="text-red-500 hover:text-red-700 flex-shrink-0"
                                         onClick={() => {
@@ -2750,7 +2777,7 @@ const ItineraryDetail = () => {
                           >
                             From Database
                           </button>
-                          {hasPermission(user, 'itineraries.edit') && (
+                          {(hasPermission(user, 'itineraries.edit') && !isLeadLocked) && (
                             <button
                               onClick={() => {
                                 setDataSourceTab('manual');
@@ -2765,7 +2792,7 @@ const ItineraryDetail = () => {
                               Add Manual
                             </button>
                           )}
-                          {hasPermission(user, 'itineraries.edit') && (
+                          {(hasPermission(user, 'itineraries.edit') && !isLeadLocked) && (
                             <button
                               onClick={() => {
                                 setDataSourceTab('api');
@@ -2809,7 +2836,7 @@ const ItineraryDetail = () => {
                                   key={di.id}
                                   className="flex items-start gap-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer"
                                   onClick={() => {
-                                    if (hasPermission(user, 'itineraries.edit')) {
+                                    if ((hasPermission(user, 'itineraries.edit') && !isLeadLocked)) {
                                       if (selectedDay) {
                                         handleAddDayItinerary(di.id);
                                       } else {
@@ -2843,7 +2870,7 @@ const ItineraryDetail = () => {
                                     <h4 className="font-semibold text-gray-900 text-sm mb-1">{di.title || di.destination || 'Day Itinerary'}</h4>
                                     <p className="text-xs text-gray-600 line-clamp-2">{di.details || di.destination || 'No description'}</p>
                                   </div>
-                                  {hasPermission(user, 'itineraries.edit') && (
+                                  {(hasPermission(user, 'itineraries.edit') && !isLeadLocked) && (
                                     <button
                                       onClick={(e) => {
                                         e.stopPropagation();
@@ -2892,7 +2919,7 @@ const ItineraryDetail = () => {
                                     key={activity.id}
                                     className="flex items-start gap-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer"
                                     onClick={() => {
-                                      if (!hasPermission(user, 'itineraries.edit')) return;
+                                      if (!(hasPermission(user, 'itineraries.edit') && !isLeadLocked)) return;
                                       if (selectedDay) {
                                         const currentDayEvents = dayEvents[selectedDay] || [];
                                         const existing = null; // Always allow adding multiple instances of an activity
@@ -2970,7 +2997,7 @@ const ItineraryDetail = () => {
                                       <h4 className="font-semibold text-gray-900 text-sm mb-1">{activity.name || 'Activity'}</h4>
                                       <p className="text-xs text-gray-600 line-clamp-2">{activity.activity_details || activity.destination || 'No description'}</p>
                                     </div>
-                                    {hasPermission(user, 'itineraries.edit') && (
+                                    {(hasPermission(user, 'itineraries.edit') && !isLeadLocked) && (
                                       <button
                                         onClick={(e) => {
                                           e.stopPropagation();
@@ -3028,7 +3055,7 @@ const ItineraryDetail = () => {
                                           <div
                                             key={hotel.id}
                                             className="group flex items-start gap-4 p-4 border border-gray-100 rounded-2xl bg-white hover:bg-blue-50/30 hover:border-blue-100 transition-all duration-300 cursor-pointer shadow-sm hover:shadow-md"
-                                            onClick={() => hasPermission(user, 'itineraries.edit') && handleHotelSelect(hotel)}
+                                            onClick={() => (hasPermission(user, 'itineraries.edit') && !isLeadLocked) && handleHotelSelect(hotel)}
                                           >
                                             <div className="w-16 h-16 bg-gray-50 rounded-xl flex items-center justify-center overflow-hidden border border-gray-100 flex-shrink-0 shadow-inner group-hover:border-blue-200">
                                               {hotel.image ? (
@@ -3064,7 +3091,7 @@ const ItineraryDetail = () => {
                                                 <p className="text-[11px] text-gray-500 line-clamp-2 leading-relaxed italic">{hotel.address}</p>
                                               )}
                                             </div>
-                                            {hasPermission(user, 'itineraries.edit') && (
+                                            {(hasPermission(user, 'itineraries.edit') && !isLeadLocked) && (
                                               <button
                                                 onClick={(e) => {
                                                   e.stopPropagation();
@@ -3177,7 +3204,7 @@ const ItineraryDetail = () => {
                                                         <div className="text-gray-600">{room.mealPlan}</div>
                                                         <div className="text-gray-900 font-semibold">Rs. {room.price.toLocaleString()}</div>
                                                         <div>
-                                                          {hasPermission(user, 'itineraries.edit') && (
+                                                          {(hasPermission(user, 'itineraries.edit') && !isLeadLocked) && (
                                                             <button
                                                               onClick={() => handleRoomSelect(hotel, room)}
                                                               className="bg-blue-600 text-white px-4 py-1.5 rounded text-xs font-medium hover:bg-blue-700 transition-colors w-full"
@@ -3247,7 +3274,7 @@ const ItineraryDetail = () => {
                                     key={transfer.id}
                                     className="flex items-start gap-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer"
                                     onClick={() => {
-                                      if (!hasPermission(user, 'itineraries.edit')) return;
+                                      if (!(hasPermission(user, 'itineraries.edit') && !isLeadLocked)) return;
                                       if (selectedDay) {
                                         const currentDayEvents = dayEvents[selectedDay] || [];
                                         const existing = currentDayEvents.find(e =>
@@ -3332,7 +3359,7 @@ const ItineraryDetail = () => {
                                         {transfer.transfer_details || transfer.destination || 'No description'}
                                       </p>
                                     </div>
-                                    {hasPermission(user, 'itineraries.edit') && (
+                                    {(hasPermission(user, 'itineraries.edit') && !isLeadLocked) && (
                                       <button
                                         onClick={(e) => {
                                           e.stopPropagation();
@@ -3394,7 +3421,7 @@ const ItineraryDetail = () => {
                                           'border-gray-200 hover:bg-gray-50'
                                         }`}
                                       onClick={() => {
-                                        if (!hasPermission(user, 'itineraries.edit')) return;
+                                        if (!(hasPermission(user, 'itineraries.edit') && !isLeadLocked)) return;
                                         if (selectedDay) {
                                           const existing = currentMealEvent;
 
@@ -3447,7 +3474,7 @@ const ItineraryDetail = () => {
                                           </span>
                                         )}
                                       </div>
-                                      {hasPermission(user, 'itineraries.edit') && (
+                                      {(hasPermission(user, 'itineraries.edit') && !isLeadLocked) && (
                                         <button
                                           onClick={(e) => {
                                             e.stopPropagation();
@@ -3511,7 +3538,7 @@ const ItineraryDetail = () => {
                 else if (type === 'success') toast.success(text);
                 else toast.info(text);
               }}
-              readOnly={!hasPermission(user, 'itineraries.edit')}
+              readOnly={!(hasPermission(user, 'itineraries.edit') && !isLeadLocked)}
               leadId={fromLeadId}
             />
           )}

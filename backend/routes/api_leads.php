@@ -39,7 +39,7 @@ Route::middleware(['auth:sanctum'])->prefix('leads')->group(function () {
     Route::get('/{id}/calls', [CallController::class, 'leadHistory']);
     Route::put('/{id}/assign', [LeadsController::class, 'assign']);
     Route::put('/{id}/status', [LeadsController::class, 'updateStatus']);
-    Route::post('/{id}/unlock-request', [LeadsController::class, 'requestUnlock']);
+    Route::post('/{id}/request-unlock', [LeadsController::class, 'requestUnlock']);
     Route::post('/{id}/handle-unlock', [LeadsController::class, 'handleUnlockRequest']);
 
     // Bulk actions

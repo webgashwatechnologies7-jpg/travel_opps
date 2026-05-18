@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate, Outlet } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useSettings } from '../contexts/SettingsContext';
 import {
-  LayoutDashboard, MessageSquare, FileText, CreditCard, MessageCircle, Mail, Link2, BarChart3, Megaphone, Receipt, Settings, Grid, Users, Phone, ClipboardList, Package, Bell, Menu, Clock
+  LayoutDashboard, MessageSquare, FileText, CreditCard, MessageCircle, Mail, Link2, BarChart3, Megaphone, Receipt, Settings, Grid, Users, Phone, ClipboardList, Package, Bell, Menu, Clock, Lock
 } from 'lucide-react';
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { toast } from 'react-toastify';
@@ -12,7 +12,7 @@ import HeaderComponent from './Header';
 import MobileSidebar from './MobileSidebar';
 
 const MENU_ICON_MAP = {
-  LayoutDashboard, MessageSquare, FileText, CreditCard, MessageCircle, Mail, Link2, BarChart3, Megaphone, Receipt, Settings, Grid, Users, Phone, ClipboardList, Package, Bell, Clock
+  LayoutDashboard, MessageSquare, FileText, CreditCard, MessageCircle, Mail, Link2, BarChart3, Megaphone, Receipt, Settings, Grid, Users, Phone, ClipboardList, Package, Bell, Clock, Lock
 };
 
 // A minimal loader for lazy-loaded chunks that doesn't block the sidebar
@@ -62,6 +62,12 @@ const Layout = ({ Header, padding = 0 }) => {
   }, [location.pathname, location.search, menuItems, setOpenSubmenus]);
 
   const isActive = useCallback((path) => {
+    if (path.includes('?')) {
+      return location.pathname + location.search === path;
+    }
+    if (path === '/leads' && location.pathname === '/leads' && location.search.includes('filter=unlock_requested')) {
+        return false;
+    }
     if (location.pathname === path || location.pathname.startsWith(path + '/')) return true;
 
     // Special mapping for staff management

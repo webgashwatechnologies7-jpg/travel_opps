@@ -8,9 +8,9 @@ import { toast } from 'react-toastify';
 import LogoLoader from '../components/LogoLoader';
 import { Dialog } from 'primereact/dialog';
 const TABS = [
-    { id: 'inclusion', label: 'Inclusions', color: 'green', colorClass: 'text-green-800 bg-green-100 border-green-200', btnClass: 'bg-green-600 hover:bg-green-700' },
-    { id: 'exclusion', label: 'Exclusions', color: 'red', colorClass: 'text-red-800 bg-red-100 border-red-200', btnClass: 'bg-red-600 hover:bg-red-700' },
-    { id: 'terms', label: 'Terms & Conditions', color: 'blue', colorClass: 'text-blue-800 bg-blue-100 border-blue-200', btnClass: 'bg-blue-600 hover:bg-blue-700' },
+    { id: 'inclusion', label: 'Inclusions', color: 'green', colorClass: 'text-green-800 bg-green-100 border-green-200', btnClass: 'bg-green-600 hover:bg-green-700 focus:ring-green-500' },
+    { id: 'exclusion', label: 'Exclusions', color: 'red', colorClass: 'text-red-800 bg-red-100 border-red-200', btnClass: 'bg-red-600 hover:bg-red-700 focus:ring-red-500' },
+    { id: 'terms', label: 'Terms & Conditions', color: 'blue', colorClass: 'text-blue-800 bg-blue-100 border-blue-200', btnClass: 'bg-blue-600 hover:bg-blue-700 focus:ring-blue-500' },
     { id: 'confirmation', label: 'Confirmation Policy', color: 'teal', colorClass: 'text-teal-800 bg-teal-100 border-teal-200', btnClass: 'bg-teal-600 hover:bg-teal-700' },
     { id: 'cancellation', label: 'Cancellation Policy', color: 'orange', colorClass: 'text-orange-800 bg-orange-100 border-orange-200', btnClass: 'bg-orange-600 hover:bg-orange-700' },
     { id: 'amendment', label: 'Amendment Policy', color: 'cyan', colorClass: 'text-cyan-800 bg-cyan-100 border-cyan-200', btnClass: 'bg-cyan-600 hover:bg-cyan-700' },

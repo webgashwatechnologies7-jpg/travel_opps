@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, memo, useCallback } from 'react';
 import { useNavigate } from "react-router-dom";
 import { toast } from 'react-toastify';
-import { MoreVertical, Trash2, MapPin, MessageCircle, Mail, User as UserIcon, Calendar, Lock } from 'lucide-react';
+import { MoreVertical, Trash2, MapPin, MessageCircle, Mail, User as UserIcon, Calendar, Lock, RefreshCw, Edit } from 'lucide-react';
 
 function LeadCard({
   name,
@@ -21,6 +21,11 @@ function LeadCard({
   isSelected,
   onSelect,
   is_locked,
+  is_unlocked_for_edit,
+  unlock_requested,
+  onUnlockRequest,
+  isAdmin,
+  onApproveUnlock,
 }) {
   const navigate = useNavigate();
   const [showMenu, setShowMenu] = useState(false);
@@ -78,7 +83,11 @@ function LeadCard({
     cancelled: { color: 'bg-gray-500', glow: 'status-glow-cancelled', label: 'Declined' },
   };
 
-  const currentStatus = statusConfig[status?.toLowerCase()] || { color: 'bg-slate-500', glow: '', label: status };
+  const leadStatus = status?.toLowerCase();
+  const isFinalized = leadStatus === 'confirmed' || leadStatus === 'cancelled' || leadStatus === 'booked' || leadStatus === 'declined';
+  const effectivelyLocked = (isFinalized || is_locked) && !is_unlocked_for_edit;
+
+  const currentStatus = statusConfig[leadStatus] || { color: 'bg-slate-500', glow: '', label: status };
 
   // Robust name detection
   const currentAssigneeName = assignedUserName ||
@@ -121,11 +130,16 @@ function LeadCard({
 
           <div className="flex items-center gap-2">
             <button 
-              onClick={(e) => { e.stopPropagation(); onStatusChange?.(id); }}
-              className="flex items-center gap-1.5 px-2 py-1 rounded-md border border-slate-100 bg-slate-50/50 hover:bg-white hover:border-blue-200 transition-all"
+              onClick={(e) => { 
+                if (effectivelyLocked) return;
+                e.stopPropagation(); 
+                onStatusChange?.(id); 
+              }}
+              className={`flex items-center gap-1.5 px-2 py-1 rounded-md border border-slate-100 bg-slate-50/50 transition-all ${effectivelyLocked ? 'cursor-default' : 'hover:bg-white hover:border-blue-200 cursor-pointer'}`}
             >
               <div className={`w-1.5 h-1.5 rounded-full ${currentStatus.color}`}></div>
               <span className="text-[9px] font-bold text-slate-600 uppercase tracking-widest">{currentStatus.label}</span>
+              {effectivelyLocked && <Lock size={8} className="text-slate-400" />}
             </button>
 
             <div className="relative" ref={menuRef}>
@@ -137,13 +151,23 @@ function LeadCard({
               </button>
               {showMenu && (
                 <div className="absolute right-0 mt-2 w-44 bg-white border border-slate-200 rounded-lg shadow-xl z-50 py-1.5 animate-in fade-in zoom-in-95 duration-200">
-                  <button
-                    onClick={handleDeleteClick}
-                    className="w-full text-left px-4 py-2 text-xs text-rose-600 hover:bg-rose-50 flex items-center gap-2 font-semibold transition-colors"
-                  >
-                    <Trash2 size={14} />
-                    Delete Opportunity
-                  </button>
+                  {effectivelyLocked ? (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); onUnlockRequest?.(id); setShowMenu(false); }}
+                      className="w-full text-left px-4 py-2 text-xs text-indigo-600 hover:bg-indigo-50 flex items-center gap-2 font-semibold transition-colors"
+                    >
+                      <Lock size={14} />
+                      Request Modification
+                    </button>
+                  ) : (
+                    <button
+                      onClick={handleDeleteClick}
+                      className="w-full text-left px-4 py-2 text-xs text-rose-600 hover:bg-rose-50 flex items-center gap-2 font-semibold transition-colors"
+                    >
+                      <Trash2 size={14} />
+                      Delete Opportunity
+                    </button>
+                  )}
                 </div>
               )}
             </div>
@@ -189,6 +213,38 @@ function LeadCard({
             </button>
           )}
         </div>
+        {/* Admin Approval Banner or Status Requested Banner */}
+        {unlock_requested && (
+          <div className="mt-3 p-2 bg-amber-50 rounded-lg border border-amber-100 flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 min-w-0">
+              <RefreshCw size={12} className="text-amber-600 animate-spin flex-shrink-0" />
+              <span className="text-[10px] font-bold text-amber-800 uppercase tracking-tight truncate">Unlock Requested</span>
+            </div>
+            {isAdmin && (
+              <div className="flex gap-1 flex-shrink-0">
+                <button 
+                  onClick={(e) => { e.stopPropagation(); onApproveUnlock?.(id, 'approve'); }}
+                  className="px-2 py-0.5 bg-green-600 text-white text-[9px] font-black rounded hover:bg-green-700 transition-colors uppercase"
+                >
+                  Approve
+                </button>
+                <button 
+                  onClick={(e) => { e.stopPropagation(); onApproveUnlock?.(id, 'reject'); }}
+                  className="px-2 py-0.5 bg-slate-200 text-slate-600 text-[9px] font-black rounded hover:bg-slate-300 transition-colors uppercase"
+                >
+                  Reject
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {is_unlocked_for_edit && (
+          <div className="mt-3 p-2 bg-indigo-50 rounded-lg border border-indigo-100 flex items-center gap-2 animate-pulse">
+            <Edit size={12} className="text-indigo-600" />
+            <span className="text-[10px] font-bold text-indigo-800 uppercase tracking-tight">Unlocked for Editing</span>
+          </div>
+        )}
       </div>
     </div>
   );

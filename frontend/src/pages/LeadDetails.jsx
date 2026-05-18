@@ -132,21 +132,22 @@ const LeadDetails = () => {
 
     return user.is_super_admin || user.roles?.some(r => {
       const roleName = typeof r === 'string' ? r : r.name;
-      return ['Company Admin', 'Super Admin'].includes(roleName);
+      return ['Company Admin', 'Super Admin', 'Admin', 'Manager'].includes(roleName);
     });
   }, [user]);
 
   const isLeadLocked = useMemo(() => {
     if (!lead) return false;
     
-    // Admins and users with bypass permission are never locked out
-    if (isAdminOrManager) return false;
+    // Only Super Admin or users with explicit bypass permission are never locked out
+    if (user?.is_super_admin || user?.permissions?.includes('leads_management.bypass_lock')) return false;
 
     // System lock field from DB
     if (lead.is_locked && !lead.is_unlocked_for_edit) return true;
 
     // Status-based lock: Booked (confirmed) or Declined (cancelled) queries are locked
-    if ((lead.status === 'confirmed' || lead.status === 'cancelled') && !lead.is_unlocked_for_edit) {
+    const leadStatus = lead.status?.toLowerCase();
+    if ((leadStatus === 'confirmed' || leadStatus === 'cancelled') && !lead.is_unlocked_for_edit) {
       return true;
     }
 
@@ -2405,8 +2406,12 @@ const handleSavePaxDetails = async () => {
   }
 };
 
-const handleSaveLead = async (e) => {
+const handleSaveLeadDetails = async (e) => {
   e.preventDefault();
+  if (isLeadLocked) {
+    showToastNotification('error', 'Lead Locked', 'This booking is locked. Modification is not allowed.');
+    return;
+  }
   setSavingLead(true);
   try {
     await leadsAPI.update(id, editLeadFormData);
@@ -2423,6 +2428,10 @@ const handleSaveLead = async (e) => {
 
 const handleSaveQuery = async (e) => {
   e.preventDefault();
+  if (isLeadLocked) {
+    showToastNotification('error', 'Lead Locked', 'This query is locked. Modification is not allowed.');
+    return;
+  }
   setSavingQuery(true);
   try {
     await leadsAPI.update(id, editQueryFormData);
@@ -5030,8 +5039,11 @@ return (
 
                       {!showNoteInput && (
                         <button
-                          onClick={() => setShowNoteInput(true)}
-                          className="flex items-center gap-2 bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-full text-sm font-medium transition"
+                          onClick={() => {
+                            if (isLeadLocked) return showToastNotification('warning', 'Lead Locked', 'Cannot add notes to a finalized booking.');
+                            setShowNoteInput(true);
+                          }}
+                          className={`flex items-center gap-2 px-6 py-2 rounded-full text-sm font-medium transition ${isLeadLocked ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-blue-500 hover:bg-blue-600 text-white'}`}
                         >
                           <Plus className="w-5 h-5" />
                           Add Note
@@ -5383,6 +5395,7 @@ return (
                                                   type="button"
                                                   onClick={(e) => { 
                                                     e.stopPropagation(); 
+                                                    if (isLeadLocked) return showToastNotification('warning', 'Lead Locked', 'This booking is locked. Request manager approval to change options.');
                                                     const allDone = followups.every(f => f.is_completed);
                                                     if (!allDone) {
                                                       showToastNotification('warning', 'Pending Followups', 'Please mark all followups as done before confirming the booking.');
@@ -5390,7 +5403,7 @@ return (
                                                     }
                                                     handleConfirmOption(opt.id); 
                                                   }}
-                                                  className="w-full bg-orange-500 hover:bg-orange-600 text-white text-sm font-semibold px-3 py-2 rounded-lg"
+                                                  className={`w-full text-white text-sm font-semibold px-3 py-2 rounded-lg transition-all ${isLeadLocked ? 'bg-gray-400 cursor-not-allowed' : 'bg-orange-500 hover:bg-orange-600'}`}
                                                 >
                                                   Book Now
                                                 </button>
@@ -5429,7 +5442,7 @@ return (
                                                     setHotelManagerData(hotels);
                                                   } catch (err) { console.error(err); } finally { setLoadingHotelManager(false); }
                                                 }}
-                                                className="w-full inline-flex items-center justify-center gap-1.5 text-blue-600 hover:bg-blue-50 text-sm font-semibold px-3 py-2 rounded-lg border border-blue-200"
+                                                className={`w-full inline-flex items-center justify-center gap-1.5 text-sm font-semibold px-3 py-2 rounded-lg border transition-all ${isLeadLocked ? 'text-gray-400 bg-gray-50 border-gray-200 cursor-not-allowed' : 'text-blue-600 hover:bg-blue-50 border-blue-200'}`}
                                               >
                                                 <Building2 className="h-3.5 w-3.5" /> Manage Hotels
                                               </button>
@@ -5437,9 +5450,10 @@ return (
                                                 type="button"
                                                 onClick={(e) => {
                                                   e.stopPropagation();
+                                                  if (isLeadLocked) return showToastNotification('warning', 'Lead Locked', 'This booking is locked. Package editing is restricted.');
                                                   window.open(`/itineraries/${opt.itinerary_id}?fromLead=${id}&type=proposal`, '_blank');
                                                 }}
-                                                className="w-full text-gray-600 hover:bg-gray-100 text-sm font-medium px-3 py-2 rounded-lg border border-gray-300"
+                                                className={`w-full text-sm font-medium px-3 py-2 rounded-lg border transition-all ${isLeadLocked ? 'bg-gray-50 text-gray-400 border-gray-200 cursor-not-allowed' : 'text-gray-600 hover:bg-gray-100 border-gray-300'}`}
                                               >
                                                 Edit Package
                                               </button>
@@ -5453,8 +5467,24 @@ return (
 
                                 {!hasConfirmedProposal && (
                                   <div className="flex justify-end mt-4 gap-2">
-                                    <button onClick={handleRemoveItinerary} className="text-red-600 text-sm font-semibold px-3 py-1.5 rounded-lg border border-red-200">Remove</button>
-                                    <button onClick={handleChangePlan} className="text-orange-600 text-sm font-semibold px-3 py-1.5 rounded-lg border border-orange-200">Change Plan</button>
+                                    <button 
+                                      onClick={() => {
+                                        if (isLeadLocked) return showToastNotification('warning', 'Lead Locked', 'Cannot remove itinerary.');
+                                        handleRemoveItinerary();
+                                      }} 
+                                      className={`text-sm font-semibold px-3 py-1.5 rounded-lg border transition-all ${isLeadLocked ? 'text-gray-300 border-gray-100 cursor-not-allowed' : 'text-red-600 border-red-200 hover:bg-red-50'}`}
+                                    >
+                                      Remove
+                                    </button>
+                                    <button 
+                                      onClick={() => {
+                                        if (isLeadLocked) return showToastNotification('warning', 'Lead Locked', 'Cannot change plan.');
+                                        handleChangePlan();
+                                      }} 
+                                      className={`text-sm font-semibold px-3 py-1.5 rounded-lg border transition-all ${isLeadLocked ? 'text-gray-300 border-gray-100 cursor-not-allowed' : 'text-orange-600 border-orange-200 hover:bg-orange-50'}`}
+                                    >
+                                      Change Plan
+                                    </button>
                                   </div>
                                 )}
                               </div>
@@ -5464,15 +5494,21 @@ return (
                           {/* Create / Insert buttons – full width row, no overlap */}
                           <div className="flex flex-wrap items-center gap-3 pt-2">
                             <button
-                              onClick={handleCreateItinerary}
-                              className="bg-[#3F8CFF] text-white px-6 py-2.5 rounded-lg hover:bg-[#2d7ae8] flex items-center gap-2 font-medium text-sm"
+                              onClick={() => {
+                                if (isLeadLocked) return showToastNotification('warning', 'Lead Locked', 'Modification is restricted.');
+                                handleCreateItinerary();
+                              }}
+                              className={`px-6 py-2.5 rounded-lg flex items-center gap-2 font-medium text-sm transition-all ${isLeadLocked ? 'bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed' : 'bg-[#3F8CFF] text-white hover:bg-[#2d7ae8]'}`}
                             >
                               <Plus className="h-4 w-4" />
                               Create package
                             </button>
                             <button
-                              onClick={handleInsertItinerary}
-                              className="bg-[#E78175] text-white px-6 py-2.5 rounded-lg flex items-center gap-2 font-medium text-sm transition-all hover:bg-[#d9706a]"
+                              onClick={() => {
+                                if (isLeadLocked) return showToastNotification('warning', 'Lead Locked', 'Modification is restricted.');
+                                handleInsertItinerary();
+                              }}
+                              className={`px-6 py-2.5 rounded-lg flex items-center gap-2 font-medium text-sm transition-all ${isLeadLocked ? 'bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed' : 'bg-[#E78175] text-white hover:bg-[#d9706a]'}`}
                             >
                               <Upload className="h-4 w-4" />
                               Insert package
@@ -5609,6 +5645,7 @@ return (
                                     formatDateForDisplay={formatDateForDisplay}
                                     onSendReminder={handleSendPaymentReminder}
                                     remindingPaymentId={remindingPaymentId}
+                                    isLeadLocked={isLeadLocked}
                                   />
                                 ) : activeTab === 'calls' ? (
                                   <CallsTab
@@ -6529,7 +6566,7 @@ return (
             <button onClick={() => setShowEditLeadModal(false)} className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"><X className="h-6 w-6" /></button>
           </div>
         )}>
-          <form onSubmit={handleSaveLead} className="p-8 space-y-6">
+          <form onSubmit={handleSaveLeadDetails} className="p-8 space-y-6">
             <div className="space-y-4">
               <div className="flex gap-3">
                 <select value={editLeadFormData.client_title} onChange={(e) => setEditLeadFormData({ ...editLeadFormData, client_title: e.target.value })} className="w-24 border border-gray-200 rounded-2xl px-4 py-3 bg-gray-50 font-bold text-gray-700 outline-none">

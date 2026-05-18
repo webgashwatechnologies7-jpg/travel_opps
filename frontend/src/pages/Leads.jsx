@@ -93,6 +93,10 @@ const Leads = () => {
   const [selectedLeadIds, setSelectedLeadIds] = useState([]);
   const [isBulkAssignModalOpen, setIsBulkAssignModalOpen] = useState(false);
   const [sortConfig, setSortConfig] = useState({ key: 'created_at', direction: 'desc' });
+  const [showUnlockModal, setShowUnlockModal] = useState(false);
+  const [unlockReason, setUnlockReason] = useState('');
+  const [unlockLeadId, setUnlockLeadId] = useState(null);
+  const [isHandlingUnlock, setIsHandlingUnlock] = useState(false);
 
   const fetchLeadSources = useCallback(async () => {
     try {
@@ -176,6 +180,47 @@ const Leads = () => {
     }
   };
 
+  const handleOpenUnlockModal = (leadId) => {
+    setUnlockLeadId(leadId);
+    setUnlockReason('');
+    setShowUnlockModal(true);
+  };
+
+  const handleSubmitUnlockRequest = async () => {
+    if (!unlockReason.trim()) {
+      toast.error('Please provide a reason for the modification request');
+      return;
+    }
+    try {
+      setLoading(true);
+      const response = await leadsAPI.requestUnlock(unlockLeadId, unlockReason);
+      if (response.data?.success) {
+        toast.success('Modification request submitted successfully');
+        setShowUnlockModal(false);
+        fetchLeads();
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to submit request');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleApproveUnlock = async (leadId, action = 'approve') => {
+    try {
+      setIsHandlingUnlock(true);
+      const response = await leadsAPI.handleUnlockRequest(leadId, { action });
+      if (response.data?.success) {
+        toast.success(`Modification ${action}d successfully`);
+        fetchLeads();
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || `Failed to ${action} request`);
+    } finally {
+      setIsHandlingUnlock(false);
+    }
+  };
+
   const userRoles = currentUser?.roles?.map(r => typeof r === 'string' ? r : r.name) || [];
   const canAssign = userRoles.some(r => ['Admin', 'Company Admin', 'Super Admin', 'Manager', 'Team Leader'].includes(r));
   const isEmployee = userRoles.some(r => ['Employee', 'Sales Rep'].includes(r));
@@ -214,6 +259,7 @@ const Leads = () => {
     else if (filter === 'assignedToMe') apiParams.assigned_to = currentUser?.id;
     else if (filter === 'unassigned') apiParams.unassigned = 1;
     else if (filter === 'today') apiParams.today = 1;
+    else if (filter === 'unlock_requested') apiParams.unlock_requested = 1;
 
     // Smart Status Translation
     const lowerQuery = dest.toLowerCase().trim();
@@ -297,6 +343,7 @@ const Leads = () => {
       else if (filter === 'assignedToMe') analyticsParams.assigned_to = currentUser?.id;
       else if (filter === 'unassigned') analyticsParams.unassigned = 1;
       else if (filter === 'today') analyticsParams.today = 1;
+      else if (filter === 'unlock_requested') analyticsParams.unlock_requested = 1;
 
       const response = await leadsAPI.analytics(analyticsParams);
       if (response.data?.success) {
@@ -627,6 +674,8 @@ const Leads = () => {
         const id = l.assigned_to?.id ?? l.assigned_to_id ?? l.assigned_to;
         return Number(id) === currentUser?.id;
       });
+    } else if (activeFilter === 'unlock_requested') {
+      result = leads.filter(l => l.unlock_requested);
     } else {
       result = leads;
     }
@@ -960,6 +1009,7 @@ const Leads = () => {
             { id: 'hotLead', label: 'Hot', key: 'hotLead', color: 'from-rose-500 to-rose-600 shadow-rose-200 hover:shadow-rose-300', icon: TrendingUp },
             { id: 'cancel', label: 'Declined', key: 'cancel', color: 'from-gray-500 to-gray-600 shadow-gray-200 hover:shadow-gray-300', icon: X },
             { id: 'followUp', label: 'Follow Up', key: 'followUp', color: 'from-purple-600 to-purple-700 shadow-purple-200 hover:shadow-purple-300', icon: RefreshCw },
+            { id: 'unlock_requested', label: 'Approvals', key: 'unlock_requested', color: 'from-pink-500 to-pink-600 shadow-pink-200 hover:shadow-pink-300', icon: Lock },
           ].map((filter) => (
             <button
               key={filter.id}
@@ -1301,6 +1351,12 @@ const Leads = () => {
                         onAssign={handleOpenAssignModal}
                         onStatusChange={handleOpenStatusModal}
                         onDelete={handleDelete}
+                        is_locked={lead.is_locked}
+                        is_unlocked_for_edit={lead.is_unlocked_for_edit}
+                        unlock_requested={lead.unlock_requested}
+                        onUnlockRequest={handleOpenUnlockModal}
+                        isAdmin={canAssign}
+                        onApproveUnlock={handleApproveUnlock}
                       />
                     );
                   })}
@@ -1348,8 +1404,9 @@ const Leads = () => {
                             proposal: { color: 'bg-amber-500', label: 'Proposal Sent' },
                             followup: { color: 'bg-purple-600', label: 'Followup' },
                             confirmed: { color: 'bg-green-600', label: 'Booked' },
-                            cancelled: { color: 'bg-gray-500', label: 'Declined' },
                           }[leadStatus] || { color: 'bg-slate-400', label: lead.status || 'N/A' };
+                          const isFinalized = leadStatus === 'confirmed' || leadStatus === 'cancelled';
+                          const effectivelyLocked = (isFinalized || lead.is_locked) && !lead.is_unlocked_for_edit;
 
                           return (
                             <tr
@@ -1369,7 +1426,15 @@ const Leads = () => {
                                   <div className="w-8 h-8 rounded-xl bg-blue-100 flex items-center justify-center text-blue-600 font-bold text-[10px] shadow-sm transform group-hover:scale-110 transition-transform">
                                     {lead.client_name?.substring(0, 2).toUpperCase()}
                                   </div>
-                                  <span className={`font-bold transition-colors ${isSelected ? 'text-blue-700' : 'text-slate-700'}`}>{lead.client_name}</span>
+                                  <div className="flex flex-col">
+                                    <span className={`font-bold transition-colors ${isSelected ? 'text-blue-700' : 'text-slate-700'}`}>{lead.client_name}</span>
+                                    {lead.unlock_requested && (
+                                      <span className="text-[8px] font-black text-amber-600 uppercase tracking-tighter animate-pulse">Unlock Requested</span>
+                                    )}
+                                    {lead.is_unlocked_for_edit && (
+                                      <span className="text-[8px] font-black text-indigo-600 uppercase tracking-tighter">Unlocked</span>
+                                    )}
+                                  </div>
                                 </div>
                               </td>
                               <td className="px-6 py-4">
@@ -1388,11 +1453,16 @@ const Leads = () => {
                               </td>
                               <td className="px-6 py-4">
                                 <button 
-                                  onClick={(e) => { e.stopPropagation(); handleOpenStatusModal(lead.id); }}
-                                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-slate-100 bg-slate-50/50 hover:bg-white hover:border-blue-200 hover:shadow-sm transition-all group/status"
+                                  onClick={(e) => { 
+                                    if (effectivelyLocked) return;
+                                    e.stopPropagation(); 
+                                    handleOpenStatusModal(lead.id); 
+                                  }}
+                                  className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-slate-100 bg-slate-50/50 transition-all ${effectivelyLocked ? 'cursor-default' : 'hover:bg-white hover:border-blue-200 hover:shadow-sm group/status cursor-pointer'}`}
                                 >
                                   <div className={`w-1.5 h-1.5 rounded-full ${statusInfo.color} transition-transform`}></div>
                                   <span className="text-[9px] font-black text-slate-600 uppercase tracking-widest">{statusInfo.label}</span>
+                                  {effectivelyLocked && <Lock size={8} className="text-slate-400" />}
                                 </button>
                               </td>
                               <td className="px-2 py-4 text-right">
@@ -1404,27 +1474,59 @@ const Leads = () => {
                                   >
                                     <Eye size={16} />
                                   </button>
-                                  <button
-                                    onClick={() => {
-                                      setFormData({
-                                        ...getDefaultFormData(),
-                                        ...lead
-                                      });
-                                      setEditingLead(lead);
-                                      setShowModal(true);
-                                    }}
-                                    className="p-2 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-all"
-                                    title="Edit"
-                                  >
-                                    <Edit size={16} />
-                                  </button>
-                                  <button
-                                    onClick={() => handleDelete(lead.id)}
-                                    className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all"
-                                    title="Delete"
-                                  >
-                                    <Trash2 size={16} />
-                                  </button>
+                                  {effectivelyLocked ? (
+                                    <button
+                                      onClick={() => handleOpenUnlockModal(lead.id)}
+                                      className="p-2 text-indigo-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"
+                                      title="Request Modification"
+                                    >
+                                      <Lock size={16} />
+                                    </button>
+                                  ) : (
+                                    <button
+                                      onClick={() => {
+                                        setFormData({
+                                          ...getDefaultFormData(),
+                                          ...lead
+                                        });
+                                        setEditingLead(lead);
+                                        setShowModal(true);
+                                      }}
+                                      className="p-2 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-all"
+                                      title="Edit"
+                                    >
+                                      <Edit size={16} />
+                                    </button>
+                                  )}
+
+                                  {lead.unlock_requested && canAssign && (
+                                    <div className="flex gap-1 ml-1 bg-amber-50 p-1 rounded-lg border border-amber-100">
+                                      <button 
+                                        onClick={() => handleApproveUnlock(lead.id, 'approve')}
+                                        className="px-2 py-1 bg-green-600 text-white text-[8px] font-black rounded hover:bg-green-700 transition-colors uppercase"
+                                        title="Approve"
+                                      >
+                                        Approve
+                                      </button>
+                                      <button 
+                                        onClick={() => handleApproveUnlock(lead.id, 'reject')}
+                                        className="px-2 py-1 bg-slate-200 text-slate-600 text-[8px] font-black rounded hover:bg-slate-300 transition-colors uppercase"
+                                        title="Reject"
+                                      >
+                                        Reject
+                                      </button>
+                                    </div>
+                                  )}
+
+                                  {!effectivelyLocked && (
+                                    <button
+                                      onClick={() => handleDelete(lead.id)}
+                                      className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all"
+                                      title="Delete"
+                                    >
+                                      <Trash2 size={16} />
+                                    </button>
+                                  )}
                                 </div>
                               </td>
                             </tr>
@@ -1997,6 +2099,58 @@ const Leads = () => {
           >
             Cancel
           </button>
+        </div>
+      </Dialog>
+
+      {/* Modification Request Modal */}
+      <Dialog
+        visible={showUnlockModal}
+        onHide={() => setShowUnlockModal(false)}
+        modal
+        draggable
+        dismissableMask
+        style={{ width: '95%', maxWidth: '450px' }}
+        header={
+          <div className="flex flex-col">
+            <span className="text-xl font-bold text-slate-800">Modification Request</span>
+            <span className="text-slate-400 text-xs font-medium mt-1">Request permission to edit this closed query</span>
+          </div>
+        }
+        contentClassName="p-0 overflow-hidden rounded-b-2xl"
+        headerClassName="p-6 border-b border-slate-100"
+        footer={
+          <div className="flex justify-end gap-3 p-6 border-t border-slate-100 bg-slate-50/50">
+            <Button
+              label="Cancel"
+              onClick={() => setShowUnlockModal(false)}
+              className="px-6 py-2.5 bg-white border border-slate-200 text-slate-600 rounded-xl hover:bg-slate-100 transition-all font-bold text-sm h-auto"
+            />
+            <Button
+              label={loading ? "Sending..." : "Submit Request"}
+              disabled={loading}
+              onClick={handleSubmitUnlockRequest}
+              className="px-8 py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-500/20 font-bold text-sm border-none h-auto"
+            />
+          </div>
+        }
+      >
+        <div className="p-8 space-y-4">
+          <div className="bg-amber-50 border border-amber-100 p-4 rounded-xl flex gap-3">
+            <Lock className="text-amber-600 shrink-0" size={18} />
+            <p className="text-xs text-amber-800 leading-relaxed font-medium">
+              This query is currently locked because it is finalized. Your request will be sent to the manager for approval.
+            </p>
+          </div>
+          
+          <div>
+            <label className="block text-xs font-bold text-slate-500 mb-3 uppercase tracking-wider ml-1">Reason for modification</label>
+            <textarea
+              value={unlockReason}
+              onChange={(e) => setUnlockReason(e.target.value)}
+              placeholder="Explain why you need to make changes..."
+              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-semibold outline-none h-32 resize-none"
+            />
+          </div>
         </div>
       </Dialog>
 

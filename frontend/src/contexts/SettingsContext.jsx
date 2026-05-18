@@ -92,6 +92,7 @@ export const SettingsProvider = ({ children }) => {
   const defaultMenuItems = [
     { path: '/dashboard', label: 'Dashboard', icon: 'LayoutDashboard' },
     { path: '/leads', label: 'Queries', icon: 'MessageSquare', feature: 'leads_management' },
+    { path: '/leads?filter=unlock_requested', label: 'Approvals', icon: 'Lock', feature: 'leads_management' },
     { path: '/itineraries', label: 'Packages', icon: 'FileText', feature: 'itineraries' },
     { path: '/notifications', label: 'Notifications', icon: 'Bell' },
     { path: '/sales-reps', label: 'Sales Reps', icon: 'Users', feature: 'analytics', adminOnly: true },
@@ -261,6 +262,18 @@ export const SettingsProvider = ({ children }) => {
             return item;
           });
 
+          // Inject Approvals
+          const hasApprovals = apiMenu.some(item => item.path === '/leads?filter=unlock_requested');
+          if (!hasApprovals) {
+            const queriesIndex = apiMenu.findIndex(item => item.path === '/leads' || item.label === 'Queries' || item.label === 'All Queries');
+            const approvalsItem = { path: '/leads?filter=unlock_requested', label: 'Approvals', icon: 'Lock', feature: 'leads_management' };
+            if (queriesIndex >= 0) {
+              apiMenu.splice(queriesIndex + 1, 0, approvalsItem);
+            } else {
+              apiMenu.push(approvalsItem);
+            }
+          }
+
           setRawMenuItems(apiMenu);
         }
       })
@@ -295,7 +308,7 @@ export const SettingsProvider = ({ children }) => {
       }
 
       // 3. Managers see everything that is not explicitly adminOnly (except Support which we check here)
-      if (label === 'support' || label === 'customer support') {
+      if (label === 'support' || label === 'customer support' || label === 'approvals') {
         return isRealAdmin || isManager;
       }
       if (isManager) return true;
