@@ -8,8 +8,11 @@ use App\Modules\Leads\Domain\Entities\Lead;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+use App\Traits\HasCompany;
+
 class WhatsAppMessage extends Model
 {
+    use HasCompany;
     protected $fillable = [
         'company_id',
         'user_id',

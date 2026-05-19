@@ -19,8 +19,6 @@ use Illuminate\Support\Facades\Route;
 
 
 
-// Debug route
-require __DIR__ . '/test-debug.php';
 
 // Load modular route files
 require __DIR__ . '/api_auth.php';

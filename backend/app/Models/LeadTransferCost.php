@@ -6,8 +6,11 @@ use App\Modules\Leads\Domain\Entities\Lead;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+use App\Traits\HasCompany;
+
 class LeadTransferCost extends Model
 {
+    use HasCompany;
     protected $table = 'lead_transfer_costs';
 
     protected $fillable = [

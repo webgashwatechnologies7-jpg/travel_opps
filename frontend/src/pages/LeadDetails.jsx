@@ -4022,7 +4022,7 @@ const handlePrint = (optionNum) => {
 // PDF includes: company header (logo/name/details), query info, both options A–Z with full price details, all terms & policies.
 // quotationDataOverride: pass when downloading so PDF is not blank.
 // itineraryIdForPricing: when set, fetches final_client_prices + option_gst_settings so PDF shows correct Total Price.
-const handleDownloadSingleOptionPdf = async (optionNum, quotationDataOverride = null, itineraryIdForPricing = null, showPrice = true, shouldSendToWhatsApp = false, targetChatId = null) => {
+const handleDownloadSingleOptionPdf = async (optionNum, quotationDataOverride = null, itineraryIdForPricing = null, showPrice = true, shouldSendToWhatsApp = false, targetChatId = null, forcedPrice = null) => {
   const qData = quotationDataOverride || quotationData;
   if (!qData || !lead) {
     showToastNotification('warning', 'Quotation Needed', 'Please load quotation first');
@@ -4076,6 +4076,16 @@ const handleDownloadSingleOptionPdf = async (optionNum, quotationDataOverride = 
   } else if (qData.hotelOptions && qData.hotelOptions[targetOption]) {
     // Sum of hotel prices if no global price map
     basePrice = qData.hotelOptions[targetOption].reduce((sum, h) => sum + (parseFloat(h.price) || 0), 0);
+  }
+
+  // OVERRIDE WITH FORCED PRICE
+  if (forcedPrice !== null && !Number.isNaN(parseFloat(forcedPrice))) {
+    const pVal = parseFloat(forcedPrice);
+    if (!optionPriceMap) optionPriceMap = {};
+    if (!optionPriceMap[targetOption]) optionPriceMap[targetOption] = { discountPct: 0, discountAmount: 0 };
+    optionPriceMap[targetOption].final = pVal;
+    optionPriceMap[targetOption].original = pVal;
+    basePrice = pVal;
   }
 
   try {
@@ -4162,8 +4172,8 @@ const handleDownloadSingleOptionPdf = async (optionNum, quotationDataOverride = 
   }
 };
 
-const triggerPdfDownloadWithOptions = (optionNum, quotationDataOverride = null, itineraryIdForPricing = null) => {
-  setPdfDownloadParams({ optionNum, quotationDataOverride, itineraryIdForPricing });
+const triggerPdfDownloadWithOptions = (optionNum, quotationDataOverride = null, itineraryIdForPricing = null, forcedPrice = null) => {
+  setPdfDownloadParams({ optionNum, quotationDataOverride, itineraryIdForPricing, forcedPrice });
   setShowPdfPriceOptionModal(true);
 };
 
@@ -4311,7 +4321,8 @@ const handleDownloadPdfFromCard = async (opt) => {
     setSelectedProposal(opt);
     const optNum = opt.optionNumber?.toString() || Object.keys(qData.hotelOptions || {})[0];
     setSelectedOption(optNum);
-    await triggerPdfDownloadWithOptions(optNum, qData, opt.itinerary_id || null);
+    const actualPrice = opt.price ?? opt.metadata?.price ?? opt.pricing?.finalClientPrice ?? opt.metadata?.pricing?.finalClientPrice ?? 0;
+    await triggerPdfDownloadWithOptions(optNum, qData, opt.itinerary_id || null, actualPrice);
   } catch (err) {
     console.error('PDF download failed:', err);
     showToastNotification('error', 'Download Failed', 'Failed to download PDF. ' + (err.message || ''));
@@ -4341,8 +4352,9 @@ const handleDownloadAllOptionsPdf = async () => {
     // Check if there's a confirmed option
     const confirmedProposal = proposals?.find(p => p.confirmed === true);
     const optionToDownload = confirmedProposal?.optionNumber ?? null;
+    const actualPrice = confirmedProposal ? (confirmedProposal.price ?? confirmedProposal.metadata?.price ?? 0) : null;
 
-    await triggerPdfDownloadWithOptions(optionToDownload, qData, first.itinerary_id || null);
+    await triggerPdfDownloadWithOptions(optionToDownload, qData, first.itinerary_id || null, actualPrice);
   } catch (err) {
     console.error('Download PDF failed:', err);
     showToastNotification('error', 'Download Failed', 'Failed to download PDF. ' + (err?.message || ''));
@@ -6681,8 +6693,8 @@ return (
             <div className="mx-auto w-20 h-20 bg-purple-100 rounded-full flex items-center justify-center ring-8 ring-purple-50"><Download className="h-10 w-10 text-purple-600" /></div>
             <div><h2 className="text-xl font-black text-gray-800">Include Pricing?</h2><p className="text-gray-500 font-medium">Choose whether to reveal the final package cost in this PDF export.</p></div>
             <div className="grid grid-cols-2 gap-3">
-              <button onClick={() => { setShowPdfPriceOptionModal(false); handleDownloadSingleOptionPdf(pdfDownloadParams.optionNum, pdfDownloadParams.quotationDataOverride, pdfDownloadParams.itineraryIdForPricing, true); }} className="py-4 bg-blue-600 text-white rounded-2xl font-black shadow-lg shadow-blue-100 transition-all active:scale-95">WITH PRICE</button>
-              <button onClick={() => { setShowPdfPriceOptionModal(false); handleDownloadSingleOptionPdf(pdfDownloadParams.optionNum, pdfDownloadParams.quotationDataOverride, pdfDownloadParams.itineraryIdForPricing, false); }} className="py-4 bg-white border-2 border-gray-100 text-gray-500 rounded-2xl font-black transition-all active:scale-95">WITHOUT</button>
+              <button onClick={() => { setShowPdfPriceOptionModal(false); handleDownloadSingleOptionPdf(pdfDownloadParams.optionNum, pdfDownloadParams.quotationDataOverride, pdfDownloadParams.itineraryIdForPricing, true, false, null, pdfDownloadParams.forcedPrice); }} className="py-4 bg-blue-600 text-white rounded-2xl font-black shadow-lg shadow-blue-100 transition-all active:scale-95">WITH PRICE</button>
+              <button onClick={() => { setShowPdfPriceOptionModal(false); handleDownloadSingleOptionPdf(pdfDownloadParams.optionNum, pdfDownloadParams.quotationDataOverride, pdfDownloadParams.itineraryIdForPricing, false, false, null, pdfDownloadParams.forcedPrice); }} className="py-4 bg-white border-2 border-gray-100 text-gray-500 rounded-2xl font-black transition-all active:scale-95">WITHOUT</button>
             </div>
           </div>
         </Dialog>

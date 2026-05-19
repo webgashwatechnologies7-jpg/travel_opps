@@ -7,8 +7,11 @@ use App\Models\Company;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+use App\Traits\HasCompany;
+
 class WhatsAppSession extends Model
 {
+    use HasCompany;
     protected $fillable = [
         'user_id',
         'company_id',

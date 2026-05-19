@@ -9,8 +9,11 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
+use App\Traits\HasCompany;
+
 class WhatsAppChat extends Model
 {
+    use HasCompany;
     protected $fillable = [
         'company_id',
         'user_id',

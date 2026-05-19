@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { attendanceAPI } from '../services/api';
 import LogoLoader from '../components/LogoLoader';
+import { formatCurrency, formatDate } from '../utils/formatters';
 
 const EmployeeManagement = () => {
   const { id } = useParams();
@@ -240,20 +241,7 @@ const EmployeeManagement = () => {
     }
   }, [selectedEmployee, reportPeriod, historyPeriod, startDate, endDate, selectedMonth, selectedYear]);
 
-  const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    });
-  };
 
-  const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: 'INR'
-    }).format(amount);
-  };
 
   return (
     <div className={`p-6 space-y-6 relative page-transition ${loading && (employees.length > 0 || employeeDetails) ? 'opacity-80' : ''}`}>

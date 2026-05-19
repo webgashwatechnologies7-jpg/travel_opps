@@ -5,9 +5,11 @@ namespace App\Modules\Automation\Domain\Entities;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
+use App\Traits\HasCompany;
+
 class GoogleSheetConnection extends Model
 {
-    use HasFactory;
+    use HasFactory, HasCompany;
 
     /**
      * The table associated with the model.

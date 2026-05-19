@@ -7,8 +7,11 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
+use App\Traits\HasCompany;
+
 class ClientGroup extends Model
 {
+    use HasCompany;
     protected $fillable = [
         'company_id',
         'name',

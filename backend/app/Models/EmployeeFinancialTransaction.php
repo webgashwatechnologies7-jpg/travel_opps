@@ -6,8 +6,12 @@ use App\Modules\Leads\Domain\Entities\Lead;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+use App\Traits\HasCompany;
+
 class EmployeeFinancialTransaction extends Model
 {
+    use HasCompany;
+
     protected $table = 'employee_financial_transactions';
 
     protected $fillable = [

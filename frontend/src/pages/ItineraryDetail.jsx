@@ -2298,7 +2298,7 @@ const ItineraryDetail = () => {
                               className="mt-2 w-full text-xs font-bold border-none bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors"
                               disabled={!(hasPermission(user, 'itineraries.edit') && !isLeadLocked)}
                               panelStyle={{ minWidth: '200px' }}
-                              appendTo="self"
+                              appendTo={document.body}
                             />
                           </div>
 

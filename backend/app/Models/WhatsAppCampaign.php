@@ -8,9 +8,11 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use App\Modules\Leads\Domain\Entities\Lead;
 
+use App\Traits\HasCompany;
+
 class WhatsAppCampaign extends Model
 {
-    use HasFactory;
+    use HasFactory, HasCompany;
 
     protected $table = 'whatsapp_campaigns';
 

@@ -7,9 +7,11 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+use App\Traits\HasCompany;
+
 class Branch extends Model
 {
-    use HasFactory;
+    use HasFactory, HasCompany;
 
     /**
      * The attributes that are mass assignable.
@@ -70,15 +72,4 @@ class Branch extends Model
         return $query->where('is_active', true);
     }
 
-    /**
-     * Get branches for a specific company.
-     *
-     * @param \Illuminate\Database\Eloquent\Builder $query
-     * @param int $companyId
-     * @return \Illuminate\Database\Eloquent\Builder
-     */
-    public function scopeForCompany($query, $companyId)
-    {
-        return $query->where('company_id', $companyId);
-    }
 }
