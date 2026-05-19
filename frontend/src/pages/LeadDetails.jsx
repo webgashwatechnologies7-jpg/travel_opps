@@ -3928,17 +3928,87 @@ const handleSendMail = async (optionNum, quotationDataOverride = null) => {
   }
 
   const subject = `Travel Quotation - ${dataForSend.itinerary?.itinerary_name || 'Itinerary'} - ${formatLeadId(lead.id)}`;
-  const emailContent = await generateEmailContent(dataForSend, optionNum);
+
+  // Resolve option number and price for PDF generation
+  const first = visibleProposals[0];
+  const itineraryIdForPricing = first?.itinerary_id || null;
+
+  let targetOptionNum = optionNum;
+  if (!targetOptionNum && dataForSend.hotelOptions) {
+    targetOptionNum = Object.keys(dataForSend.hotelOptions)[0] || null;
+  }
+
+  let forcedPrice = null;
+  if (targetOptionNum) {
+    const proposal = (visibleProposals || []).find(p => String(p.optionNumber ?? 1) === String(targetOptionNum));
+    const meta = proposal?.metadata || {};
+    forcedPrice = proposal?.price ?? meta.price ?? proposal?.pricing?.finalClientPrice ?? meta.pricing?.finalClientPrice ?? null;
+  }
+
+  // Generate PDF file
+  showToastNotification('info', 'Generating PDF...', 'Preparing PDF attachment for the email...');
+  let pdfFile = null;
+  try {
+    const pdfRes = await handleDownloadSingleOptionPdf(
+      targetOptionNum,
+      dataForSend,
+      itineraryIdForPricing,
+      true, // showPrice
+      true, // shouldSendToWhatsApp = true to skip browser download
+      null, // targetChatId = null since we don't want to send to WhatsApp from here
+      forcedPrice
+    );
+    pdfFile = pdfRes?.file || null;
+  } catch (pdfErr) {
+    console.error('Failed to generate PDF for email:', pdfErr);
+    showToastNotification('error', 'PDF Generation Error', 'Could not generate PDF attachment. Email will be sent without attachment.');
+  }
+
+  const clientName = lead?.client_name || 'Client';
+  const companyName = companySettings?.company_name || settings?.company_name || 'Paradise Holidays';
+  const itineraryName = dataForSend.itinerary?.itinerary_name || 'your upcoming trip';
+  const destinationsStr = dataForSend.itinerary?.destinations || '';
+
+  const emailContentHtml = `
+    <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+      <p>Dear ${clientName},</p>
+      <p>Thank you for choosing <strong>${companyName}</strong>! 🙏</p>
+      <p>We are pleased to share the customized travel itinerary proposal for your upcoming trip to <strong>${destinationsStr || itineraryName}</strong>.</p>
+      <p>Please find the detailed PDF quotation containing complete options, hotel details, inclusions, and policies attached to this email.</p>
+      <p>If you have any questions or would like to make changes, please feel free to reply to this email or contact us directly.</p>
+      <br/>
+      <p>Best regards,</p>
+      <p><strong>${companyName} Team</strong></p>
+    </div>
+  `;
+
+  const emailContentText = `Dear ${clientName},\n\n`
+    + `Thank you for choosing ${companyName}! 🙏\n\n`
+    + `We are pleased to share the customized travel itinerary proposal for your upcoming trip to ${destinationsStr || itineraryName}.\n\n`
+    + `Please find the detailed PDF quotation containing complete options, hotel details, inclusions, and policies attached to this email.\n\n`
+    + `If you have any questions or would like to make changes, please feel free to reply to this email or contact us directly.\n\n`
+    + `Best regards,\n${companyName} Team`;
 
   try {
     if (user?.google_token) {
-      await googleMailAPI.sendMail({
-        to: recipientEmail,
-        to_email: recipientEmail,
-        subject,
-        body: emailContent,
-        lead_id: id,
-      });
+      if (pdfFile) {
+        await googleMailAPI.sendMailWithAttachment({
+          to: recipientEmail,
+          to_email: recipientEmail,
+          subject,
+          body: emailContentHtml,
+          lead_id: id,
+          attachment: pdfFile,
+        });
+      } else {
+        await googleMailAPI.sendMail({
+          to: recipientEmail,
+          to_email: recipientEmail,
+          subject,
+          body: emailContentHtml,
+          lead_id: id,
+        });
+      }
       fetchGmailEmails();
 
       if (lead.status !== 'proposal' && lead.status !== 'confirmed') {
@@ -3954,11 +4024,15 @@ const handleSendMail = async (optionNum, quotationDataOverride = null) => {
       return;
     }
 
-    const response = await leadsAPI.sendEmail(id, {
+    const emailPayload = {
       to_email: recipientEmail,
       subject,
-      body: emailContent,
-    });
+      body: emailContentText,
+    };
+    if (pdfFile) {
+      emailPayload.attachment = pdfFile;
+    }
+    const response = await leadsAPI.sendEmail(id, emailPayload);
 
     if (response.data.success) {
       fetchLeadEmails();
@@ -4068,6 +4142,20 @@ const handleDownloadSingleOptionPdf = async (optionNum, quotationDataOverride = 
     if (Object.keys(optionPriceMap).length === 0) optionPriceMap = null;
   }
 
+  // Second Fallback: use prices from qData.itinerary.prices (computed from frontend)
+  if (!optionPriceMap || Object.keys(optionPriceMap).length === 0) {
+    if (qData.itinerary?.prices && typeof qData.itinerary.prices === 'object') {
+      optionPriceMap = {};
+      Object.keys(qData.itinerary.prices).forEach((key) => {
+        const finalVal = parseFloat(qData.itinerary.prices[key]);
+        if (!Number.isNaN(finalVal) && finalVal > 0) {
+          optionPriceMap[key] = { final: finalVal, original: finalVal, discountPct: 0, discountAmount: 0 };
+        }
+      });
+      if (Object.keys(optionPriceMap).length === 0) optionPriceMap = null;
+    }
+  }
+
   // Calculate base price for the main quotation record (e.g. from Option 1 or requested option)
   let basePrice = 0;
   const targetOption = optionNum ? String(optionNum) : (Object.keys(optionPriceMap || {})[0] || '1');
@@ -4166,9 +4254,16 @@ const handleDownloadSingleOptionPdf = async (optionNum, quotationDataOverride = 
       }
     }
 
+    return {
+      blob,
+      fileName,
+      file: new File([blob], fileName, { type: 'application/pdf' })
+    };
+
   } catch (error) {
     console.error('Error generating PDF via Backend:', error);
     showToastNotification('error', 'Download Failed', error.response?.data?.message || error.message || 'Backend error');
+    return null;
   }
 };
 
@@ -4184,11 +4279,18 @@ const handleSendWhatsApp = async (optionNum, quotationDataOverride = null) => {
     return;
   }
 
+  const clientName = lead?.client_name || 'Client';
+  const companyName = settings?.company_name || companySettings?.company_name || 'Paradise Holidays';
+  const itineraryName = qData.itinerary?.itinerary_name || 'your upcoming trip';
+  const destinationsStr = qData.itinerary?.destinations || '';
+
   // Build WhatsApp message from quotation
-  let message = `*Travel Quotation - ${qData.itinerary?.itinerary_name || 'Itinerary'}*\n\n`;
-  message += `Query ID: ${formatLeadId(lead.id)}\n`;
-  message += `Destination: ${qData.itinerary?.destinations || 'N/A'}\n`;
-  message += `Duration: ${qData.itinerary?.duration || 0} Days\n\n`;
+  let message = `*Dear ${clientName},*\n\n`;
+  message += `Thank you for choosing *${companyName}*! 🙏\n\n`;
+  message += `We are pleased to share the customized travel itinerary proposal for your upcoming trip to *${destinationsStr || itineraryName}*.\n\n`;
+  message += `Please find the detailed PDF quotation containing complete options, hotel details, inclusions, and policies attached below. 📁👇\n\n`;
+  message += `Best regards,\n*${companyName} Team*`;
+
   const allOptionsRaw = Object.keys(qData.hotelOptions || {}).sort((a, b) => parseInt(a) - parseInt(b));
 
   // Decide which option numbers to include:
@@ -4212,24 +4314,6 @@ const handleSendWhatsApp = async (optionNum, quotationDataOverride = null) => {
     }
   }
 
-  optionNumbers.forEach(optNum => {
-    // Find the corresponding proposal to get the correct price
-    const proposal = (visibleProposals || []).find(p => String(p.optionNumber ?? 1) === String(optNum));
-    const meta = proposal?.metadata || {};
-    const actualPrice = proposal?.price ?? meta.price ?? proposal?.pricing?.finalClientPrice ?? meta.pricing?.finalClientPrice ?? 0;
-
-    const hotels = qData.hotelOptions[optNum] || [];
-    message += `*Option ${optNum}*\n`;
-    message += `Hotels:\n`;
-    hotels.forEach(hotel => {
-      message += `• Day ${hotel.day}: ${hotel.hotelName || 'Hotel'} (${hotel.category || 'N/A'} Star)\n`;
-      message += `  Room: ${hotel.roomName || 'N/A'} | Meal: ${hotel.mealPlan || 'N/A'}\n`;
-    });
-    message += `Total Price: ₹${Number(actualPrice).toLocaleString('en-IN')}\n\n`;
-  });
-  message += `For detailed quotation with images, please check the PDF below.\n\n`;
-  message += `Best regards,\n${settings?.company_name || 'Your Company'} Team`;
-
   // Check WhatsApp Connection
   if (waStatus !== 'Connected') {
     setShowWaConnectModal(true);
@@ -4252,7 +4336,16 @@ const handleSendWhatsApp = async (optionNum, quotationDataOverride = null) => {
       // Automatically generate and send the PDF as well
       try {
         showToastNotification('info', 'Attaching PDF...', 'Generating professional PDF for WhatsApp...');
-        await handleDownloadSingleOptionPdf(optionNumbers.length === 1 ? optionNumbers[0] : null, qData, null, true, true, chatId);
+        const first = visibleProposals[0];
+        const itineraryIdForPricing = first?.itinerary_id || null;
+        let singlePrice = null;
+        if (optionNumbers.length === 1) {
+          const singleOptNum = optionNumbers[0];
+          const proposal = (visibleProposals || []).find(p => String(p.optionNumber ?? 1) === String(singleOptNum));
+          const meta = proposal?.metadata || {};
+          singlePrice = proposal?.price ?? meta.price ?? proposal?.pricing?.finalClientPrice ?? meta.pricing?.finalClientPrice ?? null;
+        }
+        await handleDownloadSingleOptionPdf(optionNumbers.length === 1 ? optionNumbers[0] : null, qData, itineraryIdForPricing, true, true, chatId, singlePrice);
       } catch (pdfErr) {
         console.error('Failed to send PDF via WhatsApp:', pdfErr);
       }
