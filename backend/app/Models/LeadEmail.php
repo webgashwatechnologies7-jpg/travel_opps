@@ -33,6 +33,8 @@ class LeadEmail extends Model
         'type',
         'status',
         'sent_at',
+        'attachment_path',
+        'attachment_name',
     ];
 
     /**

@@ -1,5 +1,6 @@
 import React, { memo, useState } from 'react';
 import { Mail, RefreshCw, Reply, Send, FileText } from 'lucide-react';
+import { getDisplayImageUrl } from '../../utils/imageUrl';
 
 const MailsTab = memo(({
     lead,
@@ -190,6 +191,24 @@ const MailsTab = memo(({
                                                                     })()
                                                                 }}
                                                             />
+                                                            {email.attachment_path && (
+                                                                <div className="mt-4 p-3 bg-white border border-gray-200 rounded-lg flex items-center justify-between shadow-sm">
+                                                                    <div className="flex items-center gap-2 min-w-0">
+                                                                        <FileText className="h-5 w-5 text-red-500 flex-shrink-0" />
+                                                                        <span className="text-sm font-medium text-gray-700 truncate" title={email.attachment_name}>
+                                                                            {email.attachment_name || 'Attachment'}
+                                                                        </span>
+                                                                    </div>
+                                                                    <a
+                                                                        href={getDisplayImageUrl('storage/' + email.attachment_path)}
+                                                                        target="_blank"
+                                                                        rel="noopener noreferrer"
+                                                                        className="text-xs px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-md font-semibold transition-colors flex items-center gap-1 shrink-0"
+                                                                    >
+                                                                        Download / View
+                                                                    </a>
+                                                                </div>
+                                                            )}
                                                         </div>
                                                     ))}
                                                 </div>
@@ -297,6 +316,25 @@ const MailsTab = memo(({
                                                         })()
                                                     }}
                                                 />
+
+                                                {isExpanded && email.attachment_path && (
+                                                    <div className="mt-2 p-3 bg-gray-50 border border-gray-200 rounded-lg flex items-center justify-between shadow-sm">
+                                                        <div className="flex items-center gap-2 min-w-0">
+                                                            <FileText className="h-5 w-5 text-red-500 flex-shrink-0" />
+                                                            <span className="text-xs font-medium text-gray-700 truncate" title={email.attachment_name}>
+                                                                {email.attachment_name || 'Attachment'}
+                                                            </span>
+                                                        </div>
+                                                        <a
+                                                            href={getDisplayImageUrl('storage/' + email.attachment_path)}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="text-[10px] px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded font-semibold transition-colors flex items-center gap-1 shrink-0"
+                                                        >
+                                                            View
+                                                        </a>
+                                                    </div>
+                                                )}
                                                 
                                                 {!isExpanded && (
                                                     <div className="text-[10px] text-blue-600 font-bold mt-1 opacity-0 group-hover:opacity-100 transition-opacity">Click to view full message &rarr;</div>

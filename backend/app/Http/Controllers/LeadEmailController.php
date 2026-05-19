@@ -177,6 +177,15 @@ class LeadEmailController extends Controller
             </body>
             </html>';
 
+            // Store attachment if present
+            $attachmentPath = null;
+            $attachmentName = null;
+            if ($request->hasFile('attachment')) {
+                $file = $request->file('attachment');
+                $attachmentPath = $file->store('email_attachments', 'public');
+                $attachmentName = $file->getClientOriginalName();
+            }
+
             // Send email
             $fromEmail = $companyEmail ?: config('mail.from.address', 'info@yourcrm.com');
             $fromName = $companyName ?: config('mail.from.name', 'CRM Team');
@@ -199,7 +208,9 @@ class LeadEmailController extends Controller
                         $emailBody,
                         $leadId,
                         $request->thread_id ?? null,
-                        $request->hasFile('attachment') ? $request->file('attachment') : null
+                        $request->hasFile('attachment') ? $request->file('attachment') : null,
+                        $attachmentPath,
+                        $attachmentName
                     );
 
                     if ($result['status'] !== 'success') {
@@ -240,6 +251,8 @@ class LeadEmailController extends Controller
                     'type' => 'sent',
                     'status' => 'sent',
                     'sent_at' => now(),
+                    'attachment_path' => $attachmentPath,
+                    'attachment_name' => $attachmentName,
                 ]);
 
                 return response()->json([
@@ -261,6 +274,8 @@ class LeadEmailController extends Controller
                     'body' => $request->body,
                     'type' => 'sent',
                     'status' => 'failed',
+                    'attachment_path' => $attachmentPath,
+                    'attachment_name' => $attachmentName,
                 ]);
 
                 Log::error('Failed to send email to client', [

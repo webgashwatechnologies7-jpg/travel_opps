@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Mail, ArrowRight, RefreshCw, Inbox, Reply, X, Search } from 'lucide-react';
+import { Mail, ArrowRight, RefreshCw, Inbox, Reply, X, Search, FileText } from 'lucide-react';
 import { toast } from 'react-toastify';
 // Layout removed - handled by nested routing
 import { googleMailAPI } from '../services/api';
-import { rewriteHtmlImageUrls, sanitizeEmailHtmlForDisplay } from '../utils/imageUrl';
+import { rewriteHtmlImageUrls, sanitizeEmailHtmlForDisplay, getDisplayImageUrl } from '../utils/imageUrl';
 import LogoLoader from '../components/LogoLoader';
 
 const EmailInbox = () => {
@@ -386,6 +386,24 @@ const EmailInbox = () => {
                         className="text-sm text-gray-800 prose prose-sm max-w-none break-words"
                         dangerouslySetInnerHTML={{ __html: renderBody(email.body) }}
                       />
+                      {email.attachment_path && (
+                        <div className="mt-4 p-3 bg-white/80 rounded-lg border border-gray-200 flex items-center justify-between shadow-sm">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <FileText className="h-5 w-5 text-red-500 flex-shrink-0" />
+                            <span className="text-sm font-medium text-gray-700 truncate" title={email.attachment_name}>
+                              {email.attachment_name || 'Attachment'}
+                            </span>
+                          </div>
+                          <a
+                            href={getDisplayImageUrl('storage/' + email.attachment_path)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-md font-semibold transition-colors flex items-center gap-1 shrink-0"
+                          >
+                            Download / View
+                          </a>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>

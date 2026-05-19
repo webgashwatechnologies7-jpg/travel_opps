@@ -103,7 +103,7 @@ class GmailService
         return true;
     }
 
-    public function sendMail(User $user, $to, $subject, $body, $leadId = null, ?string $threadId = null, $attachment = null)
+    public function sendMail(User $user, $to, $subject, $body, $leadId = null, ?string $threadId = null, $attachment = null, ?string $attachmentPath = null, ?string $attachmentName = null)
     {
         if (!$this->setUser($user)) {
             return ['status' => 'failed', 'error' => 'Gmail not connected or token expired'];
@@ -168,6 +168,8 @@ class GmailService
                 'gmail_message_id' => $sentMessage->getId(),
                 'direction' => 'outbound',
                 'status' => 'sent',
+                'attachment_path' => $attachmentPath,
+                'attachment_name' => $attachmentName,
             ];
             if ($trackToken) {
                 $createData['track_token'] = $trackToken;
@@ -186,6 +188,8 @@ class GmailService
                 'body' => $body,
                 'direction' => 'outbound',
                 'status' => 'failed',
+                'attachment_path' => $attachmentPath,
+                'attachment_name' => $attachmentName,
             ]);
 
             return ['status' => 'failed', 'error' => $e->getMessage()];

@@ -22,6 +22,8 @@ class CrmEmail extends Model
         'is_read',
         'opened_at',
         'track_token',
+        'attachment_path',
+        'attachment_name',
     ];
 
     protected $casts = [

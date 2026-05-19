@@ -151,6 +151,13 @@ class GoogleMailController extends Controller
 
         $to = $request->to ?? $request->to_email;
         $attachment = $request->hasFile('attachment') ? $request->file('attachment') : null;
+        $attachmentPath = null;
+        $attachmentName = null;
+
+        if ($attachment) {
+            $attachmentPath = $attachment->store('email_attachments', 'public');
+            $attachmentName = $attachment->getClientOriginalName();
+        }
 
         $result = $this->gmailService->sendMail(
             Auth::user(),
@@ -159,7 +166,9 @@ class GoogleMailController extends Controller
             $request->body,
             $request->lead_id,
             $request->thread_id,
-            $attachment
+            $attachment,
+            $attachmentPath,
+            $attachmentName
         );
 
         if ($result['status'] === 'success') {
