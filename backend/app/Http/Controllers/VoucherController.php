@@ -12,6 +12,8 @@ use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use App\Services\CompanyMailSettingsService;
 
 class VoucherController extends Controller
@@ -95,15 +97,18 @@ class VoucherController extends Controller
         try {
             // Validate input
             $validator = \Validator::make($request->all(), [
-                'to_email' => 'nullable|email',
-                'subject' => 'nullable|string|max:255',
+                'to_email'       => 'nullable|email',
+                'subject'        => 'nullable|string|max:255',
+                'send_whatsapp'  => 'nullable|boolean',
+                'phone'          => 'nullable|string',
+                'proposal_id'    => 'nullable',
             ]);
 
             if ($validator->fails()) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Validation failed',
-                    'errors' => $validator->errors(),
+                    'errors'  => $validator->errors(),
                 ], 422);
             }
 
@@ -115,25 +120,82 @@ class VoucherController extends Controller
                 ], 404);
             }
 
-            $lead = $data['lead'];
+            $lead    = $data['lead'];
             $toEmail = $request->input('to_email') ?: $lead->email;
-            if (!$toEmail) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Customer email not available',
-                ], 422);
+
+            // ── 1. Send Email ────────────────────────────────────────────────────────
+            if ($toEmail) {
+                $subject = $request->input('subject')
+                    ?: 'Confirmation Voucher - ' . ($lead->query_id ?? $lead->id);
+                $html = view('pdf.voucher', $data)->render();
+
+                CompanyMailSettingsService::applyIfEnabled();
+
+                Mail::send([], [], function ($message) use ($toEmail, $subject, $html) {
+                    $message->to($toEmail)
+                        ->subject($subject)
+                        ->html($html);
+                });
             }
 
-            $subject = $request->input('subject') ?: 'Confirmation Voucher - ' . ($lead->query_id ?? $lead->id);
-            $html = view('pdf.voucher', $data)->render();
+            // ── 2. Send via WhatsApp (backend-side PDF generation) ───────────────────
+            $sendWhatsapp = (bool) $request->input('send_whatsapp', false);
+            $phone        = $request->input('phone') ?: $lead->phone;
 
-            CompanyMailSettingsService::applyIfEnabled();
+            if ($sendWhatsapp && $phone) {
+                try {
+                    // Generate PDF to a temp file
+                    $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('pdf.voucher', $data);
+                    $pdf->setOption([
+                        'isRemoteEnabled'    => true,
+                        'isHtml5ParserEnabled' => true,
+                        'defaultFont'        => 'DejaVu Sans',
+                    ]);
+                    $pdf->setPaper('a4', 'portrait');
+                    $pdfContent = $pdf->output();
 
-            Mail::send([], [], function ($message) use ($toEmail, $subject, $html) {
-                $message->to($toEmail)
-                    ->subject($subject)
-                    ->html($html);
-            });
+                    // Build WhatsApp chat_id from phone
+                    $phoneStr = preg_replace('/\D/', '', $phone);
+                    $chatId   = strlen($phoneStr) <= 10
+                        ? "91{$phoneStr}@s.whatsapp.net"
+                        : "{$phoneStr}@s.whatsapp.net";
+
+                    $user             = auth()->user();
+                    $effectiveCompany = $user->company_id ?: config('tenant.id');
+                    $nodeUrl          = env('WHATSAPP_NODE_SERVER_URL', 'http://localhost:3001');
+                    $apiKey           = env('WHATSAPP_INTERNAL_API_KEY', 'crm_secure_gateway_key_99');
+
+                    $voucherId    = $lead->query_id ?? $lead->id;
+                    $fileName     = "Voucher-{$voucherId}.pdf";
+
+                    $waMsg  = "*CONFIRMATION VOUCHER*\n\n";
+                    $waMsg .= "Hello *{$lead->client_name}*,\n";
+                    $waMsg .= "Please find attached your official confirmation voucher for your upcoming trip.\n\n";
+                    $waMsg .= "Query ID: *#{$voucherId}*\n";
+                    $waMsg .= "Destination: *" . ($lead->destination ?? 'N/A') . "*\n\n";
+                    $waMsg .= "We wish you a wonderful and safe journey!\n\n";
+                    $waMsg .= "Best regards,\n" . ($lead->company->name ?? 'Our Company') . " Team";
+
+                    Http::timeout(60)
+                        ->withHeaders(['x-api-key' => $apiKey])
+                        ->attach('file', $pdfContent, $fileName)
+                        ->post("{$nodeUrl}/api/message/send-media", [
+                            'userId'    => $user->id,
+                            'companyId' => $effectiveCompany,
+                            'to'        => $chatId,
+                            'caption'   => $waMsg,
+                            'type'      => 'document',
+                        ]);
+
+                    Log::info('Voucher sent via WhatsApp', [
+                        'lead_id' => $leadId,
+                        'chat_id' => $chatId,
+                    ]);
+                } catch (\Exception $waEx) {
+                    Log::error('Voucher WhatsApp send error: ' . $waEx->getMessage(), ['lead_id' => $leadId]);
+                    // Don't fail the whole request if email succeeded
+                }
+            }
 
             return response()->json([
                 'success' => true,
@@ -141,16 +203,16 @@ class VoucherController extends Controller
             ]);
 
         } catch (\Exception $e) {
-            \Log::error('Voucher send error', [
-                'error' => $e->getMessage(),
+            Log::error('Voucher send error', [
+                'error'   => $e->getMessage(),
                 'lead_id' => $leadId,
-                'user_id' => auth()->id()
+                'user_id' => auth()->id(),
             ]);
 
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to send voucher',
-                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
+                'error'   => config('app.debug') ? $e->getMessage() : 'Internal server error',
             ], 500);
         }
     }
@@ -185,7 +247,7 @@ class VoucherController extends Controller
         $confirmedOption = $invoice ? (int) $invoice->option_number : 1;
 
         // Try to find proposal data (Modern way - LeadProposal)
-        $proposalId = $request->query('proposal_id');
+        $proposalId = $request->input('proposal_id') ?? $request->query('proposal_id');
         $proposal = null;
         
         if ($proposalId) {

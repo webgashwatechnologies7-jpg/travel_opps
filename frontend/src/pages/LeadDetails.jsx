@@ -1036,7 +1036,7 @@ const handleVoucherDownload = async (proposalId = null) => {
     const link = document.createElement('a');
     link.href = url;
     const pId = proposalId ? `_P${proposalId}` : '';
-    link.setAttribute('download', `Voucher_Query-${formatLeadId(id)}${pId}_${new Date().toISOString().split('T')[0]}.pdf`);
+    link.setAttribute('download', `Voucher-${formatLeadId(id)}${pId}_${new Date().toISOString().split('T')[0]}.pdf`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -1067,41 +1067,14 @@ const handleVoucherSend = async (proposalId = null) => {
 
   setVoucherActionLoading(proposalId ? `send-${proposalId}` : 'send');
   try {
-    // 1. Send Email via Backend
-    if (toEmail) {
-      await vouchersAPI.send(id, {
-        to_email: toEmail,
-        subject: `Confirmation Voucher - Query #${formatLeadId(id)} - ${settings?.company_name || 'Your Company'}`,
-        proposal_id: proposalId
-      });
-    }
-
-    // 2. Send WhatsApp with PDF Attachment
-    if (toPhone && waStatus === 'Connected') {
-      const phoneStr = toPhone.replace(/\D/g, '');
-      const chatId = phoneStr.length <= 10 ? `91${phoneStr}@s.whatsapp.net` : `${phoneStr}@s.whatsapp.net`;
-
-      // Prepare professional message
-      let waMsg = `*CONFIRMATION VOUCHER*\n\n`;
-      waMsg += `Hello *${lead.client_name || 'Guest'}*,\n`;
-      waMsg += `Please find attached your official confirmation voucher for your upcoming trip.\n\n`;
-      waMsg += `Query ID: *#${formatLeadId(id)}*\n`;
-      waMsg += `Destination: *${lead.destination || 'N/A'}*\n\n`;
-      waMsg += `We wish you a wonderful and safe journey!\n\n`;
-      waMsg += `Best regards,\n${companySettings?.company_name || 'Our Company'} Team`;
-
-      // Fetch PDF Blob for attachment
-      const pdfRes = await vouchersAPI.download(id);
-      const pdfBlob = new Blob([pdfRes.data], { type: 'application/pdf' });
-      const pdfFile = new File([pdfBlob], `Voucher_#${formatLeadId(id)}.pdf`, { type: 'application/pdf' });
-
-      await whatsappWebAPI.sendMedia({
-        chat_id: chatId,
-        file: pdfFile,
-        caption: waMsg,
-        type: 'document'
-      });
-    }
+    // Send via backend - handles both email and WhatsApp PDF generation server-side
+    await vouchersAPI.send(id, {
+      to_email: toEmail || undefined,
+      subject: `Confirmation Voucher - Query #${formatLeadId(id)} - ${settings?.company_name || 'Your Company'}`,
+      proposal_id: proposalId || undefined,
+      send_whatsapp: !!(toPhone && waStatus === 'Connected'),
+      phone: toPhone || undefined,
+    });
 
     showToastNotification('success', 'Sent', 'Voucher sent successfully via ' +
       (toEmail && toPhone && waStatus === 'Connected' ? 'Email & WhatsApp' :
@@ -1115,6 +1088,7 @@ const handleVoucherSend = async (proposalId = null) => {
     setVoucherActionLoading(null);
   }
 };
+
 
 const handleInvoicePreview = async (invoiceId) => {
   if (!id) return;
@@ -6155,32 +6129,17 @@ return (
               <label className="block text-sm font-medium text-gray-700 mb-2">Type</label>
               <select 
                 value={followupFormData.type} 
-                onChange={(e) => {
-                  const selectedType = e.target.value;
-                  let newDescription = followupFormData.description;
-                  if (['Switched off', 'Not reachable', 'Not answering'].includes(selectedType) && 
-                      (!followupFormData.description || ['Switched off', 'Not reachable', 'Not answering'].includes(followupFormData.description))) {
-                    newDescription = selectedType;
-                  }
-                  setFollowupFormData({ 
-                    ...followupFormData, 
-                    type: selectedType, 
-                    description: newDescription 
-                  });
-                }} 
+                onChange={(e) => setFollowupFormData({ ...followupFormData, type: e.target.value })} 
                 className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white"
               >
                 <option value="Task">Task</option>
                 <option value="Followup">Followup</option>
-                <option value="Switched off">Switched off</option>
-                <option value="Not reachable">Not reachable</option>
-                <option value="Not answering">Not answering</option>
               </select>
             </div>
             <div className="flex gap-2 flex-wrap mt-1">
               <button
                 type="button"
-                onClick={() => setFollowupFormData({ ...followupFormData, type: 'Switched off', description: 'Switched off' })}
+                onClick={() => setFollowupFormData({ ...followupFormData, type: 'Followup', description: 'Switched off' })}
                 className="flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-700 rounded-lg text-xs font-semibold transition-all active:scale-95 shadow-sm"
               >
                 <Power className="h-3.5 w-3.5 text-slate-500" />
@@ -6188,7 +6147,7 @@ return (
               </button>
               <button
                 type="button"
-                onClick={() => setFollowupFormData({ ...followupFormData, type: 'Not reachable', description: 'Not reachable' })}
+                onClick={() => setFollowupFormData({ ...followupFormData, type: 'Followup', description: 'Not reachable' })}
                 className="flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-700 rounded-lg text-xs font-semibold transition-all active:scale-95 shadow-sm"
               >
                 <AlertCircle className="h-3.5 w-3.5 text-slate-500" />
@@ -6196,7 +6155,7 @@ return (
               </button>
               <button
                 type="button"
-                onClick={() => setFollowupFormData({ ...followupFormData, type: 'Not answering', description: 'Not answering' })}
+                onClick={() => setFollowupFormData({ ...followupFormData, type: 'Followup', description: 'Not answering' })}
                 className="flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-700 rounded-lg text-xs font-semibold transition-all active:scale-95 shadow-sm"
               >
                 <PhoneMissed className="h-3.5 w-3.5 text-slate-500" />
