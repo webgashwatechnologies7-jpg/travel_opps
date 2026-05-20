@@ -529,7 +529,7 @@ class LeadsController extends Controller
     public function handleUnlockRequest(Request $request, int $id): JsonResponse
     {
         try {
-            if (!$request->user()->can('leads_management.approve_unlock') && !$request->user()->hasRole(['Company Admin', 'Super Admin'])) {
+            if (!$request->user()->can('leads_management.approve_unlock') && !$request->user()->hasRole(['Admin', 'Company Admin', 'Super Admin'])) {
                 return $this->errorResponse('Only authorized personnel can approve modification requests', 403);
             }
 
