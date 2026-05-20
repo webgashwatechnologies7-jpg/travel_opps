@@ -176,7 +176,7 @@ class VoucherController extends Controller
                     $waMsg .= "We wish you a wonderful and safe journey!\n\n";
                     $waMsg .= "Best regards,\n" . ($lead->company->name ?? 'Our Company') . " Team";
 
-                    Http::timeout(60)
+                    $nodeResponse = Http::timeout(60)
                         ->withHeaders(['x-api-key' => $apiKey])
                         ->attach('file', $pdfContent, $fileName)
                         ->post("{$nodeUrl}/api/message/send-media", [
@@ -187,9 +187,69 @@ class VoucherController extends Controller
                             'type'      => 'document',
                         ]);
 
-                    Log::info('Voucher sent via WhatsApp', [
-                        'lead_id' => $leadId,
-                        'chat_id' => $chatId,
+                    // ── Save message to CRM DB so it shows in WhatsApp tab ────────────
+                    $whatsappChatId = null;
+
+                    // Find or create whatsapp_chat record
+                    $chat = \DB::table('whatsapp_chats')
+                        ->where('company_id', $effectiveCompany)
+                        ->where('user_id', $user->id)
+                        ->where('lead_id', $leadId)
+                        ->first();
+
+                    if (!$chat) {
+                        $chat = \DB::table('whatsapp_chats')
+                            ->where('company_id', $effectiveCompany)
+                            ->where('chat_id', $chatId)
+                            ->first();
+                    }
+
+                    if ($chat) {
+                        $whatsappChatId = $chat->id;
+                        if (!$chat->lead_id) {
+                            \DB::table('whatsapp_chats')->where('id', $chat->id)->update(['lead_id' => $leadId]);
+                        }
+                    } else {
+                        $whatsappChatId = \DB::table('whatsapp_chats')->insertGetId([
+                            'company_id'      => $effectiveCompany,
+                            'user_id'         => $user->id,
+                            'chat_id'         => $chatId,
+                            'lead_id'         => $leadId,
+                            'last_message_at' => now(),
+                            'created_at'      => now(),
+                            'updated_at'      => now(),
+                        ]);
+                    }
+
+                    $nodeData  = $nodeResponse->successful() ? ($nodeResponse->json() ?? []) : [];
+                    $messageId = $nodeData['messageId'] ?? ('voucher_' . uniqid());
+                    $mediaUrl  = $nodeData['url'] ?? null;
+
+                    \DB::table('whatsapp_messages')->insert([
+                        'company_id'          => $effectiveCompany,
+                        'user_id'             => $user->id,
+                        'whatsapp_chat_id'    => $whatsappChatId,
+                        'whatsapp_message_id' => $messageId,
+                        'message'             => $fileName,
+                        'media_url'           => $mediaUrl,
+                        'media_type'          => 'document',
+                        'media_caption'       => $waMsg,
+                        'direction'           => 'outbound',
+                        'status'              => 'sent',
+                        'created_at'          => now(),
+                        'updated_at'          => now(),
+                    ]);
+
+                    \DB::table('whatsapp_chats')->where('id', $whatsappChatId)->update([
+                        'last_message_at' => now(),
+                        'updated_at'      => now(),
+                    ]);
+
+                    Log::info('Voucher sent via WhatsApp & saved to CRM DB', [
+                        'lead_id'          => $leadId,
+                        'chat_id'          => $chatId,
+                        'whatsapp_chat_id' => $whatsappChatId,
+                        'message_id'       => $messageId,
                     ]);
                 } catch (\Exception $waEx) {
                     Log::error('Voucher WhatsApp send error: ' . $waEx->getMessage(), ['lead_id' => $leadId]);
