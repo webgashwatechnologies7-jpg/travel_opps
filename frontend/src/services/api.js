@@ -198,6 +198,7 @@ export const leadsAPI = {
   getEmail: (leadId, emailId) => api.get(`/leads/${leadId}/emails/${emailId}`),
   requestUnlock: (id, reason) => api.post(`/leads/${id}/request-unlock`, { reason }),
   handleUnlockRequest: (id, data) => api.post(`/leads/${id}/handle-unlock`, data),
+  lock: (id) => api.post(`/leads/${id}/lock`),
 };
 
 // Query Proposals APIs

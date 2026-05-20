@@ -529,7 +529,7 @@ class LeadsController extends Controller
     public function handleUnlockRequest(Request $request, int $id): JsonResponse
     {
         try {
-            if (!$request->user()->can('leads_management.approve_unlock') && !$request->user()->hasRole(['Admin', 'Company Admin', 'Super Admin'])) {
+            if (!$request->user()->is_super_admin && !$request->user()->can('leads_management.approve_unlock') && !$request->user()->hasRole(['Admin', 'Company Admin', 'Super Admin', 'Manager'])) {
                 return $this->errorResponse('Only authorized personnel can approve modification requests', 403);
             }
 
@@ -565,6 +565,44 @@ class LeadsController extends Controller
             return $this->successResponse(['lead' => $this->formatLeadBasic($lead->fresh())], 'Modification request ' . $request->action . 'ed successfully');
         } catch (\Exception $e) {
             return $this->serverErrorResponse('Failed to handle unlock request', $e);
+        }
+    }
+
+    /**
+     * Lock a lead back after editing is complete.
+     */
+    public function lockLead(Request $request, int $id): JsonResponse
+    {
+        try {
+            $lead = Lead::find($id);
+            if (!$lead)
+                return $this->notFoundResponse('Lead not found');
+
+            $user = $request->user();
+            $isAuthorized = $user->hasRole(['Admin', 'Company Admin', 'Super Admin', 'Manager']) ||
+                            (int)$lead->assigned_to === (int)$user->id ||
+                            (int)$lead->created_by === (int)$user->id;
+
+            if (!$isAuthorized) {
+                return $this->errorResponse('Permission denied to lock this query.', 403);
+            }
+
+            $lead->update([
+                'is_unlocked_for_edit' => false,
+                'unlock_requested' => false
+            ]);
+
+            \App\Models\QueryHistoryLog::logActivity([
+                'lead_id' => $lead->id,
+                'activity_type' => 'lock_action',
+                'activity_description' => 'Query locked again by ' . $user->name,
+                'module' => 'leads',
+                'record_id' => $lead->id,
+            ]);
+
+            return $this->successResponse(['lead' => $this->formatLeadBasic($lead->fresh())], 'Query locked successfully');
+        } catch (\Exception $e) {
+            return $this->serverErrorResponse('Failed to lock query', $e);
         }
     }
 

@@ -41,6 +41,7 @@ Route::middleware(['auth:sanctum'])->prefix('leads')->group(function () {
     Route::put('/{id}/status', [LeadsController::class, 'updateStatus']);
     Route::post('/{id}/request-unlock', [LeadsController::class, 'requestUnlock']);
     Route::post('/{id}/handle-unlock', [LeadsController::class, 'handleUnlockRequest']);
+    Route::post('/{id}/lock', [LeadsController::class, 'lockLead']);
 
     // Bulk actions
     Route::post('/bulk-assign', [LeadsController::class, 'bulkAssign']);

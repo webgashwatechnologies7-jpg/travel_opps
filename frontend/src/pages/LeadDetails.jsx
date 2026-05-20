@@ -4707,6 +4707,20 @@ const handleApproveRejectUnlock = async (action) => {
   }
 };
 
+const handleLockQuery = async () => {
+  setIsSubmittingUnlock(true);
+  try {
+    await leadsAPI.lock(id);
+    showToastNotification('success', 'Success', 'Query locked successfully.');
+    fetchLeadDetails();
+  } catch (err) {
+    console.error('Failed to lock query:', err);
+    showToastNotification('error', 'Action Failed', err.response?.data?.message || 'Failed to lock query');
+  } finally {
+    setIsSubmittingUnlock(false);
+  }
+};
+
 if (loading) {
   return (
     <div className="flex flex-col items-center justify-center h-[60vh] animate-in fade-in duration-500">
@@ -4790,6 +4804,20 @@ return (
                     <Lock size={12} className={lead.is_unlocked_for_edit ? 'animate-pulse' : ''} />
                     {lead.is_unlocked_for_edit ? 'Unlocked for Edit' : 'Locked'}
                   </div>
+                )}
+
+                {lead.is_unlocked_for_edit && (isAdminOrManager || user?.id === lead.assigned_to || user?.id === lead.created_by) && (
+                  <button
+                    onClick={() => {
+                      if (window.confirm('Are you sure you want to lock this query again? This will restrict edits.')) {
+                        handleLockQuery();
+                      }
+                    }}
+                    className="px-4 py-2 text-xs font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-xl transition-all flex items-center gap-2 active:scale-95 shadow-sm"
+                  >
+                    <Lock className="h-4 w-4" />
+                    Lock Query
+                  </button>
                 )}
 
                 {isLeadLocked && !lead.unlock_requested && (
