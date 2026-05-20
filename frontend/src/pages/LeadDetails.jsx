@@ -7,7 +7,7 @@ import { searchPexelsPhotos } from '../services/pexels';
 import { getDisplayImageUrl, rewriteHtmlImageUrls, sanitizeEmailHtmlForDisplay } from '../utils/imageUrl';
 // Layout removed - handled by nested routing
 import { useSettings } from '../contexts/SettingsContext';
-import { ArrowLeft, Calendar, Mail, Plus, Upload, X, Search, FileText, FileText as PassportIcon, Printer, Send, MessageCircle, CheckCircle, CheckCircle2, Clock, Briefcase, MapPin, CalendarDays, Users, UserCheck, Leaf, Smartphone, Phone, MoreVertical, Download, Pencil, Trash2, Camera, RefreshCw, Reply, ChevronDown, Paperclip, Eye, Info, Gift, Heart, Building2, Image as ImageIcon, Plane, Bus, Train, UtensilsCrossed, Ship, User, Star, Car, Lock } from 'lucide-react';
+import { ArrowLeft, Calendar, Mail, Plus, Upload, X, Search, FileText, FileText as PassportIcon, Printer, Send, MessageCircle, CheckCircle, CheckCircle2, Clock, Briefcase, MapPin, CalendarDays, Users, UserCheck, Leaf, Smartphone, Phone, MoreVertical, Download, Pencil, Trash2, Camera, RefreshCw, Reply, ChevronDown, Paperclip, Eye, Info, Gift, Heart, Building2, Image as ImageIcon, Plane, Bus, Train, UtensilsCrossed, Ship, User, Star, Car, Lock, Power, PhoneMissed, AlertCircle } from 'lucide-react';
 import DetailRow from '../components/Quiries/DetailRow';
 import html2pdf from 'html2pdf.js';
 import { WhatsAppTab, MailsTab, FollowupsTab, BillingTab, HistoryTab, SuppCommTab, PostSalesTab, VoucherTab, DocsTab, InvoiceTab, CallsTab, ItineraryHistoryTab } from '../components/LeadTabs';
@@ -6153,10 +6153,55 @@ return (
           <form onSubmit={handleAddFollowup} className="p-6 space-y-5">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Type</label>
-              <select value={followupFormData.type} onChange={(e) => setFollowupFormData({ ...followupFormData, type: e.target.value })} className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white">
+              <select 
+                value={followupFormData.type} 
+                onChange={(e) => {
+                  const selectedType = e.target.value;
+                  let newDescription = followupFormData.description;
+                  if (['Switched off', 'Not reachable', 'Not answering'].includes(selectedType) && 
+                      (!followupFormData.description || ['Switched off', 'Not reachable', 'Not answering'].includes(followupFormData.description))) {
+                    newDescription = selectedType;
+                  }
+                  setFollowupFormData({ 
+                    ...followupFormData, 
+                    type: selectedType, 
+                    description: newDescription 
+                  });
+                }} 
+                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white"
+              >
                 <option value="Task">Task</option>
                 <option value="Followup">Followup</option>
+                <option value="Switched off">Switched off</option>
+                <option value="Not reachable">Not reachable</option>
+                <option value="Not answering">Not answering</option>
               </select>
+            </div>
+            <div className="flex gap-2 flex-wrap mt-1">
+              <button
+                type="button"
+                onClick={() => setFollowupFormData({ ...followupFormData, type: 'Switched off', description: 'Switched off' })}
+                className="flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-700 rounded-lg text-xs font-semibold transition-all active:scale-95 shadow-sm"
+              >
+                <Power className="h-3.5 w-3.5 text-slate-500" />
+                Switched off
+              </button>
+              <button
+                type="button"
+                onClick={() => setFollowupFormData({ ...followupFormData, type: 'Not reachable', description: 'Not reachable' })}
+                className="flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-700 rounded-lg text-xs font-semibold transition-all active:scale-95 shadow-sm"
+              >
+                <AlertCircle className="h-3.5 w-3.5 text-slate-500" />
+                Not reachable
+              </button>
+              <button
+                type="button"
+                onClick={() => setFollowupFormData({ ...followupFormData, type: 'Not answering', description: 'Not answering' })}
+                className="flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-700 rounded-lg text-xs font-semibold transition-all active:scale-95 shadow-sm"
+              >
+                <PhoneMissed className="h-3.5 w-3.5 text-slate-500" />
+                Not answering
+              </button>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
